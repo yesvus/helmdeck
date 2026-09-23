@@ -1,4 +1,4 @@
-# admin-shell - extraction plan
+# helmdeck - extraction plan
 
 ## Purpose
 

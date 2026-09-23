@@ -1,4 +1,4 @@
-# admin-shell
+# helmdeck
 
 A reusable, MIT-licensed admin shell for Next.js App Router projects, extracted
 from the admin panels of Birted Commerce and Leotron.

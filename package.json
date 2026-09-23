@@ -1,10 +1,17 @@
 {
-  "name": "admin-shell",
+  "name": "@yesvus/helmdeck",
   "version": "0.0.0",
-  "private": true,
   "type": "module",
   "description": "Reusable MIT-licensed admin shell for Next.js App Router projects",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "peerDependencies": {
     "next": ">=16",
     "react": ">=19",
