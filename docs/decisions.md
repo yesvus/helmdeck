@@ -14,6 +14,23 @@ Carried over from plan.md open decisions. All resolved by M0/M1.
 - [x] Headless (unstyled) vs styled default. Resolved: styled, Tailwind v4
   utility classes, recolored through the brand tokens above.
 
+## Source arbitration
+
+When Leotron and Birted both have a version of the same thing:
+
+- Default to Leotron. It carries the config-driven, role-aware shell the plan
+  names as the base, and it is the further along of the two.
+- Take Birted when its version is visibly better for a UI detail. Recorded per
+  pick below, so phase 4 adoption does not have to re-decide.
+- When neither clearly wins, keep Leotron and note the open pick here for a
+  human look, rather than merging both.
+
+Picks so far:
+
+- Top bar: Birted. Sticky bar with title left and profile menu right, over
+  Leotron's bare content area. Its profile menu moved into the bar, so
+  `AdminProfileMenu` grew a `variant` (`sidebar` | `topbar`).
+
 ## Packaging notes
 
 - The package ships TypeScript source (`exports` point at `src/`) until the
