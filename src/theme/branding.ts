@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { CSSProperties } from "react";
 import { darkenHex, lightenHex, normalizeHex } from "./color";
 

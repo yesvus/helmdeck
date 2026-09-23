@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 type Rgb = { r: number; g: number; b: number };
 
 function parseHex(hex: string): Rgb | null {

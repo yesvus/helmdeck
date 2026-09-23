@@ -6,14 +6,16 @@
   "license": "MIT",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
-    "./theme.css": "./src/theme/tokens.css",
+    "./theme.css": "./dist/theme/tokens.css",
     "./package.json": "./package.json"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
-    "src",
+    "dist",
     "README.md",
     "LICENSE"
   ],
@@ -21,7 +23,9 @@
     "*.css"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp src/theme/tokens.css dist/theme/tokens.css",
     "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
+    "lint": "eslint .",
     "dev": "next dev fixtures",
     "build:fixtures": "next build fixtures"
   },
@@ -41,17 +45,22 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@eslint/js": "^9",
     "@radix-ui/react-dialog": "^1",
     "@radix-ui/react-slot": "^1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-plugin-react-hooks": "^5",
+    "globals": "^15",
     "lucide-react": "^0.575",
     "next": "^16",
     "react": "^19",
     "react-dom": "^19",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "typescript-eslint": "^8"
   }
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 export * from "./adapters";
 export * from "./primitives";
 export * from "./shell";

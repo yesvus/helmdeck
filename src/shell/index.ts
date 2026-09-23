@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 export { AdminBreadcrumbs } from "./admin-breadcrumbs";
 export { AdminLoginScreen } from "./admin-login-screen";
 export type { AdminLoginCredentials } from "./admin-login-screen";

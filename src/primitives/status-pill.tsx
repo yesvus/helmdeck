@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { cn } from "../cn";
 
 export type AdminStatusTone = "success" | "warning" | "error" | "info" | "neutral";

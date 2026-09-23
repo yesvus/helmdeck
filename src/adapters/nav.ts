@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { ComponentType } from "react";
 
 export type AdminNavIconComponent = ComponentType<{ className?: string }>;

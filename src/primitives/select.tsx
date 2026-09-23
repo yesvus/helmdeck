@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { SelectHTMLAttributes } from "react";
 import { cn } from "../cn";
 import { adminInputClassName } from "./input";

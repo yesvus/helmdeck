@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 export { Button, buttonVariants } from "./button";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./button";
 export { AdminDestructiveAction } from "./destructive-action";

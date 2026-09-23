@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { usePathname } from "next/navigation";
 import type { AdminNavGroup, AdminNavItem } from "../adapters";
 import { findNavItemAt } from "../adapters";

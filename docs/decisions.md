@@ -45,9 +45,9 @@ Picks so far:
 
 ## Packaging notes
 
-- The package ships TypeScript source (`exports` point at `src/`) until the
-  build step lands in phase 6. Consumers compile it through
-  `transpilePackages: ["@yesvus/helmdeck"]` in the interim.
+- The package builds to `dist/` with `pnpm build` (tsc: JS, declarations,
+  source maps) and `exports` point there, so consumers need no
+  `transpilePackages`. `dist/` stays out of git, built on demand.
 - Runtime peers: `lucide-react`, `@radix-ui/react-slot`,
   `@radix-ui/react-dialog`, `@dnd-kit/core`, `@dnd-kit/sortable`,
   `@dnd-kit/utilities`. More Radix primitives join in phase 3 if the adapter

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,

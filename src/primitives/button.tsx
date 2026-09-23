@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cn } from "../cn";

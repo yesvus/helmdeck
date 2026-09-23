@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 export type AdminShellLabels = {
   sidebarExpand: string;
   sidebarCollapse: string;

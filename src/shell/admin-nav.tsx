@@ -1,9 +1,9 @@
+// SPDX-License-Identifier: MIT
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "../cn";
-import { useAdminShell } from "./context";
 import type { AdminNavItem } from "../adapters";
 import { isActiveHref } from "../adapters";
 import { resolveNavIcon } from "./nav-icons";

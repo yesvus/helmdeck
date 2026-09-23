@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { InputHTMLAttributes } from "react";
 import { cn } from "../cn";
 

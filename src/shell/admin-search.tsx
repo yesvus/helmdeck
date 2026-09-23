@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 "use client";
 
 import Link from "next/link";
@@ -34,7 +35,6 @@ export function AdminSearch({
 }) {
   const shell = useAdminShell();
   const mergedLabels = mergeAdminLabels({ ...shell?.labels, ...labels });
-  const nav = groups ?? shell?.nav ?? [];
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const normalized = normalize(query.trim());
@@ -44,6 +44,7 @@ export function AdminSearch({
     if (!tokens.length) {
       return [];
     }
+    const nav = groups ?? shell?.nav ?? [];
     const navigationEntries: AdminSearchEntry[] = nav.flatMap((group) =>
       group.items.map((item) => ({
         href: item.href,
@@ -65,7 +66,7 @@ export function AdminSearch({
           ) === index,
       )
       .slice(0, 12);
-  }, [entries, nav, shell, tokens]);
+  }, [entries, groups, shell, tokens]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
