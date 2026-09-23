@@ -30,6 +30,18 @@ Picks so far:
 - Top bar: Birted. Sticky bar with title left and profile menu right, over
   Leotron's bare content area. Its profile menu moved into the bar, so
   `AdminProfileMenu` grew a `variant` (`sidebar` | `topbar`).
+- Dialog base: Birted's Radix `ui/dialog`, skinned to Leotron's dialog look.
+  Replaces Leotron's hand-rolled focus trap.
+- Pagination: Birted's pieces, rebuilt on this package's `Button`, English
+  labels.
+- Button, field wrappers, submit button, toast, status pill, empty state,
+  skeletons, table styling: Leotron.
+- Select: native, styled to match `AdminInput`, so `AdminField`'s label
+  wrapping keeps working.
+- Sortable list: neither. Rebuilt on native HTML5 drag plus move buttons,
+  because Leotron's `@dnd-kit` version sits outside the dependency list.
+  Open pick: move to `@dnd-kit` for touch dragging and announcements, or keep
+  the dependency list as written.
 
 ## Packaging notes
 

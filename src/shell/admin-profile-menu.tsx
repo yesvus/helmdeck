@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ExternalLink, LogOut, User } from "lucide-react";
-import { cn } from "./cn";
+import { cn } from "../cn";
 import { useAdminShell } from "./context";
 import type { AdminShellLabels } from "./labels";
 import { mergeAdminLabels } from "./labels";

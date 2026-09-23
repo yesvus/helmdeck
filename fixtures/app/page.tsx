@@ -3,28 +3,25 @@
 import Link from "next/link";
 import { AdminBreadcrumbs, AdminMobileNav, AdminNavLink, AdminProfileMenu, AdminSearch } from "../../src";
 import { sampleNav, sampleSearchEntries } from "../nav";
+import { Frame } from "../components/frame";
 
 const stories = [
   {
     title: "AdminShell",
     href: "/shell",
-    note: "Sidebar, topbar, group collapse, active states. Narrow the window below 1024px for the mobile bottom nav.",
+    note: "Sidebar, sticky topbar, group collapse, active states. Narrow the window below 1024px for the mobile bottom nav.",
   },
   {
     title: "AdminLoginScreen",
     href: "/login",
     note: "Presentational form. Submits to a local handler, no auth logic.",
   },
+  {
+    title: "Primitives",
+    href: "/primitives",
+    note: "Button, field, input, select, submit, pills, table, pagination, skeletons, toast, modal, destructive action, sortable list.",
+  },
 ];
-
-function Frame({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4">
-      <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">{title}</h2>
-      {children}
-    </section>
-  );
-}
 
 export default function IndexPage() {
   return (

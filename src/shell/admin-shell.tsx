@@ -12,7 +12,7 @@ import { AdminMobileNav } from "./admin-mobile-nav";
 import { AdminNavLink } from "./admin-nav";
 import { AdminProfileMenu } from "./admin-profile-menu";
 import { AdminSearch, type AdminSearchEntry } from "./admin-search";
-import { cn } from "./cn";
+import { cn } from "../cn";
 import { AdminShellProvider, type AdminShellBrand } from "./context";
 import type { AdminShellLabels } from "./labels";
 import { mergeAdminLabels } from "./labels";

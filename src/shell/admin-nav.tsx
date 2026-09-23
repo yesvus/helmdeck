@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "./cn";
+import { cn } from "../cn";
 import { useAdminShell } from "./context";
 import type { AdminNavItem } from "../adapters";
 import { isActiveHref } from "../adapters";

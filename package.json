@@ -26,6 +26,8 @@
     "build:fixtures": "next build fixtures"
   },
   "peerDependencies": {
+    "@radix-ui/react-dialog": "^1",
+    "@radix-ui/react-slot": "^1",
     "lucide-react": ">=0.400",
     "next": ">=16",
     "react": ">=19",
@@ -33,6 +35,8 @@
     "tailwindcss": ">=4"
   },
   "devDependencies": {
+    "@radix-ui/react-dialog": "^1",
+    "@radix-ui/react-slot": "^1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
     "@types/react": "^19",

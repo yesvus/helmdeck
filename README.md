@@ -13,10 +13,12 @@ src/
   index.ts
   shell/        AdminShell, AdminNavLink, AdminMobileNav, AdminBreadcrumbs,
                 AdminSearch, AdminProfileMenu, AdminLoginScreen
+  primitives/   button, field, input, select, submit, toast, status pill,
+                empty state, skeleton, table, pagination, modal,
+                destructive action, sortable list
   adapters/     AdminSession, AdminNavGroup, role filtering
-  primitives/   phase 2
   theme/        brand tokens, useAdminBranding
-fixtures/       story page per shell component
+fixtures/       story page per shell and primitive
 ```
 
 Import the token file once in the host app CSS:

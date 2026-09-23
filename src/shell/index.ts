@@ -7,7 +7,7 @@ export { AdminProfileMenu } from "./admin-profile-menu";
 export { AdminSearch } from "./admin-search";
 export type { AdminSearchEntry } from "./admin-search";
 export { AdminShell } from "./admin-shell";
-export { cn } from "./cn";
+export { cn } from "../cn";
 export { useAdminShell } from "./context";
 export type { AdminShellBrand, AdminShellContextValue } from "./context";
 export { defaultAdminLabels, mergeAdminLabels } from "./labels";
