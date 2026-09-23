@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, Info, Trash2 } from "lucide-react";
 import {
   AdminContentSkeleton,
   AdminDestructiveAction,
+  AdminDragHandle,
   AdminEmptyState,
   AdminField,
   AdminFieldGrid,
@@ -22,13 +23,16 @@ import {
   AdminPagination,
   AdminSelect,
   AdminSkeleton,
-  AdminSortableList,
+  AdminSortableCard,
+  AdminSortableDndContext,
+  AdminSortableToast,
   AdminStatusPill,
   AdminSubmitButton,
   AdminTable,
   AdminToastCard,
   AdminToastViewport,
   Button,
+  useAdminSortableList,
   type AdminStatusTone,
   type AdminToastTone,
 } from "../../../src";
@@ -55,6 +59,15 @@ export default function PrimitivesPage() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [items, setItems] = useState(["Hero slide", "Feature grid", "Showcase", "FAQ"]);
   const [result, setResult] = useState<string>();
+
+  const sortable = useAdminSortableList({
+    items,
+    getId: (item) => item,
+    onReorder: async (orderedIds) => {
+      setItems(orderedIds);
+      return { success: true, message: `Saved order: ${orderedIds.join(", ")}` };
+    },
+  });
 
   function pushToast(sample: Pick<Toast, "tone" | "title" | "body" | "icon">) {
     const id = Date.now();
@@ -209,13 +222,27 @@ export default function PrimitivesPage() {
         />
       </Frame>
 
-      <Frame title="Sortable list">
-        <AdminSortableList
-          items={items}
-          onReorder={setItems}
-          getKey={(item) => item}
-          renderItem={(item) => <span className="block truncate text-sm text-zinc-700">{item}</span>}
-        />
+      <Frame title="Sortable list (drag the handle, or focus it and use arrow keys)">
+        <AdminSortableDndContext
+          ids={sortable.ids}
+          sensors={sortable.sensors}
+          announcements={sortable.announcements}
+          onDragEnd={sortable.handleDragEnd}
+        >
+          <div className="space-y-2">
+            {sortable.orderedItems.map((item) => (
+              <AdminSortableCard
+                key={item}
+                id={item}
+                className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2"
+              >
+                <AdminDragHandle label={`Reorder ${item}`} />
+                <span className="min-w-0 flex-1 truncate text-sm text-zinc-700">{item}</span>
+              </AdminSortableCard>
+            ))}
+          </div>
+        </AdminSortableDndContext>
+        <AdminSortableToast toast={sortable.toast} onDismiss={sortable.dismissToast} />
       </Frame>
     </main>
   );

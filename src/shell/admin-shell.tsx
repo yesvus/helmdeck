@@ -159,6 +159,10 @@ export function AdminShell({
                 );
               })}
             </nav>
+
+            {session ? (
+              <AdminProfileMenu email={session.email} compact={collapsed} />
+            ) : null}
           </div>
         </aside>
 
@@ -176,7 +180,6 @@ export function AdminShell({
             {topbarExtra ? (
               <div className="flex items-center justify-end gap-2">{topbarExtra}</div>
             ) : null}
-            {session ? <AdminProfileMenu email={session.email} variant="topbar" /> : null}
           </div>
         </header>
 

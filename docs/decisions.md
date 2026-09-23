@@ -27,9 +27,10 @@ When Leotron and Birted both have a version of the same thing:
 
 Picks so far:
 
-- Top bar: Birted. Sticky bar with title left and profile menu right, over
-  Leotron's bare content area. Its profile menu moved into the bar, so
-  `AdminProfileMenu` grew a `variant` (`sidebar` | `topbar`).
+- Top bar: Birted. The sticky bar lives in the shell, so every page gets it
+  without rendering one: title or breadcrumbs on the left, `topbarExtra` on the
+  right. The profile menu stays at the bottom left of the sidebar, Leotron's
+  placement, so `AdminProfileMenu` has a single layout.
 - Dialog base: Birted's Radix `ui/dialog`, skinned to Leotron's dialog look.
   Replaces Leotron's hand-rolled focus trap.
 - Pagination: Birted's pieces, rebuilt on this package's `Button`, English
@@ -38,15 +39,16 @@ Picks so far:
   skeletons, table styling: Leotron.
 - Select: native, styled to match `AdminInput`, so `AdminField`'s label
   wrapping keeps working.
-- Sortable list: neither. Rebuilt on native HTML5 drag plus move buttons,
-  because Leotron's `@dnd-kit` version sits outside the dependency list.
-  Open pick: move to `@dnd-kit` for touch dragging and announcements, or keep
-  the dependency list as written.
+- Sortable list: Leotron. Runs on `@dnd-kit` for pointer, touch and keyboard
+  reordering with screen-reader announcements. The three `@dnd-kit` packages
+  joined the peer dependencies for it.
 
 ## Packaging notes
 
 - The package ships TypeScript source (`exports` point at `src/`) until the
   build step lands in phase 6. Consumers compile it through
   `transpilePackages: ["@yesvus/helmdeck"]` in the interim.
-- `lucide-react` joined the peer dependencies with the shell icon map.
-  Radix peers are added in phase 2 when the primitives that need them land.
+- Runtime peers: `lucide-react`, `@radix-ui/react-slot`,
+  `@radix-ui/react-dialog`, `@dnd-kit/core`, `@dnd-kit/sortable`,
+  `@dnd-kit/utilities`. More Radix primitives join in phase 3 if the adapter
+  screens need them.

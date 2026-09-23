@@ -18,8 +18,16 @@ export { AdminPagination, defaultPaginationLabels } from "./pagination";
 export type { AdminPaginationLabels } from "./pagination";
 export { AdminSelect } from "./select";
 export { AdminSkeleton, AdminContentSkeleton } from "./skeleton";
-export { AdminSortableList, defaultSortableLabels } from "./sortable-list";
-export type { AdminSortableLabels } from "./sortable-list";
+export {
+  AdminDragHandle,
+  AdminSortableCard,
+  AdminSortableDndContext,
+  AdminSortableRow,
+  AdminSortableToast,
+  defaultSortableMessages,
+  useAdminSortableList,
+} from "./sortable-list";
+export type { AdminSortableResult } from "./sortable-list";
 export { AdminStatusPill } from "./status-pill";
 export type { AdminStatusTone } from "./status-pill";
 export { AdminSubmitButton } from "./submit-button";
