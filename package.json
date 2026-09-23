@@ -4,18 +4,44 @@
   "type": "module",
   "description": "Reusable MIT-licensed admin shell for Next.js App Router projects",
   "license": "MIT",
-  "publishConfig": {
-    "access": "public"
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./theme.css": "./src/theme/tokens.css",
+    "./package.json": "./package.json"
   },
   "files": [
     "src",
     "README.md",
     "LICENSE"
   ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
+    "dev": "next dev fixtures",
+    "build:fixtures": "next build fixtures"
+  },
   "peerDependencies": {
+    "lucide-react": ">=0.400",
     "next": ">=16",
     "react": ">=19",
     "react-dom": ">=19",
     "tailwindcss": ">=4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "lucide-react": "^0.575",
+    "next": "^16",
+    "react": "^19",
+    "react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }

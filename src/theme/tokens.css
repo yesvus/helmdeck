@@ -1,0 +1,8 @@
+@theme {
+  --color-brand-100: #ccfbfb;
+  --color-brand-500: #048b8c;
+  --color-brand-600: #037a7b;
+
+  --admin-sidebar-width: 260px;
+  --admin-sidebar-width-collapsed: 76px;
+}
