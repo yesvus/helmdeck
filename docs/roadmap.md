@@ -2,6 +2,9 @@
 
 Derived from [plan.md](../plan.md) extraction phases.
 
+Adoption work (M3, M4) changes Leotron and Birted, so it waits for an explicit
+go-ahead. Everything before it stays inside this package.
+
 ## M0 - Name and tooling
 
 - Decide name ([naming](naming.md)), scope, distribution.
