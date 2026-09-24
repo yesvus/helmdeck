@@ -58,6 +58,25 @@ describe("admin breadcrumbs", () => {
     ]);
   });
 
+  it("includes a root navigation item as an ancestor of matched child routes", () => {
+    const rootNav: AdminNavGroup[] = [{
+      label: "Admin",
+      items: [
+        { href: "/", label: "Dashboard" },
+        { href: "/settings", label: "Settings" },
+      ],
+    }];
+
+    expect(createAdminBreadcrumbTrail(rootNav, "/settings/profile")?.crumbs.map(({ label }) => label)).toEqual([
+      "Dashboard",
+      "Settings",
+      "profile",
+    ]);
+    expect(createAdminBreadcrumbTrail(rootNav, "/")?.crumbs).toEqual([
+      { label: "Dashboard", href: "/", current: true },
+    ]);
+  });
+
   it("hides a redundant one-item crumb and retains current-page semantics", () => {
     const markup = renderToStaticMarkup(<AdminBreadcrumbs groups={nav} />);
     expect(markup).toContain('aria-current="page"');

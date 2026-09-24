@@ -40,9 +40,9 @@ export function createAdminBreadcrumbTrail(
   const itemPath = normalizePath(getAdminHrefPathname(item.href));
   const segments = normalizedPath.split("/").filter(Boolean);
   const crumbs: AdminBreadcrumbTrail["crumbs"] = [];
-  if (itemPath === "/" && normalizedPath !== "/") {
+  if (normalizedPath !== "/") {
     const rootItem = items.find((candidate) => normalizePath(getAdminHrefPathname(candidate.href)) === "/");
-    if (rootItem) crumbs.push({ label: rootItem.label, href: rootItem.href });
+    if (rootItem && itemPath !== "/") crumbs.push({ label: rootItem.label, href: rootItem.href });
   }
   let accumulated = "";
   for (const [index, segment] of segments.entries()) {
