@@ -17,6 +17,10 @@ describe("theme tokens", () => {
     expect(css).toContain("@theme inline");
     expect(css).not.toContain("--color-white:");
     expect(css).toContain("--admin-brand-500: #b45309");
+    const nav = readFileSync(resolve("src/shell/admin-nav.tsx"), "utf8");
+    expect(nav.match(/bg-brand-500 !text-white/g)).toHaveLength(3);
+    expect(nav).toContain('aria-current={active ? "page" : undefined}');
+    expect(nav).toContain("after:bg-white/70");
     const ratio = (luminance("ffffff") + 0.05) / (luminance("b45309") + 0.05);
     expect(ratio).toBeGreaterThanOrEqual(4.5);
     expect(css).toContain("--admin-overlay:");
