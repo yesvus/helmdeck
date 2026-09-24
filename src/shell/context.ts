@@ -14,6 +14,7 @@ export type AdminShellBrand = {
 
 export type AdminShellContextValue = {
   nav: AdminNavGroup[];
+  currentPageTitle?: string;
   session: AdminSession | null;
   labels: AdminShellLabels;
   collapsed: boolean;
