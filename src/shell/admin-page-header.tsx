@@ -23,7 +23,7 @@ export function AdminPageHeader({
 
   return (
     <>
-      <div className="flex min-h-14 items-center justify-between gap-4 border-b border-zinc-200 bg-admin-surface-subtle px-4 py-3 sm:px-6 lg:px-8">
+      <div className="flex min-h-[var(--admin-header-height)] items-center justify-between gap-4 border-b border-zinc-200 bg-admin-surface-subtle px-4 py-3 sm:px-6 lg:px-8">
         <div className="min-w-0">
           <AdminBreadcrumbs groups={groups ?? shell?.nav} />
           <h1 className="truncate text-base font-semibold text-zinc-900">{title}</h1>

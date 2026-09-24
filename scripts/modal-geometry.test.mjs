@@ -86,6 +86,22 @@ try {
   await responsiveDialog.waitFor({ state: "hidden" });
 
   await page.goto("http://127.0.0.1:3217/media");
+  await page.getByText("5 demo records available through the adapter.", { exact: true }).waitFor({ state: "attached" });
+  for (const [title, description] of [
+    ["Upload", "Progress and errors stay inside the reusable workflow."],
+    ["Form field", "Selection serializes into a normal form value."],
+    ["Library", "5 demo records available through the adapter."],
+  ]) {
+    const descriptionText = page.getByText(description, { exact: true });
+    assert.equal(await descriptionText.isVisible(), false, `${title} description should be hidden until help opens`);
+    await page.getByRole("button", { name: `Help: ${title}` }).click();
+    const tooltip = page.getByRole("tooltip");
+    await tooltip.waitFor({ state: "visible" });
+    assert.equal(await tooltip.innerText(), description);
+    await page.keyboard.press("Escape");
+    await tooltip.waitFor({ state: "hidden" });
+  }
+
   await page.setViewportSize({ width: 1024, height: 683 });
   await page.getByRole("button", { name: "Select media", exact: true }).click();
   const fieldDialog = page.getByRole("dialog", { name: "Cover image" });
@@ -137,6 +153,11 @@ try {
   assert.ok(media.width >= 350, JSON.stringify(media));
   assert.ok(mediaControls.search && mediaControls.sort && (mediaControls.search.right <= mediaControls.sort.left || mediaControls.search.bottom <= mediaControls.sort.top), JSON.stringify(mediaControls));
   assert.ok((mediaControls.card?.width ?? 0) >= 280, JSON.stringify(mediaControls));
+
+  await page.goto("http://127.0.0.1:3217/shell/profile");
+  await page.getByRole("heading", { name: "Profile", exact: true }).waitFor();
+  assert.equal(await page.getByText("Alex Morgan", { exact: true }).isVisible(), true);
+  assert.equal(await page.getByRole("heading", { name: "Alex Morgan", exact: true }).count(), 0);
 
   process.stdout.write(`${JSON.stringify({ centered, fieldLayout, media, mediaControls, custom })}\n`);
 } finally {

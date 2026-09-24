@@ -12,7 +12,7 @@ export default function ProfilePage() {
     <main className="mx-auto max-w-4xl space-y-6">
       <header className="rounded-xl border border-zinc-200 bg-admin-surface p-6">
         <p className="text-sm font-medium text-brand-700">Account profile</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">{sampleSession.name}</h1>
+        <p className="mt-1 text-2xl font-bold tracking-tight">{sampleSession.name}</p>
         <p className="mt-1 text-sm text-zinc-600">{sampleSession.email} · {sampleSession.role}</p>
       </header>
       <section aria-label="Profile details" className="grid gap-4 sm:grid-cols-2">

@@ -72,7 +72,8 @@ export function AdminShell({
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(visibleNav.map((group) => [group.label, true])),
   );
-  const trail = useBreadcrumbs(visibleNav);
+  const trail = useBreadcrumbs(nav);
+  const pageTitle = currentPageTitle ?? trail?.item.label;
   const resolvedProfileHref = profileHref ?? `${homeHref}/profile`;
   const brandHref = brand?.href ?? homeHref;
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
@@ -87,7 +88,7 @@ export function AdminShell({
     <AdminShellProvider
       value={{
         nav: visibleNav,
-        currentPageTitle,
+        currentPageTitle: showTopbar ? pageTitle : undefined,
         session,
         labels: mergedLabels,
         collapsed,
@@ -194,12 +195,12 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="flex min-h-14 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="flex min-h-[var(--admin-header-height)] items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
-                {trail && currentPageTitle ? <AdminBreadcrumbs groups={visibleNav} /> : null}
-                {currentPageTitle ? (
-                  <h1 className="truncate text-sm font-semibold text-zinc-900">{currentPageTitle}</h1>
+                {trail && pageTitle ? <AdminBreadcrumbs groups={nav} /> : null}
+                {pageTitle ? (
+                  <h1 className="truncate text-sm font-semibold text-zinc-900">{pageTitle}</h1>
                 ) : !trail ? (
                   <p className="truncate text-sm font-semibold text-zinc-900">
                     {brand?.label ?? mergedLabels.brandLabel}
