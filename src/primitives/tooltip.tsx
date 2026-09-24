@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { createContext, useContext, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { cloneElement, createContext, useContext, useEffect, useId, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../cn.js";
 
@@ -14,10 +14,10 @@ export function TooltipProvider({ children, delay = 0 }: { children: ReactNode; 
   return <TooltipContext.Provider value={{ delay }}>{children}</TooltipContext.Provider>;
 }
 
-export function Tooltip({ children, content, label, className, ...options }: TooltipOptions & { children: ReactNode; content: ReactNode; label: string; className?: string }) {
+export function Tooltip({ children, content, label, className, ...options }: TooltipOptions & { children: ReactElement; content: ReactNode; label?: string; className?: string }) {
   const provider = useContext(TooltipContext);
   const id = useId();
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointer = useRef(false);
@@ -39,7 +39,10 @@ export function Tooltip({ children, content, label, className, ...options }: Too
     setMounted(true);
     const resetPointer = () => { pointer.current = false; };
     document.addEventListener("pointerup", resetPointer);
-    return () => document.removeEventListener("pointerup", resetPointer);
+    return () => {
+      document.removeEventListener("pointerup", resetPointer);
+      if (timer.current) clearTimeout(timer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -87,8 +90,40 @@ export function Tooltip({ children, content, label, className, ...options }: Too
     };
   }, [mounted, open, options.align, options.alignOffset, options.side, options.sideOffset]);
 
+  const childProps = children.props as Record<string, unknown>;
+  const trigger = cloneElement(children, {
+    ref: triggerRef,
+    "aria-label": label ?? childProps["aria-label"],
+    "aria-describedby": [childProps["aria-describedby"], id].filter(Boolean).join(" "),
+    "aria-expanded": open,
+    onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
+      (childProps.onPointerDown as ((event: React.PointerEvent<HTMLElement>) => void) | undefined)?.(event);
+      event.stopPropagation();
+      if (event.defaultPrevented) return;
+      pointer.current = true;
+      if (timer.current) clearTimeout(timer.current);
+    },
+    onClick: (event: React.MouseEvent<HTMLElement>) => {
+      (childProps.onClick as ((event: React.MouseEvent<HTMLElement>) => void) | undefined)?.(event);
+      event.stopPropagation();
+      if (event.defaultPrevented) return;
+      if (triggerRef.current?.closest("label")) event.preventDefault();
+      if (timer.current) clearTimeout(timer.current);
+      clickOpen.current = !clickOpen.current;
+      setOpen(clickOpen.current);
+    },
+    onFocus: (event: React.FocusEvent<HTMLElement>) => {
+      (childProps.onFocus as ((event: React.FocusEvent<HTMLElement>) => void) | undefined)?.(event);
+      if (!event.defaultPrevented && !pointer.current) show();
+    },
+    onBlur: (event: React.FocusEvent<HTMLElement>) => {
+      (childProps.onBlur as ((event: React.FocusEvent<HTMLElement>) => void) | undefined)?.(event);
+      if (!event.defaultPrevented) close();
+    },
+  } as never);
+
   return <span className={cn("relative inline-flex shrink-0 align-middle", className)} onPointerEnter={() => { if (!pointer.current) show(); }} onPointerLeave={() => close()}>
-    <button ref={triggerRef} type="button" aria-label={label} aria-describedby={id} aria-expanded={open} onPointerDown={(event) => { pointer.current = true; if (timer.current) clearTimeout(timer.current); event.stopPropagation(); }} onClick={(event) => { event.preventDefault(); event.stopPropagation(); if (timer.current) clearTimeout(timer.current); clickOpen.current = !clickOpen.current; setOpen(clickOpen.current); }} onFocus={() => { if (!pointer.current) show(); }} onBlur={() => close()} className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700">{children}</button>
+    {trigger}
     {mounted && createPortal(<div ref={contentRef} id={id} role="tooltip" data-side={options.side ?? "bottom"} data-align={options.align ?? "center"} hidden={!open} style={position.popup} onPointerEnter={() => { if (timer.current) clearTimeout(timer.current); }} onPointerLeave={() => close()} className={cn("z-[100] w-max max-w-64 rounded-md bg-zinc-950 px-3 py-2 text-xs font-normal leading-5 text-white shadow-lg motion-reduce:transition-none", open && "animate-in fade-in-0 duration-100")}><span className="absolute size-2 rotate-45 bg-zinc-950" style={position.arrow} aria-hidden="true" />{content}</div>, document.body)}
   </span>;
 }

@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { Tooltip } from "../src/primitives/tooltip";
+import { Tooltip, TooltipProvider } from "../src/primitives/tooltip";
 
 const rect = (left: number, top: number, width: number, height: number) => ({
   x: left,
@@ -33,8 +33,36 @@ describe("Tooltip", () => {
     hydrationError.mockRestore();
   });
 
+  it("composes a non-button trigger without adding a nested button or button styling", () => {
+    render(<Tooltip label="Open help" content="Details"><a href="/help" className="custom-link">Help</a></Tooltip>);
+    const trigger = screen.getByRole("link", { name: "Open help" });
+    expect(trigger).toHaveAttribute("aria-describedby");
+    expect(trigger.closest("button")).toBeNull();
+    expect(trigger).toHaveClass("custom-link");
+    expect(trigger).not.toHaveClass("min-h-8");
+  });
+
+  it("clears pending show and close timers when unmounted", () => {
+    vi.useFakeTimers();
+    const first = render(<TooltipProvider delay={1000}><Tooltip label="Help" content="Details"><button type="button">Help</button></Tooltip></TooltipProvider>);
+    fireEvent.pointerEnter(screen.getByRole("button", { name: "Help" }));
+    expect(vi.getTimerCount()).toBe(1);
+    first.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+
+    const second = render(<TooltipProvider delay={1000}><Tooltip label="Help" content="Details"><button type="button">Help</button></Tooltip></TooltipProvider>);
+    const trigger = screen.getByRole("button", { name: "Help" });
+    fireEvent.pointerEnter(trigger);
+    act(() => { vi.advanceTimersByTime(1000); });
+    fireEvent.pointerLeave(trigger);
+    expect(vi.getTimerCount()).toBe(1);
+    second.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
+
   it.each(["start", "center", "end"] as const)("aligns the arrow with the anchor for %s alignment", async (align) => {
-    const { container } = render(<Tooltip label="Help" content="Details" side="bottom" align={align}><span>i</span></Tooltip>);
+    const { container } = render(<Tooltip label="Help" content="Details" side="bottom" align={align}><button type="button">i</button></Tooltip>);
     const trigger = screen.getByRole("button", { name: "Help" });
     trigger.getBoundingClientRect = () => rect(200, 100, 40, 20) as DOMRect;
     screen.getByRole("tooltip", { hidden: true }).getBoundingClientRect = () => rect(0, 0, 120, 40) as DOMRect;
@@ -51,7 +79,7 @@ describe("Tooltip", () => {
   it("repositions on scroll and resize, then removes its listeners on close", async () => {
     const add = vi.spyOn(window, "addEventListener");
     const remove = vi.spyOn(window, "removeEventListener");
-    const { unmount } = render(<Tooltip label="Help" content="Details"><span>i</span></Tooltip>);
+    const { unmount } = render(<Tooltip label="Help" content="Details"><button type="button">i</button></Tooltip>);
     const trigger = screen.getByRole("button", { name: "Help" });
     let left = 200;
     trigger.getBoundingClientRect = () => rect(left, 100, 40, 20) as DOMRect;
