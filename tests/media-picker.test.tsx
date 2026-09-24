@@ -206,6 +206,26 @@ describe("AdminMediaPicker", () => {
     expect(card).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("clears the selected state when reopened", async () => {
+    const user = userEvent.setup();
+    const props = {
+      items: [image],
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+      title: "Choose media",
+    };
+    const { rerender } = render(<EnglishPicker {...props} open />);
+
+    const card = await screen.findByRole("button", { name: /Product photo/ });
+    await user.click(card);
+    expect(card).toHaveAttribute("aria-pressed", "true");
+
+    rerender(<EnglishPicker {...props} open={false} />);
+    rerender(<EnglishPicker {...props} open />);
+
+    expect(await screen.findByRole("button", { name: /Product photo/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("offers a retry after an adapter error", async () => {
     const user = userEvent.setup();
     const list = vi.fn()

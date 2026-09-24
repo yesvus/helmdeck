@@ -174,6 +174,7 @@ export function AdminMediaPicker({
     }
     setQuery("");
     setSort("date-desc");
+    setSelectedPath(undefined);
     setShowUpload(false);
     setNextCursor(undefined);
     setTotal(undefined);
@@ -278,7 +279,7 @@ export function AdminMediaPicker({
                           style={{ backgroundImage: `url("${thumbnail.replaceAll('"', "%22")}")` }}
                         />
                       ) : (
-                        <AdminMediaPlaceholder kind={isPdfMediaItem(item) ? "pdf" : video ? "video" : item.source === "external" || isYouTubeMediaItem(item) ? "external" : "image"} label={item.name} />
+                        <AdminMediaPlaceholder kind={isPdfMediaItem(item) ? "pdf" : video ? "video" : item.source === "external" ? "external" : "image"} label={item.name} />
                       )}
                       {video ? (
                         <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white">
