@@ -34,7 +34,10 @@ describe("AdminManagedForm", () => {
     expect(submit).toBeDisabled();
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Loader");
-    await waitFor(() => expect(submit).toBeEnabled());
+    await waitFor(() => {
+      expect(submit).toBeEnabled();
+      expect(submit).toHaveClass("bg-emerald-600");
+    });
   });
 
   it("persists controlled repeater changes", async () => {

@@ -21,15 +21,18 @@ export function AdminField({
   children: ReactNode;
   className?: string;
 }) {
+  const Wrapper = id ? "div" : "label";
   return (
-    <div className={cn("grid gap-2", className)}>
-      <label htmlFor={id} className="text-sm font-semibold leading-5 text-zinc-900">{label}</label>
-      <span className="space-y-1">
-        {hint ? <span className="block text-sm leading-5 text-zinc-500">{hint}</span> : null}
-      </span>
+    <Wrapper className={cn("grid gap-2", className)}>
+      {id ? (
+        <label htmlFor={id} className="text-sm font-semibold leading-5 text-zinc-900">{label}</label>
+      ) : (
+        <span className="text-sm font-semibold leading-5 text-zinc-900">{label}</span>
+      )}
+      {hint ? <span className="text-sm leading-5 text-zinc-500">{hint}</span> : null}
       {children}
       {error ? <span className="text-sm leading-5 text-red-700" role="alert">{error}</span> : null}
-    </div>
+    </Wrapper>
   );
 }
 
@@ -81,5 +84,5 @@ export function AdminFormSection({
 }
 
 export function AdminFormActions({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("flex flex-col-reverse gap-3 border-t border-zinc-200 pt-5 sm:flex-row sm:justify-end", className)}>{children}</div>;
+  return <div className={cn("flex flex-col gap-3 border-t border-zinc-200 pt-5 sm:flex-row sm:justify-end", className)}>{children}</div>;
 }
