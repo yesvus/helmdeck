@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { FileText, ImageIcon } from "lucide-react";
+import { ExternalLink, FileText, ImageIcon, Video } from "lucide-react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
 
@@ -11,11 +11,11 @@ export function AdminMediaPlaceholder({
   label,
 }: {
   className?: string;
-  kind?: "image" | "pdf";
+  kind?: "image" | "video" | "pdf" | "external";
   label?: string;
 }) {
   const i18n = useAdminMessages();
-  const Icon = kind === "pdf" ? FileText : ImageIcon;
+  const Icon = kind === "pdf" ? FileText : kind === "video" ? Video : kind === "external" ? ExternalLink : ImageIcon;
 
   return (
     <div

@@ -58,12 +58,12 @@ export default function MediaDemoPage() {
       </div>
 
       <AdminSectionCard icon={ImagePlus} title={copy.media.library} description={copy.media.records(items.length)}>
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {items.map((item) => {
             const thumbnail = getAdminMediaThumbnailUrl(item);
             return (
               <button key={item.path} type="button" className="overflow-hidden rounded-xl border border-zinc-200 bg-white text-left transition hover:border-brand-400 hover:shadow-lg">
-                <div className="relative aspect-[4/3] bg-zinc-100">
+                <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-zinc-100">
                   {thumbnail ? (
                     <div role="img" aria-label={item.name} className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${thumbnail}")` }} />
                   ) : (
@@ -84,6 +84,7 @@ export default function MediaDemoPage() {
 
       <AdminMediaPicker
         adapter={demoMediaAdapter}
+        allowExternal
         items={items}
         onClose={() => setPickerOpen(false)}
         onSelect={() => setPickerOpen(false)}

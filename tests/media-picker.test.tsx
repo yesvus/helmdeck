@@ -187,4 +187,63 @@ describe("AdminMediaPicker", () => {
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("announces and marks the chosen item", async () => {
+    const user = userEvent.setup();
+    render(
+      <EnglishPicker
+        items={[image]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        open
+        title="Choose media"
+      />,
+    );
+
+    const card = await screen.findByRole("button", { name: /Product photo/ });
+    expect(card).toHaveAttribute("aria-pressed", "false");
+    await user.click(card);
+    expect(card).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("clears the selected state when reopened", async () => {
+    const user = userEvent.setup();
+    const props = {
+      items: [image],
+      onClose: vi.fn(),
+      onSelect: vi.fn(),
+      title: "Choose media",
+    };
+    const { rerender } = render(<EnglishPicker {...props} open />);
+
+    const card = await screen.findByRole("button", { name: /Product photo/ });
+    await user.click(card);
+    expect(card).toHaveAttribute("aria-pressed", "true");
+
+    rerender(<EnglishPicker {...props} open={false} />);
+    rerender(<EnglishPicker {...props} open />);
+
+    expect(await screen.findByRole("button", { name: /Product photo/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("offers a retry after an adapter error", async () => {
+    const user = userEvent.setup();
+    const list = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ items: [image] });
+    render(
+      <EnglishPicker
+        adapter={{ list, upload: vi.fn() }}
+        items={[]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        open
+        title="Choose media"
+      />,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Media could not be loaded.");
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("button", { name: /Product photo/ })).toBeInTheDocument();
+  });
 });

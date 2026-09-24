@@ -62,6 +62,18 @@ let demoItems: AdminMediaItem[] = [
     width: 1920,
     height: 1080,
   },
+  {
+    name: "Field test footage",
+    path: "https://cdn.example.com/field-test.mp4",
+    publicUrl: "https://cdn.example.com/field-test.mp4",
+    source: "external",
+    kind: "video",
+    contentType: "video/mp4",
+    size: 24_600_000,
+    updatedAt: "2026-09-19T10:15:00.000Z",
+    width: 1920,
+    height: 1080,
+  },
 ];
 
 function wait(milliseconds: number) {
