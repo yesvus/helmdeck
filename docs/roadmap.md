@@ -14,6 +14,6 @@ The package is now organized around a stable host boundary: Helmdeck owns reusab
 
 ## Next
 
-- Publish and consume the first prerelease.
+- Release and consume prerelease tarballs from GitHub.
 - Deploy the fixture app and verify the custom domain.
 - Add dark theme support through semantic tokens and a host-compatible activation strategy.

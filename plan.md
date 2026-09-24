@@ -34,7 +34,7 @@ The active content-editing language remains a host concern. A host can use a sep
 3. Add typed localization and formal Turkish defaults, with English as a built-in alternative.
 4. Add media adapter contracts and reusable upload, picker, and field workflows.
 5. Validate a host application against the packed package.
-6. Publish a prerelease and deploy the bilingual fixture app.
+6. Release a GitHub prerelease tarball and deploy the bilingual fixture app.
 
 ## Release gates
 

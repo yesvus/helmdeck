@@ -1,7 +1,7 @@
 # Decisions
 
 - Package name and scope: `@yesvus/helmdeck`.
-- Distribution: the first consumable artifact is a GitHub prerelease tarball containing the built `dist/` output. Registry publication can follow when scope permissions are available.
+- Distribution: consumable artifacts are GitHub prerelease tarballs containing the built `dist/` output. npm publication is postponed indefinitely.
 - The package ships a styled Tailwind v4 interface with semantic brand and layout tokens in `src/theme/tokens.css`.
 - Host applications own authentication, authorization, persistence, routes, API handlers, and content-editing locale state.
 - Helmdeck UI language is independent from content-editing language. English and Turkish dictionaries are built in, and `defineAdminMessages` supports additional locales.
