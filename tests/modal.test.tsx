@@ -89,6 +89,20 @@ describe("AdminModalContent", () => {
     expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
   });
 
+  it("lets a custom max width replace the default dialog width", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className="w-[calc(100%_-_2rem)] max-w-[88rem] sm:max-w-[88rem]" aria-label="Wide dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Wide dialog" });
+
+    expect(dialog).toHaveClass("max-w-[88rem]", "sm:max-w-[88rem]");
+    expect(dialog.className).not.toMatch(/(?:^|\s)w-full(?:\s|$)/);
+    expect(dialog.className).not.toContain("sm:max-w-md");
+    expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
+  });
+
   it.each(["right-8", "start-8", "end-8", "inset-x-8", "inset-8"])(
     "does not add a centered horizontal anchor with %s",
     async (placement) => {

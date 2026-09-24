@@ -63,17 +63,59 @@ try {
   assert.deepEqual(custom, { x: 32, y: 48, width: 160, height: 80 });
 
   await page.goto("http://127.0.0.1:3217/media");
+  await page.setViewportSize({ width: 1024, height: 683 });
+  await page.getByRole("button", { name: "Select media", exact: true }).click();
+  const fieldDialog = page.getByRole("dialog", { name: "Cover image" });
+  await fieldDialog.waitFor({ state: "visible" });
+  await page.waitForTimeout(200);
+  const fieldLayout = await fieldDialog.evaluate((element) => {
+    const dialog = element.getBoundingClientRect();
+    const search = element.querySelector('input[aria-label="Search media"]')?.getBoundingClientRect();
+    const sort = element.querySelector('select[aria-label="Sort media"]')?.getBoundingClientRect();
+    const card = element.querySelector(".grid > button")?.getBoundingClientRect();
+    return {
+      x: dialog.x,
+      y: dialog.y,
+      width: dialog.width,
+      height: dialog.height,
+      searchRight: search?.right,
+      sortLeft: sort?.left,
+      cardWidth: card?.width,
+    };
+  });
+  assert.ok(fieldLayout.width >= 900, JSON.stringify(fieldLayout));
+  assert.ok(fieldLayout.y >= 0 && fieldLayout.y + fieldLayout.height <= 683, JSON.stringify(fieldLayout));
+  assert.ok(fieldLayout.searchRight !== undefined && fieldLayout.sortLeft !== undefined && fieldLayout.searchRight <= fieldLayout.sortLeft, JSON.stringify(fieldLayout));
+  assert.ok((fieldLayout.cardWidth ?? 0) >= 180, JSON.stringify(fieldLayout));
+  await page.keyboard.press("Escape");
+  await fieldDialog.waitFor({ state: "hidden" });
+
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Open full media picker" }).click();
   const mediaDialog = page.getByRole("dialog");
   await mediaDialog.waitFor({ state: "visible" });
+  await page.waitForTimeout(200);
   const media = await mediaDialog.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
   });
-  assert.ok(Math.abs(media.x + media.width / 2 - 640) <= 1, JSON.stringify(media));
-  assert.ok(Math.abs(media.y + media.height / 2 - 360) <= 1, JSON.stringify(media));
+  const mediaControls = await mediaDialog.evaluate((element) => {
+    const search = element.querySelector('input[aria-label="Search media"]')?.getBoundingClientRect();
+    const sort = element.querySelector('select[aria-label="Sort media"]')?.getBoundingClientRect();
+    const card = element.querySelector(".grid > button")?.getBoundingClientRect();
+    return {
+      search: search && { left: search.left, right: search.right, top: search.top, bottom: search.bottom, width: search.width },
+      sort: sort && { left: sort.left, right: sort.right, top: sort.top, bottom: sort.bottom, width: sort.width },
+      card: card && { width: card.width },
+    };
+  });
+  assert.ok(Math.abs(media.x + media.width / 2 - 195) <= 1, JSON.stringify(media));
+  assert.ok(Math.abs(media.y + media.height / 2 - 422) <= 1, JSON.stringify(media));
+  assert.ok(media.width >= 350, JSON.stringify(media));
+  assert.ok(mediaControls.search && mediaControls.sort && (mediaControls.search.right <= mediaControls.sort.left || mediaControls.search.bottom <= mediaControls.sort.top), JSON.stringify(mediaControls));
+  assert.ok((mediaControls.card?.width ?? 0) >= 280, JSON.stringify(mediaControls));
 
-  process.stdout.write(`${JSON.stringify({ centered, media, custom })}\n`);
+  process.stdout.write(`${JSON.stringify({ centered, fieldLayout, media, mediaControls, custom })}\n`);
 } finally {
   await browser?.close();
   server.kill("SIGTERM");

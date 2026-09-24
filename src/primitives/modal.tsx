@@ -27,6 +27,8 @@ export function AdminModalContent({
 }) {
   const i18n = useAdminMessages();
   const placementClasses = className?.split(/\s+/).map((name) => name.replace(/^!/, "")) ?? [];
+  const hasCustomMaxWidth = placementClasses.some((name) => /(?:^|:)(?:!?max-w-)/.test(name));
+  const hasCustomWidth = placementClasses.some((name) => /(?:^|:)(?:!?w-)/.test(name));
   const hasHorizontalPlacement = placementClasses.some((name) =>
     /^(?:-?(?:left|right|start|end|inset-x|inset-inline|inset)-)/.test(name),
   );
@@ -36,7 +38,9 @@ export function AdminModalContent({
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-admin-overlay/60 backdrop-blur-sm data-[state=open]:animate-[admin-fade-in_150ms_ease-out]" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed z-50 flex max-h-[min(90dvh,56rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-200 bg-admin-surface p-6 shadow-2xl sm:max-w-md data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
+          "fixed z-50 flex max-h-[min(90dvh,56rem)] flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-200 bg-admin-surface p-6 shadow-2xl data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
+          !hasCustomWidth && "w-full",
+          !hasCustomMaxWidth && "max-w-[calc(100%-2rem)] sm:max-w-md",
           !hasHorizontalPlacement && "left-1/2 -translate-x-1/2",
           !hasVerticalPlacement && "top-1/2 -translate-y-1/2",
           className,
