@@ -40,6 +40,16 @@ describe("AdminMediaPicker", () => {
     expect(onSelect).toHaveBeenCalledWith(image);
   });
 
+  it("uses a wide responsive dialog with fixed controls and a scrollable library", async () => {
+    render(<EnglishPicker items={[image]} onClose={vi.fn()} onSelect={vi.fn()} open title="Choose media" />);
+    const dialog = await screen.findByRole("dialog", { name: "Choose media" });
+    expect(dialog.className).toContain("h-[min(92dvh,52rem)]");
+    expect(dialog.className).toContain("max-w-[88rem]");
+    expect(dialog.querySelector(".overflow-y-auto")).toBeInTheDocument();
+    expect(dialog.querySelector("[aria-label='Search media']")).toBeInTheDocument();
+    expect(dialog.querySelector('[aria-live="polite"]')).toHaveTextContent("1 items");
+  });
+
   it("loads filtered pages through the adapter", async () => {
     const user = userEvent.setup();
     const secondImage = {

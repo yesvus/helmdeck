@@ -58,7 +58,7 @@ export function AdminMediaUpload({
     setUploaded(false);
   }
 
-  function handleDropState(event: DragEvent<HTMLDivElement>) {
+  function handleDropState(event: DragEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
     if (busy) return;
@@ -74,7 +74,7 @@ export function AdminMediaUpload({
     }
   }
 
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
+  function handleDrop(event: DragEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
     dragDepthRef.current = 0;
@@ -82,7 +82,7 @@ export function AdminMediaUpload({
     if (!busy) selectFile(event.dataTransfer.files?.[0] ?? null);
   }
 
-  function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  function handleDropzoneKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       inputRef.current?.click();
@@ -188,10 +188,11 @@ export function AdminMediaUpload({
         </form>
       ) : (
         <>
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             aria-disabled={busy}
+            aria-label={file ? `${mergedLabels.drop}: ${file.name}` : mergedLabels.drop}
+            aria-invalid={Boolean(error)}
             onKeyDown={handleDropzoneKeyDown}
             onDragEnter={handleDropState}
             onDragOver={handleDropState}
@@ -201,26 +202,25 @@ export function AdminMediaUpload({
               if (!busy) inputRef.current?.click();
             }}
             className={cn(
-              "cursor-pointer rounded-xl border border-dashed p-5 text-center transition-colors",
-              compact ? "min-h-28" : "min-h-44",
-              dragging ? "border-brand-500 bg-brand-100" : "border-zinc-300 bg-zinc-50 hover:border-brand-400",
+              "block w-full cursor-pointer rounded-xl border-2 border-dashed p-5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
+              compact ? "min-h-32" : "min-h-48",
+              error ? "border-red-400 bg-red-50" : dragging ? "border-brand-600 bg-brand-50" : "border-zinc-300 bg-zinc-50 hover:border-brand-500 hover:bg-white",
               busy && "cursor-wait opacity-70",
             )}
           >
-            <UploadCloud className="mx-auto h-7 w-7 text-zinc-400" />
-            <p className="mt-2 text-sm font-semibold text-zinc-700">{mergedLabels.drop}</p>
-            {file ? <p className="mt-1 truncate text-xs text-zinc-500">{file.name}</p> : null}
-            <input
-              ref={inputRef}
-              id={inputId}
-              type="file"
-              accept={accept}
-              className="sr-only"
-              disabled={busy}
-              onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
-              onClick={(event) => event.stopPropagation()}
-            />
-          </div>
+            <UploadCloud className={cn("mx-auto h-8 w-8", dragging ? "text-brand-600" : "text-zinc-500")} />
+            <span className="mt-2 block text-sm font-semibold text-zinc-800">{file ? file.name : mergedLabels.drop}</span>
+            <span className="mt-1 block text-xs text-zinc-500">{mergedLabels.browse}</span>
+          </button>
+          <input
+            ref={inputRef}
+            id={inputId}
+            type="file"
+            accept={accept}
+            className="sr-only"
+            disabled={busy}
+            onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
+          />
           {progress > 0 ? (
             <div role="status" aria-live="polite" aria-atomic="true">
               <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
