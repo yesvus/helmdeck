@@ -24,18 +24,31 @@ function Modal({ onOpenChange = vi.fn() }: { onOpenChange?: (open: boolean) => v
 }
 
 describe("AdminModalContent", () => {
-  it("is centered in its initial rendered frame and retains its entrance animation", async () => {
+  it("uses one centered CSS positioning contract with its entrance animation", async () => {
     render(<Modal />);
     const dialog = await screen.findByRole("dialog", { name: "Dialog title" });
 
-    expect(dialog).toHaveStyle({
-      left: "50%",
-      top: "50%",
-      transform: "translate(-50%, -50%)",
-    });
-    expect(dialog.className).toContain("admin-pop-in_150ms_ease-out");
+    expect(dialog).toHaveClass("fixed", "left-1/2", "top-1/2");
+    expect(dialog.className).not.toMatch(/(?:^|\s)-?translate-[xy]-1\/2(?:\s|$)/);
+    expect(dialog.style.left).toBe("");
+    expect(dialog.style.top).toBe("");
+    expect(dialog.style.transform).toBe("");
+    expect(dialog.className).toContain("admin-pop-in_150ms_ease-out_forwards");
     expect(dialog).toHaveAttribute("data-state", "open");
     expect(dialog.previousElementSibling).toHaveClass("fixed", "inset-0");
+  });
+
+  it("lets consumer placement classes replace the centered defaults", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className="left-8 top-12" aria-label="Placed dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Placed dialog" });
+
+    expect(dialog).toHaveClass("left-8", "top-12");
+    expect(dialog.className).not.toMatch(/(?:^|\s)left-1\/2(?:\s|$)/);
+    expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
   });
 
   it("keeps focus management and closes on Escape", async () => {

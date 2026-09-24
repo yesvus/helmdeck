@@ -24,16 +24,20 @@ export function AdminModalContent({
   closeLabel?: string;
 }) {
   const i18n = useAdminMessages();
+  const placementClasses = className?.split(/\s+/).map((name) => name.replace(/^!/, "")) ?? [];
+  const hasHorizontalPlacement = placementClasses.some((name) => /^(?:-?(?:left|right|inset-x|inset)-)/.test(name));
+  const hasVerticalPlacement = placementClasses.some((name) => /^(?:-?(?:top|bottom|inset-y|inset)-)/.test(name));
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-sm data-[state=open]:animate-[admin-fade-in_150ms_ease-out]" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid max-h-[90vh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl sm:max-w-md data-[state=open]:animate-[admin-pop-in_150ms_ease-out]",
+          "fixed z-50 grid max-h-[90vh] w-full max-w-[calc(100%-2rem)] gap-4 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl sm:max-w-md data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
+          !hasHorizontalPlacement && "left-1/2",
+          !hasVerticalPlacement && "top-1/2",
           className,
         )}
         {...props}
-        style={{ left: "50%", top: "50%", transform: "translate(-50%, -50%)", ...props.style }}
       >
         {children}
         {showCloseButton ? (
