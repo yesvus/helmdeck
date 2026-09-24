@@ -1,6 +1,7 @@
 {
   "name": "@yesvus/helmdeck",
   "version": "0.1.0-alpha.1",
+  "packageManager": "pnpm@12.4.1",
   "type": "module",
   "description": "Reusable MIT-licensed admin shell for Next.js App Router projects",
   "license": "MIT",
@@ -43,6 +44,10 @@
     "prepack": "pnpm build",
     "pretypecheck": "pnpm build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
+    "version:check": "node scripts/release-version.mjs check",
+    "version:next": "node scripts/release-version.mjs next",
+    "version:bump": "node scripts/release-version.mjs bump",
+    "test:release": "node --test scripts/release-version.test.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

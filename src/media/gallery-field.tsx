@@ -74,7 +74,10 @@ export function AdminMediaGalleryField({
   const [open, setOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [entries, setEntries] = useState<GalleryEntry[]>(() => parseGalleryValue(defaultValue));
-  const hiddenValueRef = useAdminFormValueSignal<HTMLTextAreaElement>(entries);
+  const hiddenValueRef = useAdminFormValueSignal<HTMLTextAreaElement>(entries, {
+    name,
+    restore: (value) => setEntries(parseGalleryValue(value)),
+  });
   const i18n = useAdminMessages();
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
   const availableItems = useMemo(

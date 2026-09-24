@@ -1,0 +1,158 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version transition
+        required: true
+        default: alpha
+        type: choice
+        options:
+          - alpha
+          - beta
+          - stable
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: Compute and validate without publishing
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: helmdeck-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate current version
+        run: pnpm version:check
+      - name: Compute release version
+        id: release
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          tag="$(pnpm version:next "$BUMP")"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Release candidate: $tag"
+      - name: Verify release tag is available
+        if: ${{ inputs.dry_run != true }}
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Release tag already exists: $TAG" >&2
+            exit 1
+          fi
+      - name: Gate release
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm test
+          pnpm test:release
+          pnpm build:fixtures
+          pnpm audit --prod
+      - name: Write release version
+        if: ${{ inputs.dry_run != true }}
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: node scripts/release-version.mjs write "$TAG"
+      - name: Build package artifact
+        if: ${{ inputs.dry_run != true }}
+        id: artifact
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          rm -rf release
+          mkdir release
+          pnpm build
+          pnpm pack --pack-destination release
+          asset="$(find release -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+          test -n "$asset"
+          asset_name="$(basename "$asset")"
+          expected="yesvus-helmdeck-${TAG#v}.tgz"
+          test "$asset_name" = "$expected"
+          (
+            cd release
+            sha256sum "$asset_name" > "$asset_name.sha256"
+          )
+          echo "asset=$GITHUB_WORKSPACE/release/$asset_name" >> "$GITHUB_OUTPUT"
+          echo "checksum=$GITHUB_WORKSPACE/release/$asset_name.sha256" >> "$GITHUB_OUTPUT"
+      - name: Validate release metadata
+        if: ${{ inputs.dry_run != true }}
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          ASSET: ${{ steps.artifact.outputs.asset }}
+        run: |
+          set -euo pipefail
+          pnpm version:check
+          test "$(node -p "require('./package.json').version")" = "${TAG#v}"
+          test -f "$ASSET"
+          tar -tzf "$ASSET" | grep -qx 'package/dist/index.js'
+          tar -tzf "$ASSET" | grep -qx 'package/dist/index.d.ts'
+      - name: Commit and tag release
+        if: ${{ inputs.dry_run != true }}
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = main
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Release tag already exists: $TAG" >&2
+            exit 1
+          fi
+          git config user.name "helmdeck-release"
+          git config user.email "helmdeck-release@users.noreply.github.com"
+          git add VERSION package.json
+          changed="$(git diff --cached --name-only | sort)"
+          test "$changed" = $'package.json\nVERSION'
+          git commit -m "Release $TAG"
+          git tag -a "$TAG" -m "$TAG"
+          git push --atomic origin HEAD:main "refs/tags/$TAG"
+          if [[ "$TAG" != *-* ]]; then
+            git tag -f -a v0 -m "Floating rollout tag -> $TAG"
+            git push origin +refs/tags/v0:refs/tags/v0
+          fi
+      - name: Publish GitHub release
+        if: ${{ inputs.dry_run != true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          ASSET: ${{ steps.artifact.outputs.asset }}
+          CHECKSUM: ${{ steps.artifact.outputs.checksum }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" "$CHECKSUM" --clobber
+            exit 0
+          fi
+          if [[ "$TAG" == *-* ]]; then
+            gh release create "$TAG" "$ASSET" "$CHECKSUM" --verify-tag --generate-notes --title "$TAG" --prerelease
+          else
+            gh release create "$TAG" "$ASSET" "$CHECKSUM" --verify-tag --generate-notes --title "$TAG"
+          fi
