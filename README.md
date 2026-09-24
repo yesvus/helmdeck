@@ -25,6 +25,14 @@ Prerelease artifacts are distributed through GitHub releases. npm publication is
 
 Run `pnpm version:check` to verify version metadata locally. Use `pnpm version:next <bump>` to preview a transition without changing files.
 
+### Pinning, upgrades, and rollback
+
+Install an immutable release artifact by exact version and URL. Do not pin consumers to a moving branch, `latest`, or the floating `v0` tag. Verify the downloaded tarball against the SHA-256 checksum attached to its GitHub release, then commit the updated dependency and lockfile together. Deploy the same lockfile artifact through environments.
+
+To upgrade, review the release notes and compatibility section, update the exact tarball URL, refresh the lockfile, and run the host's typecheck, tests, and production build before deployment. Roll back by restoring the previous exact artifact URL and lockfile from version control, then redeploy. Helmdeck does not modify its installed code or migrate host data.
+
+Patch and minor releases preserve existing public APIs and adapter behavior. A breaking public API or adapter contract change requires a major-version transition and a migration note; prereleases may introduce such changes and are intended for evaluation. Release notes identify public API and adapter additions, deprecations, and breaking changes. Consumers should treat the TypeScript declarations shipped in each artifact as the contract for that version.
+
 Import the theme tokens once in the host stylesheet:
 
 ```css
@@ -70,6 +78,35 @@ export function AdminLayout({
 ```
 
 The host owns session resolution, authorization, persistence, route protection, and content-language state. Helmdeck receives configuration and callbacks through explicit props and adapters.
+
+## Host integration contracts
+
+`AdminAuthAdapter` resolves the current session and handles login/logout. `AdminPermissionsAdapter` answers host-defined permission checks; shell navigation role filtering is presentation only and never replaces route or operation authorization. The host owns identity, session lifetime, credentials, permission names, and enforcement.
+
+`AdminPersistenceAdapter` is a generic boundary for host data reads and writes. Resource names, data types, validation schemas, transactions, and domain rules remain host-owned. `AdminMediaAdapter` owns media listing, upload, and media mutations; storage, URL signing, and retention remain host responsibilities.
+
+`AdminLocaleAdapter` distinguishes interface locale from content locale. Interface dictionaries are provided by Helmdeck, while the host chooses locale policy and owns translations and localized content. Optional content-locale selection persists through the host callback.
+
+`AdminAuditAdapter` accepts host audit events. `AdminPreviewAdapter` generates preview URLs for host routes. `AdminCacheInvalidationAdapter` receives resource operations so the host can invalidate its own caches. Route paths, schemas, content, and cache tags remain in the host; these contracts intentionally do not define or expose them.
+
+Compose the optional host services independently and pass the existing auth and media adapters to components that consume them:
+
+```ts
+import type { AdminAuthAdapter, AdminHostAdapters, AdminMediaAdapter } from "@yesvus/helmdeck";
+
+export const authAdapter: AdminAuthAdapter = { getSession, login, logout };
+export const mediaAdapter: AdminMediaAdapter = { list, upload };
+export const hostAdapters: AdminHostAdapters = {
+  permissions,
+  persistence,
+  locale,
+  audit,
+  preview,
+  cache,
+};
+```
+
+Each host can provide only the services it uses. Callback failures and authorization decisions remain the host's responsibility; callers should handle rejected promises at their application boundary. Helmdeck's adapter types describe integration seams, they do not imply a built-in backend or prescribe a database, schema, route, or cache implementation.
 
 ## Localization
 

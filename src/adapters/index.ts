@@ -30,3 +30,14 @@ export type {
   AdminMediaUsage,
 } from "./media.js";
 export type { AdminSession } from "./session.js";
+export type {
+  AdminAuditAdapter,
+  AdminAuditEvent,
+  AdminCacheInvalidationAdapter,
+  AdminHostAdapters,
+  AdminLocaleAdapter,
+  AdminPermission,
+  AdminPermissionsAdapter,
+  AdminPersistenceAdapter,
+  AdminPreviewAdapter,
+} from "./host.js";
