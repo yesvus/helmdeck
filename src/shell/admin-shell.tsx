@@ -35,6 +35,7 @@ export function AdminShell({
   onLogout,
   showTopbar = true,
   topbarExtra,
+  sidebarExtra,
   children,
 }: {
   nav: AdminNavGroup[];
@@ -50,6 +51,7 @@ export function AdminShell({
   onLogout?: () => void | Promise<void>;
   showTopbar?: boolean;
   topbarExtra?: ReactNode;
+  sidebarExtra?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -177,6 +179,10 @@ export function AdminShell({
                 );
               })}
             </nav>
+
+            {sidebarExtra ? (
+              <div className={cn("px-3 pb-3", collapsed && "px-2")}>{sidebarExtra}</div>
+            ) : null}
 
             {session ? (
               <AdminProfileMenu email={session.email} compact={collapsed} />

@@ -17,6 +17,18 @@ body:
         - Package build or distribution
     validations:
       required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Choose the matching P0 through P3 triage tag.
+      options:
+        - P0 - Critical, production risk or data loss
+        - P1 - High priority
+        - P2 - Normal priority
+        - P3 - Low priority or future enhancement
+    validations:
+      required: true
   - type: input
     id: summary
     attributes:

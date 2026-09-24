@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
-"use client";
 
-import { createContext, useContext, type ReactNode } from "react";
-import type { AdminMediaLabels } from "./media/labels.js";
-import type { AdminMediaSort } from "./media/utils.js";
-import { defaultAdminMediaLabels } from "./media/labels.js";
+import type { AdminMediaLabels } from "../media/labels.js";
+import type { AdminMediaSort } from "../media/utils.js";
+import { defaultAdminMediaLabels } from "../media/labels.js";
 import {
   defaultAdminLabels,
   type AdminShellLabels,
-} from "./shell/labels.js";
+} from "../shell/labels.js";
 import {
   defaultAdminManagedFormFeedbackLabels,
   defaultPaginationLabels,
@@ -16,7 +14,7 @@ import {
   type AdminManagedFormFeedbackLabels,
   type AdminPaginationLabels,
   type AdminSortableMessages,
-} from "./primitives/messages.js";
+} from "../primitives/messages.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -231,26 +229,4 @@ export function getAdminMessages(locale: string, fallbackLocale = defaultAdminLo
     registry.get(normalizedFallback.split("-")[0]) ??
     turkishAdminMessages
   );
-}
-
-const AdminI18nContext = createContext<AdminMessages>(getAdminMessages(defaultAdminLocale));
-
-export function AdminI18nProvider({
-  children,
-  locale = defaultAdminLocale,
-  messages,
-}: {
-  children: ReactNode;
-  locale?: string;
-  messages?: AdminMessages;
-}) {
-  return (
-    <AdminI18nContext.Provider value={messages ?? getAdminMessages(locale)}>
-      {children}
-    </AdminI18nContext.Provider>
-  );
-}
-
-export function useAdminMessages() {
-  return useContext(AdminI18nContext);
 }

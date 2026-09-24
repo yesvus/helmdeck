@@ -82,7 +82,10 @@ export function AdminMediaField({
   const [value, setValue] = useState(defaultValue ?? "");
   const i18n = useAdminMessages();
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
-  const hiddenValueRef = useAdminFormValueSignal<HTMLInputElement>(value);
+  const hiddenValueRef = useAdminFormValueSignal<HTMLInputElement>(value, {
+    name,
+    restore: setValue,
+  });
   const availableItems = useMemo(() => filterItems(items, mode), [items, mode]);
   const allowedKinds = useMemo<AdminMediaKind[]>(() => {
     if (mode === "image") return ["image"];

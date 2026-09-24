@@ -7,6 +7,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -38,6 +39,11 @@ export const ADMIN_FORM_VALUE_EVENT = "admin-form-value-change";
 type AdminFormDirtyContextValue = boolean | undefined;
 const AdminFormDirtyContext = createContext<AdminFormDirtyContextValue>(undefined);
 
+type AdminFormRestoreContextValue = {
+  registerRestorer: (name: string, restore: (value: string) => void) => () => void;
+};
+const AdminFormRestoreContext = createContext<AdminFormRestoreContextValue | null>(null);
+
 export type AdminManagedFormAutosaveContext = {
   pathname: string;
   searchParams: URLSearchParams;
@@ -66,10 +72,20 @@ function buildFormSignature(form: HTMLFormElement) {
   );
 }
 
-function restoreAutosavedFields(form: HTMLFormElement, serialized: string) {
+function restoreAutosavedFields(
+  form: HTMLFormElement,
+  serialized: string,
+  restorers: Map<string, (value: string) => void>,
+) {
   const entries = JSON.parse(serialized) as [string, string][];
 
   for (const [name, value] of entries) {
+    const restorer = restorers.get(name);
+    if (restorer) {
+      restorer(value);
+      continue;
+    }
+
     const controls = Array.from(form.elements).filter(
       (element): element is HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement =>
         (element instanceof HTMLInputElement ||
@@ -124,6 +140,7 @@ export function AdminManagedForm({
     ...feedbackLabels,
   };
   const formRef = useRef<HTMLFormElement | null>(null);
+  const restorersRef = useRef(new Map<string, (value: string) => void>());
   const baselineRef = useRef<string | null>(null);
   const frameRef = useRef<number | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
@@ -131,6 +148,18 @@ export function AdminManagedForm({
   const [isDirty, setIsDirty] = useState(false);
   const [feedbackState, setFeedbackState] = useState(ADMIN_FORM_ACTION_IDLE_STATE);
   const [submissionState, formAction] = useActionState(action, ADMIN_FORM_ACTION_IDLE_STATE);
+  const registerRestorer = useCallback(
+    (name: string, restore: (value: string) => void) => {
+      restorersRef.current.set(name, restore);
+      return () => {
+        if (restorersRef.current.get(name) === restore) {
+          restorersRef.current.delete(name);
+        }
+      };
+    },
+    [],
+  );
+  const restoreContext = useMemo(() => ({ registerRestorer }), [registerRestorer]);
 
   const syncDirtyState = useCallback(() => {
     const form = formRef.current;
@@ -155,16 +184,45 @@ export function AdminManagedForm({
     });
   }, [syncDirtyState]);
 
+  const persistFormValue = useCallback(() => {
+    const form = formRef.current;
+    if (!form || !autosaveStorageKey) {
+      return;
+    }
+
+    const entries = Array.from(new FormData(form).entries())
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string");
+    window.localStorage.setItem(autosaveStorageKey, JSON.stringify(entries));
+  }, [autosaveStorageKey]);
+
+  const scheduleAutosave = useCallback(() => {
+    if (!autosaveStorageKey) {
+      return;
+    }
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+    }
+    autosaveTimerRef.current = window.setTimeout(() => {
+      autosaveTimerRef.current = null;
+      persistFormValue();
+    }, 1200);
+  }, [autosaveStorageKey, persistFormValue]);
+
+  const handleValueChange = useCallback(() => {
+    scheduleSync();
+    scheduleAutosave();
+  }, [scheduleAutosave, scheduleSync]);
+
   useEffect(() => {
     const form = formRef.current;
     if (!form) {
       return;
     }
 
-    const handleCustomValueChange = () => scheduleSync();
+    const handleCustomValueChange = () => handleValueChange();
     form.addEventListener(ADMIN_FORM_VALUE_EVENT, handleCustomValueChange);
     return () => form.removeEventListener(ADMIN_FORM_VALUE_EVENT, handleCustomValueChange);
-  }, [scheduleSync]);
+  }, [handleValueChange]);
 
   useEffect(() => {
     if (
@@ -208,8 +266,9 @@ export function AdminManagedForm({
     }
 
     try {
-      restoreAutosavedFields(form, saved);
+      restoreAutosavedFields(form, saved, restorersRef.current);
       scheduleSync();
+      window.requestAnimationFrame(scheduleSync);
     } catch {
       window.localStorage.removeItem(autosaveStorageKey);
     }
@@ -239,8 +298,9 @@ export function AdminManagedForm({
   }, []);
 
   return (
-    <AdminFormDirtyContext.Provider value={isDirty}>
-      <form
+    <AdminFormRestoreContext.Provider value={restoreContext}>
+      <AdminFormDirtyContext.Provider value={isDirty}>
+        <form
         ref={(node) => {
           formRef.current = node;
           if (node && baselineRef.current === null) {
@@ -250,24 +310,7 @@ export function AdminManagedForm({
         action={formAction}
         className={className}
         onInputCapture={scheduleSync}
-        onChangeCapture={() => {
-          scheduleSync();
-          if (!autosaveStorageKey) {
-            return;
-          }
-          if (autosaveTimerRef.current !== null) {
-            window.clearTimeout(autosaveTimerRef.current);
-          }
-          autosaveTimerRef.current = window.setTimeout(() => {
-            const form = formRef.current;
-            if (!form) {
-              return;
-            }
-            const entries = Array.from(new FormData(form).entries())
-              .filter((entry): entry is [string, string] => typeof entry[1] === "string");
-            window.localStorage.setItem(autosaveStorageKey, JSON.stringify(entries));
-          }, 1200);
-        }}
+        onChangeCapture={handleValueChange}
         onClickCapture={scheduleSync}
         onResetCapture={() => {
           const form = formRef.current;
@@ -276,8 +319,8 @@ export function AdminManagedForm({
         }}
       >
         {children}
-      </form>
-      {feedbackState.status !== "idle" && feedbackState.message ? (
+        </form>
+        {feedbackState.status !== "idle" && feedbackState.message ? (
         <AdminToastViewport>
           <AdminToastCard
             tone={feedbackState.status === "error" ? "error" : "success"}
@@ -297,8 +340,9 @@ export function AdminManagedForm({
             onClose={() => setFeedbackState(ADMIN_FORM_ACTION_IDLE_STATE)}
           />
         </AdminToastViewport>
-      ) : null}
-    </AdminFormDirtyContext.Provider>
+        ) : null}
+      </AdminFormDirtyContext.Provider>
+    </AdminFormRestoreContext.Provider>
   );
 }
 
@@ -306,9 +350,26 @@ export function useAdminFormDirty() {
   return useContext(AdminFormDirtyContext);
 }
 
-export function useAdminFormValueSignal<T extends HTMLElement>(dependency: unknown) {
+export type AdminFormValueSignalOptions = {
+  name?: string;
+  restore?: (value: string) => void;
+};
+
+export function useAdminFormValueSignal<T extends HTMLElement>(
+  dependency: unknown,
+  { name, restore }: AdminFormValueSignalOptions = {},
+) {
   const elementRef = useRef<T | null>(null);
   const hasMountedRef = useRef(false);
+  const restoreContext = useContext(AdminFormRestoreContext);
+
+  useEffect(() => {
+    if (!name || !restore || !restoreContext) {
+      return;
+    }
+
+    return restoreContext.registerRestorer(name, restore);
+  }, [name, restore, restoreContext]);
 
   useEffect(() => {
     if (!hasMountedRef.current) {
