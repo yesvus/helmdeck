@@ -86,9 +86,7 @@ try {
   await responsiveDialog.waitFor({ state: "hidden" });
 
   await page.goto("http://127.0.0.1:3217/media");
-  await page.waitForFunction(() => Array.from(document.querySelectorAll('[role="tooltip"]')).some((tooltip) =>
-    tooltip.textContent?.trim() === "5 demo records available through the adapter.",
-  ));
+  await page.getByText("5 demo records available through the adapter.", { exact: true }).waitFor({ state: "attached" });
   for (const [title, description] of [
     ["Upload", "Progress and errors stay inside the reusable workflow."],
     ["Form field", "Selection serializes into a normal form value."],
