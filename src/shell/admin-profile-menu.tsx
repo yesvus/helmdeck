@@ -70,7 +70,7 @@ export function AdminProfileMenu({
       {open ? (
         <div
           className={cn(
-            "absolute bottom-full mb-2 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]",
+            "absolute bottom-full mb-2 rounded-xl border border-zinc-200 bg-admin-surface p-1.5 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]",
             compact ? "left-3 w-56" : "inset-x-3",
           )}
         >
@@ -125,7 +125,7 @@ export function AdminProfileMenu({
           compact ? "h-10 w-10 justify-center" : "w-full gap-2.5 px-2 py-2",
         )}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-admin-overlay text-xs font-bold text-white">
           {initial}
         </span>
         {compact ? null : (

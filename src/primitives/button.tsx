@@ -19,14 +19,14 @@ const baseClassName =
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0";
 
 const variantClassName: Record<ButtonVariant, string> = {
-  default: "bg-brand-500 text-white hover:bg-brand-600",
-  destructive: "bg-red-500 text-white hover:bg-red-600",
-  success: "bg-emerald-600 text-white hover:bg-emerald-500",
-  outline: "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900",
+  default: "bg-brand-500 text-admin-on-brand hover:bg-brand-600",
+  destructive: "bg-admin-danger-action text-admin-on-brand hover:bg-admin-danger-action-hover",
+  success: "bg-admin-success-action text-admin-on-brand hover:bg-admin-success-action-hover",
+  outline: "border border-zinc-300 bg-admin-surface text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900",
   secondary: "bg-zinc-100 text-zinc-900 hover:bg-zinc-200",
   ghost: "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
-  link: "normal-case text-brand-600 underline-offset-4 hover:underline",
-  white: "bg-white text-zinc-900 hover:bg-zinc-200",
+  link: "normal-case text-admin-brand-text underline-offset-4 hover:underline",
+  white: "bg-admin-surface text-zinc-900 hover:bg-zinc-200",
 };
 
 const sizeClassName: Record<ButtonSize, string> = {

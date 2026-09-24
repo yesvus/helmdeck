@@ -114,7 +114,7 @@ export function AdminMediaField({
       <AdminField label={label} hint={hint}>
         <input ref={hiddenValueRef} type="hidden" name={name} value={value} />
         <AdminMediaAspectRatioHint aspectRatio={aspectRatio} />
-        <div className="rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="rounded-lg border border-zinc-200 bg-admin-surface p-4">
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -132,7 +132,7 @@ export function AdminMediaField({
                   style={{ backgroundImage: `url("${(youtubeThumbnail || imagePreview).replaceAll('"', "%22")}")` }}
                 />
               ) : videoPreview ? (
-                <video src={value} controls preload="metadata" className="h-full w-full bg-zinc-950 object-contain" />
+                <video src={value} controls preload="metadata" className="h-full w-full bg-admin-media-backdrop object-contain" />
               ) : (
                 <AdminMediaPlaceholder kind={value && isPdfMediaUrl(value) ? "pdf" : "image"} />
               )}

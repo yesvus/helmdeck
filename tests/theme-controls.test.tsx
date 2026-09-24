@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
 
 afterEach(() => {
@@ -18,7 +18,43 @@ describe("fixture theme controls", () => {
     expect(mode).toHaveFocus();
     await user.selectOptions(mode, "dark");
     expect(document.documentElement.dataset.adminTheme).toBe("dark");
+    expect(document.documentElement.style.getPropertyValue("--admin-surface")).toBe("#1c1917");
+    fireEvent.change(screen.getByLabelText("Primary color"), { target: { value: "#123456" } });
     await user.click(screen.getByRole("button", { name: "Reset" }));
     expect(document.documentElement.dataset.adminTheme).toBe("light");
+    expect(document.documentElement.style.getPropertyValue("--admin-brand-500")).toBe("#b45309");
+    expect(document.documentElement.style.getPropertyValue("--admin-on-brand")).toBe("#ffffff");
+    expect(document.documentElement.style.getPropertyValue("--admin-surface")).toBe("#ffffff");
+    expect(document.documentElement.style.getPropertyValue("--admin-spacing")).toBe("1rem");
+    expect(document.documentElement.style.getPropertyValue("--admin-radius")).toBe("0.75rem");
+    expect(document.documentElement.style.getPropertyValue("--admin-density")).toBe("1");
+  });
+
+  it("rejects invalid imported presets with feedback", async () => {
+    const user = userEvent.setup();
+    render(<ThemeControls />);
+    const input = screen.getByRole("textbox", { name: "Theme preset JSON" });
+    fireEvent.change(input, { target: { value: '[{"mode":"sepia"}]' } });
+    await user.click(screen.getByRole("button", { name: "Import preset" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Preset must be a JSON object.");
+    await user.clear(input);
+    fireEvent.change(input, { target: { value: '{"mode":"sepia","brand":123}' } });
+    await user.click(screen.getByRole("button", { name: "Import preset" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Invalid value for mode.");
+    expect(document.documentElement.dataset.adminTheme).toBe("light");
+    fireEvent.change(input, { target: { value: '{"mode":"dark"}' } });
+    await user.click(screen.getByRole("button", { name: "Import preset" }));
+    expect(document.documentElement.style.getPropertyValue("--admin-surface")).toBe("#1c1917");
+  });
+
+  it("applies density to the preview and handles unavailable clipboard export", async () => {
+    const user = userEvent.setup();
+    render(<ThemeControls />);
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(new Error("blocked"));
+    await user.selectOptions(screen.getByLabelText("Density"), "0.85");
+    expect(document.documentElement.style.getPropertyValue("--admin-density")).toBe("0.85");
+    expect(screen.getByRole("region", { name: "Live theme preview" })).toHaveStyle({ padding: "13.6px" });
+    await user.click(screen.getByRole("button", { name: "Export preset" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Clipboard export is unavailable in this browser.");
   });
 });

@@ -109,7 +109,7 @@ export function AdminMediaGalleryField({
         <p className="mb-3 inline-flex rounded-full bg-zinc-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-600">
           {mergedLabels.recommendedRatio}: {aspectRatio}
         </p>
-        <div className="space-y-4 rounded-lg border border-zinc-200 bg-white p-4">
+        <div className="space-y-4 rounded-lg border border-zinc-200 bg-admin-surface p-4">
           {entries.length ? (
             <div className="space-y-4">
               {entries.map((entry, index) => {

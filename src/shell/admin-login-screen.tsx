@@ -70,12 +70,12 @@ export function AdminLoginScreen({
 
       <div className="w-full max-w-[360px]">
         {message ? (
-          <p className="mb-4 rounded-lg border-l-4 border-emerald-400 bg-white px-4 py-3 text-sm text-zinc-700 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <p className="mb-4 rounded-lg border-l-4 border-emerald-400 bg-admin-surface px-4 py-3 text-sm text-zinc-700 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
             {message}
           </p>
         ) : null}
         {errorMessage ? (
-          <p className="mb-4 rounded-lg border-l-4 border-red-400 bg-white px-4 py-3 text-sm text-zinc-700 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <p className="mb-4 rounded-lg border-l-4 border-red-400 bg-admin-surface px-4 py-3 text-sm text-zinc-700 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
             {errorMessage}
           </p>
         ) : null}
@@ -84,7 +84,7 @@ export function AdminLoginScreen({
 
         <form
           onSubmit={handleSubmit}
-          className="rounded-lg border border-zinc-200 bg-white p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
+          className="rounded-lg border border-zinc-200 bg-admin-surface p-6 shadow-[0_2px_8px_rgba(0,0,0,0.06)]"
         >
           <div className="space-y-4">
             <label className="block">
@@ -96,7 +96,7 @@ export function AdminLoginScreen({
                 defaultValue={defaultEmail}
                 required
                 disabled={busyState}
-                className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                className="mt-1.5 w-full rounded-md border border-zinc-300 bg-admin-surface px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               />
             </label>
             <label className="block">
@@ -110,13 +110,13 @@ export function AdminLoginScreen({
                 defaultValue={defaultPassword}
                 required
                 disabled={busyState}
-                className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                className="mt-1.5 w-full rounded-md border border-zinc-300 bg-admin-surface px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
               />
             </label>
             <button
               type="submit"
               disabled={busyState}
-              className="w-full rounded-md bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-60"
+              className="w-full rounded-md bg-brand-500 px-4 py-2.5 text-sm font-semibold text-admin-on-brand transition-colors hover:bg-brand-600 disabled:opacity-60"
             >
               {mergedLabels.loginSubmit}
             </button>

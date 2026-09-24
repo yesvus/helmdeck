@@ -36,7 +36,7 @@ export function AdminToastCard({
     <div
       role="status"
       className={cn(
-        "pointer-events-auto rounded-xl border bg-white/95 p-4 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.45)] backdrop-blur",
+        "pointer-events-auto rounded-xl border bg-admin-surface/95 p-4 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.45)] backdrop-blur",
         tone === "success"
           ? "border-emerald-200"
           : tone === "error"

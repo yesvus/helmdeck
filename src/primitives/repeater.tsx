@@ -56,7 +56,7 @@ export function AdminRepeaterListField({
         aria-hidden="true"
         tabIndex={-1}
       />
-      <div className="space-y-3 rounded-lg border border-zinc-200 bg-white p-4">
+      <div className="space-y-3 rounded-lg border border-zinc-200 bg-admin-surface p-4">
         {items.map((item, index) => (
           <div key={`${name}-${index}`} className="flex items-center gap-3">
             <AdminInput

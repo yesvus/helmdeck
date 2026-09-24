@@ -36,7 +36,7 @@ describe("AdminManagedForm", () => {
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Loader");
     await waitFor(() => {
       expect(submit).toBeEnabled();
-      expect(submit).toHaveClass("bg-emerald-600");
+      expect(submit).toHaveClass("bg-admin-success-action");
     });
   });
 

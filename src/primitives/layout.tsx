@@ -18,7 +18,7 @@ export function AdminSurfaceCard({
     <section
       id={id}
       className={cn(
-        "rounded-xl border border-zinc-200 bg-white shadow-[0_18px_45px_-32px_rgba(15,23,42,0.22)]",
+        "rounded-xl border border-zinc-200 bg-admin-surface shadow-[0_18px_45px_-32px_rgba(15,23,42,0.22)]",
         className,
       )}
     >
@@ -95,7 +95,7 @@ export function AdminSectionIntro({
 export type AdminStatCardTone = "neutral" | "success" | "warning" | "danger";
 
 const adminStatCardToneClasses: Record<AdminStatCardTone, string> = {
-  neutral: "bg-white text-zinc-600",
+  neutral: "bg-admin-surface text-zinc-600",
   success: "bg-emerald-50 text-emerald-700",
   warning: "bg-amber-50 text-amber-700",
   danger: "bg-red-50 text-red-700",
@@ -147,7 +147,7 @@ export function AdminFormCard({
 }) {
   const cardClassName = cn(
     "rounded-lg border p-4",
-    accent === "muted" ? "border-dashed border-zinc-300 bg-zinc-50" : "border-zinc-200 bg-white",
+    accent === "muted" ? "border-dashed border-zinc-300 bg-zinc-50" : "border-zinc-200 bg-admin-surface",
   );
   const header = (
     <div className={cn(collapsible && "flex items-start justify-between gap-4")}>
@@ -157,7 +157,7 @@ export function AdminFormCard({
       </div>
       {collapsible ? (
         <span
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition-transform duration-200 group-open:rotate-180"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-admin-surface text-zinc-500 transition-transform duration-200 group-open:rotate-180"
           aria-hidden="true"
         >
           <ChevronDown className="h-4 w-4" />
@@ -216,7 +216,7 @@ export function AdminListItemCard({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+    <div className="rounded-lg border border-zinc-200 bg-admin-surface p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 space-y-1">
           <p className="text-base font-semibold text-zinc-900">{title}</p>

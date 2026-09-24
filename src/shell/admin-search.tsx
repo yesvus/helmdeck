@@ -104,7 +104,7 @@ export function AdminSearch({
             onExpand?.();
             window.setTimeout(() => inputRef.current?.focus(), 0);
           }}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 hover:border-brand-500 hover:bg-white hover:text-brand-600"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 hover:border-brand-500 hover:bg-admin-surface hover:text-admin-brand-text"
           aria-label={mergedLabels.searchLabel}
           title={mergedLabels.searchHint}
         >
@@ -124,11 +124,11 @@ export function AdminSearch({
           onChange={(event) => setQuery(event.target.value)}
           placeholder={mergedLabels.searchPlaceholder}
           aria-label={mergedLabels.searchLabel}
-          className="h-10 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-9 pr-3 text-sm outline-none transition focus:border-brand-500 focus:bg-white"
+          className="h-10 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-9 pr-3 text-sm outline-none transition focus:border-brand-500 focus:bg-admin-surface"
         />
       </label>
       {normalized ? (
-        <div className="absolute left-3 right-3 top-[3.35rem] z-50 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
+        <div className="absolute left-3 right-3 top-[3.35rem] z-50 overflow-hidden rounded-lg border border-zinc-200 bg-admin-surface shadow-xl">
           {results.length ? (
             results.map((entry) => (
               <Link

@@ -1,8 +1,19 @@
 /* SPDX-License-Identifier: MIT */
-@theme {
+@theme inline {
   --color-brand-100: var(--admin-brand-100);
   --color-brand-500: var(--admin-brand-500);
   --color-brand-600: var(--admin-brand-600);
+  --color-admin-surface: var(--admin-surface);
+  --color-admin-overlay: var(--admin-overlay);
+  --color-admin-media-backdrop: var(--admin-media-backdrop);
+  --color-admin-brand-text: var(--admin-brand-text);
+  --color-admin-danger-action: var(--admin-danger-action);
+  --color-admin-danger-action-hover: var(--admin-danger-action-hover);
+  --color-admin-danger-text: var(--admin-danger-text);
+  --color-admin-on-brand: var(--admin-on-brand);
+  --color-admin-success-surface: var(--admin-success-surface);
+  --color-admin-success-text: var(--admin-success-text);
+  --color-admin-success-border: var(--admin-success-border);
   --color-zinc-50: var(--admin-surface-subtle);
   --color-zinc-100: var(--admin-surface-muted);
   --color-zinc-200: var(--admin-border);
@@ -14,7 +25,6 @@
   --color-zinc-800: var(--admin-text-primary);
   --color-zinc-900: var(--admin-text-primary);
   --color-zinc-950: var(--admin-text-primary);
-  --color-white: var(--admin-surface);
   --color-amber-50: var(--admin-warning-surface);
   --color-amber-100: var(--admin-warning-surface);
   --color-amber-200: var(--admin-warning-border);
@@ -24,6 +34,8 @@
   --color-red-50: var(--admin-danger-surface);
   --color-red-100: var(--admin-danger-surface);
   --color-red-200: var(--admin-danger-border);
+  --color-red-400: var(--admin-danger-border);
+  --color-red-500: var(--admin-danger-action);
   --color-red-600: var(--admin-danger-text);
   --color-red-700: var(--admin-danger-text);
   --color-red-800: var(--admin-danger-text);
@@ -31,7 +43,20 @@
   --color-green-50: var(--admin-success-surface);
   --color-green-100: var(--admin-success-surface);
   --color-green-700: var(--admin-success-text);
-  --color-emerald-400: var(--admin-success-text);
+  --color-emerald-50: var(--admin-success-surface);
+  --color-emerald-100: var(--admin-success-surface);
+  --color-emerald-200: var(--admin-success-border);
+  --color-emerald-400: var(--admin-success-border);
+  --color-emerald-500: var(--admin-success-text);
+  --color-emerald-600: var(--admin-success-action);
+  --color-emerald-700: var(--admin-success-text);
+  --color-emerald-800: var(--admin-success-text);
+  --color-emerald-900: var(--admin-success-text);
+  --color-admin-success-action: var(--admin-success-action);
+  --color-admin-success-action-hover: var(--admin-success-action-hover);
+}
+
+@theme {
   --admin-sidebar-width: 260px;
   --admin-sidebar-width-collapsed: 76px;
 }
@@ -42,6 +67,8 @@
   --admin-brand-100: #fef3c7;
   --admin-brand-500: #b45309;
   --admin-brand-600: #78350f;
+  --admin-brand-text: color-mix(in srgb, var(--admin-brand-500) 80%, black);
+  --admin-on-brand: #ffffff;
   --admin-surface: #ffffff;
   --admin-surface-muted: #f5f5f4;
   --admin-surface-subtle: #fafaf9;
@@ -51,6 +78,10 @@
   --admin-text-secondary: #44403c;
   --admin-text-muted: #57534e;
   --admin-text-disabled: #78716c;
+  --admin-overlay: #0c0a09;
+  --admin-media-backdrop: #0c0a09;
+  --admin-danger-action: #dc2626;
+  --admin-danger-action-hover: #b91c1c;
   --admin-warning-surface: #fef3c7;
   --admin-warning-border: #fcd34d;
   --admin-warning-text: #78350f;
@@ -59,7 +90,12 @@
   --admin-danger-text: #b91c1c;
   --admin-success-surface: #f0fdf4;
   --admin-success-text: #166534;
+  --admin-success-border: #86efac;
+  --admin-success-action: #15803d;
+  --admin-success-action-hover: #166534;
   --admin-font-family: inherit;
+  --admin-spacing: 1rem;
+  --admin-radius: 0.75rem;
   --admin-density: 1;
 }
 
@@ -74,6 +110,11 @@
   --admin-text-secondary: #e7e5e4;
   --admin-text-muted: #d6d3d1;
   --admin-text-disabled: #a8a29e;
+  --admin-brand-text: color-mix(in srgb, var(--admin-brand-500) 35%, white);
+  --admin-overlay: #000000;
+  --admin-media-backdrop: #000000;
+  --admin-danger-action: #dc2626;
+  --admin-danger-action-hover: #b91c1c;
   --admin-warning-surface: #451a03;
   --admin-warning-border: #92400e;
   --admin-warning-text: #fde68a;
@@ -82,6 +123,9 @@
   --admin-danger-text: #fca5a5;
   --admin-success-surface: #052e16;
   --admin-success-text: #86efac;
+  --admin-success-border: #166534;
+  --admin-success-action: #16a34a;
+  --admin-success-action-hover: #15803d;
 }
 
 @keyframes admin-fade-in {
