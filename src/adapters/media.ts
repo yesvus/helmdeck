@@ -33,6 +33,7 @@ export type AdminMediaListQuery = {
   limit?: number;
   search?: string;
   kind?: AdminMediaKind;
+  kinds?: AdminMediaKind[];
   source?: AdminMediaSource;
 };
 
