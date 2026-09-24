@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "../cn.js";
+import { AdminContextualHelp } from "./contextual-help.js";
 
 export function AdminField({
   label,
@@ -29,7 +30,7 @@ export function AdminField({
       ) : (
         <span className="text-sm font-semibold leading-5 text-zinc-900">{label}</span>
       )}
-      {hint ? <span className="text-sm leading-5 text-zinc-500">{hint}</span> : null}
+      {hint ? <AdminContextualHelp label={`Help: ${label}`}>{hint}</AdminContextualHelp> : null}
       {children}
       {error ? <span className="text-sm leading-5 text-red-700" role="alert">{error}</span> : null}
     </Wrapper>
@@ -63,9 +64,7 @@ export function AdminFormSection({
         <span className="flex items-start justify-between gap-4">
           <span>
             <span className="block text-sm font-semibold text-zinc-900">{title}</span>
-            {description ? (
-              <span className="mt-1 block pr-6 text-xs leading-6 text-zinc-500">{description}</span>
-            ) : null}
+            {description ? <span className="mt-1 block"><AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp></span> : null}
           </span>
           <span
             className={cn(

@@ -12,6 +12,7 @@ export type {
   AdminSortableMessages,
 } from "./messages.js";
 export { AdminDestructiveAction } from "./destructive-action.js";
+export { AdminContextualHelp } from "./contextual-help.js";
 export { AdminEmptyState } from "./empty-state.js";
 export { AdminField, AdminFieldGrid, AdminFormActions, AdminFormSection } from "./field.js";
 export { AdminInput, AdminTextarea, adminInputClassName } from "./input.js";

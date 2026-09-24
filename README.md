@@ -147,6 +147,20 @@ The package does not choose a storage provider. Implement `AdminMediaAdapter` fo
 
 ## Development
 
+### Contextual help
+
+Use `AdminContextualHelp` to keep secondary explanations available without adding persistent copy to a page. The info button opens its tooltip on hover, keyboard focus, or touch activation. It exposes an accessible label and description, and Escape dismisses the open tooltip.
+
+```tsx
+import { AdminContextualHelp } from "@yesvus/helmdeck";
+
+<h2>Analytics <AdminContextualHelp label="About analytics">
+  Definitions for the workspace metrics.
+</AdminContextualHelp></h2>
+```
+
+Optional `hint`, `description`, `subtitle`, and stat `detail` content on the field and layout primitives use the same contextual pattern. Keep validation errors, warnings, and actionable status visible.
+
 - `pnpm install`
 - `pnpm dev` starts the fixture app.
 - `pnpm typecheck` checks the package and fixtures.
