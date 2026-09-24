@@ -15,20 +15,33 @@ import {
   type AdminMediaItem,
 } from "@yesvus/helmdeck";
 import { demoMediaAdapter, getDemoMediaItems } from "../../media";
-import { DemoPageBar, useDemoLocale } from "../../components/demo-i18n-provider";
+import { useDemoLocale } from "../../components/demo-i18n-provider";
 
 export default function MediaDemoPage() {
   const { copy } = useDemoLocale();
   const [items, setItems] = useState<AdminMediaItem[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedPath, setSelectedPath] = useState<string>();
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    void getDemoMediaItems().then(setItems);
-  }, []);
+    let active = true;
+    setLoading(true);
+    setLoadError(false);
+    void getDemoMediaItems().then((nextItems) => {
+      if (active) setItems(nextItems);
+    }).catch(() => {
+      if (active) setLoadError(true);
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [reloadKey]);
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-10 lg:px-8">
-      <DemoPageBar />
       <div>
         <p className="text-xs font-bold uppercase tracking-[.2em] text-brand-600">{copy.media.kicker}</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight">{copy.media.title}</h1>
@@ -58,16 +71,19 @@ export default function MediaDemoPage() {
       </div>
 
       <AdminSectionCard icon={ImagePlus} title={copy.media.library} description={copy.media.records(items.length)}>
+        <p className="mb-4 text-xs text-zinc-500">Sample assets: Unsplash photos, MDN Web Docs CC0 video, W3C PDF test file, and the Big Buck Bunny YouTube demo.</p>
+        {loading && <p role="status" className="mb-4 text-sm text-zinc-500">Loading media library…</p>}
+        {loadError && <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 text-sm text-red-700"><span>Media library could not be loaded.</span><Button size="sm" variant="outline" onClick={() => setReloadKey((value) => value + 1)}>Try again</Button></div>}
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {items.map((item) => {
+          {!loading && !loadError && items.map((item) => {
             const thumbnail = getAdminMediaThumbnailUrl(item);
             return (
-              <button key={item.path} type="button" className="overflow-hidden rounded-xl border border-zinc-200 bg-white text-left transition hover:border-brand-400 hover:shadow-lg">
+              <button key={item.path} type="button" aria-pressed={selectedPath === item.path} onClick={() => setSelectedPath(item.path)} className={`overflow-hidden rounded-xl border bg-white text-left transition hover:border-brand-400 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 ${selectedPath === item.path ? "border-brand-500 ring-2 ring-brand-200" : "border-zinc-200"}`}>
                 <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-zinc-100">
-                  {thumbnail ? (
+                  {thumbnail && item.kind === "image" ? (
                     <div role="img" aria-label={item.name} className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${thumbnail}")` }} />
                   ) : (
-                    <AdminMediaPlaceholder kind={isPdfMediaItem(item) ? "pdf" : "image"} label={item.name} />
+                    <AdminMediaPlaceholder kind={isPdfMediaItem(item) ? "pdf" : "image"} label={item.kind === "video" ? `${item.name} · video` : item.name} />
                   )}
                 </div>
                 <div className="p-3">
@@ -80,6 +96,8 @@ export default function MediaDemoPage() {
             );
           })}
         </div>
+        {!loading && !loadError && items.length === 0 && <p className="py-8 text-center text-sm text-zinc-500">No media has been added yet. Upload an asset to get started.</p>}
+        {selectedPath && <p role="status" className="mt-4 text-sm text-emerald-700">Media selected: {items.find((item) => item.path === selectedPath)?.name}</p>}
       </AdminSectionCard>
 
       <AdminMediaPicker
@@ -87,7 +105,11 @@ export default function MediaDemoPage() {
         allowExternal
         items={items}
         onClose={() => setPickerOpen(false)}
-        onSelect={() => setPickerOpen(false)}
+        onSelect={(item) => {
+          setItems((current) => current.some((existing) => existing.path === item.path) ? current : [item, ...current]);
+          setSelectedPath(item.path);
+          setPickerOpen(false);
+        }}
         open={pickerOpen}
         title={copy.media.chooseMedia}
       />

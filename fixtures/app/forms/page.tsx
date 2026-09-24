@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useState } from "react";
-import { DemoPageBar, useDemoLocale } from "../../components/demo-i18n-provider";
+import { useDemoLocale } from "../../components/demo-i18n-provider";
 import { Save, Settings2, ShieldCheck } from "lucide-react";
 import {
   AdminBanner,
@@ -35,7 +35,6 @@ export default function FormsPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 lg:px-8">
-      <DemoPageBar />
       <Suspense fallback={<div className="rounded-xl border border-zinc-200 bg-white p-8">{copy.forms.loading}</div>}>
         <AdminManagedForm
       action={save}

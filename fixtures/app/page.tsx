@@ -31,7 +31,7 @@ export default function HomePage() {
         <div className="flex items-center gap-3">
           <Link
             href="/shell"
-            className="hidden items-center gap-2 rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 sm:inline-flex"
+            className="hidden items-center gap-2 rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:inline-flex"
           >
             {copy.openDemo}
             <ArrowRight className="h-4 w-4" />
@@ -53,14 +53,14 @@ export default function HomePage() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               href="/shell"
-              className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-zinc-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
             >
               {copy.exploreShell}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
               href="https://github.com/yesvus/helmdeck"
-              className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-bold text-zinc-800 transition hover:border-zinc-400"
+              className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-5 py-3 text-sm font-bold text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
             >
               <Code2 className="h-4 w-4" />
               {copy.viewSource}
@@ -145,7 +145,7 @@ export default function HomePage() {
             <Link
               key={href}
               href={href}
-              className={`group rounded-2xl border p-6 transition hover:-translate-y-1 hover:border-teal-400 hover:shadow-xl ${index === 0 ? "bg-zinc-950 text-white" : "border-zinc-200 bg-white"}`}
+              className={`group rounded-2xl border p-6 transition hover:-translate-y-1 hover:border-teal-400 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 ${index === 0 ? "bg-zinc-950 text-white" : "border-zinc-200 bg-white"}`}
             >
               <div className="flex items-center justify-between">
                 <span className={`text-xs font-bold uppercase tracking-[.18em] ${index === 0 ? "text-teal-300" : "text-teal-700"}`}>Demo</span>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AdminLoginScreen } from "@yesvus/helmdeck";
-import { DemoPageBar, useDemoLocale } from "../../components/demo-i18n-provider";
+import { useDemoLocale } from "../../components/demo-i18n-provider";
 
 export default function LoginPage() {
   const { copy } = useDemoLocale();
@@ -11,7 +11,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <DemoPageBar />
       <AdminLoginScreen
       brandLabel="Demo"
       homeHref="/"

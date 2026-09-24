@@ -1,8 +1,9 @@
 "use client";
 
 import { FixtureCard } from "../../../../components/fixture-card";
-import { DemoLanguageSwitcher, useDemoLocale } from "../../../../components/demo-i18n-provider";
+import { useDemoLocale } from "../../../../components/demo-i18n-provider";
 import { useShellSettings } from "../../layout";
+import { useState } from "react";
 
 const accents = [
   { name: "Teal", value: "#048b8c" },
@@ -43,6 +44,7 @@ function ChoiceGroup({ label, options, active, onPick }: {
 export default function SiteSettingsPage() {
   const { role, setRole, accent, setAccent } = useShellSettings();
   const { copy } = useDemoLocale();
+  const [saved, setSaved] = useState(false);
   const settingsCopy = copy.shellSettings;
   return (
     <FixtureCard title={settingsCopy.title}>
@@ -55,10 +57,18 @@ export default function SiteSettingsPage() {
           onPick={setRole}
         />
         <ChoiceGroup label={settingsCopy.accent} options={accents} active={accent} onPick={setAccent} />
-        <fieldset>
-          <legend className="mb-2 text-sm font-semibold text-zinc-800">{settingsCopy.language}</legend>
-          <DemoLanguageSwitcher />
-        </fieldset>
+        <section className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+          <h2 className="font-semibold text-zinc-900">Workspace profile</h2>
+          <p className="mt-1 text-sm text-zinc-600">Northstar Supply · northstar.example</p>
+          <p className="mt-2 text-xs text-zinc-500">Your workspace is on the Studio plan. 4 of 10 team seats are active.</p>
+        </section>
+        <section className="rounded-lg border border-zinc-200 p-4">
+          <h2 className="font-semibold text-zinc-900">Account</h2>
+          <p className="mt-1 text-sm text-zinc-600">Alex Morgan · alex@northstar.example</p>
+          <p className="mt-2 text-xs text-zinc-500">Workspace administrator · Last active today</p>
+        </section>
+        <button type="button" onClick={() => setSaved(true)} className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2">Save preferences</button>
+        {saved && <p role="status" className="text-sm text-emerald-700">Workspace preferences saved for this demo.</p>}
       </div>
     </FixtureCard>
   );

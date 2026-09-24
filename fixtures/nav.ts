@@ -41,7 +41,7 @@ export const sampleSearchEntries = [
 ];
 
 export const sampleSession: AdminSession = {
-  email: "editor@demo.test",
-  name: "Demo Editor",
+  email: "alex@northstar.example",
+  name: "Alex Morgan",
   role: "editor",
 };
