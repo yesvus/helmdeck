@@ -6,16 +6,14 @@ import { AdminI18nProvider, AdminShell, type AdminNavGroup, type AdminSession } 
 export function AdminWorkspace({
   nav,
   session,
-  onLogout,
   children,
 }: {
   nav: AdminNavGroup[];
   session: AdminSession;
-  onLogout: () => Promise<void>;
   children: ReactNode;
 }) {
   return <AdminI18nProvider locale="en">
-    <AdminShell nav={nav} session={session} homeHref="/admin" brand={{ label: "Sample workspace", href: "/admin" }} onLogout={onLogout}>
+    <AdminShell nav={nav} session={session} homeHref="/admin" brand={{ label: "Sample workspace", href: "/admin" }}>
       {children}
     </AdminShell>
   </AdminI18nProvider>;
