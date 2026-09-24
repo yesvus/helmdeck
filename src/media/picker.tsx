@@ -322,7 +322,7 @@ export function AdminMediaPicker({
         </div>
         </AdminModalBody>
         <AdminModalFooter className="items-center justify-between border-t border-zinc-200 bg-admin-surface px-5 py-3 sm:px-7">
-          <p className="text-sm font-medium text-zinc-600" aria-live="polite">{filteredItems.length} {mergedLabels.results}{typeof total === "number" ? ` · ${total} total` : ""}</p>
+          <p className="text-sm font-medium text-zinc-600" aria-live="polite">{filteredItems.length} {mergedLabels.results}{typeof total === "number" ? ` · ${total} ${mergedLabels.total}` : ""}</p>
           {nextCursor && !loading ? <Button type="button" variant="outline" onClick={() => void loadItems(query, nextCursor)}>{mergedLabels.loadMore}</Button> : null}
         </AdminModalFooter>
       </AdminModalContent>

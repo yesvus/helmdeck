@@ -20,6 +20,7 @@ export type AdminMediaLabels = {
   loadError: string;
   retry: string;
   results: string;
+  total: string;
   select: string;
   replace: string;
   clear: string;
@@ -57,6 +58,7 @@ export const defaultAdminMediaLabels: AdminMediaLabels = {
   loadError: "Media could not be loaded.",
   retry: "Try again",
   results: "items",
+  total: "total",
   select: "Select media",
   replace: "Replace",
   clear: "Clear",

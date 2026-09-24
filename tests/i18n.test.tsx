@@ -27,6 +27,8 @@ describe("Helmdeck localization", () => {
     expect(turkishAdminMessages.locale).toBe("tr");
     expect(turkishAdminMessages.shell.searchLabel).toBe("Yönetim sayfalarında arayın");
     expect(turkishAdminMessages.media.browse).toBe("Dosya seçiniz");
+    expect(englishAdminMessages.media.total).toBe("total");
+    expect(turkishAdminMessages.media.total).toBe("toplam");
   });
 
   it("defaults to Turkish and resolves regional fallbacks", () => {

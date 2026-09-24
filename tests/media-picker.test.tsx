@@ -230,7 +230,8 @@ describe("AdminMediaPicker", () => {
   it("uses localized labels for upload dismissal and media navigation", async () => {
     const user = userEvent.setup();
     const second = { ...image, name: "Second photo", path: "media/second.webp", publicUrl: "/media/second.webp" };
-    render(<AdminI18nProvider locale="tr"><AdminMediaPicker adapter={{ list: vi.fn().mockResolvedValue({ items: [image, second] }), upload: vi.fn() }} items={[image, second]} onClose={vi.fn()} onSelect={vi.fn()} open title="Medya seçiniz" /></AdminI18nProvider>);
+    render(<AdminI18nProvider locale="tr"><AdminMediaPicker adapter={{ list: vi.fn().mockResolvedValue({ items: [image, second], total: 2 }), upload: vi.fn() }} items={[image, second]} onClose={vi.fn()} onSelect={vi.fn()} open title="Medya seçiniz" /></AdminI18nProvider>);
+    expect(await screen.findByText("2 medya · 2 toplam")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Yeni medya ekleyiniz" }));
     expect(screen.getByRole("button", { name: "Medya ekleme panelini kapatınız" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Medya ekleme panelini kapatınız" }));
