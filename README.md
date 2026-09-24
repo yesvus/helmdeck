@@ -50,6 +50,18 @@ Keep normal text/background combinations at WCAG AA contrast (4.5:1), and large 
 
 ## Quick start
 
+### Dialog layout
+
+`AdminModalContent` keeps its existing direct-child API and scrolls its content. For long forms, compose `AdminModalHeader`, `AdminModalBody`, and `AdminModalFooter` explicitly. The header and footer remain visible while the body scrolls, and footer actions stack on narrow screens. Set `preventClose` while a submission is pending to block Escape, outside-click, and close-button dismissal. Destructive confirmations use `AdminDestructiveAction` and remain separate from ordinary dialogs.
+
+```tsx
+<AdminModalContent preventClose={saving}>
+  <AdminModalHeader><AdminModalTitle>Edit record</AdminModalTitle></AdminModalHeader>
+  <AdminModalBody><form>Form fields</form></AdminModalBody>
+  <AdminModalFooter><button type="submit">Save</button></AdminModalFooter>
+</AdminModalContent>
+```
+
 ```tsx
 import {
   AdminI18nProvider,
