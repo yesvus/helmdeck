@@ -4,10 +4,11 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AdminNavGroup } from "../adapters";
-import { useAdminShell } from "./context";
-import type { AdminShellLabels } from "./labels";
-import { mergeAdminLabels } from "./labels";
+import type { AdminNavGroup } from "../adapters/index.js";
+import { useAdminShell } from "./context.js";
+import type { AdminShellLabels } from "./labels.js";
+import { mergeAdminLabels } from "./labels.js";
+import { useAdminMessages } from "../i18n.js";
 
 export type AdminSearchEntry = {
   href: string;
@@ -16,8 +17,8 @@ export type AdminSearchEntry = {
   terms?: string;
 };
 
-function normalize(value: string) {
-  return value.toLocaleLowerCase().normalize("NFKD");
+function normalize(value: string, locale: string) {
+  return value.toLocaleLowerCase(locale).normalize("NFKD");
 }
 
 export function AdminSearch({
@@ -26,18 +27,28 @@ export function AdminSearch({
   onExpand,
   entries,
   labels,
+  normalize: normalizeProp,
 }: {
   groups?: AdminNavGroup[];
   collapsed?: boolean;
   onExpand?: () => void;
   entries?: AdminSearchEntry[];
   labels?: Partial<AdminShellLabels>;
+  normalize?: (value: string) => string;
 }) {
   const shell = useAdminShell();
-  const mergedLabels = mergeAdminLabels({ ...shell?.labels, ...labels });
+  const i18n = useAdminMessages();
+  const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...shell?.labels, ...labels });
+  const normalizeText = useMemo(
+    () =>
+      normalizeProp ??
+      shell?.searchNormalize ??
+      ((value: string) => normalize(value, i18n.searchLocale)),
+    [i18n.searchLocale, normalizeProp, shell?.searchNormalize],
+  );
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  const normalized = normalize(query.trim());
+  const normalized = normalizeText(query.trim());
   const tokens = normalized.split(/\s+/).filter(Boolean);
 
   const results = useMemo(() => {
@@ -56,7 +67,7 @@ export function AdminSearch({
     const allEntries = [...(entries ?? shell?.searchEntries ?? []), ...navigationEntries];
     return allEntries
       .filter((entry) => {
-        const haystack = normalize(`${entry.label} ${entry.group ?? ""} ${entry.terms ?? ""}`);
+        const haystack = normalizeText(`${entry.label} ${entry.group ?? ""} ${entry.terms ?? ""}`);
         return tokens.every((token) => haystack.includes(token));
       })
       .filter(
@@ -66,7 +77,7 @@ export function AdminSearch({
           ) === index,
       )
       .slice(0, 12);
-  }, [entries, groups, shell, tokens]);
+  }, [entries, groups, normalizeText, shell, tokens]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { AdminLoginScreen } from "../../../src";
+import { AdminLoginScreen } from "@yesvus/helmdeck";
+import { DemoPageBar, useDemoLocale } from "../../components/demo-i18n-provider";
 
 export default function LoginPage() {
+  const { copy } = useDemoLocale();
   const [message, setMessage] = useState<string>();
   const [errorMessage, setErrorMessage] = useState<string>();
 
   return (
-    <AdminLoginScreen
+    <>
+      <DemoPageBar />
+      <AdminLoginScreen
       brandLabel="Demo"
       homeHref="/"
       message={message}
@@ -18,15 +22,16 @@ export default function LoginPage() {
         setErrorMessage(undefined);
         await new Promise((resolve) => setTimeout(resolve, 400));
         if (password.length < 4) {
-          setErrorMessage("Password must be at least 4 characters.");
+          setErrorMessage(copy.login.passwordError);
           return;
         }
-        setMessage(`Signed in as ${email} (fixture only, no auth runs here).`);
+        setMessage(copy.login.signedIn(email));
       }}
     >
       <div className="rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-center text-xs text-zinc-500">
-        Extra slot: a host app can drop a one-click dev login here.
+        {copy.login.extraSlot}
       </div>
-    </AdminLoginScreen>
+      </AdminLoginScreen>
+    </>
   );
 }

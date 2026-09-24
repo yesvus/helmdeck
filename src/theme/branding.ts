@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { CSSProperties } from "react";
-import { darkenHex, lightenHex, normalizeHex } from "./color";
+import { darkenHex, lightenHex, normalizeHex } from "./color.js";
 
 export function useAdminBranding(accent?: string): CSSProperties {
   if (!accent) {

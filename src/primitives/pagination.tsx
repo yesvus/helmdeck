@@ -2,23 +2,12 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
-import { Button } from "./button";
-
-export type AdminPaginationLabels = {
-  nav: string;
-  previous: string;
-  next: string;
-  page: (page: number) => string;
-  more: string;
-};
-
-export const defaultPaginationLabels: AdminPaginationLabels = {
-  nav: "Pagination",
-  previous: "Previous",
-  next: "Next",
-  page: (page) => `Page ${page}`,
-  more: "More pages",
-};
+import { Button } from "./button.js";
+import {
+  defaultPaginationLabels,
+  type AdminPaginationLabels,
+} from "./messages.js";
+import { useAdminMessages } from "../i18n.js";
 
 function pageWindow(page: number, pageCount: number): Array<number | "ellipsis"> {
   if (pageCount <= 7) {
@@ -51,7 +40,8 @@ export function AdminPagination({
   labels?: Partial<AdminPaginationLabels>;
   className?: string;
 }) {
-  const merged = { ...defaultPaginationLabels, ...labels };
+  const i18n = useAdminMessages();
+  const merged = { ...defaultPaginationLabels, ...i18n.pagination, ...labels };
 
   if (pageCount <= 1) {
     return null;

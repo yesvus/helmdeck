@@ -4,7 +4,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
-import { cn } from "../cn";
+import { cn } from "../cn.js";
 
 export function AdminField({
   label,

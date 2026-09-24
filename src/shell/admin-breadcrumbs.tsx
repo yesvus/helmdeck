@@ -3,11 +3,12 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import type { AdminNavGroup } from "../adapters";
-import { useAdminShell } from "./context";
-import type { AdminShellLabels } from "./labels";
-import { mergeAdminLabels } from "./labels";
-import { useBreadcrumbs } from "./use-breadcrumbs";
+import type { AdminNavGroup } from "../adapters/index.js";
+import { useAdminShell } from "./context.js";
+import type { AdminShellLabels } from "./labels.js";
+import { mergeAdminLabels } from "./labels.js";
+import { useBreadcrumbs } from "./use-breadcrumbs.js";
+import { useAdminMessages } from "../i18n.js";
 
 function prettifySegment(segment: string) {
   const words = segment.replace(/[-_]/g, " ").trim();
@@ -26,14 +27,15 @@ export function AdminBreadcrumbs({
   resolveSegmentLabel?: (segment: string, labels: AdminShellLabels) => string;
 }) {
   const shell = useAdminShell();
-  const mergedLabels = mergeAdminLabels({ ...shell?.labels, ...labels });
+  const i18n = useAdminMessages();
+  const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...shell?.labels, ...labels });
   const trail = useBreadcrumbs(groups, pathname);
 
   if (!trail || trail.remainder.length === 0) {
     return null;
   }
 
-  const resolve = resolveSegmentLabel ?? defaultResolve;
+  const resolve = resolveSegmentLabel ?? shell?.resolveBreadcrumbSegment ?? defaultResolve;
 
   return (
     <nav aria-label={mergedLabels.breadcrumbLabel} className="flex items-center gap-1.5 text-xs text-zinc-500">

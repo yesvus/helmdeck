@@ -4,7 +4,8 @@
 import type { ComponentProps } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import { cn } from "../cn";
+import { cn } from "../cn.js";
+import { useAdminMessages } from "../i18n.js";
 
 export const AdminModal = DialogPrimitive.Root;
 export const AdminModalTrigger = DialogPrimitive.Trigger;
@@ -16,12 +17,13 @@ export function AdminModalContent({
   className,
   children,
   showCloseButton = true,
-  closeLabel = "Close",
+  closeLabel,
   ...props
 }: ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
   closeLabel?: string;
 }) {
+  const i18n = useAdminMessages();
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-sm data-[state=open]:animate-[admin-fade-in_150ms_ease-out]" />
@@ -35,7 +37,7 @@ export function AdminModalContent({
         {children}
         {showCloseButton ? (
           <DialogPrimitive.Close
-            aria-label={closeLabel}
+            aria-label={closeLabel ?? i18n.common.close}
             className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
           >
             <X className="h-4 w-4" />

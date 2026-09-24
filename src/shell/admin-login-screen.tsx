@@ -4,17 +4,16 @@
 import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
-import type { AdminShellLabels } from "./labels";
-import { mergeAdminLabels } from "./labels";
-
-export type AdminLoginCredentials = {
-  email: string;
-  password: string;
-};
+import type { AdminLoginCredentials } from "../adapters/index.js";
+import type { AdminShellLabels } from "./labels.js";
+import { mergeAdminLabels } from "./labels.js";
+import { useAdminMessages } from "../i18n.js";
 
 export function AdminLoginScreen({
   logo,
   brandLabel,
+  defaultEmail,
+  defaultPassword,
   homeHref = "/",
   message,
   errorMessage,
@@ -25,6 +24,8 @@ export function AdminLoginScreen({
 }: {
   logo?: ReactNode;
   brandLabel?: string;
+  defaultEmail?: string;
+  defaultPassword?: string;
   homeHref?: string;
   message?: string;
   errorMessage?: string;
@@ -33,7 +34,8 @@ export function AdminLoginScreen({
   children?: ReactNode;
   labels?: Partial<AdminShellLabels>;
 }) {
-  const mergedLabels = mergeAdminLabels(labels);
+  const i18n = useAdminMessages();
+  const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...labels });
   const [pending, setPending] = useState(false);
   const busyState = busy || pending;
 
@@ -91,6 +93,7 @@ export function AdminLoginScreen({
                 name="email"
                 type="email"
                 autoComplete="username"
+                defaultValue={defaultEmail}
                 required
                 disabled={busyState}
                 className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
@@ -104,6 +107,7 @@ export function AdminLoginScreen({
                 name="password"
                 type="password"
                 autoComplete="current-password"
+                defaultValue={defaultPassword}
                 required
                 disabled={busyState}
                 className="mt-1.5 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500"

@@ -1,9 +1,8 @@
-# docs
+# Documentation
 
-Extended planning for the admin shell package. Source of truth for scope
-remains [plan.md](../plan.md).
+The extraction scope and release gates are documented in [plan.md](../plan.md).
 
-- [naming](naming.md) - creative name candidates, all verified 404 on npm.
-- [roadmap](roadmap.md) - phases, milestones, per-app adoption.
-- [decisions](decisions.md) - open decisions carried over from plan.md.
-- [checklists](checklists/) - actionable per-phase checklists.
+- [roadmap](roadmap.md) describes the package phases and current delivery path.
+- [decisions](decisions.md) records package and API decisions.
+- [naming](naming.md) records the package naming decision.
+- [checklists](checklists/) contains the phase checklists.

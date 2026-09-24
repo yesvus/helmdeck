@@ -2,10 +2,10 @@
 "use client";
 
 import { MoreHorizontal } from "lucide-react";
-import type { AdminNavGroup } from "../adapters";
-import { AdminNavLink } from "./admin-nav";
-import { useAdminShell } from "./context";
-import { mergeAdminLabels } from "./labels";
+import type { AdminNavGroup } from "../adapters/index.js";
+import { AdminNavLink } from "./admin-nav.js";
+import { useAdminShell } from "./context.js";
+import { mergeAdminLabels } from "./labels.js";
 
 export function AdminMobileNav({ groups }: { groups?: AdminNavGroup[] }) {
   const shell = useAdminShell();

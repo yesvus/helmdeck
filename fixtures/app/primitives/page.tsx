@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Info, Trash2 } from "lucide-react";
 import {
   AdminContentSkeleton,
@@ -35,37 +35,38 @@ import {
   useAdminSortableList,
   type AdminStatusTone,
   type AdminToastTone,
-} from "../../../src";
+} from "@yesvus/helmdeck";
 import { Frame } from "../../components/frame";
+import { DemoPageBar, useDemoLocale } from "../../components/demo-i18n-provider";
 
 type Row = { id: number; name: string; tone: AdminStatusTone; status: string; count: number };
-
-const rows: Row[] = [
-  { id: 1, name: "Café machine", tone: "success", status: "Published", count: 12 },
-  { id: 2, name: "Grinder", tone: "warning", status: "Draft", count: 4 },
-  { id: 3, name: "Water filter", tone: "neutral", status: "Archived", count: 0 },
-];
-
-type Toast = { id: number; tone: AdminToastTone; title: string; body: string; icon: React.ReactNode };
-
-const toastSamples: Array<Pick<Toast, "tone" | "title" | "body" | "icon">> = [
-  { tone: "success", title: "Saved", body: "Your changes are live.", icon: <CheckCircle2 className="h-5 w-5" /> },
-  { tone: "info", title: "Heads up", body: "A publish is queued for review.", icon: <Info className="h-5 w-5" /> },
-  { tone: "error", title: "Upload failed", body: "The file exceeded 10 MB.", icon: <AlertCircle className="h-5 w-5" /> },
-];
+type Toast = { id: number; tone: AdminToastTone; title: string; body: string; icon: ReactNode };
 
 export default function PrimitivesPage() {
+  const { copy } = useDemoLocale();
+  const text = copy.primitives;
   const [page, setPage] = useState(3);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [items, setItems] = useState(["Hero slide", "Feature grid", "Showcase", "FAQ"]);
+  const [items, setItems] = useState<string[]>(() => [...text.sortableItems]);
   const [result, setResult] = useState<string>();
+
+  const rows: Row[] = [
+    { id: 1, name: "Café machine", tone: "success", status: text.published, count: 12 },
+    { id: 2, name: "Grinder", tone: "warning", status: text.draft, count: 4 },
+    { id: 3, name: "Water filter", tone: "neutral", status: text.archived, count: 0 },
+  ];
+  const toastSamples: Array<Pick<Toast, "tone" | "title" | "body" | "icon">> = [
+    { tone: "success", title: text.saved, body: text.savedBody, icon: <CheckCircle2 className="h-5 w-5" /> },
+    { tone: "info", title: text.headsUp, body: text.publishQueued, icon: <Info className="h-5 w-5" /> },
+    { tone: "error", title: text.uploadFailed, body: text.uploadFailedBody, icon: <AlertCircle className="h-5 w-5" /> },
+  ];
 
   const sortable = useAdminSortableList({
     items,
     getId: (item) => item,
     onReorder: async (orderedIds) => {
       setItems(orderedIds);
-      return { success: true, message: `Saved order: ${orderedIds.join(", ")}` };
+      return { success: true, message: text.savedOrder(orderedIds) };
     },
   });
 
@@ -76,69 +77,70 @@ export default function PrimitivesPage() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 px-4 py-10">
-      <h1 className="text-2xl font-bold">Primitives</h1>
+      <DemoPageBar />
+      <h1 className="text-2xl font-bold">{text.title}</h1>
 
-      <Frame title="Button">
+      <Frame title={text.button}>
         <div className="flex flex-wrap gap-2">
-          <Button>Primary</Button>
-          <Button variant="destructive">Delete</Button>
-          <Button variant="outline">Outline</Button>
-          <Button variant="secondary">Secondary</Button>
-          <Button variant="ghost">Ghost</Button>
-          <Button variant="link">Link</Button>
-          <Button variant="white">White</Button>
-          <Button size="sm">Small</Button>
-          <Button size="lg">Large</Button>
+          <Button>{text.primary}</Button>
+          <Button variant="destructive">{text.delete}</Button>
+          <Button variant="outline">{text.outline}</Button>
+          <Button variant="secondary">{text.secondary}</Button>
+          <Button variant="ghost">{text.ghost}</Button>
+          <Button variant="link">{text.link}</Button>
+          <Button variant="white">{text.white}</Button>
+          <Button size="sm">{text.small}</Button>
+          <Button size="lg">{text.large}</Button>
         </div>
       </Frame>
 
-      <Frame title="Field, input, select, submit">
+      <Frame title={text.fieldTitle}>
         <form
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            setResult("Submitted (fixture only, nothing runs).");
+            setResult(text.submitted);
           }}
         >
-          <AdminFormSection title="Details" description="Collapsible section wrapper.">
+          <AdminFormSection title={text.details} description={text.detailsBody}>
             <AdminFieldGrid>
-              <AdminField label="Name" hint="Shown in listings.">
-                <AdminInput name="name" required placeholder="Machine name" />
+              <AdminField label={text.name} hint={text.nameHint}>
+                <AdminInput name="name" required placeholder={text.machineName} />
               </AdminField>
-              <AdminField label="Status">
+              <AdminField label={text.status}>
                 <AdminSelect name="status" defaultValue="draft">
-                  <option value="draft">Draft</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
+                  <option value="draft">{text.draft}</option>
+                  <option value="published">{text.published}</option>
+                  <option value="archived">{text.archived}</option>
                 </AdminSelect>
               </AdminField>
             </AdminFieldGrid>
           </AdminFormSection>
           <AdminFormActions>
-            <AdminSubmitButton label="Save" icon={<Trash2 className="h-4 w-4" />} />
-            <Button variant="ghost">Cancel</Button>
+            <AdminSubmitButton label={text.save} icon={<Trash2 className="h-4 w-4" />} />
+            <Button variant="ghost">{text.cancel}</Button>
           </AdminFormActions>
           {result ? <p className="text-sm text-zinc-500">{result}</p> : null}
         </form>
       </Frame>
 
-      <Frame title="Status pills">
+      <Frame title={text.statusPills}>
         <div className="flex flex-wrap gap-2">
-          <AdminStatusPill tone="success" label="Published" />
-          <AdminStatusPill tone="warning" label="Draft" />
-          <AdminStatusPill tone="error" label="Failed" />
-          <AdminStatusPill tone="info" label="Queued" />
-          <AdminStatusPill label="Archived" />
+          <AdminStatusPill tone="success" label={text.published} />
+          <AdminStatusPill tone="warning" label={text.draft} />
+          <AdminStatusPill tone="error" label={text.failed} />
+          <AdminStatusPill tone="info" label={text.queued} />
+          <AdminStatusPill label={text.archived} />
         </div>
       </Frame>
 
-      <Frame title="Table and pagination">
+      <Frame title={text.table}>
         <AdminTable
-          caption="Sample rows"
+          caption={text.sampleRows}
           columns={[
-            { key: "name", header: "Name", cell: (row) => <span className="font-medium">{row.name}</span> },
-            { key: "status", header: "Status", cell: (row) => <AdminStatusPill tone={row.tone} label={row.status} /> },
-            { key: "count", header: "Items", align: "right", cell: (row) => row.count },
+            { key: "name", header: text.name, cell: (row) => <span className="font-medium">{row.name}</span> },
+            { key: "status", header: text.status, cell: (row) => <AdminStatusPill tone={row.tone} label={row.status} /> },
+            { key: "count", header: text.items, align: "right", cell: (row) => row.count },
           ]}
           rows={rows}
           getKey={(row) => row.id}
@@ -148,22 +150,22 @@ export default function PrimitivesPage() {
         </div>
       </Frame>
 
-      <Frame title="Empty state">
+      <Frame title={text.empty}>
         <AdminEmptyState
-          title="No products yet"
-          body="Create your first product to see it here."
-          action={<Button size="sm">New product</Button>}
+          title={text.noProducts}
+          body={text.noProductsBody}
+          action={<Button size="sm">{text.newProduct}</Button>}
         />
       </Frame>
 
-      <Frame title="Skeletons">
+      <Frame title={text.skeletons}>
         <AdminSkeleton className="h-4 w-40" />
         <div className="mt-3">
           <AdminContentSkeleton />
         </div>
       </Frame>
 
-      <Frame title="Toast">
+      <Frame title={text.toast}>
         <div className="flex flex-wrap gap-2">
           {toastSamples.map((sample) => (
             <Button key={sample.title} size="sm" variant="outline" onClick={() => pushToast(sample)}>
@@ -185,44 +187,44 @@ export default function PrimitivesPage() {
         </AdminToastViewport>
       </Frame>
 
-      <Frame title="Modal">
+      <Frame title={text.modal}>
         <AdminModal>
           <AdminModalTrigger asChild>
-            <Button variant="outline">Open modal</Button>
+            <Button variant="outline">{text.openModal}</Button>
           </AdminModalTrigger>
           <AdminModalContent>
             <AdminModalHeader>
-              <AdminModalTitle>Edit details</AdminModalTitle>
-              <AdminModalDescription>Radix handles focus, escape and scroll lock.</AdminModalDescription>
+              <AdminModalTitle>{text.editDetails}</AdminModalTitle>
+              <AdminModalDescription>{text.modalBody}</AdminModalDescription>
             </AdminModalHeader>
             <div className="space-y-3">
-              <AdminField label="Title">
-                <AdminInput defaultValue="Hero slide" />
+              <AdminField label={text.titleField}>
+                <AdminInput defaultValue={text.heroSlide} />
               </AdminField>
             </div>
             <AdminModalFooter>
               <AdminModalClose asChild>
-                <Button variant="secondary">Cancel</Button>
+                <Button variant="secondary">{text.cancel}</Button>
               </AdminModalClose>
-              <Button>Save</Button>
+              <Button>{text.save}</Button>
             </AdminModalFooter>
           </AdminModalContent>
         </AdminModal>
       </Frame>
 
-      <Frame title="Destructive action">
+      <Frame title={text.destructive}>
         <AdminDestructiveAction
-          buttonText="Delete product"
-          title="Delete this product?"
-          description="Stock, media and history for this product are removed."
-          confirmLabel="Yes, delete"
+          buttonText={text.deleteProduct}
+          title={text.deleteProductTitle}
+          description={text.deleteProductBody}
+          confirmLabel={text.delete}
           onConfirm={() =>
-            pushToast({ ...toastSamples[0], title: "Deleted", body: "Fixture only, nothing was removed." })
+            pushToast({ tone: "success", title: text.deleted, body: text.deletedBody, icon: <CheckCircle2 className="h-5 w-5" /> })
           }
         />
       </Frame>
 
-      <Frame title="Sortable list (drag the handle, or focus it and use arrow keys)">
+      <Frame title={text.sortable}>
         <AdminSortableDndContext
           ids={sortable.ids}
           sensors={sortable.sensors}
@@ -236,7 +238,7 @@ export default function PrimitivesPage() {
                 id={item}
                 className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2"
               >
-                <AdminDragHandle label={`Reorder ${item}`} />
+                <AdminDragHandle label={text.reorder(item)} />
                 <span className="min-w-0 flex-1 truncate text-sm text-zinc-700">{item}</span>
               </AdminSortableCard>
             ))}

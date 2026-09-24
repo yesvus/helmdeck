@@ -3,7 +3,8 @@
 
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
-import { cn } from "../cn";
+import { cn } from "../cn.js";
+import { useAdminMessages } from "../i18n.js";
 
 export type AdminToastTone = "success" | "info" | "error";
 
@@ -21,7 +22,7 @@ export function AdminToastCard({
   body,
   icon,
   onClose,
-  closeLabel = "Dismiss notification",
+  closeLabel,
 }: {
   tone: AdminToastTone;
   title: string;
@@ -30,6 +31,7 @@ export function AdminToastCard({
   onClose: () => void;
   closeLabel?: string;
 }) {
+  const i18n = useAdminMessages();
   return (
     <div
       role="status"
@@ -63,7 +65,7 @@ export function AdminToastCard({
           type="button"
           onClick={onClose}
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
-          aria-label={closeLabel}
+          aria-label={closeLabel ?? i18n.common.dismiss}
         >
           <X className="h-4 w-4" />
         </button>

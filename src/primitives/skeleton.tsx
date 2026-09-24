@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { HTMLAttributes } from "react";
-import { cn } from "../cn";
+import { cn } from "../cn.js";
 
 export function AdminSkeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("animate-pulse rounded-md bg-zinc-200/80", className)} {...props} />;

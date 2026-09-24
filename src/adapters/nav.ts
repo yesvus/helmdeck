@@ -53,12 +53,18 @@ export type AdminNavGroup = {
   items: AdminNavItem[];
 };
 
+export function getAdminHrefPathname(href: string) {
+  return href.split(/[?#]/, 1)[0] || href;
+}
+
 export function isActiveHref(pathname: string, href: string): boolean {
-  if (pathname === href) {
+  const path = getAdminHrefPathname(pathname);
+  const hrefPath = getAdminHrefPathname(href);
+  if (path === hrefPath) {
     return true;
   }
-  const prefix = href.endsWith("/") ? href : `${href}/`;
-  return pathname.startsWith(prefix);
+  const prefix = hrefPath.endsWith("/") ? hrefPath : `${hrefPath}/`;
+  return path.startsWith(prefix);
 }
 
 export function isNavItemVisible(item: AdminNavItem, role?: string): boolean {
@@ -84,5 +90,5 @@ export function flattenNavItems(groups: AdminNavGroup[]): AdminNavItem[] {
 export function findNavItemAt(groups: AdminNavGroup[], pathname: string): AdminNavItem | undefined {
   return flattenNavItems(groups)
     .filter((item) => isActiveHref(pathname, item.href))
-    .sort((a, b) => b.href.length - a.href.length)[0];
+    .sort((a, b) => getAdminHrefPathname(b.href).length - getAdminHrefPathname(a.href).length)[0];
 }

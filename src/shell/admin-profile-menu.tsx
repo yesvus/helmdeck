@@ -4,10 +4,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, LogOut, User } from "lucide-react";
-import { cn } from "../cn";
-import { useAdminShell } from "./context";
-import type { AdminShellLabels } from "./labels";
-import { mergeAdminLabels } from "./labels";
+import { cn } from "../cn.js";
+import { useAdminShell } from "./context.js";
+import type { AdminShellLabels } from "./labels.js";
+import { mergeAdminLabels } from "./labels.js";
 
 export function AdminProfileMenu({
   email,
@@ -21,7 +21,7 @@ export function AdminProfileMenu({
   compact?: boolean;
   profileHref?: string;
   viewSiteHref?: string | null;
-  onLogout?: () => void;
+  onLogout?: () => void | Promise<void>;
   labels?: Partial<AdminShellLabels>;
 }) {
   const shell = useAdminShell();
@@ -102,7 +102,7 @@ export function AdminProfileMenu({
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  resolvedOnLogout();
+                  void resolvedOnLogout();
                 }}
                 className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 hover:bg-red-50"
               >

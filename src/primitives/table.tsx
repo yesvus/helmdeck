@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
+"use client";
+
 import type { ReactNode } from "react";
-import { cn } from "../cn";
+import { cn } from "../cn.js";
+import { useAdminMessages } from "../i18n.js";
 
 export type AdminTableColumn<T> = {
   key: string;
@@ -17,7 +20,7 @@ export function AdminTable<T>({
   rows,
   getKey,
   caption,
-  empty = "No results.",
+  empty,
   rowClassName,
   className,
 }: {
@@ -29,6 +32,7 @@ export function AdminTable<T>({
   rowClassName?: (row: T) => string;
   className?: string;
 }) {
+  const i18n = useAdminMessages();
   return (
     <div className={cn("overflow-x-auto rounded-xl border border-zinc-200 bg-white", className)}>
       <table className="w-full min-w-[36rem] border-collapse text-sm">
@@ -55,7 +59,7 @@ export function AdminTable<T>({
           {rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="px-5 py-10 text-center text-sm text-zinc-500">
-                {empty}
+                {empty ?? i18n.common.tableEmpty}
               </td>
             </tr>
           ) : (

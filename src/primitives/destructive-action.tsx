@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { cn } from "../cn";
-import { Button, type ButtonVariant } from "./button";
+import { cn } from "../cn.js";
+import { Button, type ButtonVariant } from "./button.js";
+import { useAdminMessages } from "../i18n.js";
 import {
   AdminModal,
   AdminModalClose,
@@ -14,7 +15,7 @@ import {
   AdminModalFooter,
   AdminModalHeader,
   AdminModalTitle,
-} from "./modal";
+} from "./modal.js";
 
 function ConfirmSubmitButton({
   label,
@@ -43,16 +44,17 @@ function ConfirmSubmitButton({
 
 export function AdminDestructiveAction({
   buttonText,
-  title = "Delete this item?",
-  description = "This cannot be undone.",
-  confirmLabel = "Yes, delete",
-  cancelLabel = "Cancel",
-  busyLabel = "Working...",
+  title,
+  description,
+  confirmLabel,
+  cancelLabel,
+  busyLabel,
   action,
   hiddenFields,
   onConfirm,
   triggerVariant = "destructive",
   triggerClassName,
+  buttonClassName,
   icon = <AlertTriangle className="h-5 w-5" />,
 }: {
   buttonText: string;
@@ -66,11 +68,29 @@ export function AdminDestructiveAction({
   onConfirm?: () => void | Promise<void>;
   triggerVariant?: ButtonVariant;
   triggerClassName?: string;
+  buttonClassName?: string;
   icon?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const dialogId = useId();
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const { pending: formPending } = useFormStatus();
+  const i18n = useAdminMessages();
+  const resolvedLabels = {
+    title: title ?? i18n.destructive.title,
+    description: description ?? i18n.destructive.description,
+    confirmLabel: confirmLabel ?? i18n.destructive.confirmLabel,
+    cancelLabel: cancelLabel ?? i18n.destructive.cancelLabel,
+    busyLabel: busyLabel ?? i18n.destructive.busyLabel,
+  };
   const hasFormAction = action !== undefined;
+
+  useEffect(() => {
+    if (!formPending) {
+      setBusy(false);
+    }
+  }, [formPending]);
 
   const wrappedAction =
     typeof action === "function"
@@ -84,9 +104,15 @@ export function AdminDestructiveAction({
       : action;
 
   async function handleConfirm() {
+    if (!onConfirm) {
+      setBusy(true);
+      submitButtonRef.current?.click();
+      return;
+    }
+
     setBusy(true);
     try {
-      await onConfirm?.();
+      await onConfirm();
       setOpen(false);
     } finally {
       setBusy(false);
@@ -97,25 +123,45 @@ export function AdminDestructiveAction({
     <>
       <Button
         variant={triggerVariant}
-        className={triggerClassName}
+        className={cn(triggerClassName, buttonClassName)}
         onClick={() => setOpen(true)}
+        aria-controls={dialogId}
+        aria-expanded={open}
         aria-haspopup="dialog"
       >
         {buttonText}
       </Button>
 
+      {!hasFormAction ? (
+        <>
+          {hiddenFields
+            ? Object.entries(hiddenFields).map(([name, value]) =>
+                value === undefined ? null : <input key={name} type="hidden" name={name} value={value} />,
+              )
+            : null}
+          <button
+            ref={submitButtonRef}
+            type="submit"
+            className="hidden"
+            formNoValidate
+            aria-hidden="true"
+            tabIndex={-1}
+          />
+        </>
+      ) : null}
+
       <AdminModal open={open} onOpenChange={setOpen}>
-        <AdminModalContent closeLabel={cancelLabel}>
+        <AdminModalContent id={dialogId} closeLabel={resolvedLabels.cancelLabel}>
           <AdminModalHeader className="flex-row items-start gap-4">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-600">
               {icon}
             </span>
             <div className="min-w-0 flex-1 space-y-2">
               <AdminModalTitle className="text-lg font-semibold text-zinc-900">
-                {title}
+                {resolvedLabels.title}
               </AdminModalTitle>
               <AdminModalDescription className="text-sm leading-relaxed text-zinc-600">
-                {description}
+                {resolvedLabels.description}
               </AdminModalDescription>
             </div>
           </AdminModalHeader>
@@ -123,7 +169,7 @@ export function AdminDestructiveAction({
           <AdminModalFooter>
             <AdminModalClose asChild>
               <Button variant="secondary" disabled={busy}>
-                {cancelLabel}
+                {resolvedLabels.cancelLabel}
               </Button>
             </AdminModalClose>
             {hasFormAction ? (
@@ -135,7 +181,7 @@ export function AdminDestructiveAction({
                       ),
                     )
                   : null}
-                <ConfirmSubmitButton label={confirmLabel} busyLabel={busyLabel} />
+                <ConfirmSubmitButton label={resolvedLabels.confirmLabel} busyLabel={resolvedLabels.busyLabel} />
               </form>
             ) : (
               <Button
@@ -147,10 +193,10 @@ export function AdminDestructiveAction({
                 {busy ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {busyLabel}
+                    {resolvedLabels.busyLabel}
                   </>
                 ) : (
-                  confirmLabel
+                  resolvedLabels.confirmLabel
                 )}
               </Button>
             )}

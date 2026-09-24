@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { cn } from "../cn";
+import { cn } from "../cn.js";
 
 export type ButtonVariant =
   | "default"
   | "destructive"
+  | "success"
   | "outline"
   | "secondary"
   | "ghost"
@@ -20,6 +21,7 @@ const baseClassName =
 const variantClassName: Record<ButtonVariant, string> = {
   default: "bg-brand-500 text-white hover:bg-brand-600",
   destructive: "bg-red-500 text-white hover:bg-red-600",
+  success: "bg-emerald-600 text-white hover:bg-emerald-500",
   outline: "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900",
   secondary: "bg-zinc-100 text-zinc-900 hover:bg-zinc-200",
   ghost: "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
