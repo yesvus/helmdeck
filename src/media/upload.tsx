@@ -45,10 +45,11 @@ export function AdminMediaUpload({
   const [externalUrl, setExternalUrl] = useState("");
   const [externalName, setExternalName] = useState("");
   const [savingExternal, setSavingExternal] = useState(false);
+  const [pending, setPending] = useState(false);
   const i18n = useAdminMessages();
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
   const canExternal = allowExternal && Boolean(adapter.addExternal);
-  const busy = pendingRef.current;
+  const busy = pending;
 
   function selectFile(nextFile: File | null) {
     setFile(nextFile);
@@ -91,6 +92,7 @@ export function AdminMediaUpload({
   async function upload() {
     if (!file || pendingRef.current) return;
     pendingRef.current = true;
+    setPending(true);
     setError("");
     setProgress(1);
     setUploaded(false);
@@ -105,12 +107,14 @@ export function AdminMediaUpload({
       setError(mergedLabels.uploadError);
     } finally {
       pendingRef.current = false;
+      setPending(false);
     }
   }
 
   async function addExternal() {
     if (!adapter.addExternal || !externalUrl.trim() || pendingRef.current) return;
     pendingRef.current = true;
+    setPending(true);
     setSavingExternal(true);
     setError("");
     try {
@@ -125,6 +129,7 @@ export function AdminMediaUpload({
       setError(mergedLabels.uploadError);
     } finally {
       pendingRef.current = false;
+      setPending(false);
       setSavingExternal(false);
     }
   }

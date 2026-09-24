@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
@@ -36,8 +36,14 @@ describe("AdminMediaUpload", () => {
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(["image"], "photo.png", { type: "image/png" });
     await user.upload(input, file);
-    await user.click(screen.getByRole("button", { name: "Upload file" }));
+    const uploadButton = screen.getByRole("button", { name: "Upload file" });
+    act(() => {
+      fireEvent.click(uploadButton);
+      fireEvent.click(uploadButton);
+    });
+    expect(upload).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Uploading" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Drop a file here/ })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     finish({ name: "photo.png", path: "photo.png", publicUrl: "/photo.png", source: "uploaded", kind: "image" });
     expect(await screen.findByText("Upload complete")).toBeInTheDocument();

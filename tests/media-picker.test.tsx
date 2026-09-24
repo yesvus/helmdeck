@@ -217,6 +217,19 @@ describe("AdminMediaPicker", () => {
     expect(onSelect).toHaveBeenLastCalledWith(second);
   });
 
+  it("uses localized labels for upload dismissal and media navigation", async () => {
+    const user = userEvent.setup();
+    const second = { ...image, name: "Second photo", path: "media/second.webp", publicUrl: "/media/second.webp" };
+    render(<AdminI18nProvider locale="tr"><AdminMediaPicker adapter={{ list: vi.fn().mockResolvedValue({ items: [image, second] }), upload: vi.fn() }} items={[image, second]} onClose={vi.fn()} onSelect={vi.fn()} open title="Medya seçiniz" /></AdminI18nProvider>);
+    await user.click(await screen.findByRole("button", { name: "Yeni medya ekleyiniz" }));
+    expect(screen.getByRole("button", { name: "Medya ekleme panelini kapatınız" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Medya ekleme panelini kapatınız" }));
+    await user.click(screen.getByRole("button", { name: /Product photo/ }));
+    expect(screen.getByRole("button", { name: "Önceki medya" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Sonraki medya" }));
+    expect(screen.getByRole("button", { name: /Second photo/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("clears the selected state when reopened", async () => {
     const user = userEvent.setup();
     const props = {

@@ -6,6 +6,9 @@ export type AdminMediaLabels = {
   sortLabel: string;
   upload: string;
   hideUpload: string;
+  closeUpload: string;
+  previousMedia: string;
+  nextMedia: string;
   file: string;
   external: string;
   externalUrl: string;
@@ -40,6 +43,9 @@ export const defaultAdminMediaLabels: AdminMediaLabels = {
   sortLabel: "Sort media",
   upload: "Upload",
   hideUpload: "Hide upload",
+  closeUpload: "Close upload panel",
+  previousMedia: "Previous media",
+  nextMedia: "Next media",
   file: "File",
   external: "External link",
   externalUrl: "Media URL",
