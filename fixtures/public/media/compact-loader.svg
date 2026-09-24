@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title">
+  <title id="title">Abstract compact loader</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#dff7f4"/>
+      <stop offset="1" stop-color="#8bd8cf"/>
+    </linearGradient>
+    <linearGradient id="machine" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#17324d"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#sky)"/>
+  <circle cx="980" cy="140" r="220" fill="#fff" opacity=".28"/>
+  <path d="M0 650L1200 420V800H0Z" fill="#16665f" opacity=".34"/>
+  <g transform="translate(175 285)">
+    <rect x="80" y="170" width="560" height="190" rx="54" fill="url(#machine)"/>
+    <path d="M190 170L330 40H510L610 170Z" fill="#f6c344"/>
+    <rect x="350" y="78" width="135" height="92" rx="18" fill="#17324d"/>
+    <circle cx="235" cy="380" r="105" fill="#172033"/>
+    <circle cx="235" cy="380" r="48" fill="#94a3b8"/>
+    <circle cx="520" cy="380" r="105" fill="#172033"/>
+    <circle cx="520" cy="380" r="48" fill="#94a3b8"/>
+    <path d="M640 245H820L930 330H710Z" fill="#f6c344"/>
+    <path d="M905 312L1110 455H850Z" fill="#eab308"/>
+  </g>
+</svg>
