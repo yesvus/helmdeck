@@ -27,8 +27,8 @@ export function AdminModalContent({
 }) {
   const i18n = useAdminMessages();
   const placementClasses = className?.split(/\s+/).map((name) => name.replace(/^!/, "")) ?? [];
-  const hasCustomMaxWidth = placementClasses.some((name) => /(?:^|:)(?:!?max-w-)/.test(name));
-  const hasCustomWidth = placementClasses.some((name) => /(?:^|:)(?:!?w-)/.test(name));
+  const hasBaseCustomMaxWidth = placementClasses.some((name) => /^!?max-w-/.test(name));
+  const hasBaseCustomWidth = placementClasses.some((name) => /^!?w-/.test(name));
   const hasHorizontalPlacement = placementClasses.some((name) =>
     /^(?:-?(?:left|right|start|end|inset-x|inset-inline|inset)-)/.test(name),
   );
@@ -39,8 +39,8 @@ export function AdminModalContent({
       <DialogPrimitive.Content
         className={cn(
           "fixed z-50 flex max-h-[min(90dvh,56rem)] flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-200 bg-admin-surface p-6 shadow-2xl data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
-          !hasCustomWidth && "w-full",
-          !hasCustomMaxWidth && "max-w-[calc(100%-2rem)] sm:max-w-md",
+          !hasBaseCustomWidth && "w-full",
+          !hasBaseCustomMaxWidth && "max-w-[calc(100%-2rem)] sm:max-w-md",
           !hasHorizontalPlacement && "left-1/2 -translate-x-1/2",
           !hasVerticalPlacement && "top-1/2 -translate-y-1/2",
           className,

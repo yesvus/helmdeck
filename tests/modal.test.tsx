@@ -103,6 +103,17 @@ describe("AdminModalContent", () => {
     expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
   });
 
+  it("preserves base sizing defaults when consumer sizing utilities are breakpoint-scoped", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className="sm:w-96 lg:max-w-4xl" aria-label="Responsive dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Responsive dialog" });
+
+    expect(dialog).toHaveClass("w-full", "max-w-[calc(100%-2rem)]", "sm:max-w-md", "sm:w-96", "lg:max-w-4xl");
+  });
+
   it.each(["right-8", "start-8", "end-8", "inset-x-8", "inset-8"])(
     "does not add a centered horizontal anchor with %s",
     async (placement) => {

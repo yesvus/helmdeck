@@ -61,6 +61,29 @@ try {
     return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
   });
   assert.deepEqual(custom, { x: 32, y: 48, width: 160, height: 80 });
+  await page.keyboard.press("Escape");
+  await customDialog.waitFor({ state: "hidden" });
+
+  await page.getByRole("button", { name: "Open responsive sizing" }).click();
+  const responsiveDialog = page.getByRole("dialog", { name: "Responsive sizing dialog" });
+  await responsiveDialog.waitFor({ state: "visible" });
+  await page.waitForTimeout(200);
+  const desktopResponsiveWidth = await responsiveDialog.evaluate((element) => element.getBoundingClientRect().width);
+  assert.equal(desktopResponsiveWidth, 896);
+  await page.keyboard.press("Escape");
+  await responsiveDialog.waitFor({ state: "hidden" });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: "Open responsive sizing" }).click();
+  await responsiveDialog.waitFor({ state: "visible" });
+  await page.waitForTimeout(200);
+  const mobileResponsive = await responsiveDialog.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { x: rect.x, width: rect.width };
+  });
+  assert.deepEqual(mobileResponsive, { x: 16, width: 358 });
+  await page.keyboard.press("Escape");
+  await responsiveDialog.waitFor({ state: "hidden" });
 
   await page.goto("http://127.0.0.1:3217/media");
   await page.setViewportSize({ width: 1024, height: 683 });
