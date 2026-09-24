@@ -1,18 +1,41 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
+import { ShellThemeProvider } from "../fixtures/components/shell-theme-provider";
 
 afterEach(() => {
   cleanup();
   document.documentElement.removeAttribute("data-admin-theme");
   document.documentElement.removeAttribute("style");
+  window.localStorage.removeItem("helmdeck-demo-theme");
 });
 
+function renderControls() {
+  return render(<ShellThemeProvider><ThemeControls /></ShellThemeProvider>);
+}
+
 describe("fixture theme controls", () => {
+  it("retains dark mode after remounting the theme editor", async () => {
+    const user = userEvent.setup();
+    const firstMount = renderControls();
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("light"));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Color mode" }), "dark");
+    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("dark"));
+    expect(document.documentElement.dataset.adminTheme).toBe("dark");
+
+    firstMount.unmount();
+    renderControls();
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
+      expect(document.documentElement.dataset.adminTheme).toBe("dark");
+    });
+  });
+
   it("switches modes by keyboard and resets editable tokens", async () => {
     const user = userEvent.setup();
-    render(<ThemeControls />);
+    renderControls();
     const mode = screen.getByRole("combobox", { name: "Color mode" });
     await user.tab();
     expect(mode).toHaveFocus();
@@ -32,7 +55,7 @@ describe("fixture theme controls", () => {
 
   it("rejects invalid imported presets with feedback", async () => {
     const user = userEvent.setup();
-    render(<ThemeControls />);
+    renderControls();
     const input = screen.getByRole("textbox", { name: "Theme preset JSON" });
     fireEvent.change(input, { target: { value: '[{"mode":"sepia"}]' } });
     await user.click(screen.getByRole("button", { name: "Import preset" }));
@@ -49,7 +72,7 @@ describe("fixture theme controls", () => {
 
   it("applies density to the preview and handles unavailable clipboard export", async () => {
     const user = userEvent.setup();
-    render(<ThemeControls />);
+    renderControls();
     vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(new Error("blocked"));
     await user.selectOptions(screen.getByLabelText("Density"), "0.85");
     expect(document.documentElement.style.getPropertyValue("--admin-density")).toBe("0.85");
