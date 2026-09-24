@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { DemoLanguageSwitcher, useDemoLocale } from "../components/demo-i18n-provider";
+import { useDemoLocale } from "../components/demo-i18n-provider";
 
 const featureIcons = [LayoutDashboard, Blocks, Library, ShieldCheck];
 
@@ -29,7 +29,6 @@ export default function HomePage() {
           </span>
         </Link>
         <div className="flex items-center gap-3">
-          <DemoLanguageSwitcher />
           <Link
             href="/shell"
             className="hidden items-center gap-2 rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 sm:inline-flex"
