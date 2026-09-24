@@ -5,20 +5,38 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "../cn.js";
 import type { AdminNavItem } from "../adapters/index.js";
-import { isActiveHref } from "../adapters/index.js";
+import { getAdminHrefPathname, isActiveHref } from "../adapters/index.js";
 import { resolveNavIcon } from "./nav-icons.js";
+import { useAdminShell } from "./context.js";
+
+export function isAdminNavItemActive(pathname: string, href: string, homeHref?: string) {
+  const navPath = normalizeRoutePath(href);
+  const homePath = homeHref === undefined ? undefined : normalizeRoutePath(homeHref);
+  if (navPath !== homePath) return isActiveHref(pathname, href);
+  return normalizeRoutePath(pathname) === navPath;
+}
+
+function normalizeRoutePath(value: string) {
+  const path = getAdminHrefPathname(value).replace(/\/+$/, "");
+  return path || "/";
+}
 
 export function AdminNavLink({
   item,
   compact = false,
   iconOnly = false,
+  exact = false,
 }: {
   item: AdminNavItem;
   compact?: boolean;
   iconOnly?: boolean;
+  exact?: boolean;
 }) {
   const pathname = usePathname();
-  const active = isActiveHref(pathname, item.href);
+  const shell = useAdminShell();
+  const active = exact
+    ? isAdminNavItemActive(pathname, item.href, item.href)
+    : isAdminNavItemActive(pathname, item.href, shell?.homeHref);
   const Icon = resolveNavIcon(item.icon);
   const label = iconOnly || compact ? (item.shortLabel ?? item.label) : item.label;
 
