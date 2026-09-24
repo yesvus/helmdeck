@@ -113,8 +113,15 @@ jobs:
           pnpm version:check
           test "$(node -p "require('./package.json').version")" = "${TAG#v}"
           test -f "$ASSET"
-          tar -tzf "$ASSET" | grep -qx 'package/dist/index.js'
-          tar -tzf "$ASSET" | grep -qx 'package/dist/index.d.ts'
+          tar -tzf "$ASSET" > "$RUNNER_TEMP/package-files.txt"
+          if ! grep -Fxq 'package/dist/index.js' "$RUNNER_TEMP/package-files.txt"; then
+            echo "Missing package/dist/index.js in $ASSET" >&2
+            exit 1
+          fi
+          if ! grep -Fxq 'package/dist/index.d.ts' "$RUNNER_TEMP/package-files.txt"; then
+            echo "Missing package/dist/index.d.ts in $ASSET" >&2
+            exit 1
+          fi
       - name: Commit and tag release
         if: ${{ inputs.dry_run != true }}
         env:
