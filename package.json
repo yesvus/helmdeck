@@ -1,6 +1,6 @@
 {
   "name": "@yesvus/helmdeck",
-  "version": "0.1.0-alpha.1",
+  "version": "0.2.0",
   "packageManager": "pnpm@12.4.1",
   "type": "module",
   "description": "Reusable MIT-licensed admin shell for Next.js App Router projects",
