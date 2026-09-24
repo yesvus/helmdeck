@@ -9,9 +9,9 @@ export const mediaAdapter: AdminMediaAdapter = {
     return {
       name: file.name,
       path,
-      publicUrl: URL.createObjectURL(file),
+      publicUrl: `https://example.invalid/${encodeURIComponent(path)}`,
       source: "uploaded",
-      kind: file.type.startsWith("video/") ? "video" : "image",
+      kind: file.type === "application/pdf" ? "pdf" : file.type.startsWith("video/") ? "video" : "image",
       contentType: file.type,
       size: file.size,
     };
