@@ -136,6 +136,8 @@ export const turkishAdminMessages: AdminMessages = {
     loading: "Medya yükleniyor...",
     loadMore: "Daha fazla medya yükleyiniz",
     loadError: "Medya yüklenemedi.",
+    retry: "Yeniden deneyiniz",
+    results: "medya",
     select: "Medya seçiniz",
     replace: "Medyayı değiştiriniz",
     clear: "Medyayı temizleyiniz",
