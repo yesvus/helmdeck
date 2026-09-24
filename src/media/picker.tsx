@@ -198,7 +198,7 @@ export function AdminMediaPicker({
 
   return (
     <AdminModal open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <AdminModalContent className="left-1/2 top-1/2 flex h-[min(92dvh,52rem)] max-h-[min(92dvh,52rem)] w-[calc(100%-1rem)] max-w-[88rem] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100%-2rem)] sm:max-w-[88rem]">
+      <AdminModalContent className="left-1/2 top-1/2 flex h-[min(92dvh,52rem)] max-h-[min(92dvh,52rem)] w-[calc(100%_-_1rem)] max-w-[88rem] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100%_-_2rem)] sm:max-w-[88rem]">
         <AdminModalHeader className="shrink-0 border-b border-zinc-200 bg-admin-surface px-5 py-5 pr-14 sm:px-7">
           <AdminModalTitle className="text-xl font-bold text-zinc-900">{title}</AdminModalTitle>
           <AdminModalDescription>{mergedLabels.description}</AdminModalDescription>
@@ -209,7 +209,7 @@ export function AdminMediaPicker({
           ) : null}
         </AdminModalHeader>
         <div className="shrink-0 space-y-3 border-b border-zinc-200 bg-zinc-50/80 px-5 py-4 sm:px-7">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <label className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <AdminInput
@@ -220,7 +220,7 @@ export function AdminMediaPicker({
               className="pl-9"
             />
           </label>
-          <AdminSelect value={sort} onChange={(event) => setSort(event.target.value as AdminMediaSort)} aria-label={mergedLabels.sortLabel}>
+          <AdminSelect className="lg:w-56 lg:shrink-0" value={sort} onChange={(event) => setSort(event.target.value as AdminMediaSort)} aria-label={mergedLabels.sortLabel}>
             {adminMediaSortValues.map((option) => (
               <option key={option} value={option}>{i18n.mediaSort[option]}</option>
             ))}
@@ -260,7 +260,7 @@ export function AdminMediaPicker({
             </p>
           ) : filteredItems.length ? (
             <>
-            <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredItems.map((item) => {
                 const thumbnail = getAdminMediaThumbnailUrl(item);
                 const video = isYouTubeMediaItem(item) || isVideoMediaItem(item);

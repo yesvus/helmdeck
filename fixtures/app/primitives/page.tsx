@@ -50,6 +50,7 @@ export default function PrimitivesPage() {
   const [items, setItems] = useState<string[]>(() => [...text.sortableItems]);
   const [result, setResult] = useState<string>();
   const [customModalOpen, setCustomModalOpen] = useState(false);
+  const [responsiveModalOpen, setResponsiveModalOpen] = useState(false);
 
   const rows: Row[] = [
     { id: 1, name: "Café machine", tone: "success", status: text.published, count: 12 },
@@ -213,6 +214,10 @@ export default function PrimitivesPage() {
         <AdminModal open={customModalOpen} onOpenChange={setCustomModalOpen}>
           <Button variant="outline" onClick={() => setCustomModalOpen(true)}>Open custom placement</Button>
           <AdminModalContent className="left-8 top-12" style={{ height: 80, width: 160 }} aria-label="Custom placement dialog" showCloseButton={false} />
+        </AdminModal>
+        <AdminModal open={responsiveModalOpen} onOpenChange={setResponsiveModalOpen}>
+          <Button variant="outline" onClick={() => setResponsiveModalOpen(true)}>Open responsive sizing</Button>
+          <AdminModalContent className="lg:max-w-4xl" aria-label="Responsive sizing dialog" showCloseButton={false} />
         </AdminModal>
       </Frame>
 
