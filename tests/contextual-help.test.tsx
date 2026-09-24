@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { AdminContextualHelp } from "../src/primitives/contextual-help";
@@ -20,6 +20,17 @@ describe("AdminContextualHelp", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
     expect(trigger).toHaveClass("focus-visible:outline-2");
+  });
+
+  it("allows keyboard focus after pointerdown ends without a click", async () => {
+    const user = userEvent.setup();
+    render(<AdminContextualHelp label="About activity">Recent customer activity</AdminContextualHelp>);
+    const trigger = screen.getByRole("button", { name: "About activity" });
+    fireEvent.pointerDown(trigger);
+    fireEvent.pointerUp(document.body);
+    await user.tab();
+    expect(trigger).toHaveFocus();
+    expect(screen.getByRole("tooltip")).toBeVisible();
   });
 
   it("opens from touch activation", async () => {

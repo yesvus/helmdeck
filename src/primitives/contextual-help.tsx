@@ -30,6 +30,10 @@ export function AdminContextualHelp({
       }
     }
 
+    function handlePointerUp() {
+      pointerActivation.current = false;
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && visible) {
         clickOpen.current = false;
@@ -39,9 +43,11 @@ export function AdminContextualHelp({
     }
 
     document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("pointerup", handlePointerUp);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("pointerup", handlePointerUp);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [visible]);
@@ -62,6 +68,7 @@ export function AdminContextualHelp({
         aria-describedby={id}
         aria-expanded={visible}
         onPointerDown={() => { pointerActivation.current = true; }}
+        onPointerUp={() => { pointerActivation.current = false; }}
         onFocus={() => {
           if (!pointerActivation.current) {
             setDismissed(false);
@@ -69,6 +76,7 @@ export function AdminContextualHelp({
           }
         }}
         onBlur={() => {
+          pointerActivation.current = false;
           clickOpen.current = false;
           setOpen(false);
         }}
