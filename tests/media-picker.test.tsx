@@ -206,6 +206,17 @@ describe("AdminMediaPicker", () => {
     expect(card).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("navigates between selected media while keeping the active card clear", async () => {
+    const user = userEvent.setup();
+    const second = { ...image, name: "Second photo", path: "media/second.webp", publicUrl: "/media/second.webp" };
+    const onSelect = vi.fn();
+    render(<EnglishPicker items={[image, second]} onClose={vi.fn()} onSelect={onSelect} open title="Choose media" />);
+    await user.click(await screen.findByRole("button", { name: /Product photo/ }));
+    await user.click(screen.getByRole("button", { name: "Next media" }));
+    expect(screen.getByRole("button", { name: /Second photo/ })).toHaveAttribute("aria-pressed", "true");
+    expect(onSelect).toHaveBeenLastCalledWith(second);
+  });
+
   it("clears the selected state when reopened", async () => {
     const user = userEvent.setup();
     const props = {

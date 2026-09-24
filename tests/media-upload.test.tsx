@@ -23,6 +23,39 @@ describe("AdminMediaUpload", () => {
     await user.type(screen.getByLabelText("Media URL"), "https://example.com/video");
     await user.click(screen.getByRole("button", { name: "Add link" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("External media failed.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Upload failed");
+    expect(screen.queryByText("External media failed.")).not.toBeInTheDocument();
+  });
+
+  it("locks upload actions while pending and announces success", async () => {
+    const user = userEvent.setup();
+    let finish!: (item: { name: string; path: string; publicUrl: string; source: "uploaded"; kind: "image" }) => void;
+    const upload = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    const onUploaded = vi.fn();
+    render(<AdminI18nProvider locale="en"><AdminMediaUpload adapter={{ list: vi.fn(), upload }} onUploaded={onUploaded} /></AdminI18nProvider>);
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["image"], "photo.png", { type: "image/png" });
+    await user.upload(input, file);
+    await user.click(screen.getByRole("button", { name: "Upload file" }));
+    expect(screen.getByRole("button", { name: "Uploading" })).toBeDisabled();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    finish({ name: "photo.png", path: "photo.png", publicUrl: "/photo.png", source: "uploaded", kind: "image" });
+    expect(await screen.findByText("Upload complete")).toBeInTheDocument();
+    expect(onUploaded).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a concise upload failure and allows retry", async () => {
+    const user = userEvent.setup();
+    const upload = vi.fn().mockRejectedValueOnce(new Error("Storage endpoint https://private.example failed"))
+      .mockResolvedValueOnce({ name: "photo.png", path: "photo.png", publicUrl: "/photo.png", source: "uploaded", kind: "image" });
+    render(<AdminI18nProvider locale="en"><AdminMediaUpload adapter={{ list: vi.fn(), upload }} /></AdminI18nProvider>);
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, new File(["image"], "photo.png", { type: "image/png" }));
+    await user.click(screen.getByRole("button", { name: "Upload file" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Upload failed");
+    expect(screen.queryByText(/private\.example/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Upload file" }));
+    expect(await screen.findByText("Upload complete")).toBeInTheDocument();
+    expect(upload).toHaveBeenCalledTimes(2);
   });
 });

@@ -35,6 +35,7 @@ export function AdminMediaUpload({
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
+  const pendingRef = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
@@ -47,7 +48,7 @@ export function AdminMediaUpload({
   const i18n = useAdminMessages();
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
   const canExternal = allowExternal && Boolean(adapter.addExternal);
-  const busy = progress > 0 && progress < 100;
+  const busy = pendingRef.current;
 
   function selectFile(nextFile: File | null) {
     setFile(nextFile);
@@ -88,7 +89,8 @@ export function AdminMediaUpload({
   }
 
   async function upload() {
-    if (!file || busy) return;
+    if (!file || pendingRef.current) return;
+    pendingRef.current = true;
     setError("");
     setProgress(1);
     setUploaded(false);
@@ -98,14 +100,17 @@ export function AdminMediaUpload({
       setProgress(100);
       setUploaded(true);
       onUploaded?.(item);
-    } catch (uploadError) {
+    } catch {
       setProgress(0);
-      setError(uploadError instanceof Error ? uploadError.message : mergedLabels.uploadError);
+      setError(mergedLabels.uploadError);
+    } finally {
+      pendingRef.current = false;
     }
   }
 
   async function addExternal() {
-    if (!adapter.addExternal || !externalUrl.trim() || savingExternal) return;
+    if (!adapter.addExternal || !externalUrl.trim() || pendingRef.current) return;
+    pendingRef.current = true;
     setSavingExternal(true);
     setError("");
     try {
@@ -116,11 +121,10 @@ export function AdminMediaUpload({
       setExternalUrl("");
       setExternalName("");
       onUploaded?.(item);
-    } catch (externalError) {
-      setError(
-        externalError instanceof Error ? externalError.message : mergedLabels.uploadError,
-      );
+    } catch {
+      setError(mergedLabels.uploadError);
     } finally {
+      pendingRef.current = false;
       setSavingExternal(false);
     }
   }
@@ -209,15 +213,16 @@ export function AdminMediaUpload({
               className="sr-only"
               disabled={busy}
               onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
+              onClick={(event) => event.stopPropagation()}
             />
           </div>
           {progress > 0 ? (
-            <div aria-live="polite">
+            <div role="status" aria-live="polite" aria-atomic="true">
               <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
                 <span>{uploaded ? mergedLabels.uploadSuccess : mergedLabels.uploading}</span>
                 <span>{progress}%</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-zinc-200">
+              <div className="h-2 overflow-hidden rounded-full bg-zinc-200" role="progressbar" aria-label={mergedLabels.uploading} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
                 <div
                   className="h-full rounded-full bg-brand-500 transition-[width]"
                   style={{ width: `${progress}%` }}
