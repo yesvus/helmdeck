@@ -26,6 +26,18 @@ describe("table action primitives", () => {
     expect(onSelectionChange).toHaveBeenLastCalledWith(new Set([1, 2]));
   });
 
+  it("disables select-all when the table has no rows", () => {
+    render(
+      <AdminTable
+        rows={[] as Row[]}
+        getKey={(row) => row.id}
+        selection={{ selectedKeys: new Set(), onSelectionChange: vi.fn(), label: "Select", selectAllLabel: "Select all" }}
+        columns={[{ key: "name", header: "Name", cell: (row) => row.name }]}
+      />,
+    );
+    expect(screen.getByRole("checkbox", { name: "Select all" })).toBeDisabled();
+  });
+
   it("announces selected count and leaves bulk behavior with the host", () => {
     const action = vi.fn();
     render(

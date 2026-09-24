@@ -56,6 +56,7 @@ export function AdminTable<T>({
                   type="checkbox"
                   aria-label={selection.selectAllLabel}
                   checked={allSelected}
+                  disabled={rows.length === 0}
                   ref={(element) => { if (element) element.indeterminate = someSelected && !allSelected; }}
                   onChange={(event) => {
                     const next = new Set(selection.selectedKeys);
