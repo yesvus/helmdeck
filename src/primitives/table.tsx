@@ -34,7 +34,7 @@ export function AdminTable<T>({
 }) {
   const i18n = useAdminMessages();
   return (
-    <div className={cn("overflow-x-auto rounded-xl border border-zinc-200 bg-white", className)}>
+    <div className={cn("overflow-x-auto rounded-xl border border-zinc-200 bg-admin-surface", className)}>
       <table className="w-full min-w-[36rem] border-collapse text-sm">
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>

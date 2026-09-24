@@ -351,7 +351,7 @@ export function AdminDragHandle({ label }: { label: string }) {
       disabled={disabled}
       aria-label={label}
       className={cn(
-        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-400 transition-colors",
+        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-admin-surface text-zinc-400 transition-colors",
         disabled
           ? "cursor-not-allowed opacity-40"
           : "cursor-grab touch-none hover:border-zinc-400 hover:text-zinc-700 active:cursor-grabbing",

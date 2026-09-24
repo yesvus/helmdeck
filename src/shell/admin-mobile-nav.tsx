@@ -25,7 +25,7 @@ export function AdminMobileNav({ groups }: { groups?: AdminNavGroup[] }) {
   }
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 backdrop-blur-lg lg:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-admin-surface/95 backdrop-blur-lg lg:hidden">
       <div className="mx-auto flex max-w-xl items-stretch">
         {primaryItems.map((item) => (
           <AdminNavLink key={item.href} item={item} compact />
@@ -36,7 +36,7 @@ export function AdminMobileNav({ groups }: { groups?: AdminNavGroup[] }) {
               <MoreHorizontal className="h-5 w-5" />
               <span>{labels.mobileMore}</span>
             </summary>
-            <div className="fixed inset-x-3 bottom-[76px] max-h-[70dvh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-3 shadow-2xl">
+            <div className="fixed inset-x-3 bottom-[76px] max-h-[70dvh] overflow-y-auto rounded-2xl border border-zinc-200 bg-admin-surface p-3 shadow-2xl">
               {secondaryGroups.map((group) => (
                 <section key={group.label} className="not-last:mb-4">
                   <h2 className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400">

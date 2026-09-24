@@ -17,13 +17,13 @@ export function AdminContentSkeleton() {
 
       <div className="space-y-3">
         <div className="flex items-center gap-3">
-          <AdminSkeleton className="h-10 w-full rounded-2xl border border-zinc-100 bg-white" />
-          <AdminSkeleton className="h-10 w-10 shrink-0 rounded-2xl border border-zinc-100 bg-white" />
+          <AdminSkeleton className="h-10 w-full rounded-2xl border border-zinc-100 bg-admin-surface" />
+          <AdminSkeleton className="h-10 w-10 shrink-0 rounded-2xl border border-zinc-100 bg-admin-surface" />
         </div>
         {Array.from({ length: 4 }).map((_, index) => (
           <div
             key={index}
-            className="flex items-center justify-between rounded-2xl border border-zinc-100 bg-white px-5 py-4"
+            className="flex items-center justify-between rounded-2xl border border-zinc-100 bg-admin-surface px-5 py-4"
           >
             <div className="flex items-center gap-4">
               <AdminSkeleton className="h-10 w-10 shrink-0 rounded-xl bg-zinc-50" />

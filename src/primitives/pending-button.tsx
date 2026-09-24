@@ -41,7 +41,7 @@ export function AdminPendingButton({
       type={type}
       disabled={disabled || pending}
       className={cn(
-        tone === "danger" && !variant && "border border-red-200 bg-white text-red-700 hover:bg-red-50",
+        tone === "danger" && !variant && "border border-red-200 bg-admin-surface text-red-700 hover:bg-red-50",
         pending && "cursor-wait opacity-80",
         !pending && disabled && "cursor-not-allowed opacity-50",
         className,

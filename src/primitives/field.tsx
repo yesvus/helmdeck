@@ -69,7 +69,7 @@ export function AdminFormSection({
           </span>
           <span
             className={cn(
-              "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition-transform duration-200",
+              "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-admin-surface text-zinc-500 transition-transform duration-200",
               isOpen && "rotate-180",
             )}
             aria-hidden="true"

@@ -102,7 +102,7 @@ export function AdminShell({
         className="min-h-[100dvh] bg-zinc-50 text-zinc-900"
         style={sidebarStyle}
       >
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-white transition-[width] duration-200 lg:block">
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-200 lg:block">
           <div className="flex h-full flex-col">
             <div
               className={cn(
@@ -191,7 +191,7 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 backdrop-blur transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface/90 px-4 backdrop-blur transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               {trail ? (
                 <AdminBreadcrumbs groups={visibleNav} />

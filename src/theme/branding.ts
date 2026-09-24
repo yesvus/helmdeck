@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { CSSProperties } from "react";
-import { darkenHex, lightenHex, normalizeHex } from "./color.js";
+import { contrastingTextHex, darkenHex, lightenHex, normalizeHex } from "./color.js";
 
 export function useAdminBranding(accent?: string): CSSProperties {
   if (!accent) {
@@ -11,8 +11,9 @@ export function useAdminBranding(accent?: string): CSSProperties {
     return {};
   }
   return {
-    "--color-brand-500": base,
-    "--color-brand-600": darkenHex(base, 0.12) ?? base,
-    "--color-brand-100": lightenHex(base, 0.85) ?? base,
+    "--admin-brand-500": base,
+    "--admin-brand-600": darkenHex(base, 0.3) ?? base,
+    "--admin-brand-100": lightenHex(base, 0.85) ?? base,
+    "--admin-on-brand": contrastingTextHex(base) ?? "#ffffff",
   } as CSSProperties;
 }

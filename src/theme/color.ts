@@ -31,6 +31,16 @@ export function normalizeHex(hex: string): string | null {
   return rgb ? toHex(rgb) : null;
 }
 
+export function contrastingTextHex(hex: string): string | null {
+  const rgb = parseHex(hex);
+  if (!rgb) return null;
+  const luminance = [rgb.r, rgb.g, rgb.b]
+    .map((channel) => channel / 255)
+    .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
+    .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  return luminance > 0.179 ? "#1c1917" : "#ffffff";
+}
+
 export function mixHex(hex: string, target: Rgb, ratio: number): string | null {
   const base = parseHex(hex);
   if (!base) {

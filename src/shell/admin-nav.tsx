@@ -49,7 +49,7 @@ export function AdminNavLink({
         aria-current={active ? "page" : undefined}
         className={cn(
           "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-2 py-3 text-center text-[11px] font-semibold transition-colors",
-          active ? "text-brand-600" : "text-zinc-500 hover:text-zinc-900",
+          active ? "text-admin-brand-text" : "text-zinc-500 hover:text-zinc-900",
         )}
       >
         {Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
@@ -68,7 +68,7 @@ export function AdminNavLink({
         className={cn(
           "flex h-11 w-11 items-center justify-center rounded-lg transition-colors",
           active
-            ? "bg-brand-500 text-white"
+            ? "bg-brand-500 text-admin-on-brand"
             : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
         )}
       >
@@ -84,7 +84,7 @@ export function AdminNavLink({
       className={cn(
         "flex min-h-[44px] items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
         active
-          ? "bg-brand-500 text-white"
+          ? "bg-brand-500 text-admin-on-brand"
           : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
       )}
     >

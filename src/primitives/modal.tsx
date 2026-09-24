@@ -31,10 +31,10 @@ export function AdminModalContent({
   const hasVerticalPlacement = placementClasses.some((name) => /^(?:-?(?:top|bottom|inset-y|inset)-)/.test(name));
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-zinc-950/60 backdrop-blur-sm data-[state=open]:animate-[admin-fade-in_150ms_ease-out]" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-admin-overlay/60 backdrop-blur-sm data-[state=open]:animate-[admin-fade-in_150ms_ease-out]" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed z-50 grid max-h-[90vh] w-full max-w-[calc(100%-2rem)] gap-4 overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl sm:max-w-md data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
+          "fixed z-50 grid max-h-[90vh] w-full max-w-[calc(100%-2rem)] gap-4 overflow-y-auto rounded-2xl border border-zinc-200 bg-admin-surface p-6 shadow-2xl sm:max-w-md data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
           !hasHorizontalPlacement && "left-1/2",
           !hasVerticalPlacement && "top-1/2",
           className,
