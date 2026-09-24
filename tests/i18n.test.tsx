@@ -33,6 +33,8 @@ describe("Helmdeck localization", () => {
     expect(defaultAdminLocale).toBe("tr");
     expect(getAdminMessages("fr")).toBe(turkishAdminMessages);
     expect(getAdminMessages("fr", "tr-TR")).toBe(turkishAdminMessages);
+    expect(getAdminMessages("EN-US")).toBe(englishAdminMessages);
+    expect(getAdminMessages("TR-tr")).toBe(turkishAdminMessages);
 
     render(
       <AdminI18nProvider>
