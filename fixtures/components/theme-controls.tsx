@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { contrastingTextHex } from "@yesvus/helmdeck";
+import { useShellTheme } from "../app/shell/layout";
 
 type Preset = {
   brand: string;
@@ -29,9 +30,15 @@ const defaultSurfaces: Record<Preset["mode"], string> = {
 };
 
 export function ThemeControls() {
+  const shellTheme = useShellTheme();
+  const { theme, setTheme } = shellTheme;
   const [preset, setPreset] = useState(initial);
   const [importValue, setImportValue] = useState("");
   const [feedback, setFeedback] = useState("");
+
+  useEffect(() => {
+    setPreset((current) => ({ ...current, mode: theme }));
+  }, [theme]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -46,7 +53,8 @@ export function ThemeControls() {
     root.style.setProperty("--admin-radius", preset.radius);
     root.style.setProperty("--admin-density", preset.density);
     root.style.fontFamily = "var(--admin-font-family)";
-  }, [preset]);
+    setTheme(preset.mode);
+  }, [preset, setTheme]);
 
   function update<K extends keyof Preset>(key: K, value: Preset[K]) {
     setPreset((current) => ({ ...current, [key]: value }));
