@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title">
+  <title id="title">Abstract operator studio</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#155e75"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <rect x="105" y="100" width="990" height="600" rx="38" fill="#f8fafc" opacity=".94"/>
+  <rect x="160" y="160" width="880" height="330" rx="24" fill="url(#screen)"/>
+  <path d="M160 410L420 245L590 365L760 220L1040 410V490H160Z" fill="#164e63" opacity=".72"/>
+  <rect x="160" y="535" width="260" height="24" rx="12" fill="#cbd5e1"/>
+  <rect x="160" y="585" width="520" height="18" rx="9" fill="#e2e8f0"/>
+  <rect x="810" y="535" width="230" height="100" rx="22" fill="#0f766e"/>
+  <circle cx="1060" cy="145" r="28" fill="#fbbf24"/>
+</svg>
