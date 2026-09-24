@@ -4,9 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
   AdminModal,
+  AdminModalBody,
   AdminModalClose,
   AdminModalContent,
   AdminModalDescription,
+  AdminModalFooter,
+  AdminModalHeader,
   AdminModalTitle,
   AdminModalTrigger,
 } from "../src";
@@ -24,6 +27,41 @@ function Modal({ onOpenChange = vi.fn() }: { onOpenChange?: (open: boolean) => v
 }
 
 describe("AdminModalContent", () => {
+  it("provides explicit pinned header, scroll body, and responsive footer regions", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent>
+          <AdminModalHeader><AdminModalTitle>Long form</AdminModalTitle></AdminModalHeader>
+          <AdminModalBody data-testid="modal-body">Scrollable content</AdminModalBody>
+          <AdminModalFooter data-testid="modal-footer"><button type="button">Save</button></AdminModalFooter>
+        </AdminModalContent>
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Long form" });
+    expect(dialog.firstElementChild).toHaveClass("shrink-0");
+    expect(screen.getByTestId("modal-body")).toHaveClass("min-h-0", "flex-1", "overflow-y-auto");
+    expect(screen.getByTestId("modal-footer")).toHaveClass("shrink-0", "flex-col-reverse", "sm:flex-row");
+    expect(dialog).toHaveClass("max-h-[min(90dvh,56rem)]");
+  });
+
+  it("prevents Escape, outside click, and close-button dismissal while pending", async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    render(
+      <AdminModal open onOpenChange={onOpenChange}>
+        <AdminModalContent preventClose aria-label="Pending dialog">
+          <AdminModalTitle>Pending</AdminModalTitle>
+        </AdminModalContent>
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Pending" });
+    expect(dialog.querySelector("button[disabled]")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    await user.click(dialog.previousElementSibling as HTMLElement);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
   it("uses one centered CSS positioning contract with its entrance animation", async () => {
     render(<Modal />);
     const dialog = await screen.findByRole("dialog", { name: "Dialog title" });

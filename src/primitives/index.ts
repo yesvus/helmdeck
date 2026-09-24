@@ -41,6 +41,7 @@ export type {
 } from "./managed-form.js";
 export {
   AdminModal,
+  AdminModalBody,
   AdminModalClose,
   AdminModalContent,
   AdminModalDescription,
