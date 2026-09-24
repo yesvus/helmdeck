@@ -37,7 +37,7 @@ import {
   type AdminToastTone,
 } from "@yesvus/helmdeck";
 import { Frame } from "../../components/frame";
-import { DemoPageBar, useDemoLocale } from "../../components/demo-i18n-provider";
+import { useDemoLocale } from "../../components/demo-i18n-provider";
 
 type Row = { id: number; name: string; tone: AdminStatusTone; status: string; count: number };
 type Toast = { id: number; tone: AdminToastTone; title: string; body: string; icon: ReactNode };
@@ -77,7 +77,6 @@ export default function PrimitivesPage() {
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 px-4 py-10">
-      <DemoPageBar />
       <h1 className="text-2xl font-bold">{text.title}</h1>
 
       <Frame title={text.button}>
