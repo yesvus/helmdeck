@@ -35,8 +35,10 @@ function parseGalleryValue(value?: string) {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [url, alt] = line.split("|").map((item) => item.trim());
-      return { url, alt: alt ?? "" };
+      const separatorIndex = line.indexOf("|");
+      const url = (separatorIndex === -1 ? line : line.slice(0, separatorIndex)).trim();
+      const alt = separatorIndex === -1 ? "" : line.slice(separatorIndex + 1).trim();
+      return { url, alt };
     });
 }
 

@@ -77,6 +77,30 @@ describe("AdminMediaPicker", () => {
     );
   });
 
+  it("uses a safe default for invalid page sizes", async () => {
+    const list = vi.fn().mockResolvedValue({ items: [] });
+    render(
+      <AdminMediaPicker
+        adapter={{ list, upload: vi.fn() }}
+        items={[]}
+        pageSize={Number.NaN}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        open
+        title="Choose media"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(list).toHaveBeenCalledWith({
+        cursor: undefined,
+        limit: 48,
+        search: undefined,
+        source: undefined,
+      }),
+    );
+  });
+
   it("exposes the empty state and a labelled close control", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

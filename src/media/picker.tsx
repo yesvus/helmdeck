@@ -94,7 +94,9 @@ export function AdminMediaPicker({
   const resolvedLocale = locale ?? i18n.searchLocale;
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
   const loadErrorLabel = mergedLabels.loadError;
-  const resolvedPageSize = Math.max(1, Math.floor(pageSize));
+  const resolvedPageSize = Number.isFinite(pageSize) && pageSize > 0
+    ? Math.max(1, Math.floor(pageSize))
+    : DEFAULT_PAGE_SIZE;
 
   useEffect(() => {
     initialItemsRef.current = initialItems;
