@@ -194,10 +194,10 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface/90 px-4 backdrop-blur transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="flex min-h-14 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
-                {trail ? <AdminBreadcrumbs groups={visibleNav} /> : null}
+                {trail && currentPageTitle ? <AdminBreadcrumbs groups={visibleNav} /> : null}
                 {currentPageTitle ? (
                   <h1 className="truncate text-sm font-semibold text-zinc-900">{currentPageTitle}</h1>
                 ) : !trail ? (
