@@ -8,6 +8,7 @@ import {
   type AdminNavGroup,
 } from "../src/adapters";
 import { isAdminNavItemActive } from "../src/shell/admin-nav";
+import { sampleNav } from "../fixtures/nav";
 
 const nav: AdminNavGroup[] = [
   {
@@ -39,6 +40,13 @@ describe("admin navigation utilities", () => {
     expect(isAdminNavItemActive("/shell?tab=other#content", "/shell/#top", "/shell?view=dashboard")).toBe(true);
     expect(isAdminNavItemActive("/shell/products", "/shell", "/shell")).toBe(false);
     expect(isAdminNavItemActive("/shell/products/1", "/shell/products", "/shell")).toBe(true);
+  });
+
+  it("keeps the demo profile route in the active settings navigation", () => {
+    const profile = flattenNavItems(sampleNav).find((item) => item.href === "/shell/profile");
+    expect(profile?.label).toBe("Profile");
+    expect(isAdminNavItemActive("/shell/profile", profile!.href, "/shell")).toBe(true);
+    expect(isAdminNavItemActive("/shell/profile/security", profile!.href, "/shell")).toBe(true);
   });
 
   it("filters groups and removes empty groups", () => {

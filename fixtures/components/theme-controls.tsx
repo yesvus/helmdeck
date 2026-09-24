@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { contrastingTextHex } from "@yesvus/helmdeck";
+import { useShellTheme } from "./shell-theme-provider";
 
 type Preset = {
   brand: string;
@@ -29,13 +30,25 @@ const defaultSurfaces: Record<Preset["mode"], string> = {
 };
 
 export function ThemeControls() {
-  const [preset, setPreset] = useState(initial);
+  const shellTheme = useShellTheme();
+  const { theme, setTheme, ready } = shellTheme;
+  const [preset, setPreset] = useState(() => ({ ...initial, mode: theme }));
   const [importValue, setImportValue] = useState("");
   const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
+    if (!ready || preset.mode === theme) return;
+    setPreset((current) => ({
+      ...current,
+      mode: theme,
+      surface: current.surface === defaultSurfaces[current.mode] ? defaultSurfaces[theme] : current.surface,
+    }));
+  }, [preset, ready, theme]);
+
+  useEffect(() => {
+    if (!ready || preset.mode !== theme) return;
     const root = document.documentElement;
-    root.dataset.adminTheme = preset.mode;
+    root.dataset.adminTheme = theme;
     root.style.setProperty("--admin-brand-500", preset.brand);
     root.style.setProperty("--admin-brand-600", preset.brand);
     root.style.setProperty("--admin-brand-100", `${preset.brand}26`);
@@ -46,7 +59,7 @@ export function ThemeControls() {
     root.style.setProperty("--admin-radius", preset.radius);
     root.style.setProperty("--admin-density", preset.density);
     root.style.fontFamily = "var(--admin-font-family)";
-  }, [preset]);
+  }, [preset, ready, theme]);
 
   function update<K extends keyof Preset>(key: K, value: Preset[K]) {
     setPreset((current) => ({ ...current, [key]: value }));
@@ -60,6 +73,7 @@ export function ThemeControls() {
         ? defaultSurfaces[mode]
         : current.surface,
     }));
+    setTheme(mode);
   }
 
   function importPreset() {
@@ -94,6 +108,7 @@ export function ThemeControls() {
       const imported = { ...initial, ...values } as Preset;
       if (!Object.hasOwn(values, "surface")) imported.surface = defaultSurfaces[imported.mode];
       setPreset(imported);
+      setTheme(imported.mode);
       setFeedback("Theme preset imported.");
     } catch {
       setFeedback("Preset must contain valid JSON.");
@@ -124,7 +139,7 @@ export function ThemeControls() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div><h1 className="text-2xl font-bold">Theme editor</h1><p className="text-sm text-zinc-600">Customize design tokens and preview changes live.</p></div>
         <label className="flex items-center gap-2 text-sm font-medium">Color mode
-          <select aria-label="Color mode" className="rounded-md border border-zinc-300 bg-admin-surface px-3 py-2" value={preset.mode} onChange={(event) => updateMode(event.target.value as Preset["mode"])}>
+            <select aria-label="Color mode" className="rounded-md border border-zinc-300 bg-admin-surface px-3 py-2" value={theme} onChange={(event) => updateMode(event.target.value as Preset["mode"])}>
             <option value="light">Light</option><option value="dark">Dark</option>
           </select>
         </label>
@@ -139,7 +154,7 @@ export function ThemeControls() {
         <button type="button" className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-admin-on-brand">Primary action</button>
       </section>
       <div className="flex flex-wrap gap-3">
-        <button type="button" className="rounded-md border border-zinc-300 px-4 py-2" onClick={() => { setPreset(initial); setFeedback("Theme settings reset."); }}>Reset</button>
+        <button type="button" className="rounded-md border border-zinc-300 px-4 py-2" onClick={() => { setPreset(initial); setTheme("light"); setFeedback("Theme settings reset."); }}>Reset</button>
         <button type="button" className="rounded-md border border-zinc-300 px-4 py-2" onClick={() => void exportPreset()}>Export preset</button>
         <textarea aria-label="Theme preset JSON" className="min-h-20 flex-1 rounded-md border border-zinc-300 p-2" value={importValue} onChange={(event) => setImportValue(event.target.value)} placeholder="Paste preset JSON to import" />
         <button type="button" className="rounded-md border border-zinc-300 px-4 py-2" onClick={importPreset}>Import preset</button>
