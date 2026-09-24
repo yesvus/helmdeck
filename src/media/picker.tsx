@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, Play, Search } from "lucide-react";
-import type { AdminMediaAdapter, AdminMediaItem } from "../adapters/index.js";
+import type {
+  AdminMediaAdapter,
+  AdminMediaItem,
+  AdminMediaSource,
+} from "../adapters/index.js";
 import { Button } from "../primitives/button.js";
 import { AdminInput } from "../primitives/input.js";
 import {
@@ -31,6 +35,7 @@ import { defaultAdminMediaLabels, type AdminMediaLabels } from "./labels.js";
 import { useAdminMessages } from "../i18n.js";
 
 export type AdminMediaAspectRatio = "4:3" | "16:9" | "21:9";
+const DEFAULT_PAGE_SIZE = 48;
 
 export function getMediaAspectRatioClassName(aspectRatio?: AdminMediaAspectRatio) {
   if (aspectRatio === "16:9") return "aspect-video";
@@ -38,12 +43,22 @@ export function getMediaAspectRatioClassName(aspectRatio?: AdminMediaAspectRatio
   return "aspect-[4/3]";
 }
 
+function mergeItems(current: AdminMediaItem[], incoming: AdminMediaItem[]) {
+  const merged = new Map<string, AdminMediaItem>();
+  for (const item of [...current, ...incoming]) {
+    merged.set(item.path || item.publicUrl, item);
+  }
+  return [...merged.values()];
+}
+
 export function AdminMediaPicker({
   adapter,
   allowExternal = false,
   aspectRatio,
   emptyText,
-  items: initialItems,
+  items: initialItems = [],
+  pageSize = DEFAULT_PAGE_SIZE,
+  source,
   labels,
   locale,
   onClose,
@@ -55,7 +70,9 @@ export function AdminMediaPicker({
   allowExternal?: boolean;
   aspectRatio?: AdminMediaAspectRatio;
   emptyText?: string;
-  items: AdminMediaItem[];
+  items?: AdminMediaItem[];
+  pageSize?: number;
+  source?: AdminMediaSource;
   labels?: Partial<AdminMediaLabels>;
   locale?: string;
   onClose: () => void;
@@ -67,25 +84,91 @@ export function AdminMediaPicker({
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<AdminMediaSort>("date-desc");
   const [showUpload, setShowUpload] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string>();
+  const [total, setTotal] = useState<number>();
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string>();
+  const requestIdRef = useRef(0);
+  const initialItemsRef = useRef(initialItems);
   const i18n = useAdminMessages();
   const resolvedLocale = locale ?? i18n.searchLocale;
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
-
-  useEffect(() => setItems(initialItems), [initialItems]);
+  const loadErrorLabel = mergedLabels.loadError;
+  const resolvedPageSize = Math.max(1, Math.floor(pageSize));
 
   useEffect(() => {
-    if (!open) return;
+    initialItemsRef.current = initialItems;
+    if (!adapter) {
+      setItems(initialItems);
+    }
+  }, [adapter, initialItems]);
+
+  const loadItems = useCallback(
+    async (search: string, cursor?: string) => {
+      if (!adapter) {
+        return;
+      }
+
+      const requestId = ++requestIdRef.current;
+      setLoading(true);
+      setLoadError(undefined);
+
+      try {
+        const result = await adapter.list({
+          cursor,
+          limit: resolvedPageSize,
+          search: search.trim() || undefined,
+          source,
+        });
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        setItems((current) => (cursor ? mergeItems(current, result.items) : result.items));
+        setNextCursor(result.nextCursor);
+        setTotal(result.total);
+      } catch {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        setItems((current) => (cursor ? current : initialItemsRef.current));
+        setNextCursor(undefined);
+        setLoadError(loadErrorLabel);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [adapter, loadErrorLabel, resolvedPageSize, source],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      requestIdRef.current += 1;
+      setLoading(false);
+      return;
+    }
+    void loadItems(query);
+  }, [loadItems, open, query]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
     setQuery("");
     setSort("date-desc");
     setShowUpload(false);
+    setNextCursor(undefined);
+    setTotal(undefined);
+    setLoadError(undefined);
   }, [open, title]);
 
   const filteredItems = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
+    const normalized = query.trim().toLocaleLowerCase(resolvedLocale);
     const matched = normalized
       ? items.filter((item) =>
           `${item.name} ${item.path} ${item.publicUrl} ${item.contentType ?? ""}`
-            .toLocaleLowerCase()
+            .toLocaleLowerCase(resolvedLocale)
             .includes(normalized),
         )
       : items;
@@ -97,9 +180,7 @@ export function AdminMediaPicker({
       <AdminModalContent className="flex max-h-[90vh] max-w-6xl flex-col gap-0 overflow-hidden p-0">
         <AdminModalHeader className="border-b border-zinc-200 px-5 py-5 pr-14">
           <AdminModalTitle className="text-xl text-zinc-900">{title}</AdminModalTitle>
-          <AdminModalDescription>
-            {mergedLabels.description}
-          </AdminModalDescription>
+          <AdminModalDescription>{mergedLabels.description}</AdminModalDescription>
           {aspectRatio ? (
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               {mergedLabels.recommendedRatio}: {aspectRatio}
@@ -140,8 +221,13 @@ export function AdminMediaPicker({
             />
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto p-5">
-          {filteredItems.length ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-5" aria-busy={loading}>
+          {loadError ? <p role="alert" className="mb-4 text-sm text-red-600">{loadError}</p> : null}
+          {loading && !items.length ? (
+            <p role="status" className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-5 py-14 text-center text-sm text-zinc-500">
+              {mergedLabels.loading}
+            </p>
+          ) : filteredItems.length ? (
             <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
               {filteredItems.map((item) => {
                 const thumbnail = getAdminMediaThumbnailUrl(item);
@@ -187,6 +273,14 @@ export function AdminMediaPicker({
               {emptyText ?? mergedLabels.empty}
             </div>
           )}
+          {nextCursor && !loading ? (
+            <div className="mt-5 flex justify-center">
+              <Button type="button" variant="outline" onClick={() => void loadItems(query, nextCursor)}>
+                {mergedLabels.loadMore}
+              </Button>
+            </div>
+          ) : null}
+          {typeof total === "number" ? <p className="sr-only">{total}</p> : null}
         </div>
       </AdminModalContent>
     </AdminModal>

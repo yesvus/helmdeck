@@ -75,12 +75,18 @@ export async function getDemoMediaItems() {
 export const demoMediaAdapter: AdminMediaAdapter = {
   async list(query: AdminMediaListQuery = {}) {
     const search = query.search?.trim().toLocaleLowerCase();
-    const items = demoItems.filter((item) => {
+    const filtered = demoItems.filter((item) => {
       const matchesSearch = !search || `${item.name} ${item.kind}`.toLocaleLowerCase().includes(search);
       const matchesKind = !query.kind || item.kind === query.kind;
-      return matchesSearch && matchesKind;
+      const matchesSource = !query.source || item.source === query.source;
+      return matchesSearch && matchesKind && matchesSource;
     });
-    return { items, total: items.length };
+    const start = query.cursor ? Number.parseInt(query.cursor, 10) : 0;
+    const safeStart = Number.isFinite(start) && start > 0 ? start : 0;
+    const limit = query.limit && query.limit > 0 ? Math.floor(query.limit) : filtered.length;
+    const items = filtered.slice(safeStart, safeStart + limit);
+    const nextCursor = safeStart + items.length < filtered.length ? String(safeStart + items.length) : undefined;
+    return { items, total: filtered.length, nextCursor };
   },
   async upload(file, options) {
     for (const progress of [18, 47, 76, 100]) {

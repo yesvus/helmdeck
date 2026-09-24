@@ -12,6 +12,9 @@ export type AdminMediaLabels = {
   externalName: string;
   addExternal: string;
   empty: string;
+  loading: string;
+  loadMore: string;
+  loadError: string;
   select: string;
   replace: string;
   clear: string;
@@ -41,6 +44,9 @@ export const defaultAdminMediaLabels: AdminMediaLabels = {
   externalName: "Display name",
   addExternal: "Add link",
   empty: "No matching media is available.",
+  loading: "Loading media...",
+  loadMore: "Load more",
+  loadError: "Media could not be loaded.",
   select: "Select media",
   replace: "Replace",
   clear: "Clear",
