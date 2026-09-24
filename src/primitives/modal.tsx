@@ -25,7 +25,9 @@ export function AdminModalContent({
 }) {
   const i18n = useAdminMessages();
   const placementClasses = className?.split(/\s+/).map((name) => name.replace(/^!/, "")) ?? [];
-  const hasHorizontalPlacement = placementClasses.some((name) => /^(?:-?(?:left|right|inset-x|inset)-)/.test(name));
+  const hasHorizontalPlacement = placementClasses.some((name) =>
+    /^(?:-?(?:left|right|start|end|inset-x|inset-inline|inset)-)/.test(name),
+  );
   const hasVerticalPlacement = placementClasses.some((name) => /^(?:-?(?:top|bottom|inset-y|inset)-)/.test(name));
   return (
     <DialogPrimitive.Portal>

@@ -51,6 +51,36 @@ describe("AdminModalContent", () => {
     expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
   });
 
+  it.each(["right-8", "start-8", "end-8", "inset-x-8", "inset-8"])(
+    "does not add a centered horizontal anchor with %s",
+    async (placement) => {
+      render(
+        <AdminModal defaultOpen>
+          <AdminModalContent className={placement} aria-label="Placed dialog" />
+        </AdminModal>,
+      );
+      const dialog = await screen.findByRole("dialog", { name: "Placed dialog" });
+
+      expect(dialog).toHaveClass(placement);
+      expect(dialog.className).not.toMatch(/(?:^|\s)left-1\/2(?:\s|$)/);
+    },
+  );
+
+  it.each(["bottom-8", "inset-y-8", "inset-8"])(
+    "does not add a centered vertical anchor with %s",
+    async (placement) => {
+      render(
+        <AdminModal defaultOpen>
+          <AdminModalContent className={placement} aria-label="Placed dialog" />
+        </AdminModal>,
+      );
+      const dialog = await screen.findByRole("dialog", { name: "Placed dialog" });
+
+      expect(dialog).toHaveClass(placement);
+      expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
+    },
+  );
+
   it("keeps focus management and closes on Escape", async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
