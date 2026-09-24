@@ -77,6 +77,19 @@ describe("admin breadcrumbs", () => {
     ]);
   });
 
+  it("includes the root navigation item for unmatched child routes", () => {
+    const rootNav: AdminNavGroup[] = [{
+      label: "Admin",
+      items: [{ href: "/", label: "Dashboard" }],
+    }];
+
+    expect(createAdminBreadcrumbTrail(rootNav, "/reports/monthly")?.crumbs).toEqual([
+      { label: "Dashboard", href: "/" },
+      { label: "reports", href: undefined, current: false },
+      { label: "monthly", href: undefined, current: true },
+    ]);
+  });
+
   it("hides a redundant one-item crumb and retains current-page semantics", () => {
     const markup = renderToStaticMarkup(<AdminBreadcrumbs groups={nav} />);
     expect(markup).toContain('aria-current="page"');
