@@ -89,7 +89,7 @@ describe("AdminContextualHelp", () => {
     const tooltip = screen.getByRole("tooltip");
     await user.hover(tooltip);
     expect(tooltip).toBeVisible();
-    expect(tooltip).toHaveClass("before:h-2");
+    expect(tooltip.firstElementChild).toHaveAttribute("aria-hidden", "true");
   });
 
   it("places each trigger after its label in a wrapping inline group", () => {
