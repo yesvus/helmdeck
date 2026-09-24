@@ -49,6 +49,7 @@ export default function PrimitivesPage() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [items, setItems] = useState<string[]>(() => [...text.sortableItems]);
   const [result, setResult] = useState<string>();
+  const [customModalOpen, setCustomModalOpen] = useState(false);
 
   const rows: Row[] = [
     { id: 1, name: "Café machine", tone: "success", status: text.published, count: 12 },
@@ -208,6 +209,10 @@ export default function PrimitivesPage() {
               <Button>{text.save}</Button>
             </AdminModalFooter>
           </AdminModalContent>
+        </AdminModal>
+        <AdminModal open={customModalOpen} onOpenChange={setCustomModalOpen}>
+          <Button variant="outline" onClick={() => setCustomModalOpen(true)}>Open custom placement</Button>
+          <AdminModalContent className="left-8 top-12" style={{ height: 80, width: 160 }} aria-label="Custom placement dialog" showCloseButton={false} />
         </AdminModal>
       </Frame>
 
