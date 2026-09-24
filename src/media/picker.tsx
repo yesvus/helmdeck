@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, ImagePlus, Play, Search } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, ImagePlus, Play, Search, X } from "lucide-react";
 import type {
   AdminMediaAdapter,
   AdminMediaItem,
@@ -229,7 +229,7 @@ export function AdminMediaPicker({
               {filteredItems.length} {mergedLabels.results}
             </p>
             {adapter ? (
-              <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-zinc-600" onClick={() => setShowUpload((value) => !value)}>
+              <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-zinc-600" aria-expanded={showUpload} onClick={() => setShowUpload((value) => !value)}>
                 <ImagePlus className="h-4 w-4" />
                 {showUpload ? mergedLabels.hideUpload : mergedLabels.upload}
               </Button>
@@ -237,7 +237,8 @@ export function AdminMediaPicker({
           </div>
         </div>
         {showUpload && adapter ? (
-          <div className="border-b border-zinc-200 bg-admin-surface p-4">
+          <div className="relative border-b border-zinc-200 bg-admin-surface p-3 pr-12 sm:p-4">
+            <button type="button" aria-label={mergedLabels.closeUpload} onClick={() => setShowUpload(false)} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100"><X className="h-4 w-4" /></button>
             <AdminMediaUpload
               allowExternal={allowExternal}
               compact
@@ -258,6 +259,7 @@ export function AdminMediaPicker({
               {mergedLabels.loading}
             </p>
           ) : filteredItems.length ? (
+            <>
             <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredItems.map((item) => {
                 const thumbnail = getAdminMediaThumbnailUrl(item);
@@ -300,6 +302,17 @@ export function AdminMediaPicker({
                 );
               })}
             </div>
+            {selectedPath ? (() => {
+              const index = filteredItems.findIndex((item) => item.path === selectedPath);
+              const selected = filteredItems[index];
+              return selected ? <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-admin-surface p-3" aria-live="polite">
+                <Button type="button" variant="outline" aria-label={mergedLabels.previousMedia} disabled={index <= 0} onClick={() => { const item = filteredItems[index - 1]; if (item) { setSelectedPath(item.path); onSelect(item); } }}><ChevronLeft className="h-4 w-4" /><span className="sr-only">{mergedLabels.previousMedia}</span></Button>
+                <div className="hidden h-14 w-20 shrink-0 overflow-hidden rounded bg-zinc-100 sm:block">{getAdminMediaThumbnailUrl(selected) ? <div role="img" aria-label={selected.name} className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${getAdminMediaThumbnailUrl(selected).replaceAll('"', "%22")}")` }} /> : <AdminMediaPlaceholder kind={isPdfMediaItem(selected) ? "pdf" : isVideoMediaItem(selected) ? "video" : "image"} label={selected.name} />}</div>
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{selected.name}</p><p className="text-xs text-zinc-500">{selected.kind}{selected.size ? ` · ${formatMediaSize(selected.size)}` : ""}</p></div>
+                <Button type="button" variant="outline" aria-label={mergedLabels.nextMedia} disabled={index >= filteredItems.length - 1} onClick={() => { const item = filteredItems[index + 1]; if (item) { setSelectedPath(item.path); onSelect(item); } }}><ChevronRight className="h-4 w-4" /><span className="sr-only">{mergedLabels.nextMedia}</span></Button>
+              </div> : null;
+            })() : null}
+            </>
           ) : (
             <div className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-5 py-14 text-center text-sm text-zinc-500">
               {emptyText ?? mergedLabels.empty}
