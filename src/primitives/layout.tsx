@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "../cn.js";
 import { buttonVariants } from "./button.js";
+import { AdminContextualHelp } from "./contextual-help.js";
 
 export function AdminSurfaceCard({
   id,
@@ -53,7 +54,7 @@ export function AdminSectionCard({
           </div>
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
-            {description ? <p className="mt-1 text-sm leading-7 text-zinc-500">{description}</p> : null}
+            {description ? <div className="mt-1"><AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp></div> : null}
           </div>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
@@ -84,7 +85,7 @@ export function AdminSectionIntro({
         </div>
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
-          {description ? <p className="mt-1 text-sm leading-7 text-zinc-500">{description}</p> : null}
+          {description ? <div className="mt-1"><AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp></div> : null}
         </div>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -120,7 +121,7 @@ export function AdminStatCard({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">{label}</p>
           <p className="mt-3 text-3xl font-bold text-zinc-900">{value}</p>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">{detail}</p>
+          <div className="mt-2"><AdminContextualHelp label={`Help: ${label}`}>{detail}</AdminContextualHelp></div>
         </div>
         <div className={cn("flex h-11 w-11 items-center justify-center rounded-lg shadow-sm", adminStatCardToneClasses[tone])}>
           <Icon className="h-5 w-5" />
@@ -153,7 +154,7 @@ export function AdminFormCard({
     <div className={cn(collapsible && "flex items-start justify-between gap-4")}>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-zinc-900">{title}</p>
-        {subtitle ? <p className="mt-1 text-xs leading-6 text-zinc-500">{subtitle}</p> : null}
+        {subtitle ? <div className="mt-1"><AdminContextualHelp label={`Help: ${title}`}>{subtitle}</AdminContextualHelp></div> : null}
       </div>
       {collapsible ? (
         <span
