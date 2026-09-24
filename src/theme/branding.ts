@@ -11,8 +11,8 @@ export function useAdminBranding(accent?: string): CSSProperties {
     return {};
   }
   return {
-    "--color-brand-500": base,
-    "--color-brand-600": darkenHex(base, 0.12) ?? base,
-    "--color-brand-100": lightenHex(base, 0.85) ?? base,
+    "--admin-brand-500": base,
+    "--admin-brand-600": darkenHex(base, 0.3) ?? base,
+    "--admin-brand-100": lightenHex(base, 0.85) ?? base,
   } as CSSProperties;
 }
