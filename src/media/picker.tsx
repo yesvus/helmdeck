@@ -15,6 +15,8 @@ import {
   AdminModal,
   AdminModalContent,
   AdminModalDescription,
+  AdminModalBody,
+  AdminModalFooter,
   AdminModalHeader,
   AdminModalTitle,
 } from "../primitives/modal.js";
@@ -196,8 +198,8 @@ export function AdminMediaPicker({
 
   return (
     <AdminModal open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <AdminModalContent className="flex max-h-[90vh] max-w-6xl flex-col gap-0 overflow-hidden p-0">
-        <AdminModalHeader className="border-b border-zinc-200 bg-admin-surface px-5 py-5 pr-14 sm:px-7">
+      <AdminModalContent className="left-1/2 top-1/2 flex h-[min(92dvh,52rem)] max-h-[min(92dvh,52rem)] w-[calc(100%-1rem)] max-w-[88rem] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100%-2rem)] sm:max-w-[88rem]">
+        <AdminModalHeader className="shrink-0 border-b border-zinc-200 bg-admin-surface px-5 py-5 pr-14 sm:px-7">
           <AdminModalTitle className="text-xl font-bold text-zinc-900">{title}</AdminModalTitle>
           <AdminModalDescription>{mergedLabels.description}</AdminModalDescription>
           {aspectRatio ? (
@@ -206,7 +208,7 @@ export function AdminMediaPicker({
             </p>
           ) : null}
         </AdminModalHeader>
-        <div className="space-y-3 border-b border-zinc-200 bg-zinc-50/80 px-5 py-4 sm:px-7">
+        <div className="shrink-0 space-y-3 border-b border-zinc-200 bg-zinc-50/80 px-5 py-4 sm:px-7">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <label className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
@@ -224,10 +226,7 @@ export function AdminMediaPicker({
             ))}
           </AdminSelect>
           </div>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-medium text-zinc-500" aria-live="polite">
-              {filteredItems.length} {mergedLabels.results}
-            </p>
+          <div className="flex items-center justify-end gap-3">
             {adapter ? (
               <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-zinc-600" aria-expanded={showUpload} onClick={() => setShowUpload((value) => !value)}>
                 <ImagePlus className="h-4 w-4" />
@@ -236,8 +235,9 @@ export function AdminMediaPicker({
             ) : null}
           </div>
         </div>
+        <AdminModalBody className="space-y-0">
         {showUpload && adapter ? (
-          <div className="relative border-b border-zinc-200 bg-admin-surface p-3 pr-12 sm:p-4">
+          <div className="relative border-b border-zinc-200 bg-admin-surface p-4 pr-14 sm:px-7">
             <button type="button" aria-label={mergedLabels.closeUpload} onClick={() => setShowUpload(false)} className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100"><X className="h-4 w-4" /></button>
             <AdminMediaUpload
               allowExternal={allowExternal}
@@ -252,7 +252,7 @@ export function AdminMediaPicker({
             />
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:px-7" aria-busy={loading}>
+        <div className="p-5 sm:px-7" aria-busy={loading}>
           {loadError ? <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><span>{loadError}</span><Button type="button" variant="outline" onClick={() => void loadItems(query)}>{mergedLabels.retry}</Button></div> : null}
           {loading && !items.length ? (
             <p role="status" className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-5 py-14 text-center text-sm text-zinc-500">
@@ -318,15 +318,13 @@ export function AdminMediaPicker({
               {emptyText ?? mergedLabels.empty}
             </div>
           )}
-          {nextCursor && !loading ? (
-            <div className="mt-5 flex justify-center">
-              <Button type="button" variant="outline" onClick={() => void loadItems(query, nextCursor)}>
-                {mergedLabels.loadMore}
-              </Button>
-            </div>
-          ) : null}
           {typeof total === "number" ? <p className="sr-only">{total}</p> : null}
         </div>
+        </AdminModalBody>
+        <AdminModalFooter className="items-center justify-between border-t border-zinc-200 bg-admin-surface px-5 py-3 sm:px-7">
+          <p className="text-sm font-medium text-zinc-600" aria-live="polite">{filteredItems.length} {mergedLabels.results}{typeof total === "number" ? ` · ${total} ${mergedLabels.total}` : ""}</p>
+          {nextCursor && !loading ? <Button type="button" variant="outline" onClick={() => void loadItems(query, nextCursor)}>{mergedLabels.loadMore}</Button> : null}
+        </AdminModalFooter>
       </AdminModalContent>
     </AdminModal>
   );

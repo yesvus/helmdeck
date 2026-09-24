@@ -64,4 +64,27 @@ describe("AdminMediaUpload", () => {
     expect(await screen.findByText("Upload complete")).toBeInTheDocument();
     expect(upload).toHaveBeenCalledTimes(2);
   });
+
+  it("supports keyboard picking and reflects pointer, focus, and error states", async () => {
+    const user = userEvent.setup();
+    const upload = vi.fn().mockRejectedValue(new Error("offline"));
+    render(<AdminI18nProvider locale="en"><AdminMediaUpload adapter={{ list: vi.fn(), upload }} /></AdminI18nProvider>);
+    const dropzone = screen.getByRole("button", { name: /Drop a file here/ });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const click = vi.spyOn(input, "click");
+
+    dropzone.focus();
+    expect(dropzone).toHaveFocus();
+    fireEvent.dragEnter(dropzone, { dataTransfer: { files: [] } });
+    expect(dropzone.className).toContain("border-brand-600");
+    fireEvent.dragLeave(dropzone, { dataTransfer: { files: [] } });
+    await user.keyboard(" ");
+    expect(click).toHaveBeenCalled();
+
+    await user.upload(input, new File(["image"], "photo.png", { type: "image/png" }));
+    await user.click(screen.getByRole("button", { name: "Upload file" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Upload failed");
+    expect(dropzone).toHaveAttribute("aria-invalid", "true");
+    expect(dropzone.className).toContain("border-red-400");
+  });
 });

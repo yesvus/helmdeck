@@ -40,6 +40,16 @@ describe("AdminMediaPicker", () => {
     expect(onSelect).toHaveBeenCalledWith(image);
   });
 
+  it("uses a wide responsive dialog with fixed controls and a scrollable library", async () => {
+    render(<EnglishPicker items={[image]} onClose={vi.fn()} onSelect={vi.fn()} open title="Choose media" />);
+    const dialog = await screen.findByRole("dialog", { name: "Choose media" });
+    expect(dialog.className).toContain("h-[min(92dvh,52rem)]");
+    expect(dialog.className).toContain("max-w-[88rem]");
+    expect(dialog.querySelector(".overflow-y-auto")).toBeInTheDocument();
+    expect(dialog.querySelector("[aria-label='Search media']")).toBeInTheDocument();
+    expect(dialog.querySelector('[aria-live="polite"]')).toHaveTextContent("1 items");
+  });
+
   it("loads filtered pages through the adapter", async () => {
     const user = userEvent.setup();
     const secondImage = {
@@ -220,7 +230,8 @@ describe("AdminMediaPicker", () => {
   it("uses localized labels for upload dismissal and media navigation", async () => {
     const user = userEvent.setup();
     const second = { ...image, name: "Second photo", path: "media/second.webp", publicUrl: "/media/second.webp" };
-    render(<AdminI18nProvider locale="tr"><AdminMediaPicker adapter={{ list: vi.fn().mockResolvedValue({ items: [image, second] }), upload: vi.fn() }} items={[image, second]} onClose={vi.fn()} onSelect={vi.fn()} open title="Medya seçiniz" /></AdminI18nProvider>);
+    render(<AdminI18nProvider locale="tr"><AdminMediaPicker adapter={{ list: vi.fn().mockResolvedValue({ items: [image, second], total: 2 }), upload: vi.fn() }} items={[image, second]} onClose={vi.fn()} onSelect={vi.fn()} open title="Medya seçiniz" /></AdminI18nProvider>);
+    expect(await screen.findByText("2 medya · 2 toplam")).toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Yeni medya ekleyiniz" }));
     expect(screen.getByRole("button", { name: "Medya ekleme panelini kapatınız" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Medya ekleme panelini kapatınız" }));

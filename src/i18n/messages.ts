@@ -141,6 +141,7 @@ export const turkishAdminMessages: AdminMessages = {
     loadError: "Medya yüklenemedi.",
     retry: "Yeniden deneyiniz",
     results: "medya",
+    total: "toplam",
     select: "Medya seçiniz",
     replace: "Medyayı değiştiriniz",
     clear: "Medyayı temizleyiniz",
