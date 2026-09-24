@@ -19,7 +19,7 @@ export function AdminSurfaceCard({
     <section
       id={id}
       className={cn(
-        "rounded-xl border border-zinc-200 bg-admin-surface shadow-[0_18px_45px_-32px_rgba(15,23,42,0.22)]",
+        "rounded-admin-card border border-admin-border bg-admin-surface shadow-sm",
         className,
       )}
     >
@@ -47,13 +47,14 @@ export function AdminSectionCard({
 }) {
   return (
     <AdminSurfaceCard id={id} className={cn("scroll-mt-24 overflow-hidden", className)}>
-      <div className="flex flex-col gap-4 border-b border-zinc-100 px-5 py-5 sm:flex-row sm:items-start sm:justify-between lg:px-6">
+      <div className="flex flex-col gap-4 border-b border-admin-border bg-admin-surface-subtle px-5 py-4 sm:flex-row sm:items-start sm:justify-between lg:px-6">
         <div className={cn("flex gap-3", description ? "items-start" : "items-center")}>
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700">
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h2 className="flex min-w-0 flex-wrap items-center gap-x-1 text-lg font-semibold text-zinc-900"><span>{title}</span>{description ? <AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp> : null}</h2>
+            <h2 className="flex min-w-0 flex-wrap items-center gap-x-1 text-base font-semibold leading-snug text-zinc-900"><span>{title}</span>{description ? <AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp> : null}</h2>
+            {description ? <p className="mt-1 max-w-3xl text-sm leading-5 text-zinc-500">{description}</p> : null}
           </div>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
@@ -144,8 +145,8 @@ export function AdminFormCard({
   defaultOpen?: boolean;
 }) {
   const cardClassName = cn(
-    "rounded-lg border p-4",
-    accent === "muted" ? "border-dashed border-zinc-300 bg-zinc-50" : "border-zinc-200 bg-admin-surface",
+    "rounded-lg border border-admin-border p-4",
+    accent === "muted" ? "border-dashed bg-admin-surface-subtle" : "bg-admin-surface",
   );
   const header = (
     <div className={cn(collapsible && "flex items-start justify-between gap-4")}>
@@ -213,7 +214,7 @@ export function AdminListItemCard({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-admin-surface p-4">
+    <div className="rounded-lg border border-admin-border bg-admin-surface p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 space-y-1">
           <p className="text-base font-semibold text-zinc-900">{title}</p>
