@@ -61,7 +61,7 @@ export function AdminSubmitButton({
   return (
     <Button
       type={type}
-      variant={variant ?? (isDirty ? "success" : "default")}
+      variant={variant ?? "default"}
       disabled={isDisabled}
       aria-busy={pending}
       aria-disabled={isDisabled}

@@ -14,7 +14,7 @@ export type {
 export { AdminDestructiveAction } from "./destructive-action.js";
 export { AdminEmptyState } from "./empty-state.js";
 export { AdminField, AdminFieldGrid, AdminFormActions, AdminFormSection } from "./field.js";
-export { AdminInput, adminInputClassName } from "./input.js";
+export { AdminInput, AdminTextarea, adminInputClassName } from "./input.js";
 export {
   AdminBanner,
   AdminFormCard,

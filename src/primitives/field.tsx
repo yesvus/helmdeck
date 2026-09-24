@@ -9,27 +9,32 @@ import { cn } from "../cn.js";
 export function AdminField({
   label,
   hint,
+  error,
+  id,
   children,
   className,
 }: {
   label: string;
   hint?: string;
+  error?: string;
+  id?: string;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <label className={cn("block space-y-2", className)}>
+    <div className={cn("grid gap-2", className)}>
+      <label htmlFor={id} className="text-sm font-semibold leading-5 text-zinc-900">{label}</label>
       <span className="space-y-1">
-        <span className="block text-sm font-semibold text-zinc-900">{label}</span>
-        {hint ? <span className="block text-xs leading-6 text-zinc-500">{hint}</span> : null}
+        {hint ? <span className="block text-sm leading-5 text-zinc-500">{hint}</span> : null}
       </span>
       {children}
-    </label>
+      {error ? <span className="text-sm leading-5 text-red-700" role="alert">{error}</span> : null}
+    </div>
   );
 }
 
 export function AdminFieldGrid({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("grid gap-4 lg:grid-cols-2", className)}>{children}</div>;
+  return <div className={cn("grid min-w-0 grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2", className)}>{children}</div>;
 }
 
 export function AdminFormSection({
@@ -75,6 +80,6 @@ export function AdminFormSection({
   );
 }
 
-export function AdminFormActions({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap gap-3">{children}</div>;
+export function AdminFormActions({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("flex flex-col-reverse gap-3 border-t border-zinc-200 pt-5 sm:flex-row sm:justify-end", className)}>{children}</div>;
 }
