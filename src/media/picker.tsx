@@ -123,9 +123,14 @@ export function AdminMediaPicker({
       setLoadError(undefined);
 
       try {
+        const kindFilter = allowedKinds?.length === 1
+          ? { kind: allowedKinds[0] }
+          : allowedKinds?.length
+            ? { kinds: allowedKinds }
+            : {};
         const result = await adapter.list({
+          ...kindFilter,
           cursor,
-          kind: allowedKinds?.length === 1 ? allowedKinds[0] : undefined,
           limit: resolvedPageSize,
           search: search.trim() || undefined,
           source,

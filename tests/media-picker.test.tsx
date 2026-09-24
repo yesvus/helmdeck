@@ -120,6 +120,31 @@ describe("AdminMediaPicker", () => {
     expect(screen.queryByRole("button", { name: /Manual/ })).not.toBeInTheDocument();
   });
 
+  it("passes multi-kind filters to the adapter", async () => {
+    const list = vi.fn().mockResolvedValue({ items: [image] });
+    render(
+      <EnglishPicker
+        adapter={{ list, upload: vi.fn() }}
+        allowedKinds={["image", "video"]}
+        items={[]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        open
+        title="Choose visual media"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(list).toHaveBeenCalledWith({
+        cursor: undefined,
+        kinds: ["image", "video"],
+        limit: 48,
+        search: undefined,
+        source: undefined,
+      }),
+    );
+  });
+
   it("uses a safe default for invalid page sizes", async () => {
     const list = vi.fn().mockResolvedValue({ items: [] });
     render(

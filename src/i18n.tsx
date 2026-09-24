@@ -217,16 +217,18 @@ const registry = new Map<string, AdminMessages>([
 ]);
 
 export function defineAdminMessages(messages: AdminMessages) {
-  registry.set(messages.locale, messages);
+  registry.set(messages.locale.toLowerCase(), messages);
   return messages;
 }
 
 export function getAdminMessages(locale: string, fallbackLocale = defaultAdminLocale) {
+  const normalizedLocale = locale.toLowerCase();
+  const normalizedFallback = fallbackLocale.toLowerCase();
   return (
-    registry.get(locale) ??
-    registry.get(locale.split("-")[0]) ??
-    registry.get(fallbackLocale) ??
-    registry.get(fallbackLocale.split("-")[0]) ??
+    registry.get(normalizedLocale) ??
+    registry.get(normalizedLocale.split("-")[0]) ??
+    registry.get(normalizedFallback) ??
+    registry.get(normalizedFallback.split("-")[0]) ??
     turkishAdminMessages
   );
 }

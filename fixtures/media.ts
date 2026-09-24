@@ -78,8 +78,9 @@ export const demoMediaAdapter: AdminMediaAdapter = {
     const filtered = demoItems.filter((item) => {
       const matchesSearch = !search || `${item.name} ${item.kind}`.toLocaleLowerCase().includes(search);
       const matchesKind = !query.kind || item.kind === query.kind;
+      const matchesKinds = !query.kinds?.length || query.kinds.includes(item.kind);
       const matchesSource = !query.source || item.source === query.source;
-      return matchesSearch && matchesKind && matchesSource;
+      return matchesSearch && matchesKind && matchesKinds && matchesSource;
     });
     const start = query.cursor ? Number.parseInt(query.cursor, 10) : 0;
     const safeStart = Number.isFinite(start) && start > 0 ? start : 0;
