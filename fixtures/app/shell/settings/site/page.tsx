@@ -67,7 +67,7 @@ export default function SiteSettingsPage() {
           <p className="mt-1 text-sm text-zinc-600">Alex Morgan · alex@northstar.example</p>
           <p className="mt-2 text-xs text-zinc-500">Workspace administrator · Last active today</p>
         </section>
-        <button type="button" onClick={() => setSaved(true)} className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2">Save preferences</button>
+        <button type="button" onClick={() => setSaved(true)} className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2">Save preferences</button>
         {saved && <p role="status" className="text-sm text-emerald-700">Workspace preferences saved for this demo.</p>}
       </div>
     </FixtureCard>

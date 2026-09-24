@@ -80,10 +80,10 @@ export default function MediaDemoPage() {
             return (
               <button key={item.path} type="button" aria-pressed={selectedPath === item.path} onClick={() => setSelectedPath(item.path)} className={`overflow-hidden rounded-xl border bg-white text-left transition hover:border-brand-400 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 ${selectedPath === item.path ? "border-brand-500 ring-2 ring-brand-200" : "border-zinc-200"}`}>
                 <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-zinc-100">
-                  {thumbnail && item.kind === "image" ? (
+                  {thumbnail && (item.kind === "image" || item.kind === "youtube") ? (
                     <div role="img" aria-label={item.name} className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${thumbnail}")` }} />
                   ) : (
-                    <AdminMediaPlaceholder kind={isPdfMediaItem(item) ? "pdf" : "image"} label={item.kind === "video" ? `${item.name} · video` : item.name} />
+                    <AdminMediaPlaceholder kind={isPdfMediaItem(item) ? "pdf" : item.kind === "video" ? "video" : item.kind === "youtube" ? "external" : "image"} label={`${item.name} · ${item.kind}`} />
                   )}
                 </div>
                 <div className="p-3">

@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { AdminSelect } from "@yesvus/helmdeck";
+import { AdminSelect } from "../src/primitives/select";
 
 describe("public fixture select control", () => {
   it("keeps native selection pointer-operable and reachable with the keyboard", async () => {
