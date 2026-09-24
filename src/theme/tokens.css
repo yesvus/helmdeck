@@ -10,7 +10,9 @@
   --color-admin-danger-action: var(--admin-danger-action);
   --color-admin-danger-action-hover: var(--admin-danger-action-hover);
   --color-admin-danger-text: var(--admin-danger-text);
+  --color-admin-on-danger: var(--admin-on-danger);
   --color-admin-on-brand: var(--admin-on-brand);
+  --color-admin-on-success: var(--admin-on-success);
   --color-admin-success-surface: var(--admin-success-surface);
   --color-admin-success-text: var(--admin-success-text);
   --color-admin-success-border: var(--admin-success-border);
@@ -82,6 +84,8 @@
   --admin-media-backdrop: #0c0a09;
   --admin-danger-action: #dc2626;
   --admin-danger-action-hover: #b91c1c;
+  --admin-on-danger: #ffffff;
+  --admin-on-success: #ffffff;
   --admin-warning-surface: #fef3c7;
   --admin-warning-border: #fcd34d;
   --admin-warning-text: #78350f;
@@ -124,7 +128,7 @@
   --admin-success-surface: #052e16;
   --admin-success-text: #86efac;
   --admin-success-border: #166534;
-  --admin-success-action: #16a34a;
+  --admin-success-action: #15803d;
   --admin-success-action-hover: #15803d;
 }
 

@@ -20,8 +20,8 @@ const baseClassName =
 
 const variantClassName: Record<ButtonVariant, string> = {
   default: "bg-brand-500 text-admin-on-brand hover:bg-brand-600",
-  destructive: "bg-admin-danger-action text-admin-on-brand hover:bg-admin-danger-action-hover",
-  success: "bg-admin-success-action text-admin-on-brand hover:bg-admin-success-action-hover",
+  destructive: "bg-admin-danger-action text-admin-on-danger hover:bg-admin-danger-action-hover",
+  success: "bg-admin-success-action text-admin-on-success hover:bg-admin-success-action-hover",
   outline: "border border-zinc-300 bg-admin-surface text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900",
   secondary: "bg-zinc-100 text-zinc-900 hover:bg-zinc-200",
   ghost: "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",

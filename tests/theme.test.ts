@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { contrastingTextHex } from "../src/theme/color.js";
+import { buttonVariants } from "../src/primitives/button.js";
 
 function luminance(hex: string) {
   const channels = hex.match(/[\da-f]{2}/gi)!.map((part) => parseInt(part, 16) / 255).map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
@@ -23,5 +24,11 @@ describe("theme tokens", () => {
     expect(css).toContain("--admin-success-border:");
     expect(contrastingTextHex("#facc15")).toBe("#1c1917");
     expect(contrastingTextHex("#123456")).toBe("#ffffff");
+    expect(buttonVariants({ variant: "destructive" })).toContain("text-admin-on-danger");
+    expect(buttonVariants({ variant: "destructive" })).not.toContain("text-admin-on-brand");
+    expect(buttonVariants({ variant: "success" })).toContain("text-admin-on-success");
+    expect(buttonVariants({ variant: "success" })).not.toContain("text-admin-on-brand");
+    expect((luminance("ffffff") + 0.05) / (luminance("dc2626") + 0.05)).toBeGreaterThanOrEqual(4.5);
+    expect((luminance("ffffff") + 0.05) / (luminance("15803d") + 0.05)).toBeGreaterThanOrEqual(4.5);
   });
 });
