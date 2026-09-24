@@ -48,8 +48,10 @@ export function AdminNavLink({
         aria-label={item.label}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-2 py-3 text-center text-[11px] font-semibold transition-colors",
-          active ? "text-admin-brand-text" : "text-zinc-500 hover:text-zinc-900",
+          "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-2 py-3 text-center text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500",
+          active
+            ? "bg-brand-500 !text-white after:absolute after:inset-x-3 after:top-0 after:h-0.5 after:rounded-b after:bg-white/70"
+            : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900",
         )}
       >
         {Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
@@ -66,9 +68,9 @@ export function AdminNavLink({
         aria-label={item.label}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex h-11 w-11 items-center justify-center rounded-lg transition-colors",
+          "flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
           active
-            ? "bg-brand-500 text-admin-on-brand"
+            ? "bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
             : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
         )}
       >
@@ -82,9 +84,9 @@ export function AdminNavLink({
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex min-h-[44px] items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
+        "flex min-h-[44px] items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
         active
-          ? "bg-brand-500 text-admin-on-brand"
+          ? "bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
           : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
       )}
     >
