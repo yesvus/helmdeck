@@ -175,6 +175,7 @@ export function AdminMediaUpload({
               {mergedLabels.addExternal}
             </Button>
           </div>
+          {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
         </form>
       ) : (
         <>
@@ -224,7 +225,7 @@ export function AdminMediaUpload({
               </div>
             </div>
           ) : null}
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
           {file ? (
             <div className="flex justify-end">
               <Button type="button" onClick={upload} disabled={busy}>

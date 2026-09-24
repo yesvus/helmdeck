@@ -7,6 +7,7 @@ import {
   AdminModalContent,
   AdminModalTitle,
   AdminPagination,
+  defaultAdminLocale,
   defineAdminMessages,
   englishAdminMessages,
   getAdminMessages,
@@ -26,6 +27,20 @@ describe("Helmdeck localization", () => {
     expect(turkishAdminMessages.locale).toBe("tr");
     expect(turkishAdminMessages.shell.searchLabel).toBe("Yönetim sayfalarında arayın");
     expect(turkishAdminMessages.media.browse).toBe("Dosya seçiniz");
+  });
+
+  it("defaults to Turkish and resolves regional fallbacks", () => {
+    expect(defaultAdminLocale).toBe("tr");
+    expect(getAdminMessages("fr")).toBe(turkishAdminMessages);
+    expect(getAdminMessages("fr", "tr-TR")).toBe(turkishAdminMessages);
+
+    render(
+      <AdminI18nProvider>
+        <MessageProbe />
+      </AdminI18nProvider>,
+    );
+
+    expect(screen.getByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
   });
 
   it("registers and provides custom dictionaries", () => {

@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { ImagePlus, Play, Trash2 } from "lucide-react";
-import type { AdminMediaAdapter, AdminMediaItem } from "../adapters/index.js";
+import type { AdminMediaAdapter, AdminMediaItem, AdminMediaKind } from "../adapters/index.js";
 import { Button } from "../primitives/button.js";
 import { AdminField } from "../primitives/field.js";
 import { useAdminFormValueSignal } from "../primitives/managed-form.js";
@@ -84,6 +84,12 @@ export function AdminMediaField({
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
   const hiddenValueRef = useAdminFormValueSignal<HTMLInputElement>(value);
   const availableItems = useMemo(() => filterItems(items, mode), [items, mode]);
+  const allowedKinds = useMemo<AdminMediaKind[]>(() => {
+    if (mode === "image") return ["image"];
+    if (mode === "pdf") return ["pdf"];
+    if (mode === "visual") return ["image", "video", "youtube"];
+    return [];
+  }, [mode]);
   const selectedItem = items.find((item) => item.publicUrl === value) ?? null;
   const youtubeThumbnail = selectedItem && isYouTubeMediaItem(selectedItem)
     ? getAdminMediaThumbnailUrl(selectedItem)
@@ -154,6 +160,7 @@ export function AdminMediaField({
       <AdminMediaPicker
         adapter={adapter}
         allowExternal={allowExternal}
+        allowedKinds={allowedKinds}
         aspectRatio={mode === "pdf" ? undefined : aspectRatio}
         emptyText={mergedLabels.empty}
         items={availableItems}

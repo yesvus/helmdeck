@@ -2,7 +2,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { AdminMediaPicker, type AdminMediaItem } from "../src";
+import type { ComponentProps } from "react";
+import { AdminI18nProvider, AdminMediaPicker, type AdminMediaItem } from "../src";
 
 const image: AdminMediaItem = {
   name: "Product photo",
@@ -12,13 +13,21 @@ const image: AdminMediaItem = {
   kind: "image",
 };
 
+function EnglishPicker(props: ComponentProps<typeof AdminMediaPicker>) {
+  return (
+    <AdminI18nProvider locale="en">
+      <AdminMediaPicker {...props} />
+    </AdminI18nProvider>
+  );
+}
+
 describe("AdminMediaPicker", () => {
   it("selects an item and closes through the controlled dialog", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     const onClose = vi.fn();
     render(
-      <AdminMediaPicker
+      <EnglishPicker
         items={[image]}
         onClose={onClose}
         onSelect={onSelect}
@@ -46,7 +55,7 @@ describe("AdminMediaPicker", () => {
     const adapter = { list, upload: vi.fn() };
 
     render(
-      <AdminMediaPicker
+      <EnglishPicker
         adapter={adapter}
         items={[]}
         pageSize={1}
@@ -77,10 +86,44 @@ describe("AdminMediaPicker", () => {
     );
   });
 
+  it("filters adapter pages to the field's allowed kinds", async () => {
+    const pdf = {
+      ...image,
+      name: "Manual",
+      path: "media/manual.pdf",
+      publicUrl: "/media/manual.pdf",
+      kind: "pdf" as const,
+    };
+    const list = vi.fn().mockResolvedValue({ items: [pdf, image] });
+    render(
+      <EnglishPicker
+        adapter={{ list, upload: vi.fn() }}
+        allowedKinds={["image"]}
+        items={[]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        open
+        title="Choose an image"
+      />,
+    );
+
+    await waitFor(() =>
+      expect(list).toHaveBeenCalledWith({
+        cursor: undefined,
+        kind: "image",
+        limit: 48,
+        search: undefined,
+        source: undefined,
+      }),
+    );
+    expect(await screen.findByRole("button", { name: /Product photo/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Manual/ })).not.toBeInTheDocument();
+  });
+
   it("uses a safe default for invalid page sizes", async () => {
     const list = vi.fn().mockResolvedValue({ items: [] });
     render(
-      <AdminMediaPicker
+      <EnglishPicker
         adapter={{ list, upload: vi.fn() }}
         items={[]}
         pageSize={Number.NaN}
@@ -105,7 +148,7 @@ describe("AdminMediaPicker", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(
-      <AdminMediaPicker
+      <EnglishPicker
         emptyText="No media is available."
         items={[]}
         onClose={onClose}

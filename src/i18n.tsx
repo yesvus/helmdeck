@@ -209,6 +209,8 @@ export const turkishAdminMessages: AdminMessages = {
   },
 };
 
+export const defaultAdminLocale = "tr";
+
 const registry = new Map<string, AdminMessages>([
   [englishAdminMessages.locale, englishAdminMessages],
   [turkishAdminMessages.locale, turkishAdminMessages],
@@ -219,15 +221,21 @@ export function defineAdminMessages(messages: AdminMessages) {
   return messages;
 }
 
-export function getAdminMessages(locale: string, fallbackLocale = "en") {
-  return registry.get(locale) ?? registry.get(fallbackLocale) ?? englishAdminMessages;
+export function getAdminMessages(locale: string, fallbackLocale = defaultAdminLocale) {
+  return (
+    registry.get(locale) ??
+    registry.get(locale.split("-")[0]) ??
+    registry.get(fallbackLocale) ??
+    registry.get(fallbackLocale.split("-")[0]) ??
+    turkishAdminMessages
+  );
 }
 
-const AdminI18nContext = createContext<AdminMessages>(englishAdminMessages);
+const AdminI18nContext = createContext<AdminMessages>(getAdminMessages(defaultAdminLocale));
 
 export function AdminI18nProvider({
   children,
-  locale = "en",
+  locale = defaultAdminLocale,
   messages,
 }: {
   children: ReactNode;

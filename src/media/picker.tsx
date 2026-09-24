@@ -6,6 +6,7 @@ import { ImagePlus, Play, Search } from "lucide-react";
 import type {
   AdminMediaAdapter,
   AdminMediaItem,
+  AdminMediaKind,
   AdminMediaSource,
 } from "../adapters/index.js";
 import { Button } from "../primitives/button.js";
@@ -51,9 +52,14 @@ function mergeItems(current: AdminMediaItem[], incoming: AdminMediaItem[]) {
   return [...merged.values()];
 }
 
+function matchesAllowedKinds(item: AdminMediaItem, allowedKinds?: AdminMediaKind[]) {
+  return !allowedKinds?.length || allowedKinds.includes(item.kind);
+}
+
 export function AdminMediaPicker({
   adapter,
   allowExternal = false,
+  allowedKinds,
   aspectRatio,
   emptyText,
   items: initialItems = [],
@@ -68,6 +74,7 @@ export function AdminMediaPicker({
 }: {
   adapter?: AdminMediaAdapter;
   allowExternal?: boolean;
+  allowedKinds?: AdminMediaKind[];
   aspectRatio?: AdminMediaAspectRatio;
   emptyText?: string;
   items?: AdminMediaItem[];
@@ -118,14 +125,16 @@ export function AdminMediaPicker({
       try {
         const result = await adapter.list({
           cursor,
+          kind: allowedKinds?.length === 1 ? allowedKinds[0] : undefined,
           limit: resolvedPageSize,
           search: search.trim() || undefined,
           source,
         });
+        const resultItems = result.items.filter((item) => matchesAllowedKinds(item, allowedKinds));
         if (requestId !== requestIdRef.current) {
           return;
         }
-        setItems((current) => (cursor ? mergeItems(current, result.items) : result.items));
+        setItems((current) => (cursor ? mergeItems(current, resultItems) : resultItems));
         setNextCursor(result.nextCursor);
         setTotal(result.total);
       } catch {
@@ -141,7 +150,7 @@ export function AdminMediaPicker({
         }
       }
     },
-    [adapter, loadErrorLabel, resolvedPageSize, source],
+    [adapter, allowedKinds, loadErrorLabel, resolvedPageSize, source],
   );
 
   useEffect(() => {
@@ -169,13 +178,14 @@ export function AdminMediaPicker({
     const normalized = query.trim().toLocaleLowerCase(resolvedLocale);
     const matched = normalized
       ? items.filter((item) =>
+          matchesAllowedKinds(item, allowedKinds) &&
           `${item.name} ${item.path} ${item.publicUrl} ${item.contentType ?? ""}`
             .toLocaleLowerCase(resolvedLocale)
             .includes(normalized),
         )
-      : items;
+      : items.filter((item) => matchesAllowedKinds(item, allowedKinds));
     return sortAdminMediaItems(matched, sort, resolvedLocale);
-  }, [items, query, resolvedLocale, sort]);
+  }, [allowedKinds, items, query, resolvedLocale, sort]);
 
   return (
     <AdminModal open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
@@ -219,7 +229,11 @@ export function AdminMediaPicker({
               compact
               adapter={adapter}
               labels={mergedLabels}
-              onUploaded={(item) => setItems((current) => [item, ...current])}
+              onUploaded={(item) => {
+                if (matchesAllowedKinds(item, allowedKinds)) {
+                  setItems((current) => [item, ...current]);
+                }
+              }}
             />
           </div>
         ) : null}

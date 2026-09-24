@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import { ImagePlus, Pencil, Play, Trash2 } from "lucide-react";
-import type { AdminMediaAdapter, AdminMediaItem } from "../adapters/index.js";
+import type { AdminMediaAdapter, AdminMediaItem, AdminMediaKind } from "../adapters/index.js";
 import { Button } from "../primitives/button.js";
 import { AdminField } from "../primitives/field.js";
 import { AdminInput } from "../primitives/input.js";
@@ -81,6 +81,10 @@ export function AdminMediaGalleryField({
     () => items.filter(mode === "image" ? isImageMediaItem : isVisualMediaItem),
     [items, mode],
   );
+  const allowedKinds = useMemo<AdminMediaKind[]>(() => {
+    if (mode === "image") return ["image"];
+    return ["image", "video", "youtube"];
+  }, [mode]);
 
   function openPicker(index: number | null) {
     setEditingIndex(index);
@@ -185,6 +189,7 @@ export function AdminMediaGalleryField({
       <AdminMediaPicker
         adapter={adapter}
         allowExternal={allowExternal}
+        allowedKinds={allowedKinds}
         aspectRatio={aspectRatio}
         items={availableItems}
         labels={mergedLabels}
