@@ -61,6 +61,24 @@ describe("Tooltip", () => {
     vi.useRealTimers();
   });
 
+  it("keeps newly opened portal content hidden until its coordinates are measured", () => {
+    render(<Tooltip label="Help" content="Details"><button type="button">Help</button></Tooltip>);
+    const trigger = screen.getByRole("button", { name: "Help" });
+    const popup = screen.getByRole("tooltip", { hidden: true });
+    trigger.getBoundingClientRect = () => rect(200, 100, 40, 20) as DOMRect;
+    let visibilityDuringMeasurement = "";
+    popup.getBoundingClientRect = () => {
+      visibilityDuringMeasurement = popup.style.visibility;
+      return rect(0, 0, 120, 40) as DOMRect;
+    };
+
+    fireEvent.click(trigger);
+
+    expect(visibilityDuringMeasurement).toBe("hidden");
+    expect(popup).toBeVisible();
+    expect(popup.style.left).toBe("160px");
+  });
+
   it.each(["start", "center", "end"] as const)("aligns the arrow with the anchor for %s alignment", async (align) => {
     const { container } = render(<Tooltip label="Help" content="Details" side="bottom" align={align}><button type="button">i</button></Tooltip>);
     const trigger = screen.getByRole("button", { name: "Help" });

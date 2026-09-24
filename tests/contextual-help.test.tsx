@@ -30,7 +30,7 @@ describe("AdminContextualHelp", () => {
     fireEvent.pointerUp(document.body);
     await user.tab();
     expect(trigger).toHaveFocus();
-    expect(screen.getByRole("tooltip")).toBeVisible();
+    expect(await screen.findByRole("tooltip")).toBeVisible();
   });
 
   it("opens from touch activation", async () => {

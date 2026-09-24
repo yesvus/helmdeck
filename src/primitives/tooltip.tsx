@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { cloneElement, createContext, useContext, useEffect, useId, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { cloneElement, createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../cn.js";
 
@@ -9,6 +9,7 @@ type Side = "top" | "right" | "bottom" | "left";
 type Align = "start" | "center" | "end";
 type TooltipOptions = { side?: Side; align?: Align; sideOffset?: number; alignOffset?: number };
 const TooltipContext = createContext<{ delay: number }>({ delay: 0 });
+const useSafeLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export function TooltipProvider({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
   return <TooltipContext.Provider value={{ delay }}>{children}</TooltipContext.Provider>;
@@ -27,11 +28,11 @@ export function Tooltip({ children, content, label, className, ...options }: Too
   const [position, setPosition] = useState<{ popup: CSSProperties; arrow: CSSProperties }>({ popup: {}, arrow: {} });
   const show = () => {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setOpen(true), provider.delay);
+    timer.current = setTimeout(() => { if (!open) setPosition({ popup: {}, arrow: {} }); setOpen(true); }, provider.delay);
   };
   const close = (immediate = false) => {
     if (timer.current) clearTimeout(timer.current);
-    if (immediate) { clickOpen.current = false; setOpen(false); }
+    if (immediate) { clickOpen.current = false; setPosition({ popup: {}, arrow: {} }); setOpen(false); }
     else timer.current = setTimeout(() => { clickOpen.current = false; setOpen(false); }, 100);
   };
 
@@ -59,7 +60,7 @@ export function Tooltip({ children, content, label, className, ...options }: Too
     };
   }, [open]);
 
-  useEffect(() => {
+  useSafeLayoutEffect(() => {
     if (!mounted || !open || !triggerRef.current || !contentRef.current) return;
     const side = options.side ?? "bottom";
     const align = options.align ?? "center";
@@ -110,6 +111,7 @@ export function Tooltip({ children, content, label, className, ...options }: Too
       if (triggerRef.current?.closest("label")) event.preventDefault();
       if (timer.current) clearTimeout(timer.current);
       clickOpen.current = !clickOpen.current;
+      if (clickOpen.current && !open) setPosition({ popup: {}, arrow: {} });
       setOpen(clickOpen.current);
     },
     onFocus: (event: React.FocusEvent<HTMLElement>) => {
@@ -122,8 +124,8 @@ export function Tooltip({ children, content, label, className, ...options }: Too
     },
   } as never);
 
-  return <span className={cn("relative inline-flex shrink-0 align-middle", className)} onPointerEnter={() => { if (!pointer.current) show(); }} onPointerLeave={() => close()}>
+  return <span className={cn("relative inline-flex shrink-0 align-middle", className)} onPointerEnter={() => { if (!pointer.current) show(); }} onPointerLeave={() => { if (document.activeElement !== triggerRef.current) close(); }}>
     {trigger}
-    {mounted && createPortal(<div ref={contentRef} id={id} role="tooltip" data-side={options.side ?? "bottom"} data-align={options.align ?? "center"} hidden={!open} style={position.popup} onPointerEnter={() => { if (timer.current) clearTimeout(timer.current); }} onPointerLeave={() => close()} className={cn("z-[100] w-max max-w-64 rounded-md bg-zinc-950 px-3 py-2 text-xs font-normal leading-5 text-white shadow-lg motion-reduce:transition-none", open && "animate-in fade-in-0 duration-100")}><span className="absolute size-2 rotate-45 bg-zinc-950" style={position.arrow} aria-hidden="true" />{content}</div>, document.body)}
+    {mounted && createPortal(<div ref={contentRef} id={id} role="tooltip" data-side={options.side ?? "bottom"} data-align={options.align ?? "center"} hidden={!open} style={{ ...position.popup, visibility: open && position.popup.position === "fixed" ? "visible" : "hidden" }} onPointerEnter={() => { if (timer.current) clearTimeout(timer.current); }} onPointerLeave={() => { if (document.activeElement !== triggerRef.current) close(); }} className={cn("z-[100] w-max max-w-64 rounded-md bg-zinc-950 px-3 py-2 text-xs font-normal leading-5 text-white shadow-lg motion-reduce:transition-none", open && "animate-in fade-in-0 duration-100")}><span className="absolute size-2 rotate-45 bg-zinc-950" style={position.arrow} aria-hidden="true" />{content}</div>, document.body)}
   </span>;
 }
