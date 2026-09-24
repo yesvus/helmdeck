@@ -25,12 +25,14 @@ export function AdminField({
   const Wrapper = id ? "div" : "label";
   return (
     <Wrapper className={cn("grid gap-2", className)}>
-      {id ? (
-        <label htmlFor={id} className="text-sm font-semibold leading-5 text-zinc-900">{label}</label>
-      ) : (
-        <span className="text-sm font-semibold leading-5 text-zinc-900">{label}</span>
-      )}
-      {hint ? <AdminContextualHelp label={`Help: ${label}`}>{hint}</AdminContextualHelp> : null}
+      <span className="flex min-w-0 flex-wrap items-center gap-x-1">
+        {id ? (
+          <label htmlFor={id} className="text-sm font-semibold leading-5 text-zinc-900">{label}</label>
+        ) : (
+          <span className="text-sm font-semibold leading-5 text-zinc-900">{label}</span>
+        )}
+        {hint ? <AdminContextualHelp label={`Help: ${label}`}>{hint}</AdminContextualHelp> : null}
+      </span>
       {children}
       {error ? <span className="text-sm leading-5 text-red-700" role="alert">{error}</span> : null}
     </Wrapper>
@@ -63,8 +65,10 @@ export function AdminFormSection({
       <summary className="cursor-pointer list-none">
         <span className="flex items-start justify-between gap-4">
           <span>
-            <span className="block text-sm font-semibold text-zinc-900">{title}</span>
-            {description ? <span className="mt-1 block"><AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp></span> : null}
+            <span className="flex min-w-0 flex-wrap items-center gap-x-1">
+              <span className="text-sm font-semibold text-zinc-900">{title}</span>
+              {description ? <AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp> : null}
+            </span>
           </span>
           <span
             className={cn(

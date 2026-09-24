@@ -53,8 +53,7 @@ export function AdminSectionCard({
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
-            {description ? <div className="mt-1"><AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp></div> : null}
+            <h2 className="flex min-w-0 flex-wrap items-center gap-x-1 text-lg font-semibold text-zinc-900"><span>{title}</span>{description ? <AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp> : null}</h2>
           </div>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
@@ -84,8 +83,7 @@ export function AdminSectionIntro({
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold text-zinc-900">{title}</h2>
-          {description ? <div className="mt-1"><AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp></div> : null}
+          <h2 className="flex min-w-0 flex-wrap items-center gap-x-1 text-lg font-semibold text-zinc-900"><span>{title}</span>{description ? <AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp> : null}</h2>
         </div>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -119,9 +117,8 @@ export function AdminStatCard({
     <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">{label}</p>
+          <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500"><span>{label}</span><AdminContextualHelp label={`Help: ${label}`}>{detail}</AdminContextualHelp></p>
           <p className="mt-3 text-3xl font-bold text-zinc-900">{value}</p>
-          <div className="mt-2"><AdminContextualHelp label={`Help: ${label}`}>{detail}</AdminContextualHelp></div>
         </div>
         <div className={cn("flex h-11 w-11 items-center justify-center rounded-lg shadow-sm", adminStatCardToneClasses[tone])}>
           <Icon className="h-5 w-5" />
@@ -153,8 +150,7 @@ export function AdminFormCard({
   const header = (
     <div className={cn(collapsible && "flex items-start justify-between gap-4")}>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-zinc-900">{title}</p>
-        {subtitle ? <div className="mt-1"><AdminContextualHelp label={`Help: ${title}`}>{subtitle}</AdminContextualHelp></div> : null}
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm font-semibold text-zinc-900"><span>{title}</span>{subtitle ? <AdminContextualHelp label={`Help: ${title}`}>{subtitle}</AdminContextualHelp> : null}</p>
       </div>
       {collapsible ? (
         <span

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { AdminContextualHelp } from "../src/primitives/contextual-help";
 import { AdminField, AdminFormSection } from "../src/primitives/field";
-import { AdminFormCard } from "../src/primitives/layout";
+import { AdminFormCard, AdminSectionCard, AdminStatCard } from "../src/primitives/layout";
 import { AdminInput } from "../src/primitives/input";
 
 describe("AdminContextualHelp", () => {
@@ -90,5 +90,27 @@ describe("AdminContextualHelp", () => {
     await user.hover(tooltip);
     expect(tooltip).toBeVisible();
     expect(tooltip).toHaveClass("before:h-2");
+  });
+
+  it("places each trigger after its label in a wrapping inline group", () => {
+    render(
+      <>
+        <AdminField label="A long field label that can wrap" hint="Field help"><AdminInput /></AdminField>
+        <AdminFormSection title="Section heading" description="Section help">Content</AdminFormSection>
+        <AdminSectionCard icon={() => null} title="Card heading" description="Card help">Content</AdminSectionCard>
+        <AdminStatCard icon={() => null} label="Stat label" value="42" detail="Stat help" />
+      </>,
+    );
+
+    for (const name of ["Help: A long field label that can wrap", "Help: Section heading", "Help: Card heading", "Help: Stat label"]) {
+      const trigger = screen.getByRole("button", { name });
+      const root = trigger.parentElement;
+      const group = root?.parentElement;
+      expect(group).toHaveClass("flex", "flex-wrap", "items-center");
+      expect(group?.lastElementChild).toBe(root);
+      expect(root).toHaveClass("shrink-0");
+    }
+    expect(screen.getByRole("button", { name: "Help: A long field label that can wrap" }).parentElement?.parentElement)
+      .toHaveTextContent("A long field label that can wrap");
   });
 });

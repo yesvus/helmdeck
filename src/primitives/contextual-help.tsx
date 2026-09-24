@@ -55,7 +55,7 @@ export function AdminContextualHelp({
   return (
     <span
       ref={rootRef}
-      className={cn("relative inline-flex align-middle", className)}
+      className={cn("relative inline-flex shrink-0 align-middle", className)}
       onMouseEnter={() => { setDismissed(false); setOpen(true); }}
       onMouseLeave={() => {
         clickOpen.current = false;
