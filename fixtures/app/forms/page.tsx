@@ -7,6 +7,7 @@ import {
   AdminBanner,
   AdminField,
   AdminFieldGrid,
+  AdminFormActions,
   AdminFormCard,
   AdminInput,
   AdminManagedForm,
@@ -53,15 +54,16 @@ export default function FormsPage() {
             <div className="space-y-5">
               <AdminFormCard title={copy.forms.identity} subtitle={copy.forms.identityBody}>
                 <AdminFieldGrid>
-                  <AdminField label={copy.forms.workspaceName} hint={copy.forms.workspaceHint}>
+                  <AdminField id="workspace-name" label={copy.forms.workspaceName} hint={copy.forms.workspaceHint}>
                     <AdminInput
+                      id="workspace-name"
                       name="workspace"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
                     />
                   </AdminField>
-                  <AdminField label={copy.forms.environment}>
-                    <AdminSelect name="environment" defaultValue="preview">
+                  <AdminField id="environment" label={copy.forms.environment}>
+                    <AdminSelect id="environment" name="environment" defaultValue="preview">
                       <option value="preview">{copy.forms.preview}</option>
                       <option value="production">{copy.forms.production}</option>
                     </AdminSelect>
@@ -97,10 +99,10 @@ export default function FormsPage() {
           }
         />
       </AdminSectionCard>
-      <div className="flex justify-end gap-3">
-        <Button type="reset" variant="ghost">{copy.forms.reset}</Button>
+      <AdminFormActions>
+        <Button type="reset" variant="outline">{copy.forms.reset}</Button>
         <AdminSubmitButton icon={<Save className="h-4 w-4" />} label={copy.forms.save} pendingLabel={copy.forms.saving} />
-        </div>
+      </AdminFormActions>
         </AdminManagedForm>
       </Suspense>
     </main>

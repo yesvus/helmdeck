@@ -16,7 +16,7 @@ export type ButtonVariant =
 export type ButtonSize = "default" | "sm" | "lg" | "icon";
 
 const baseClassName =
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-bold uppercase transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0";
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0";
 
 const variantClassName: Record<ButtonVariant, string> = {
   default: "bg-brand-500 text-white hover:bg-brand-600",
