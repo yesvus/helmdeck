@@ -154,6 +154,11 @@ try {
   assert.ok(mediaControls.search && mediaControls.sort && (mediaControls.search.right <= mediaControls.sort.left || mediaControls.search.bottom <= mediaControls.sort.top), JSON.stringify(mediaControls));
   assert.ok((mediaControls.card?.width ?? 0) >= 280, JSON.stringify(mediaControls));
 
+  await page.goto("http://127.0.0.1:3217/shell/profile");
+  await page.getByRole("heading", { name: "Profile", exact: true }).waitFor();
+  assert.equal(await page.getByText("Alex Morgan", { exact: true }).isVisible(), true);
+  assert.equal(await page.getByRole("heading", { name: "Alex Morgan", exact: true }).count(), 0);
+
   process.stdout.write(`${JSON.stringify({ centered, fieldLayout, media, mediaControls, custom })}\n`);
 } finally {
   await browser?.close();
