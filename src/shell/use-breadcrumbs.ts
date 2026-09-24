@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { usePathname } from "next/navigation";
-import type { AdminNavGroup, AdminNavItem } from "../adapters";
-import { findNavItemAt } from "../adapters";
-import { useAdminShell } from "./context";
+import type { AdminNavGroup, AdminNavItem } from "../adapters/index.js";
+import { findNavItemAt, getAdminHrefPathname } from "../adapters/index.js";
+import { useAdminShell } from "./context.js";
 
 export type AdminBreadcrumbTrail = {
   item: AdminNavItem;
@@ -24,7 +24,7 @@ export function useBreadcrumbs(
   }
 
   const remainder = path
-    .slice(item.href.length)
+    .slice(getAdminHrefPathname(item.href).length)
     .split("/")
     .filter(Boolean);
 

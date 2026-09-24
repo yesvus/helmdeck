@@ -1,4 +1,4 @@
-import type { AdminNavGroup, AdminSession } from "../src";
+import type { AdminNavGroup, AdminSession } from "@yesvus/helmdeck";
 
 export const sampleNav: AdminNavGroup[] = [
   {

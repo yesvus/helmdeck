@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { SelectHTMLAttributes } from "react";
-import { cn } from "../cn";
-import { adminInputClassName } from "./input";
+import { cn } from "../cn.js";
+import { adminInputClassName } from "./input.js";
 
 export function AdminSelect({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (

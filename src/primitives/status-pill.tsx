@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { cn } from "../cn";
+import { cn } from "../cn.js";
 
 export type AdminStatusTone = "success" | "warning" | "error" | "info" | "neutral";
 

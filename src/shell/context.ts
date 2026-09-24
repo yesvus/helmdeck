@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import type { AdminNavGroup, AdminSession } from "../adapters";
-import type { AdminShellLabels } from "./labels";
-import type { AdminSearchEntry } from "./admin-search";
+import type { AdminNavGroup, AdminSession } from "../adapters/index.js";
+import type { AdminShellLabels } from "./labels.js";
+import type { AdminSearchEntry } from "./admin-search.js";
 
 export type AdminShellBrand = {
   logo?: ReactNode;
@@ -21,8 +21,10 @@ export type AdminShellContextValue = {
   homeHref: string;
   profileHref: string;
   viewSiteHref: string;
-  onLogout?: () => void;
+  onLogout?: () => void | Promise<void>;
   searchEntries?: AdminSearchEntry[];
+  searchNormalize?: (value: string) => string;
+  resolveBreadcrumbSegment?: (segment: string, labels: AdminShellLabels) => string;
 };
 
 const AdminShellContext = createContext<AdminShellContextValue | null>(null);

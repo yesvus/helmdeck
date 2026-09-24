@@ -1,39 +1,19 @@
 # Roadmap
 
-Derived from [plan.md](../plan.md) extraction phases.
+The package is now organized around a stable host boundary: Helmdeck owns reusable shell, primitives, localization, and media workflows; each host owns its data, authentication, routes, and domain language state.
 
-Adoption work (M3, M4) changes Leotron and Birted, so it waits for an explicit
-go-ahead. Everything before it stays inside this package.
+## Completed
 
-## M0 - Name and tooling
+- Package scaffold, theme tokens, build, lint, and test tooling.
+- Responsive shell with navigation, mobile navigation, breadcrumbs, search, profile actions, and login presentation.
+- Form, feedback, data, modal, destructive-action, and sortable-list primitives.
+- Typed English and Turkish dictionaries with formal Turkish defaults and custom dictionary registration.
+- Media adapter contract with upload, picker, single-value fields, gallery fields, and locale-aware labels.
+- Bilingual fixture routes covering the shell, forms, media, primitives, and login presentation.
+- Host integration validation against a packed artifact.
 
-- Decide name ([naming](naming.md)), scope, distribution.
-- Add lint, build, publish config. No UI code yet.
+## Next
 
-## M1 - Shell layout (Phase 1)
-
-Port from Leotron: `AdminShell`, nav, mobile nav, breadcrumbs, search,
-profile menu, login screen. Checklist: [phase-1](checklists/phase-1-shell.md).
-
-## M2 - Primitives (Phase 2)
-
-Port Leotron `admin-ui`: button, field, toast, status pill, empty state,
-destructive action, submit button, table, pagination, modal, sortable list,
-skeleton. Checklist: [phase-2](checklists/phase-2-primitives.md).
-
-## M3 - Adapters, Leotron adopts (Phase 3)
-
-Freeze `AdminSession`, `AdminNavGroup`, `AdminAuthAdapter`,
-`AdminMediaAdapter`. Leotron consumes package.
-Checklist: [phase-3](checklists/phase-3-adapters-leotron.md).
-
-## M4 - Birted adopts (Phase 4)
-
-Birted moves to config-driven nav, drops baklava from shell.
-Checklist: [phase-4](checklists/phase-4-birted.md).
-
-## M5 - Media + publish (Phases 5-6)
-
-Optional media library/picker, then v0.1.0.
-Checklists: [phase-5](checklists/phase-5-media.md),
-[phase-6](checklists/phase-6-publish.md).
+- Release and consume prerelease tarballs from GitHub.
+- Deploy the fixture app and verify the custom domain.
+- Add dark theme support through semantic tokens and a host-compatible activation strategy.

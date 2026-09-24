@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { AdminShell } from "../../../src";
+import { AdminShell } from "@yesvus/helmdeck";
 import { sampleNav, sampleSession } from "../../nav";
+import { DemoLanguageSwitcher } from "../../components/demo-i18n-provider";
 
 const accents: Array<{ name: string; value: string }> = [
   { name: "Teal", value: "#048b8c" },
@@ -50,6 +51,7 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
       }}
       topbarExtra={
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <DemoLanguageSwitcher />
           <Switcher label="Role" options={[{ name: "Admin", value: "admin" }, { name: "Editor", value: "editor" }]} active={role} onPick={setRole} />
           <Switcher label="Accent" options={accents} active={accent} onPick={setAccent} />
         </div>

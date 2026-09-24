@@ -3,10 +3,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "../cn";
-import type { AdminNavItem } from "../adapters";
-import { isActiveHref } from "../adapters";
-import { resolveNavIcon } from "./nav-icons";
+import { cn } from "../cn.js";
+import type { AdminNavItem } from "../adapters/index.js";
+import { isActiveHref } from "../adapters/index.js";
+import { resolveNavIcon } from "./nav-icons.js";
 
 export function AdminNavLink({
   item,

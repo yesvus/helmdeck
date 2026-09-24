@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import type { AdminNavGroup, AdminSession } from "../adapters";
-import { filterNavGroups } from "../adapters";
-import { AdminBreadcrumbs } from "./admin-breadcrumbs";
-import { AdminMobileNav } from "./admin-mobile-nav";
-import { AdminNavLink } from "./admin-nav";
-import { AdminProfileMenu } from "./admin-profile-menu";
-import { AdminSearch, type AdminSearchEntry } from "./admin-search";
-import { cn } from "../cn";
-import { AdminShellProvider, type AdminShellBrand } from "./context";
-import type { AdminShellLabels } from "./labels";
-import { mergeAdminLabels } from "./labels";
-import { useAdminBranding } from "../theme/branding";
-import { useBreadcrumbs } from "./use-breadcrumbs";
+import type { AdminNavGroup, AdminSession } from "../adapters/index.js";
+import { filterNavGroups } from "../adapters/index.js";
+import { AdminBreadcrumbs } from "./admin-breadcrumbs.js";
+import { AdminMobileNav } from "./admin-mobile-nav.js";
+import { AdminNavLink } from "./admin-nav.js";
+import { AdminProfileMenu } from "./admin-profile-menu.js";
+import { AdminSearch, type AdminSearchEntry } from "./admin-search.js";
+import { cn } from "../cn.js";
+import { AdminShellProvider, type AdminShellBrand } from "./context.js";
+import type { AdminShellLabels } from "./labels.js";
+import { mergeAdminLabels } from "./labels.js";
+import { useAdminBranding } from "../theme/branding.js";
+import { useBreadcrumbs } from "./use-breadcrumbs.js";
+import { useAdminMessages } from "../i18n.js";
 
 export function AdminShell({
   nav,
@@ -27,9 +28,12 @@ export function AdminShell({
   brand,
   labels,
   searchEntries,
+  searchNormalize,
+  resolveBreadcrumbSegment,
   profileHref,
   viewSiteHref = "/",
   onLogout,
+  showTopbar = true,
   topbarExtra,
   children,
 }: {
@@ -39,14 +43,25 @@ export function AdminShell({
   brand?: AdminShellBrand;
   labels?: Partial<AdminShellLabels>;
   searchEntries?: AdminSearchEntry[];
+  searchNormalize?: (value: string) => string;
+  resolveBreadcrumbSegment?: (segment: string, labels: AdminShellLabels) => string;
   profileHref?: string;
   viewSiteHref?: string;
-  onLogout?: () => void;
+  onLogout?: () => void | Promise<void>;
+  showTopbar?: boolean;
   topbarExtra?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const mergedLabels = mergeAdminLabels(labels);
+  const i18n = useAdminMessages();
+  const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...labels });
+  const resolvedSearchNormalize = useCallback(
+    (value: string) =>
+      searchNormalize
+        ? searchNormalize(value)
+        : value.toLocaleLowerCase(i18n.searchLocale).normalize("NFKD"),
+    [i18n.searchLocale, searchNormalize],
+  );
   const visibleNav = filterNavGroups(nav, session?.role);
   const branding = useAdminBranding(brand?.accent);
   const [collapsed, setCollapsed] = useState(false);
@@ -77,6 +92,8 @@ export function AdminShell({
         viewSiteHref,
         onLogout,
         searchEntries,
+        searchNormalize: resolvedSearchNormalize,
+        resolveBreadcrumbSegment,
       }}
     >
       <main
@@ -167,22 +184,24 @@ export function AdminShell({
           </div>
         </aside>
 
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 backdrop-blur transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
-          <div className="flex min-w-0 items-center gap-3">
-            {trail ? (
-              <AdminBreadcrumbs groups={visibleNav} />
-            ) : (
-              <p className="truncate text-sm font-semibold text-zinc-900">
-                {brand?.label ?? mergedLabels.brandLabel}
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {topbarExtra ? (
-              <div className="flex items-center justify-end gap-2">{topbarExtra}</div>
-            ) : null}
-          </div>
-        </header>
+        {showTopbar ? (
+          <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 backdrop-blur transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+            <div className="flex min-w-0 items-center gap-3">
+              {trail ? (
+                <AdminBreadcrumbs groups={visibleNav} />
+              ) : (
+                <p className="truncate text-sm font-semibold text-zinc-900">
+                  {brand?.label ?? mergedLabels.brandLabel}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {topbarExtra ? (
+                <div className="flex items-center justify-end gap-2">{topbarExtra}</div>
+              ) : null}
+            </div>
+          </header>
+        ) : null}
 
         <div className="px-4 pb-24 pt-6 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 lg:pb-6 xl:px-7">
           <div className="space-y-6">{children}</div>

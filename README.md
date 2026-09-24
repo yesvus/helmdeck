@@ -1,72 +1,101 @@
-# helmdeck
+# Helmdeck
 
-A reusable, MIT-licensed admin shell for Next.js App Router projects, extracted
-from the admin panels of Birted Commerce and Leotron.
+Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Router applications. It provides a responsive shell, accessible UI primitives, typed localization dictionaries, and adapter-backed media workflows while leaving authentication, data access, routes, and domain operations to the host application.
 
-Status: phase 1 shell layout ported. Extraction plan in [plan.md](./plan.md),
-roadmaps, decisions and per-phase checklists in [docs/](./docs/).
+## Included
 
-## Layout
+- Responsive shell with navigation, command search, breadcrumbs, profile actions, mobile navigation, and login presentation.
+- Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, and status primitives.
+- Data-heavy primitives including tables, pagination, modals, toasts, skeletons, sortable lists, and destructive confirmations.
+- Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
+- English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
+- A static bilingual fixture app for the hosted demo.
 
-```
-src/
-  index.ts
-  shell/        AdminShell, AdminNavLink, AdminMobileNav, AdminBreadcrumbs,
-                AdminSearch, AdminProfileMenu, AdminLoginScreen
-  primitives/   button, field, input, select, submit, toast, status pill,
-                empty state, skeleton, table, pagination, modal,
-                destructive action, sortable list
-  adapters/     AdminSession, AdminNavGroup, role filtering
-  theme/        brand tokens, useAdminBranding
-fixtures/       story page per shell and primitive
+## Install
+
+```bash
+pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.1.0-alpha.1/yesvus-helmdeck-0.1.0-alpha.1.tgz
 ```
 
-Import the token file once in the host app CSS:
+Prerelease artifacts are distributed through GitHub releases. npm publication is postponed indefinitely.
+
+Import the theme tokens once in the host stylesheet:
 
 ```css
 @import "tailwindcss";
 @import "@yesvus/helmdeck/theme.css";
 ```
 
-## Development
-
-- `pnpm install`
-- `pnpm dev` - fixture stories on http://localhost:3000
-- `pnpm build` - compile the package to `dist`
-- `pnpm typecheck` - package plus fixtures
-- `pnpm lint` - ESLint over source and fixtures
-- `pnpm build:fixtures` - production build of the fixture app
-
-## Usage
-
-Every host keeps a thin panel layout that resolves its own session and passes
-navigation config in:
+## Quick start
 
 ```tsx
-// app/(panel)/layout.tsx
-import type { ReactNode } from "react";
-import { AdminShell, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
+import {
+  AdminI18nProvider,
+  AdminShell,
+  type AdminNavGroup,
+  type AdminSession,
+} from "@yesvus/helmdeck";
 
-const nav: AdminNavGroup[] = [
-  {
-    label: "Content",
-    items: [
-      { href: "/admin", label: "Dashboard", icon: "overview", mobilePrimary: true },
-      { href: "/admin/products", label: "Products", icon: "product", roles: ["admin"] },
-    ],
-  },
-];
-
-export default async function PanelLayout({ children }: { children: ReactNode }) {
-  const session = (await getSession()) as AdminSession;
-
+export function AdminLayout({
+  children,
+  nav,
+  session,
+}: {
+  children: React.ReactNode;
+  nav: AdminNavGroup[];
+  session: AdminSession;
+}) {
   return (
-    <AdminShell nav={nav} session={session} homeHref="/admin" onLogout={signOut}>
-      {children}
-    </AdminShell>
+    <AdminI18nProvider locale="tr">
+      <AdminShell nav={nav} session={session} homeHref="/admin">
+        {children}
+      </AdminShell>
+    </AdminI18nProvider>
   );
 }
 ```
 
-Role filtering, breadcrumb trails and search all read from that `nav` config.
-The full integration contract lives in [plan.md](./plan.md).
+The host owns session resolution, authorization, persistence, route protection, and content-language state. Helmdeck receives configuration and callbacks through explicit props and adapters.
+
+## Localization
+
+`AdminI18nProvider` supplies the active dictionary to the shell and reusable components. The built-in `englishAdminMessages` and `turkishAdminMessages` values are typed as `AdminMessages`. A host can provide a complete custom dictionary or register one for a new locale:
+
+```tsx
+import {
+  AdminI18nProvider,
+  defineAdminMessages,
+  englishAdminMessages,
+  type AdminMessages,
+} from "@yesvus/helmdeck";
+
+const germanMessages: AdminMessages = {
+  ...englishAdminMessages,
+  locale: "de",
+  searchLocale: "de-DE",
+  shell: {
+    ...englishAdminMessages.shell,
+    searchLabel: "Administrationsseiten durchsuchen",
+  },
+};
+
+defineAdminMessages(germanMessages);
+
+<AdminI18nProvider locale="de">
+  <AdminApp />
+</AdminI18nProvider>;
+```
+
+## Media adapters
+
+The package does not choose a storage provider. Implement `AdminMediaAdapter` for the host's list, upload, external-link, rename, and delete operations, then pass it to `AdminMediaUpload`, `AdminMediaPicker`, `AdminMediaField`, or `AdminMediaGalleryField`.
+
+## Development
+
+- `pnpm install`
+- `pnpm dev` starts the fixture app.
+- `pnpm typecheck` checks the package and fixtures.
+- `pnpm lint` runs ESLint.
+- `pnpm test` runs the package tests.
+- `pnpm build` emits the package to `dist/`.
+- `pnpm build:fixtures` builds the production fixture app.

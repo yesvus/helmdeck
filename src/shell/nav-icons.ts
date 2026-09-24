@@ -35,7 +35,7 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
-import type { AdminNavIconComponent, AdminNavIconName, AdminNavItem } from "../adapters";
+import type { AdminNavIconComponent, AdminNavIconName, AdminNavItem } from "../adapters/index.js";
 
 const iconMap: Record<AdminNavIconName, LucideIcon> = {
   activity: Activity,

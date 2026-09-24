@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a capability or improvement to Helmdeck.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Shell
+        - Primitives
+        - Media workflows
+        - Localization
+        - Fixture app
+        - Package build or distribution
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or host-application problem should Helmdeck solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the intended behavior and relevant API or UI changes.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include compatibility, migration, accessibility, or localization considerations.
+    validations:
+      required: false

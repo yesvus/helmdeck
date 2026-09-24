@@ -1,81 +1,170 @@
 "use client";
 
 import Link from "next/link";
-import { AdminBreadcrumbs, AdminMobileNav, AdminNavLink, AdminProfileMenu, AdminSearch } from "../../src";
-import { sampleNav, sampleSearchEntries } from "../nav";
-import { Frame } from "../components/frame";
+import {
+  ArrowRight,
+  Blocks,
+  CheckCircle2,
+  Code2,
+  LayoutDashboard,
+  Library,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { DemoLanguageSwitcher, useDemoLocale } from "../components/demo-i18n-provider";
 
-const stories = [
-  {
-    title: "AdminShell",
-    href: "/shell",
-    note: "Sidebar, sticky topbar, group collapse, active states. Narrow the window below 1024px for the mobile bottom nav.",
-  },
-  {
-    title: "AdminLoginScreen",
-    href: "/login",
-    note: "Presentational form. Submits to a local handler, no auth logic.",
-  },
-  {
-    title: "Primitives",
-    href: "/primitives",
-    note: "Button, field, input, select, submit, pills, table, pagination, skeletons, toast, modal, destructive action, sortable list.",
-  },
-];
+const featureIcons = [LayoutDashboard, Blocks, Library, ShieldCheck];
 
-export default function IndexPage() {
+export default function HomePage() {
+  const { copy } = useDemoLocale();
+
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-2xl font-bold">helmdeck fixtures</h1>
-      <p className="mt-1 text-sm text-zinc-500">
-        One story per shell component, plus two routed pages.
-      </p>
-
-      <div className="mt-6 grid gap-3">
-        {stories.map((story) => (
+    <main className="min-h-screen overflow-hidden bg-[#f7f8f4] text-zinc-950">
+      <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-6 lg:px-8">
+        <Link href="/" className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-950 text-sm font-black text-white">HD</span>
+          <span>
+            <span className="block text-sm font-bold tracking-tight">Helmdeck</span>
+            <span className="block text-xs text-zinc-500">{copy.productDescription}</span>
+          </span>
+        </Link>
+        <div className="flex items-center gap-3">
+          <DemoLanguageSwitcher />
           <Link
-            key={story.href}
-            href={story.href}
-            className="rounded-xl border border-zinc-200 bg-white p-4 transition-colors hover:border-brand-500"
+            href="/shell"
+            className="hidden items-center gap-2 rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-700 sm:inline-flex"
           >
-            <span className="font-semibold">{story.title}</span>
-            <span className="mt-1 block text-sm text-zinc-500">{story.note}</span>
+            {copy.openDemo}
+            <ArrowRight className="h-4 w-4" />
           </Link>
-        ))}
-      </div>
+        </div>
+      </header>
 
-      <div className="mt-6 grid gap-4">
-        <Frame title="AdminBreadcrumbs (story path: /shell/products/new)">
-          <AdminBreadcrumbs groups={sampleNav} pathname="/shell/products/new" />
-        </Frame>
-
-        <Frame title="AdminNavLink (default, icon-only, compact)">
-          <div className="max-w-xs space-y-1">
-            <AdminNavLink item={sampleNav[1].items[0]} />
-            <AdminNavLink item={sampleNav[1].items[0]} iconOnly />
-            <AdminNavLink item={sampleNav[1].items[0]} compact />
+      <section className="relative mx-auto grid max-w-7xl gap-14 px-5 pb-20 pt-16 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-8 lg:pb-28 lg:pt-24">
+        <div className="absolute -left-32 top-8 h-96 w-96 rounded-full bg-teal-200/50 blur-3xl" />
+        <div className="relative">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-semibold text-teal-800">
+            <Sparkles className="h-3.5 w-3.5" />
+            Next.js App Router
           </div>
-        </Frame>
-
-        <Frame title="AdminSearch (Ctrl/⌘ K focuses it inside the shell)">
-          <div className="max-w-sm">
-            <AdminSearch groups={sampleNav} entries={sampleSearchEntries} />
+          <h1 className="max-w-3xl text-5xl font-black tracking-[-0.055em] text-balance sm:text-6xl lg:text-7xl">
+            {copy.heroTitle}
+          </h1>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-zinc-600">{copy.heroBody}</p>
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Link
+              href="/shell"
+              className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-700"
+            >
+              {copy.exploreShell}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <a
+              href="https://github.com/yesvus/helmdeck"
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-bold text-zinc-800 transition hover:border-zinc-400"
+            >
+              <Code2 className="h-4 w-4" />
+              {copy.viewSource}
+            </a>
           </div>
-        </Frame>
-
-        <Frame title="AdminProfileMenu">
-          <div className="max-w-xs rounded-lg border border-zinc-100">
-            <AdminProfileMenu email="editor@demo.test" profileHref="/shell" viewSiteHref="/" onLogout={() => {}} />
+          <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-600">
+            {copy.technologies.map((item) => (
+              <span key={item} className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-teal-600" />
+                {item}
+              </span>
+            ))}
           </div>
-        </Frame>
+        </div>
 
-        <Frame title="AdminMobileNav (fixed to the bottom of this page)">
-          <p className="text-sm text-zinc-500">
-            Primary items come from <code>mobilePrimary</code>, the rest land under More.
-          </p>
-          <AdminMobileNav groups={sampleNav} />
-        </Frame>
-      </div>
+        <div className="relative">
+          <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-teal-200/70 via-amber-100 to-rose-200/60 blur-2xl" />
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-zinc-950 p-3 shadow-[0_40px_100px_-35px_rgba(15,23,42,.65)]">
+            <div className="rounded-[1.4rem] bg-[#fafafa] p-5">
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full bg-rose-400" />
+                  <span className="h-3 w-3 rounded-full bg-amber-400" />
+                  <span className="h-3 w-3 rounded-full bg-emerald-400" />
+                </div>
+                <span className="text-xs font-semibold text-zinc-400">helmdeck.yesvus.com</span>
+              </div>
+              <div className="mt-5 grid gap-4 sm:grid-cols-[150px_1fr]">
+                <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm">
+                  {["Overview", "Products", "Media", "Orders", "Settings"].map((item, index) => (
+                    <div
+                      key={item}
+                      className={`rounded-lg px-3 py-2 text-xs font-semibold ${index === 0 ? "bg-teal-50 text-teal-800" : "text-zinc-500"}`}
+                    >
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-4">
+                  <div className="rounded-xl bg-zinc-950 p-5 text-white">
+                    <p className="text-xs uppercase tracking-[.2em] text-teal-300">Operations</p>
+                    <p className="mt-2 text-2xl font-bold">Everything in view.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {["Published", "Pending", "Revenue", "Storage"].map((label, index) => (
+                      <div key={label} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+                        <p className="text-xs text-zinc-400">{label}</p>
+                        <p className="mt-2 text-xl font-bold">{[128, 14, "$48k", "68%"][index]}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-zinc-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-px bg-zinc-200 sm:grid-cols-2 lg:grid-cols-4">
+          {copy.features.map(([title, body], index) => {
+            const Icon = featureIcons[index];
+            return (
+              <article key={title} className="bg-white p-7 lg:p-8">
+                <Icon className="h-6 w-6 text-teal-700" />
+                <h2 className="mt-5 font-bold">{title}</h2>
+                <p className="mt-3 text-sm leading-7 text-zinc-500">{body}</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28">
+        <div className="max-w-2xl">
+          <p className="text-xs font-bold uppercase tracking-[.22em] text-teal-700">Live examples</p>
+          <h2 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">{copy.liveExamples}</h2>
+          <p className="mt-4 leading-7 text-zinc-600">{copy.liveExamplesBody}</p>
+        </div>
+        <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {copy.demos.map(([href, label, body], index) => (
+            <Link
+              key={href}
+              href={href}
+              className={`group rounded-2xl border p-6 transition hover:-translate-y-1 hover:border-teal-400 hover:shadow-xl ${index === 0 ? "bg-zinc-950 text-white" : "border-zinc-200 bg-white"}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold uppercase tracking-[.18em] ${index === 0 ? "text-teal-300" : "text-teal-700"}`}>Demo</span>
+                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+              </div>
+              <h3 className="mt-8 text-xl font-bold">{label}</h3>
+              <p className={`mt-2 text-sm leading-6 ${index === 0 ? "text-zinc-300" : "text-zinc-500"}`}>{body}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <footer className="border-t border-zinc-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+          <span>{copy.footer}</span>
+          <span>helmdeck.yesvus.com</span>
+        </div>
+      </footer>
     </main>
   );
 }

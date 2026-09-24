@@ -32,8 +32,13 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { AlertCircle, CheckCircle2, GripVertical } from "lucide-react";
-import { cn } from "../cn";
-import { AdminToastCard, AdminToastViewport } from "./toast";
+import { cn } from "../cn.js";
+import { AdminToastCard, AdminToastViewport } from "./toast.js";
+import {
+  defaultSortableMessages,
+  type AdminSortableMessages,
+} from "./messages.js";
+import { useAdminMessages } from "../i18n.js";
 
 function subscribeToMediaQuery(mediaQuery: string) {
   return (onStoreChange: () => void) => {
@@ -51,6 +56,10 @@ function useMediaQueryMatch(mediaQuery: string, serverSnapshot: boolean) {
   );
 }
 
+export function useIsDesktopViewport() {
+  return useMediaQueryMatch("(min-width: 1024px)", false);
+}
+
 function usePrefersReducedMotion() {
   return useMediaQueryMatch("(prefers-reduced-motion: reduce)", false);
 }
@@ -60,27 +69,17 @@ export type AdminSortableResult = {
   message: string;
 };
 
-export const defaultSortableMessages = {
-  reorderFailed: "Could not save the new order. Please try again.",
-  toastSuccessTitle: "Order updated",
-  toastErrorTitle: "Could not update the order",
-  announcements: {
-    dragStart: (id: string) => `Picked up ${id}.`,
-    dragOver: (id: string, overId: string) => `${id} is over ${overId}.`,
-    dragEnd: (id: string) => `${id} was moved to a new position.`,
-    dragCancel: (id: string) => `${id} was not moved.`,
-  },
-};
-
 export function useAdminSortableList<T>({
   items,
   getId,
   disabled,
+  messages,
   onReorder,
 }: {
   items: T[];
   getId: (item: T) => string;
   disabled?: boolean;
+  messages?: Partial<AdminSortableMessages>;
   onReorder: (orderedIds: string[]) => Promise<AdminSortableResult>;
 }) {
   const [orderedItems, setOrderedItems] = useState(items);
@@ -89,6 +88,20 @@ export function useAdminSortableList<T>({
   const [toast, setToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
+  const i18n = useAdminMessages();
+  const resolvedMessages = useMemo(
+    () => ({
+      ...defaultSortableMessages,
+      ...i18n.sortable,
+      ...messages,
+      announcements: {
+        ...defaultSortableMessages.announcements,
+        ...i18n.sortable.announcements,
+        ...messages?.announcements,
+      },
+    }),
+    [i18n.sortable, messages],
+  );
 
   if (items !== previousItems) {
     setPreviousItems(items);
@@ -151,28 +164,26 @@ export function useAdminSortableList<T>({
         }
       } catch {
         setOrderedItems(previousOrder);
-        showToast("error", defaultSortableMessages.reorderFailed);
+        showToast("error", resolvedMessages.reorderFailed);
       } finally {
         setIsSaving(false);
       }
     },
-    [disabled, ids, orderedItems, getId, onReorder, showToast],
+    [disabled, ids, orderedItems, getId, onReorder, resolvedMessages.reorderFailed, showToast],
   );
 
   const announcements: Announcements = useMemo(
     () => ({
-      onDragStart: ({ active }) => defaultSortableMessages.announcements.dragStart(String(active.id)),
+      onDragStart: ({ active }) => resolvedMessages.announcements.dragStart(String(active.id)),
       onDragOver: ({ active, over }) =>
-        over
-          ? defaultSortableMessages.announcements.dragOver(String(active.id), String(over.id))
-          : "",
+        over ? resolvedMessages.announcements.dragOver(String(active.id), String(over.id)) : "",
       onDragEnd: ({ active, over }) =>
         over
-          ? defaultSortableMessages.announcements.dragEnd(String(active.id))
-          : defaultSortableMessages.announcements.dragCancel(String(active.id)),
-      onDragCancel: ({ active }) => defaultSortableMessages.announcements.dragCancel(String(active.id)),
+          ? resolvedMessages.announcements.dragEnd(String(active.id))
+          : resolvedMessages.announcements.dragCancel(String(active.id)),
+      onDragCancel: ({ active }) => resolvedMessages.announcements.dragCancel(String(active.id)),
     }),
-    [],
+    [resolvedMessages],
   );
 
   return {
@@ -222,6 +233,7 @@ export function AdminSortableToast({
   toast: { tone: "success" | "error"; message: string } | null;
   onDismiss: () => void;
 }) {
+  const i18n = useAdminMessages();
   if (!toast) {
     return null;
   }
@@ -232,8 +244,8 @@ export function AdminSortableToast({
         tone={toast.tone}
         title={
           toast.tone === "success"
-            ? defaultSortableMessages.toastSuccessTitle
-            : defaultSortableMessages.toastErrorTitle
+            ? i18n.sortable.toastSuccessTitle
+            : i18n.sortable.toastErrorTitle
         }
         body={toast.message}
         icon={
