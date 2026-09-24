@@ -67,7 +67,7 @@ describe("AdminModalContent", () => {
     const dialog = await screen.findByRole("dialog", { name: "Dialog title" });
 
     expect(dialog).toHaveClass("fixed", "left-1/2", "top-1/2");
-    expect(dialog.className).not.toMatch(/(?:^|\s)-?translate-[xy]-1\/2(?:\s|$)/);
+    expect(dialog).toHaveClass("-translate-x-1/2", "-translate-y-1/2");
     expect(dialog.style.left).toBe("");
     expect(dialog.style.top).toBe("");
     expect(dialog.style.transform).toBe("");
