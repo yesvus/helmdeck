@@ -22,6 +22,16 @@ export const demoCopy = {
       ["/primitives", "Component catalog", "The complete primitive set in a single reference page."],
       ["/login", "Login screen", "Presentational authentication surface for application-owned actions."],
     ],
+    shellSettings: {
+      title: "Site settings",
+      description: "Manage workspace preferences and navigation preview.",
+      role: "Preview role",
+      administrator: "Administrator",
+      editor: "Editor",
+      accent: "Workspace accent",
+      language: "Language",
+      ordersPreview: "Visible in the navigation preview when the Administrator role is selected.",
+    },
     footer: "Helmdeck, maintained by yesvus.",
     forms: {
       loading: "Loading form workflow...",
@@ -159,6 +169,16 @@ export const demoCopy = {
       ["/primitives", "Bileşen kataloğu", "Tüm birincil bileşenler tek referans sayfasında."],
       ["/login", "Giriş ekranı", "Uygulama eylemlerine bağlanan sunum katmanı giriş ekranı."],
     ],
+    shellSettings: {
+      title: "Site ayarları",
+      description: "Çalışma alanı tercihlerini ve gezinme önizlemesini yönetin.",
+      role: "Önizleme rolü",
+      administrator: "Yönetici",
+      editor: "Editör",
+      accent: "Çalışma alanı vurgu rengi",
+      language: "Dil",
+      ordersPreview: "Yönetici rolü seçildiğinde gezinme önizlemesinde görünür.",
+    },
     footer: "Helmdeck, yesvus tarafından sürdürülmektedir.",
     forms: {
       loading: "Form iş akışı yükleniyor...",

@@ -5,15 +5,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "../cn.js";
 import type { AdminNavItem } from "../adapters/index.js";
-import { isActiveHref } from "../adapters/index.js";
+import { getAdminHrefPathname, isActiveHref } from "../adapters/index.js";
 import { resolveNavIcon } from "./nav-icons.js";
 import { useAdminShell } from "./context.js";
 
 export function isAdminNavItemActive(pathname: string, href: string, homeHref?: string) {
-  if (href !== homeHref) return isActiveHref(pathname, href);
-  const path = pathname.split(/[?#]/, 1)[0].replace(/\/$/, "") || "/";
-  const home = href.split(/[?#]/, 1)[0].replace(/\/$/, "") || "/";
-  return path === home;
+  const navPath = normalizeRoutePath(href);
+  const homePath = homeHref === undefined ? undefined : normalizeRoutePath(homeHref);
+  if (navPath !== homePath) return isActiveHref(pathname, href);
+  return normalizeRoutePath(pathname) === navPath;
+}
+
+function normalizeRoutePath(value: string) {
+  const path = getAdminHrefPathname(value).replace(/\/+$/, "");
+  return path || "/";
 }
 
 export function AdminNavLink({

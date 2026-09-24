@@ -35,6 +35,8 @@ describe("admin navigation utilities", () => {
     expect(isAdminNavItemActive("/shell", "/shell", "/shell")).toBe(true);
     expect(isAdminNavItemActive("/shell/", "/shell", "/shell")).toBe(true);
     expect(isAdminNavItemActive("/shell?tab=home", "/shell", "/shell")).toBe(true);
+    expect(isAdminNavItemActive("/shell///", "/shell/?from=nav#top", "/shell//#workspace")).toBe(true);
+    expect(isAdminNavItemActive("/shell?tab=other#content", "/shell/#top", "/shell?view=dashboard")).toBe(true);
     expect(isAdminNavItemActive("/shell/products", "/shell", "/shell")).toBe(false);
     expect(isAdminNavItemActive("/shell/products/1", "/shell/products", "/shell")).toBe(true);
   });

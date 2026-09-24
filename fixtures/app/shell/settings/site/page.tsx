@@ -1,7 +1,7 @@
 "use client";
 
 import { FixtureCard } from "../../../../components/fixture-card";
-import { DemoLanguageSwitcher } from "../../../../components/demo-i18n-provider";
+import { DemoLanguageSwitcher, useDemoLocale } from "../../../../components/demo-i18n-provider";
 import { useShellSettings } from "../../layout";
 
 const accents = [
@@ -42,24 +42,22 @@ function ChoiceGroup({ label, options, active, onPick }: {
 
 export default function SiteSettingsPage() {
   const { role, setRole, accent, setAccent } = useShellSettings();
+  const { copy } = useDemoLocale();
+  const settingsCopy = copy.shellSettings;
   return (
-    <FixtureCard title="Site settings">
+    <FixtureCard title={settingsCopy.title}>
       <div className="space-y-6">
-        <p className="text-sm text-zinc-600">Manage workspace preferences and access settings.</p>
+        <p className="text-sm text-zinc-600">{settingsCopy.description}</p>
         <ChoiceGroup
-          label="Preview role"
-          options={[{ name: "Administrator", value: "admin" }, { name: "Editor", value: "editor" }]}
+          label={settingsCopy.role}
+          options={[{ name: settingsCopy.administrator, value: "admin" }, { name: settingsCopy.editor, value: "editor" }]}
           active={role}
           onPick={setRole}
         />
-        <ChoiceGroup label="Workspace accent" options={accents} active={accent} onPick={setAccent} />
+        <ChoiceGroup label={settingsCopy.accent} options={accents} active={accent} onPick={setAccent} />
         <fieldset>
-          <legend className="mb-2 text-sm font-semibold text-zinc-800">Language</legend>
+          <legend className="mb-2 text-sm font-semibold text-zinc-800">{settingsCopy.language}</legend>
           <DemoLanguageSwitcher />
-        </fieldset>
-        <fieldset>
-          <legend className="mb-2 text-sm font-semibold text-zinc-800">Settings</legend>
-          <p className="text-sm text-zinc-600">Role, accent, and language preferences update this workspace preview.</p>
         </fieldset>
       </div>
     </FixtureCard>
