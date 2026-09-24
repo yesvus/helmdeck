@@ -86,6 +86,24 @@ try {
   await responsiveDialog.waitFor({ state: "hidden" });
 
   await page.goto("http://127.0.0.1:3217/media");
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('[role="tooltip"]')).some((tooltip) =>
+    tooltip.textContent?.trim() === "5 demo records available through the adapter.",
+  ));
+  for (const [title, description] of [
+    ["Upload", "Progress and errors stay inside the reusable workflow."],
+    ["Form field", "Selection serializes into a normal form value."],
+    ["Library", "5 demo records available through the adapter."],
+  ]) {
+    const descriptionText = page.getByText(description, { exact: true });
+    assert.equal(await descriptionText.isVisible(), false, `${title} description should be hidden until help opens`);
+    await page.getByRole("button", { name: `Help: ${title}` }).click();
+    const tooltip = page.getByRole("tooltip");
+    await tooltip.waitFor({ state: "visible" });
+    assert.equal(await tooltip.innerText(), description);
+    await page.keyboard.press("Escape");
+    await tooltip.waitFor({ state: "hidden" });
+  }
+
   await page.setViewportSize({ width: 1024, height: 683 });
   await page.getByRole("button", { name: "Select media", exact: true }).click();
   const fieldDialog = page.getByRole("dialog", { name: "Cover image" });

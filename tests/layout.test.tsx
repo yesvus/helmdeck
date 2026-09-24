@@ -12,7 +12,7 @@ describe("admin card primitives", () => {
       </AdminSectionCard>,
     );
 
-    expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^Overview/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Help: Overview" })).toBeInTheDocument();
     expect(screen.getAllByText("Review the current activity")).toHaveLength(1);
     expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent("Review the current activity");

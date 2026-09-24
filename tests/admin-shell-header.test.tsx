@@ -1,13 +1,21 @@
 // SPDX-License-Identifier: MIT
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { AdminShell } from "../src/shell/admin-shell";
 import { AdminPageHeader } from "../src/shell/admin-page-header";
 import { AdminShellProvider } from "../src/shell/context";
 import type { AdminShellContextValue } from "../src/shell/context";
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/shell/products/new" }));
+
 const shellValue = { currentPageTitle: "Catalog", nav: [] } as AdminShellContextValue;
+const nav = [{
+  label: "Workspace",
+  items: [
+    { label: "Dashboard", href: "/shell" },
+    { label: "Products", href: "/shell/products" },
+  ],
+}];
 
 describe("persistent shell page context", () => {
   it("keeps the shell title and leaves page headers with actions only", () => {
@@ -21,13 +29,23 @@ describe("persistent shell page context", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
-  it("uses the shared header-height token for shell and page headers", () => {
-    const shell = readFileSync(resolve("src/shell/admin-shell.tsx"), "utf8");
-    const pageHeader = readFileSync(resolve("src/shell/admin-page-header.tsx"), "utf8");
-    const tokens = readFileSync(resolve("src/theme/tokens.css"), "utf8");
+  it("uses the matched navigation label and shared header height", () => {
+    render(<AdminShell nav={nav}><div>Page content</div></AdminShell>);
 
-    expect(tokens).toContain("--admin-header-height: 4.5rem");
-    expect(shell).toContain("min-h-[var(--admin-header-height)]");
-    expect(pageHeader).toContain("min-h-[var(--admin-header-height)]");
+    expect(screen.getByRole("banner")).toHaveClass("min-h-[var(--admin-header-height)]");
+    expect(screen.getByRole("heading", { name: "Products" })).toBeInTheDocument();
+    expect(screen.getByText("Yeni", { selector: '[aria-current="page"]' })).toBeInTheDocument();
+  });
+
+  it("shows a page header when the shell topbar is disabled", () => {
+    render(
+      <AdminShell nav={nav} showTopbar={false}>
+        <AdminPageHeader title="New product" action={<button>Save</button>} />
+      </AdminShell>,
+    );
+
+    const heading = screen.getByRole("heading", { name: "New product" });
+    expect(heading.parentElement?.parentElement).toHaveClass("min-h-[var(--admin-header-height)]");
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 });

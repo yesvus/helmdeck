@@ -73,7 +73,7 @@ export function AdminShell({
     Object.fromEntries(visibleNav.map((group) => [group.label, true])),
   );
   const trail = useBreadcrumbs(nav);
-  const pageTitle = currentPageTitle ?? trail?.crumbs.find((crumb) => crumb.current)?.label ?? trail?.item.label;
+  const pageTitle = currentPageTitle ?? trail?.item.label;
   const resolvedProfileHref = profileHref ?? `${homeHref}/profile`;
   const brandHref = brand?.href ?? homeHref;
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
@@ -88,7 +88,7 @@ export function AdminShell({
     <AdminShellProvider
       value={{
         nav: visibleNav,
-        currentPageTitle: pageTitle,
+        currentPageTitle: showTopbar ? pageTitle : undefined,
         session,
         labels: mergedLabels,
         collapsed,
