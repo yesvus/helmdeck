@@ -36,10 +36,13 @@ export function AdminBreadcrumbs({
   }
 
   const resolve = resolveSegmentLabel ?? shell?.resolveBreadcrumbSegment ?? defaultResolve;
+  const currentCrumb = trail.crumbs.at(-1);
 
   return (
     <nav aria-label={mergedLabels.breadcrumbLabel} className="flex items-center gap-1.5 text-xs text-zinc-500">
-      {trail.crumbs.map((crumb, index) => (
+      {trail.crumbs.length === 1 ? (
+        <span className="sr-only" aria-current="page">{currentCrumb?.label}</span>
+      ) : trail.crumbs.map((crumb, index) => (
         <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-1.5">
           {index > 0 ? <ChevronRight className="h-3 w-3 shrink-0" /> : null}
           {crumb.href && !crumb.current ? <Link href={crumb.href} className="truncate hover:text-zinc-900">{crumb.label}</Link> : null}
