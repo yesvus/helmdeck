@@ -26,7 +26,7 @@ export const sampleNav: AdminNavGroup[] = [
   {
     label: "Settings",
     items: [
-      { href: "/shell/settings/site", label: "Site settings", shortLabel: "Site", icon: "settings", roles: ["admin"] },
+      { href: "/shell/settings/site", label: "Site settings", shortLabel: "Site", icon: "settings" },
     ],
   },
 ];

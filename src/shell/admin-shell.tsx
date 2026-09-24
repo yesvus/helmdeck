@@ -172,7 +172,7 @@ export function AdminShell({
                     )}
                     <div className={collapsed || isOpen ? "space-y-1" : "hidden"}>
                       {group.items.map((item) => (
-                        <AdminNavLink key={item.href} item={item} iconOnly={collapsed} />
+                        <AdminNavLink key={item.href} item={item} iconOnly={collapsed} exact={item.href === homeHref} />
                       ))}
                     </div>
                   </section>
@@ -191,7 +191,7 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 backdrop-blur transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 backdrop-blur transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               {trail ? (
                 <AdminBreadcrumbs groups={visibleNav} />
