@@ -37,8 +37,8 @@ export function AdminModalContent({
       <DialogPrimitive.Content
         className={cn(
           "fixed z-50 flex max-h-[min(90dvh,56rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-200 bg-admin-surface p-6 shadow-2xl sm:max-w-md data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
-          !hasHorizontalPlacement && "left-1/2",
-          !hasVerticalPlacement && "top-1/2",
+          !hasHorizontalPlacement && "left-1/2 -translate-x-1/2",
+          !hasVerticalPlacement && "top-1/2 -translate-y-1/2",
           className,
         )}
         {...props}
