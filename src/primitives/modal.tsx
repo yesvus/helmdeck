@@ -33,6 +33,7 @@ export function AdminModalContent({
           className,
         )}
         {...props}
+        style={{ left: "50%", top: "50%", transform: "translate(-50%, -50%)", ...props.style }}
       >
         {children}
         {showCloseButton ? (
