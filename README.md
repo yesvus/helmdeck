@@ -19,6 +19,12 @@ pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.1.0-alpha.1/yes
 
 Prerelease artifacts are distributed through GitHub releases. npm publication is postponed indefinitely.
 
+## Releases
+
+`VERSION` is the canonical release version and must match `package.json`. The release workflow accepts explicit alpha, beta, stable, patch, minor, and major transitions, runs the full quality gate, tags the release, and attaches the package tarball with a SHA-256 checksum. Alpha and beta releases are marked as GitHub prereleases. Stable releases move the floating `v0` tag; prereleases leave it unchanged. Consumers should upgrade by replacing the exact release tarball URL and refreshing the lockfile.
+
+Run `pnpm version:check` to verify version metadata locally. Use `pnpm version:next <bump>` to preview a transition without changing files.
+
 Import the theme tokens once in the host stylesheet:
 
 ```css
@@ -59,9 +65,11 @@ The host owns session resolution, authorization, persistence, route protection, 
 
 ## Localization
 
-`AdminI18nProvider` supplies the active dictionary to the shell and reusable components. The built-in `englishAdminMessages` and `turkishAdminMessages` values are typed as `AdminMessages`. A host can provide a complete custom dictionary or register one for a new locale:
+`AdminI18nProvider` supplies the active dictionary to the shell and reusable components. It defaults to Turkish; pass `locale="en"` for the built-in English dictionary. Register an additional dictionary in a client module so the registration and provider share the same browser bundle:
 
 ```tsx
+"use client";
+
 import {
   AdminI18nProvider,
   defineAdminMessages,
@@ -81,10 +89,12 @@ const germanMessages: AdminMessages = {
 
 defineAdminMessages(germanMessages);
 
-<AdminI18nProvider locale="de">
-  <AdminApp />
-</AdminI18nProvider>;
+export function GermanAdminProvider({ children }: { children: React.ReactNode }) {
+  return <AdminI18nProvider locale="de">{children}</AdminI18nProvider>;
+}
 ```
+
+A server layout can import and render `GermanAdminProvider`; it should not call `defineAdminMessages` directly in the server module.
 
 ## Media adapters
 

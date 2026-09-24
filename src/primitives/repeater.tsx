@@ -27,7 +27,17 @@ export function AdminRepeaterListField({
 }) {
   const [items, setItems] = useState(defaultItems.length > 0 ? defaultItems : [""]);
   const i18n = useAdminMessages();
-  const hiddenValueRef = useAdminFormValueSignal<HTMLTextAreaElement>(items);
+  const restoreItems = (value: string) => {
+    const restoredItems = value
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    setItems(restoredItems.length > 0 ? restoredItems : [""]);
+  };
+  const hiddenValueRef = useAdminFormValueSignal<HTMLTextAreaElement>(items, {
+    name,
+    restore: restoreItems,
+  });
 
   return (
     <div className="space-y-2">
