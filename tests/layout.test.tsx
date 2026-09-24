@@ -5,7 +5,7 @@ import { LayoutGrid } from "lucide-react";
 import { AdminSectionCard, AdminSurfaceCard } from "../src/primitives/layout";
 
 describe("admin card primitives", () => {
-  it("separates a section heading and supporting description from its content", () => {
+  it("exposes section descriptions through contextual help only", () => {
     render(
       <AdminSectionCard icon={LayoutGrid} title="Overview" description="Review the current activity">
         <p>Primary content</p>
@@ -13,7 +13,9 @@ describe("admin card primitives", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getAllByText("Review the current activity")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Help: Overview" })).toBeInTheDocument();
+    expect(screen.getAllByText("Review the current activity")).toHaveLength(1);
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent("Review the current activity");
     expect(screen.getByText("Primary content")).toBeInTheDocument();
   });
 

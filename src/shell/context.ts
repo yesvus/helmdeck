@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+"use client";
+
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import type { AdminNavGroup, AdminSession } from "../adapters/index.js";

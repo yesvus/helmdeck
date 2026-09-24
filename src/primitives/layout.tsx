@@ -54,7 +54,6 @@ export function AdminSectionCard({
           </div>
           <div className="min-w-0">
             <h2 className="flex min-w-0 flex-wrap items-center gap-x-1 text-base font-semibold leading-snug text-zinc-900"><span>{title}</span>{description ? <AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp> : null}</h2>
-            {description ? <p className="mt-1 max-w-3xl text-sm leading-5 text-zinc-500">{description}</p> : null}
           </div>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
@@ -195,7 +194,7 @@ export function AdminSplitFormLayout({
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className={cn("space-y-5", contentClassName)}>{content}</div>
-      <div className={cn("space-y-5 xl:sticky xl:top-[calc(72px+1.5rem)] xl:self-start", sidebarClassName)}>
+      <div className={cn("space-y-5 xl:sticky xl:top-[calc(var(--admin-header-height)+1.5rem)] xl:self-start", sidebarClassName)}>
         {sidebar}
       </div>
     </div>
