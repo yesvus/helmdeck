@@ -6,6 +6,10 @@
 
 - Describe the relevant changes.
 
+## Related issue
+
+<!-- Link an issue, for example: Closes #123 -->
+
 ## Test plan
 
 - [ ] `pnpm typecheck`

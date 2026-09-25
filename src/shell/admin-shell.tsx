@@ -103,7 +103,7 @@ export function AdminShell({
       }}
     >
       <main
-        className="min-h-[100dvh] bg-zinc-50 text-zinc-900"
+        className="flex h-[100dvh] flex-col overflow-hidden bg-zinc-50 text-zinc-900"
         style={sidebarStyle}
       >
         <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-200 lg:block">
@@ -195,7 +195,7 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="flex min-h-[var(--admin-header-height)] items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="flex min-h-[var(--admin-header-height)] shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
                 {trail && pageTitle ? <AdminBreadcrumbs groups={nav} /> : null}
@@ -216,7 +216,7 @@ export function AdminShell({
           </header>
         ) : null}
 
-        <div className="px-4 pb-24 pt-6 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 lg:pb-6 xl:px-7">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-6 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 lg:pb-6 xl:px-7">
           <div className="space-y-6">{children}</div>
         </div>
 

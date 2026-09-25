@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
@@ -31,6 +31,34 @@ describe("fixture theme controls", () => {
       expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
       expect(document.documentElement.dataset.adminTheme).toBe("dark");
     });
+  });
+
+  it("follows the system preference and updates when it changes", async () => {
+    let matches = true;
+    let onChange: ((event: MediaQueryListEvent) => void) | undefined;
+    const media = {
+      get matches() {
+        return matches;
+      },
+      addEventListener: vi.fn((_type: "change", listener: (event: MediaQueryListEvent) => void) => {
+        onChange = listener;
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList;
+    vi.spyOn(window, "matchMedia").mockReturnValue(media);
+    window.localStorage.setItem("helmdeck-demo-theme", "system");
+
+    renderControls();
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("system");
+      expect(document.documentElement.dataset.adminTheme).toBe("dark");
+    });
+
+    matches = false;
+    act(() => onChange?.({ matches } as MediaQueryListEvent));
+
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
   });
 
   it("switches modes by keyboard and resets editable tokens", async () => {

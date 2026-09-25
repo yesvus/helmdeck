@@ -22,7 +22,7 @@ export function useShellSettings() {
 
 function ThemeSelector() {
   const { theme, setTheme } = useShellTheme();
-  return <label className="flex items-center gap-2 text-xs font-medium text-zinc-600">Theme<select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as "light" | "dark")} className="rounded-md border border-zinc-300 bg-admin-surface px-2 py-1.5 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"><option value="light">Light</option><option value="dark">Dark</option></select></label>;
+  return <label className="flex items-center gap-2 text-xs font-medium text-zinc-600">Theme<select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as "light" | "dark" | "system")} className="rounded-md border border-zinc-300 bg-admin-surface px-2 py-1.5 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></label>;
 }
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
