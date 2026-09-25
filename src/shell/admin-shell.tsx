@@ -6,7 +6,7 @@ import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { AdminNavGroup, AdminSession } from "../adapters/index.js";
 import { filterNavGroups } from "../adapters/index.js";
 import { AdminBreadcrumbs } from "./admin-breadcrumbs.js";
@@ -170,74 +170,67 @@ export function AdminShell({
             />
 
             <nav className={cn("flex-1 overflow-y-auto py-2", collapsed ? "px-2" : "px-2.5")}>
-              {visibleNav.map((group) => {
-                const activeItem = group.items
-                  .filter((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined))
-                  .sort((a, b) => b.href.length - a.href.length)[0];
-                const activeIndex = activeItem ? group.items.findIndex((item) => item.href === activeItem.href) : -1;
-                const GroupIcon = resolveNavIcon(group.icon);
-                const isOpen = openGroups[group.label] !== false;
+              <LayoutGroup id="admin-sidebar-navigation">
+                {visibleNav.map((group) => {
+                  const activeItem = group.items
+                    .filter((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined))
+                    .sort((a, b) => b.href.length - a.href.length)[0];
+                  const GroupIcon = resolveNavIcon(group.icon);
+                  const isOpen = openGroups[group.label] !== false;
 
-                return (
-                  <section key={group.label} className="mb-1">
-                    {collapsed ? null : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenGroups((current) => ({
-                            ...current,
-                            [group.label]: !current[group.label],
-                          }))
-                        }
-                        aria-expanded={isOpen}
+                  return (
+                    <section key={group.label} className="mb-1">
+                      {collapsed ? null : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenGroups((current) => ({
+                              ...current,
+                              [group.label]: !current[group.label],
+                            }))
+                          }
+                          aria-expanded={isOpen}
+                          className={cn(
+                            "mb-0.5 flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700",
+                            activeItem && "text-admin-brand-text",
+                          )}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="flex min-w-0 items-center gap-2">
+                              {GroupIcon ? <GroupIcon className={cn("h-4 w-4 shrink-0", activeItem ? "text-brand-600" : "text-zinc-500")} aria-hidden="true" /> : activeItem ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" /> : null}
+                              <span className="truncate">{group.label}</span>
+                            </span>
+                          </span>
+                          <ChevronDown
+                            className={cn("h-3.5 w-3.5 transition-transform duration-200 ease-in-out motion-reduce:transition-none", isOpen ? "" : "-rotate-90")}
+                          />
+                        </button>
+                      )}
+                      <motion.div
+                        aria-hidden={!collapsed && !isOpen}
+                        inert={!collapsed && !isOpen}
+                        initial={false}
+                        animate={{
+                          height: collapsed || isOpen ? "auto" : 0,
+                          opacity: collapsed || isOpen ? 1 : 0,
+                        }}
+                        transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
                         className={cn(
-                          "mb-0.5 flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700",
-                          activeItem && "text-admin-brand-text",
+                          "relative overflow-hidden",
+                          !collapsed && "ml-2 border-l pl-2 transition-colors duration-200 motion-reduce:transition-none",
+                          !collapsed && (isOpen ? "border-zinc-200" : "border-transparent"),
                         )}
                       >
-                        <span className="min-w-0 flex-1">
-                          <span className="flex min-w-0 items-center gap-2">
-                            {GroupIcon ? <GroupIcon className={cn("h-4 w-4 shrink-0", activeItem ? "text-brand-600" : "text-zinc-500")} aria-hidden="true" /> : activeItem ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" /> : null}
-                            <span className="truncate">{group.label}</span>
-                          </span>
-                        </span>
-                        <ChevronDown
-                          className={cn("h-3.5 w-3.5 transition-transform duration-200 ease-in-out motion-reduce:transition-none", isOpen ? "" : "-rotate-90")}
-                        />
-                      </button>
-                    )}
-                    <motion.div
-                      aria-hidden={!collapsed && !isOpen}
-                      inert={!collapsed && !isOpen}
-                      initial={false}
-                      animate={{
-                        height: collapsed || isOpen ? "auto" : 0,
-                        opacity: collapsed || isOpen ? 1 : 0,
-                      }}
-                      transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-                      className={cn(
-                        "relative overflow-hidden",
-                        !collapsed && "ml-2 border-l pl-2 transition-colors duration-200 motion-reduce:transition-none",
-                        !collapsed && (isOpen ? "border-zinc-200" : "border-transparent"),
-                      )}
-                    >
-                      {!collapsed && activeIndex >= 0 ? (
-                        <motion.span
-                          aria-hidden="true"
-                          className="pointer-events-none absolute -left-px top-0 z-10 h-8 w-[3px] rounded-full bg-brand-500"
-                          animate={{ y: activeIndex * 34 }}
-                          transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-                        />
-                      ) : null}
-                      <div className="space-y-0.5">
-                        {group.items.map((item) => (
-                          <AdminNavLink key={item.href} item={item} iconOnly={collapsed} hideIcon={!collapsed} exact={item.href === homeHref} />
-                        ))}
-                      </div>
-                    </motion.div>
-                  </section>
-                );
-              })}
+                        <div className="space-y-0.5">
+                          {group.items.map((item) => (
+                            <AdminNavLink key={item.href} item={item} iconOnly={collapsed} hideIcon={!collapsed} activeIndicator={!collapsed} exact={item.href === homeHref} />
+                          ))}
+                        </div>
+                      </motion.div>
+                    </section>
+                  );
+                })}
+              </LayoutGroup>
             </nav>
 
             {sidebarExtra ? (

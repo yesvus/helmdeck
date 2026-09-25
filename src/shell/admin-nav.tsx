@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "../cn.js";
 import type { AdminNavItem } from "../adapters/index.js";
 import { getAdminHrefPathname, isActiveHref } from "../adapters/index.js";
@@ -26,15 +27,18 @@ export function AdminNavLink({
   compact = false,
   iconOnly = false,
   hideIcon = false,
+  activeIndicator = false,
   exact = false,
 }: {
   item: AdminNavItem;
   compact?: boolean;
   iconOnly?: boolean;
   hideIcon?: boolean;
+  activeIndicator?: boolean;
   exact?: boolean;
 }) {
   const pathname = usePathname();
+  const shouldReduceMotion = useReducedMotion();
   const shell = useAdminShell();
   const active = exact
     ? isAdminNavItemActive(pathname, item.href, item.href)
@@ -86,17 +90,31 @@ export function AdminNavLink({
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex min-h-8 items-center rounded-md px-2 py-1.5 text-sm transition-[color,opacity] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface motion-reduce:transition-none",
+        "relative flex min-h-8 items-center rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
         hideIcon ? "" : "gap-2.5",
         hideIcon
-          ? active ? "text-zinc-900 opacity-100" : "text-zinc-600 opacity-70 hover:text-zinc-900 hover:opacity-100"
+          ? active ? "text-zinc-900" : "text-zinc-600 hover:text-zinc-900"
           : active
             ? "font-semibold bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
             : "font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
       )}
     >
+      {hideIcon && active && activeIndicator ? (
+        <motion.span
+          aria-hidden="true"
+          layoutId="admin-nav-active-indicator"
+          className="pointer-events-none absolute -left-[10px] top-0 bottom-0 z-10 w-[3px] rounded-full bg-brand-500"
+          transition={shouldReduceMotion ? { duration: 0 } : undefined}
+        />
+      ) : null}
       {!hideIcon && Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
-      <span className="truncate">{label}</span>
+      <motion.span
+        className="truncate"
+        animate={hideIcon ? { opacity: active ? 1 : 0.7 } : undefined}
+        transition={shouldReduceMotion ? { duration: 0 } : undefined}
+      >
+        {label}
+      </motion.span>
     </Link>
   );
 }
