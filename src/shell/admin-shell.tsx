@@ -132,7 +132,7 @@ export function AdminShell({
           <div className="flex h-full flex-col">
             <div
               className={cn(
-                "flex h-16 shrink-0 items-center border-b border-zinc-100",
+                "flex h-[var(--admin-header-height)] shrink-0 items-center border-b border-zinc-100",
                 collapsed ? "justify-center px-2" : "gap-2.5 px-4",
               )}
             >
@@ -244,7 +244,7 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="flex min-h-[var(--admin-header-height)] shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="flex h-[var(--admin-header-height)] shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
                 {trail && pageTitle ? <AdminBreadcrumbs groups={nav} /> : null}

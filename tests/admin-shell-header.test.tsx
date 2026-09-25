@@ -31,11 +31,12 @@ describe("persistent shell page context", () => {
 
   it("uses the matched navigation label and shared header height", () => {
     const contentScrollRef = vi.fn();
-    render(<AdminShell nav={nav} contentScrollRef={contentScrollRef}><div>Page content</div></AdminShell>);
+    const { container } = render(<AdminShell nav={nav} contentScrollRef={contentScrollRef}><div>Page content</div></AdminShell>);
 
     expect(screen.getByRole("main")).toHaveClass("h-[100dvh]", "overflow-hidden");
-    expect(screen.getByRole("banner")).toHaveClass("min-h-[var(--admin-header-height)]");
+    expect(screen.getByRole("banner")).toHaveClass("h-[var(--admin-header-height)]");
     expect(screen.getByRole("banner")).toHaveClass("shrink-0");
+    expect(container.querySelector("aside > div > div")).toHaveClass("h-[var(--admin-header-height)]");
     const scrollRegion = screen.getByRole("region", { name: "Products" });
     expect(scrollRegion).toHaveAttribute("tabindex", "0");
     expect(contentScrollRef).toHaveBeenCalledWith(scrollRegion);
