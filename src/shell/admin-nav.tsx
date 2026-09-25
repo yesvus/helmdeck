@@ -89,7 +89,7 @@ export function AdminNavLink({
         "flex min-h-8 items-center rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
         hideIcon ? "" : "gap-2.5",
         hideIcon
-          ? active ? "font-bold text-zinc-900" : "font-medium text-zinc-600 hover:text-zinc-900"
+          ? active ? "text-zinc-900" : "text-zinc-600 hover:text-zinc-900"
           : active
             ? "font-semibold bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
             : "font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",

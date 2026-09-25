@@ -6,6 +6,7 @@ import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import type { AdminNavGroup, AdminSession } from "../adapters/index.js";
 import { filterNavGroups } from "../adapters/index.js";
 import { AdminBreadcrumbs } from "./admin-breadcrumbs.js";
@@ -60,6 +61,7 @@ export function AdminShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const shouldReduceMotion = useReducedMotion();
   const i18n = useAdminMessages();
   const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...labels });
   const resolvedSearchNormalize = useCallback(
@@ -126,7 +128,7 @@ export function AdminShell({
         className="flex h-[100dvh] flex-col overflow-hidden bg-zinc-50 text-zinc-900 print:h-auto print:min-h-0 print:overflow-visible"
         style={sidebarStyle}
       >
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-200 lg:block print:hidden">
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:block print:hidden">
           <div className="flex h-full flex-col">
             <div
               className={cn(
@@ -172,6 +174,7 @@ export function AdminShell({
                 const activeItem = group.items
                   .filter((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined))
                   .sort((a, b) => b.href.length - a.href.length)[0];
+                const activeIndex = activeItem ? group.items.findIndex((item) => item.href === activeItem.href) : -1;
                 const GroupIcon = resolveNavIcon(group.icon);
                 const isOpen = openGroups[group.label] !== false;
 
@@ -199,15 +202,41 @@ export function AdminShell({
                           </span>
                         </span>
                         <ChevronDown
-                          className={cn("h-3.5 w-3.5 transition-transform", isOpen ? "" : "-rotate-90")}
+                          className={cn("h-3.5 w-3.5 transition-transform duration-200 ease-in-out motion-reduce:transition-none", isOpen ? "" : "-rotate-90")}
                         />
                       </button>
                     )}
-                    <div className={cn(collapsed || isOpen ? "space-y-0.5" : "hidden", !collapsed && "ml-2 border-l border-zinc-200 pl-2")}>
-                      {group.items.map((item) => (
-                        <AdminNavLink key={item.href} item={item} iconOnly={collapsed} hideIcon={!collapsed} exact={item.href === homeHref} />
-                      ))}
-                    </div>
+                    <motion.div
+                      aria-hidden={!collapsed && !isOpen}
+                      inert={!collapsed && !isOpen}
+                      initial={false}
+                      animate={{
+                        height: collapsed || isOpen ? "auto" : 0,
+                        opacity: collapsed || isOpen ? 1 : 0,
+                      }}
+                      transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+                      className={cn(
+                        "overflow-hidden",
+                        !collapsed && "ml-2 border-l pl-2 transition-colors duration-200 motion-reduce:transition-none",
+                        !collapsed && (isOpen ? "border-zinc-200" : "border-transparent"),
+                      )}
+                    >
+                      <div className="relative">
+                        {!collapsed && activeIndex >= 0 ? (
+                          <motion.span
+                            aria-hidden="true"
+                            className="pointer-events-none absolute -left-px top-0 h-8 w-[3px] rounded-full bg-brand-500"
+                            animate={{ y: activeIndex * 34 }}
+                            transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+                          />
+                        ) : null}
+                        <div className="space-y-0.5">
+                          {group.items.map((item) => (
+                            <AdminNavLink key={item.href} item={item} iconOnly={collapsed} hideIcon={!collapsed} exact={item.href === homeHref} />
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
                   </section>
                 );
               })}

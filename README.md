@@ -89,7 +89,7 @@ export function AdminLayout({
 }
 ```
 
-The host owns session resolution, authorization, persistence, route protection, and content-language state. Helmdeck receives configuration and callbacks through explicit props and adapters. Add an optional `icon` to each `AdminNavGroup` to identify sidebar categories. The first category is expanded initially, and groups remain collapsible when they contain the active route. Expanded groups use compact text-only sub-navigation with a vertical guide and a bold active item. `AdminShell` scrolls its content region independently from the header; use its optional `contentScrollRef` to integrate host scroll restoration or scroll-to-top actions. Since the document itself no longer scrolls, call `scrollTo` on this element instead of `window.scrollTo`. The shell resets the region to the top when the route changes.
+The host owns session resolution, authorization, persistence, route protection, and content-language state. Helmdeck receives configuration and callbacks through explicit props and adapters. Add an optional `icon` to each `AdminNavGroup` to identify sidebar categories. The first category is expanded initially, and groups remain collapsible when they contain the active route. Expanded groups use compact text-only sub-navigation with a vertical guide and a thicker animated indicator beside the active item. `AdminShell` scrolls its content region independently from the header; use its optional `contentScrollRef` to integrate host scroll restoration or scroll-to-top actions. Since the document itself no longer scrolls, call `scrollTo` on this element instead of `window.scrollTo`. The shell resets the region to the top when the route changes.
 
 ## Host integration contracts
 

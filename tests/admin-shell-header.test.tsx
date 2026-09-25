@@ -81,15 +81,18 @@ describe("persistent shell page context", () => {
     expect(groupButton).not.toHaveTextContent("New product");
     const activeLink = container.querySelector('a[href="/shell/products/new"]');
     expect(activeLink).toHaveAttribute("aria-current", "page");
-    expect(activeLink?.parentElement).toHaveClass("hidden");
+    expect(activeLink?.closest("[aria-hidden='true']")).toHaveAttribute("inert");
     expect(screen.getByRole("main")).toHaveStyle({ "--admin-sidebar-current": "var(--admin-sidebar-width, 240px)" });
 
     fireEvent.click(groupButton);
     const expandedActiveLink = container.querySelector('a[href="/shell/products/new"]');
     const expandedInactiveLink = container.querySelector('a[href="/shell/products"]');
-    expect(expandedActiveLink).toHaveClass("min-h-8", "font-bold");
+    expect(expandedActiveLink).toHaveClass("min-h-8");
+    expect(expandedActiveLink).not.toHaveClass("font-bold");
     expect(expandedActiveLink?.querySelector("svg")).not.toBeInTheDocument();
-    expect(expandedActiveLink?.parentElement).toHaveClass("border-l");
+    const expandedGroup = expandedActiveLink?.closest("[aria-hidden='false']");
+    expect(expandedGroup).toHaveClass("border-l");
+    expect(expandedGroup?.querySelector("span[aria-hidden='true']")).toHaveClass("bg-brand-500");
     expect(expandedInactiveLink).toHaveClass("min-h-8");
     expect(expandedInactiveLink?.querySelector("svg")).not.toBeInTheDocument();
   });
