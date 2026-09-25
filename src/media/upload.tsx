@@ -39,6 +39,7 @@ export function AdminMediaUpload({
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
+  const [announcement, setAnnouncement] = useState("");
   const [error, setError] = useState("");
   const [uploaded, setUploaded] = useState(false);
   const [mode, setMode] = useState<"file" | "external">("file");
@@ -54,6 +55,7 @@ export function AdminMediaUpload({
   function selectFile(nextFile: File | null) {
     setFile(nextFile);
     setProgress(0);
+    setAnnouncement("");
     setError("");
     setUploaded(false);
   }
@@ -95,15 +97,24 @@ export function AdminMediaUpload({
     setPending(true);
     setError("");
     setProgress(1);
+    setAnnouncement(mergedLabels.uploading);
     setUploaded(false);
 
     try {
-      const item = await adapter.upload(file, { onProgress: setProgress });
+      const item = await adapter.upload(file, {
+        onProgress: (value) => {
+          if (pendingRef.current && Number.isFinite(value)) {
+            setProgress(Math.round(Math.max(1, Math.min(99, value))));
+          }
+        },
+      });
       setProgress(100);
       setUploaded(true);
+      setAnnouncement(mergedLabels.uploadSuccess);
       onUploaded?.(item);
     } catch {
       setProgress(0);
+      setAnnouncement("");
       setError(mergedLabels.uploadError);
     } finally {
       pendingRef.current = false;
@@ -221,13 +232,14 @@ export function AdminMediaUpload({
             disabled={busy}
             onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
           />
+          <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
           {progress > 0 ? (
-            <div role="status" aria-live="polite" aria-atomic="true">
+            <div>
               <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
-                <span>{uploaded ? mergedLabels.uploadSuccess : mergedLabels.uploading}</span>
-                <span>{progress}%</span>
+                <span aria-hidden="true">{uploaded ? mergedLabels.uploadSuccess : mergedLabels.uploading}</span>
+                <span aria-hidden="true">{progress}%</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-zinc-200" role="progressbar" aria-label={mergedLabels.uploading} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+              <div className="h-2 overflow-hidden rounded-full bg-zinc-200" role="progressbar" aria-label={mergedLabels.uploading} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} aria-valuetext={`${progress}%`}>
                 <div
                   className="h-full rounded-full bg-brand-500 transition-[width]"
                   style={{ width: `${progress}%` }}
