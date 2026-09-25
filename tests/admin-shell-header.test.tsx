@@ -30,9 +30,20 @@ describe("persistent shell page context", () => {
   });
 
   it("uses the matched navigation label and shared header height", () => {
-    render(<AdminShell nav={nav}><div>Page content</div></AdminShell>);
+    const contentScrollRef = vi.fn();
+    render(<AdminShell nav={nav} contentScrollRef={contentScrollRef}><div>Page content</div></AdminShell>);
 
+    expect(screen.getByRole("main")).toHaveClass("h-[100dvh]", "overflow-hidden");
     expect(screen.getByRole("banner")).toHaveClass("min-h-[var(--admin-header-height)]");
+    expect(screen.getByRole("banner")).toHaveClass("shrink-0");
+    const scrollRegion = screen.getByRole("region", { name: "Products" });
+    expect(scrollRegion).toHaveAttribute("tabindex", "0");
+    expect(contentScrollRef).toHaveBeenCalledWith(scrollRegion);
+    expect(screen.getByText("Page content").closest(".overflow-y-auto")).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "overflow-y-auto",
+    );
     expect(screen.getByRole("heading", { name: "Products" })).toBeInTheDocument();
     expect(screen.getByText("Yeni", { selector: '[aria-current="page"]' })).toBeInTheDocument();
   });
@@ -46,6 +57,12 @@ describe("persistent shell page context", () => {
 
     const heading = screen.getByRole("heading", { name: "New product" });
     expect(heading.parentElement?.parentElement).toHaveClass("min-h-[var(--admin-header-height)]");
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(screen.getByText("New product").closest(".overflow-y-auto")).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "overflow-y-auto",
+    );
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 });

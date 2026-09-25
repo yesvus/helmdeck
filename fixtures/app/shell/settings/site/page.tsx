@@ -30,7 +30,7 @@ function ChoiceGroup({ label, options, active, onPick }: {
             className={`rounded-md border px-3 py-2 text-sm transition-colors ${
               active === option.value
                 ? "border-brand-500 bg-brand-500 text-white"
-                : "border-zinc-200 bg-white hover:border-brand-500"
+                : "border-zinc-200 bg-admin-surface hover:border-brand-500"
             }`}
           >
             {option.name}

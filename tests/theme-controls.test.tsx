@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
 import { ShellThemeProvider } from "../fixtures/components/shell-theme-provider";
+import ThemePage from "../fixtures/app/theme/page";
 
 afterEach(() => {
   cleanup();
@@ -31,6 +32,50 @@ describe("fixture theme controls", () => {
       expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
       expect(document.documentElement.dataset.adminTheme).toBe("dark");
     });
+  });
+
+  it("follows the system preference and updates when it changes", async () => {
+    let matches = true;
+    let onChange: ((event: MediaQueryListEvent) => void) | undefined;
+    const media = {
+      get matches() {
+        return matches;
+      },
+      addEventListener: vi.fn((_type: "change", listener: (event: MediaQueryListEvent) => void) => {
+        onChange = listener;
+      }),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList;
+    vi.spyOn(window, "matchMedia").mockReturnValue(media);
+    window.localStorage.setItem("helmdeck-demo-theme", "system");
+
+    renderControls();
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("system");
+      expect(document.documentElement.dataset.adminTheme).toBe("dark");
+    });
+
+    matches = false;
+    act(() => onChange?.({ matches } as MediaQueryListEvent));
+
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
+  });
+
+  it("keeps system preference in exported presets and the theme page provider", async () => {
+    const user = userEvent.setup();
+    render(<ThemePage />);
+    const mode = screen.getByRole("combobox", { name: "Color mode" });
+    await waitFor(() => expect(mode).toHaveValue("light"));
+    await user.selectOptions(mode, "system");
+    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("system"));
+    const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValueOnce();
+    await user.click(screen.getByRole("button", { name: "Export preset" }));
+    const preset = writeText.mock.calls[0][0] as string;
+    expect(JSON.parse(preset)).toMatchObject({ theme: "system" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Theme preset JSON" }), { target: { value: preset } });
+    await user.click(screen.getByRole("button", { name: "Import preset" }));
+    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("system"));
   });
 
   it("switches modes by keyboard and resets editable tokens", async () => {

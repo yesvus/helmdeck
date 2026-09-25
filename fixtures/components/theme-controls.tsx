@@ -12,6 +12,7 @@ type Preset = {
   radius: string;
   density: string;
   mode: "light" | "dark";
+  theme: "light" | "dark" | "system";
 };
 
 const initial: Preset = {
@@ -22,6 +23,7 @@ const initial: Preset = {
   radius: "0.75rem",
   density: "1",
   mode: "light",
+  theme: "light",
 };
 
 const defaultSurfaces: Record<Preset["mode"], string> = {
@@ -31,24 +33,25 @@ const defaultSurfaces: Record<Preset["mode"], string> = {
 
 export function ThemeControls() {
   const shellTheme = useShellTheme();
-  const { theme, setTheme, ready } = shellTheme;
-  const [preset, setPreset] = useState(() => ({ ...initial, mode: theme }));
+  const { theme, resolvedTheme, setTheme, ready } = shellTheme;
+  const [preset, setPreset] = useState(() => ({ ...initial, mode: resolvedTheme, theme }));
   const [importValue, setImportValue] = useState("");
   const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
-    if (!ready || preset.mode === theme) return;
+    if (!ready || (preset.mode === resolvedTheme && preset.theme === theme)) return;
     setPreset((current) => ({
       ...current,
-      mode: theme,
-      surface: current.surface === defaultSurfaces[current.mode] ? defaultSurfaces[theme] : current.surface,
+      mode: resolvedTheme,
+      theme,
+      surface: current.surface === defaultSurfaces[current.mode] ? defaultSurfaces[resolvedTheme] : current.surface,
     }));
-  }, [preset, ready, theme]);
+  }, [preset, ready, resolvedTheme, theme]);
 
   useEffect(() => {
-    if (!ready || preset.mode !== theme) return;
+    if (!ready || preset.mode !== resolvedTheme) return;
     const root = document.documentElement;
-    root.dataset.adminTheme = theme;
+    root.dataset.adminTheme = resolvedTheme;
     root.style.setProperty("--admin-brand-500", preset.brand);
     root.style.setProperty("--admin-brand-600", preset.brand);
     root.style.setProperty("--admin-brand-100", `${preset.brand}26`);
@@ -59,7 +62,7 @@ export function ThemeControls() {
     root.style.setProperty("--admin-radius", preset.radius);
     root.style.setProperty("--admin-density", preset.density);
     root.style.fontFamily = "var(--admin-font-family)";
-  }, [preset, ready, theme]);
+  }, [preset, ready, resolvedTheme]);
 
   function update<K extends keyof Preset>(key: K, value: Preset[K]) {
     setPreset((current) => ({ ...current, [key]: value }));
@@ -69,11 +72,21 @@ export function ThemeControls() {
     setPreset((current) => ({
       ...current,
       mode,
+      theme: mode,
       surface: current.surface === defaultSurfaces[current.mode]
         ? defaultSurfaces[mode]
         : current.surface,
     }));
     setTheme(mode);
+  }
+
+  function selectTheme(value: "light" | "dark" | "system") {
+    if (value === "system") {
+      setTheme(value);
+      setPreset((current) => ({ ...current, theme: value }));
+      return;
+    }
+    updateMode(value);
   }
 
   function importPreset() {
@@ -96,6 +109,7 @@ export function ThemeControls() {
         radius: ["0.25rem", "0.75rem", "1.25rem"],
         density: ["0.85", "1", "1.15"],
         mode: ["light", "dark"],
+        theme: ["light", "dark", "system"],
       };
       for (const [key, value] of Object.entries(values)) {
         const validColor = (key === "brand" || key === "surface") && typeof value === "string" && /^#[\da-f]{6}$/i.test(value);
@@ -106,9 +120,10 @@ export function ThemeControls() {
         }
       }
       const imported = { ...initial, ...values } as Preset;
+      imported.theme = (values.theme as Preset["theme"] | undefined) ?? imported.mode;
       if (!Object.hasOwn(values, "surface")) imported.surface = defaultSurfaces[imported.mode];
       setPreset(imported);
-      setTheme(imported.mode);
+      setTheme(imported.theme);
       setFeedback("Theme preset imported.");
     } catch {
       setFeedback("Preset must contain valid JSON.");
@@ -139,8 +154,8 @@ export function ThemeControls() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div><h1 className="text-2xl font-bold">Theme editor</h1><p className="text-sm text-zinc-600">Customize design tokens and preview changes live.</p></div>
         <label className="flex items-center gap-2 text-sm font-medium">Color mode
-            <select aria-label="Color mode" className="rounded-md border border-zinc-300 bg-admin-surface px-3 py-2" value={theme} onChange={(event) => updateMode(event.target.value as Preset["mode"])}>
-            <option value="light">Light</option><option value="dark">Dark</option>
+            <select aria-label="Color mode" className="rounded-md border border-zinc-300 bg-admin-surface px-3 py-2" value={theme} onChange={(event) => selectTheme(event.target.value as "light" | "dark" | "system")}>
+            <option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option>
           </select>
         </label>
       </header>

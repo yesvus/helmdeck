@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useCallback, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
@@ -34,6 +34,7 @@ export function AdminShell({
   profileHref,
   viewSiteHref = "/",
   onLogout,
+  contentScrollRef,
   showTopbar = true,
   topbarExtra,
   sidebarExtra,
@@ -51,6 +52,7 @@ export function AdminShell({
   profileHref?: string;
   viewSiteHref?: string;
   onLogout?: () => void | Promise<void>;
+  contentScrollRef?: Ref<HTMLDivElement>;
   showTopbar?: boolean;
   topbarExtra?: ReactNode;
   sidebarExtra?: ReactNode;
@@ -69,6 +71,7 @@ export function AdminShell({
   const visibleNav = filterNavGroups(nav, session?.role);
   const branding = useAdminBranding(brand?.accent);
   const [collapsed, setCollapsed] = useState(false);
+  const internalContentScrollRef = useRef<HTMLDivElement>(null);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(visibleNav.map((group) => [group.label, true])),
   );
@@ -78,6 +81,22 @@ export function AdminShell({
   const brandHref = brand?.href ?? homeHref;
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 260px)";
+
+  const setContentScrollRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      internalContentScrollRef.current = element;
+      if (typeof contentScrollRef === "function") {
+        contentScrollRef(element);
+      } else if (contentScrollRef) {
+        contentScrollRef.current = element;
+      }
+    },
+    [contentScrollRef],
+  );
+
+  useEffect(() => {
+    internalContentScrollRef.current?.scrollTo?.({ top: 0 });
+  }, [pathname]);
 
   const sidebarStyle = {
     ...branding,
@@ -103,10 +122,10 @@ export function AdminShell({
       }}
     >
       <main
-        className="min-h-[100dvh] bg-zinc-50 text-zinc-900"
+        className="flex h-[100dvh] flex-col overflow-hidden bg-zinc-50 text-zinc-900 print:h-auto print:min-h-0 print:overflow-visible"
         style={sidebarStyle}
       >
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-200 lg:block">
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-200 lg:block print:hidden">
           <div className="flex h-full flex-col">
             <div
               className={cn(
@@ -195,7 +214,7 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="flex min-h-[var(--admin-header-height)] items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="flex min-h-[var(--admin-header-height)] shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
                 {trail && pageTitle ? <AdminBreadcrumbs groups={nav} /> : null}
@@ -216,11 +235,17 @@ export function AdminShell({
           </header>
         ) : null}
 
-        <div className="px-4 pb-24 pt-6 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 lg:pb-6 xl:px-7">
+        <div
+          ref={setContentScrollRef}
+          role="region"
+          tabIndex={0}
+          aria-label={pageTitle ?? brand?.label ?? mergedLabels.brandLabel}
+          className="min-h-0 flex-1 overflow-y-auto px-4 pb-24 pt-6 transition-[margin] duration-200 print:min-h-0 print:flex-none print:overflow-visible sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 lg:pb-6 xl:px-7"
+        >
           <div className="space-y-6">{children}</div>
         </div>
 
-        <AdminMobileNav groups={visibleNav} />
+        <div className="print:hidden"><AdminMobileNav groups={visibleNav} /></div>
       </main>
     </AdminShellProvider>
   );
