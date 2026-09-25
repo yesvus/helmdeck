@@ -48,13 +48,27 @@ describe("persistent shell page context", () => {
     expect(screen.getByText("Yeni", { selector: '[aria-current="page"]' })).toBeInTheDocument();
   });
 
-  it("lets the active navigation group collapse while keeping its destination identified", () => {
+  it("expands only the first navigation category on initial render", () => {
+    render(
+      <AdminShell nav={[
+        { label: "Overview", items: [{ label: "Dashboard", href: "/shell" }] },
+        { label: "Content", items: [{ label: "Products", href: "/shell/products" }] },
+      ]}>
+        <div>Page content</div>
+      </AdminShell>,
+    );
+
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Content" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("lets the active group collapse without showing the current page in the group header", () => {
     const groupedNav = [{
       label: "Workspace",
       icon: "folder" as const,
       items: [
-        { label: "Products", href: "/shell/products" },
-        { label: "New product", href: "/shell/products/new" },
+        { label: "Products", href: "/shell/products", icon: "product" },
+        { label: "New product", href: "/shell/products/new", icon: "article" },
       ],
     }];
     const { container } = render(<AdminShell nav={groupedNav}><div>Page content</div></AdminShell>);
@@ -64,11 +78,20 @@ describe("persistent shell page context", () => {
     fireEvent.click(groupButton);
 
     expect(groupButton).toHaveAttribute("aria-expanded", "false");
-    expect(groupButton).toHaveTextContent("New product");
+    expect(groupButton).not.toHaveTextContent("New product");
     const activeLink = container.querySelector('a[href="/shell/products/new"]');
     expect(activeLink).toHaveAttribute("aria-current", "page");
     expect(activeLink?.parentElement).toHaveClass("hidden");
     expect(screen.getByRole("main")).toHaveStyle({ "--admin-sidebar-current": "var(--admin-sidebar-width, 240px)" });
+
+    fireEvent.click(groupButton);
+    const expandedActiveLink = container.querySelector('a[href="/shell/products/new"]');
+    const expandedInactiveLink = container.querySelector('a[href="/shell/products"]');
+    expect(expandedActiveLink).toHaveClass("min-h-8", "font-bold");
+    expect(expandedActiveLink?.querySelector("svg")).not.toBeInTheDocument();
+    expect(expandedActiveLink?.parentElement).toHaveClass("border-l");
+    expect(expandedInactiveLink).toHaveClass("min-h-8");
+    expect(expandedInactiveLink?.querySelector("svg")).not.toBeInTheDocument();
   });
 
   it("shows a page header when the shell topbar is disabled", () => {

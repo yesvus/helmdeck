@@ -74,7 +74,7 @@ export function AdminShell({
   const [collapsed, setCollapsed] = useState(false);
   const internalContentScrollRef = useRef<HTMLDivElement>(null);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(visibleNav.map((group) => [group.label, true])),
+    Object.fromEntries(visibleNav.map((group, index) => [group.label, index === 0])),
   );
   const trail = useBreadcrumbs(nav);
   const pageTitle = currentPageTitle ?? trail?.item.label;
@@ -197,20 +197,15 @@ export function AdminShell({
                             {GroupIcon ? <GroupIcon className={cn("h-4 w-4 shrink-0", activeItem ? "text-brand-600" : "text-zinc-500")} aria-hidden="true" /> : activeItem ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" /> : null}
                             <span className="truncate">{group.label}</span>
                           </span>
-                          {!isOpen && activeItem ? (
-                            <span className="mt-0.5 block truncate text-[11px] font-medium normal-case tracking-normal text-zinc-500">
-                              {activeItem.label}
-                            </span>
-                          ) : null}
                         </span>
                         <ChevronDown
                           className={cn("h-3.5 w-3.5 transition-transform", isOpen ? "" : "-rotate-90")}
                         />
                       </button>
                     )}
-                    <div className={collapsed || isOpen ? "space-y-1" : "hidden"}>
+                    <div className={cn(collapsed || isOpen ? "space-y-0.5" : "hidden", !collapsed && "ml-2 border-l border-zinc-200 pl-2")}>
                       {group.items.map((item) => (
-                        <AdminNavLink key={item.href} item={item} iconOnly={collapsed} exact={item.href === homeHref} />
+                        <AdminNavLink key={item.href} item={item} iconOnly={collapsed} hideIcon={!collapsed} exact={item.href === homeHref} />
                       ))}
                     </div>
                   </section>

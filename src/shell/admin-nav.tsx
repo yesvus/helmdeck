@@ -25,11 +25,13 @@ export function AdminNavLink({
   item,
   compact = false,
   iconOnly = false,
+  hideIcon = false,
   exact = false,
 }: {
   item: AdminNavItem;
   compact?: boolean;
   iconOnly?: boolean;
+  hideIcon?: boolean;
   exact?: boolean;
 }) {
   const pathname = usePathname();
@@ -84,13 +86,16 @@ export function AdminNavLink({
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex min-h-[44px] items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
-        active
-          ? "bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
-          : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
+        "flex min-h-8 items-center rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
+        hideIcon ? "" : "gap-2.5",
+        hideIcon
+          ? active ? "font-bold text-zinc-900" : "font-medium text-zinc-600 hover:text-zinc-900"
+          : active
+            ? "font-semibold bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
+            : "font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
       )}
     >
-      {Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
+      {!hideIcon && Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
       <span className="truncate">{label}</span>
     </Link>
   );
