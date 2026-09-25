@@ -63,7 +63,7 @@
 }
 
 @theme {
-  --admin-sidebar-width: 260px;
+  --admin-sidebar-width: 240px;
   --admin-sidebar-width-collapsed: 76px;
   --admin-header-height: 4.5rem;
 }

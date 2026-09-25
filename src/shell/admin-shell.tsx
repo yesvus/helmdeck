@@ -6,11 +6,13 @@ import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { AdminNavGroup, AdminSession } from "../adapters/index.js";
 import { filterNavGroups } from "../adapters/index.js";
 import { AdminBreadcrumbs } from "./admin-breadcrumbs.js";
 import { AdminMobileNav } from "./admin-mobile-nav.js";
-import { AdminNavLink } from "./admin-nav.js";
+import { AdminNavLink, isAdminNavItemActive } from "./admin-nav.js";
+import { resolveNavIcon } from "./nav-icons.js";
 import { AdminProfileMenu } from "./admin-profile-menu.js";
 import { AdminSearch, type AdminSearchEntry } from "./admin-search.js";
 import { cn } from "../cn.js";
@@ -59,6 +61,7 @@ export function AdminShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const shouldReduceMotion = useReducedMotion();
   const i18n = useAdminMessages();
   const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...labels });
   const resolvedSearchNormalize = useCallback(
@@ -73,14 +76,14 @@ export function AdminShell({
   const [collapsed, setCollapsed] = useState(false);
   const internalContentScrollRef = useRef<HTMLDivElement>(null);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(visibleNav.map((group) => [group.label, true])),
+    Object.fromEntries(visibleNav.map((group, index) => [group.label, index === 0])),
   );
   const trail = useBreadcrumbs(nav);
   const pageTitle = currentPageTitle ?? trail?.item.label;
   const resolvedProfileHref = profileHref ?? `${homeHref}/profile`;
   const brandHref = brand?.href ?? homeHref;
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
-  const expandedWidth = "var(--admin-sidebar-width, 260px)";
+  const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
   const setContentScrollRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -125,11 +128,11 @@ export function AdminShell({
         className="flex h-[100dvh] flex-col overflow-hidden bg-zinc-50 text-zinc-900 print:h-auto print:min-h-0 print:overflow-visible"
         style={sidebarStyle}
       >
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-200 lg:block print:hidden">
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:block print:hidden">
           <div className="flex h-full flex-col">
             <div
               className={cn(
-                "flex h-[72px] shrink-0 items-center border-b border-zinc-100",
+                "flex h-[var(--admin-header-height)] shrink-0 items-center border-b border-zinc-100",
                 collapsed ? "justify-center px-2" : "gap-2.5 px-4",
               )}
             >
@@ -166,41 +169,68 @@ export function AdminShell({
               onExpand={() => setCollapsed(false)}
             />
 
-            <nav className={cn("flex-1 overflow-y-auto py-3", collapsed ? "px-2" : "px-3")}>
-              {visibleNav.map((group) => {
-                const containsActiveRoute = group.items.some((item) =>
-                  item.href === pathname || pathname.startsWith(`${item.href}/`),
-                );
-                const isOpen = containsActiveRoute || openGroups[group.label] !== false;
+            <nav className={cn("flex-1 overflow-y-auto py-2", collapsed ? "px-2" : "px-2.5")}>
+              <LayoutGroup id="admin-sidebar-navigation">
+                {visibleNav.map((group) => {
+                  const activeItem = group.items
+                    .filter((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined))
+                    .sort((a, b) => b.href.length - a.href.length)[0];
+                  const GroupIcon = resolveNavIcon(group.icon);
+                  const isOpen = openGroups[group.label] !== false;
 
-                return (
-                  <section key={group.label} className="mb-2">
-                    {collapsed ? null : (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenGroups((current) => ({
-                            ...current,
-                            [group.label]: !current[group.label],
-                          }))
-                        }
-                        aria-expanded={isOpen}
-                        className="mb-1 flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600"
+                  return (
+                    <section key={group.label} className="mb-1">
+                      {collapsed ? null : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenGroups((current) => ({
+                              ...current,
+                              [group.label]: !current[group.label],
+                            }))
+                          }
+                          aria-expanded={isOpen}
+                          className={cn(
+                            "mb-0.5 flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700",
+                            activeItem && "text-admin-brand-text",
+                          )}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="flex min-w-0 items-center gap-2">
+                              {GroupIcon ? <GroupIcon className={cn("h-4 w-4 shrink-0", activeItem ? "text-brand-600" : "text-zinc-500")} aria-hidden="true" /> : activeItem ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" /> : null}
+                              <span className="truncate">{group.label}</span>
+                            </span>
+                          </span>
+                          <ChevronDown
+                            className={cn("h-3.5 w-3.5 transition-transform duration-200 ease-in-out motion-reduce:transition-none", isOpen ? "" : "-rotate-90")}
+                          />
+                        </button>
+                      )}
+                      <motion.div
+                        aria-hidden={!collapsed && !isOpen}
+                        inert={!collapsed && !isOpen}
+                        initial={false}
+                        animate={{
+                          height: collapsed || isOpen ? "auto" : 0,
+                          opacity: collapsed || isOpen ? 1 : 0,
+                        }}
+                        transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+                        className={cn(
+                          "relative overflow-hidden",
+                          !collapsed && "ml-2 border-l pl-2 transition-colors duration-200 motion-reduce:transition-none",
+                          !collapsed && (isOpen ? "border-zinc-200" : "border-transparent"),
+                        )}
                       >
-                        {group.label}
-                        <ChevronDown
-                          className={cn("h-3.5 w-3.5 transition-transform", isOpen ? "" : "-rotate-90")}
-                        />
-                      </button>
-                    )}
-                    <div className={collapsed || isOpen ? "space-y-1" : "hidden"}>
-                      {group.items.map((item) => (
-                        <AdminNavLink key={item.href} item={item} iconOnly={collapsed} exact={item.href === homeHref} />
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
+                        <div className="space-y-0.5">
+                          {group.items.map((item) => (
+                            <AdminNavLink key={item.href} item={item} iconOnly={collapsed} hideIcon={!collapsed} activeIndicator={!collapsed} exact={item.href === homeHref} />
+                          ))}
+                        </div>
+                      </motion.div>
+                    </section>
+                  );
+                })}
+              </LayoutGroup>
             </nav>
 
             {sidebarExtra ? (
@@ -214,7 +244,7 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="flex min-h-[var(--admin-header-height)] shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="flex h-[var(--admin-header-height)] shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
                 {trail && pageTitle ? <AdminBreadcrumbs groups={nav} /> : null}
