@@ -194,7 +194,7 @@ export function AdminSplitFormLayout({
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <div className={cn("space-y-5", contentClassName)}>{content}</div>
-      <div className={cn("space-y-5 xl:sticky xl:top-[calc(var(--admin-header-height)+1.5rem)] xl:self-start", sidebarClassName)}>
+      <div className={cn("space-y-5 xl:sticky xl:top-6 xl:self-start", sidebarClassName)}>
         {sidebar}
       </div>
     </div>

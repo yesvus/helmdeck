@@ -12,6 +12,7 @@ type Preset = {
   radius: string;
   density: string;
   mode: "light" | "dark";
+  theme: "light" | "dark" | "system";
 };
 
 const initial: Preset = {
@@ -22,6 +23,7 @@ const initial: Preset = {
   radius: "0.75rem",
   density: "1",
   mode: "light",
+  theme: "light",
 };
 
 const defaultSurfaces: Record<Preset["mode"], string> = {
@@ -32,18 +34,19 @@ const defaultSurfaces: Record<Preset["mode"], string> = {
 export function ThemeControls() {
   const shellTheme = useShellTheme();
   const { theme, resolvedTheme, setTheme, ready } = shellTheme;
-  const [preset, setPreset] = useState(() => ({ ...initial, mode: resolvedTheme }));
+  const [preset, setPreset] = useState(() => ({ ...initial, mode: resolvedTheme, theme }));
   const [importValue, setImportValue] = useState("");
   const [feedback, setFeedback] = useState("");
 
   useEffect(() => {
-    if (!ready || preset.mode === resolvedTheme) return;
+    if (!ready || (preset.mode === resolvedTheme && preset.theme === theme)) return;
     setPreset((current) => ({
       ...current,
       mode: resolvedTheme,
+      theme,
       surface: current.surface === defaultSurfaces[current.mode] ? defaultSurfaces[resolvedTheme] : current.surface,
     }));
-  }, [preset, ready, resolvedTheme]);
+  }, [preset, ready, resolvedTheme, theme]);
 
   useEffect(() => {
     if (!ready || preset.mode !== resolvedTheme) return;
@@ -69,6 +72,7 @@ export function ThemeControls() {
     setPreset((current) => ({
       ...current,
       mode,
+      theme: mode,
       surface: current.surface === defaultSurfaces[current.mode]
         ? defaultSurfaces[mode]
         : current.surface,
@@ -79,6 +83,7 @@ export function ThemeControls() {
   function selectTheme(value: "light" | "dark" | "system") {
     if (value === "system") {
       setTheme(value);
+      setPreset((current) => ({ ...current, theme: value }));
       return;
     }
     updateMode(value);
@@ -104,6 +109,7 @@ export function ThemeControls() {
         radius: ["0.25rem", "0.75rem", "1.25rem"],
         density: ["0.85", "1", "1.15"],
         mode: ["light", "dark"],
+        theme: ["light", "dark", "system"],
       };
       for (const [key, value] of Object.entries(values)) {
         const validColor = (key === "brand" || key === "surface") && typeof value === "string" && /^#[\da-f]{6}$/i.test(value);
@@ -114,9 +120,10 @@ export function ThemeControls() {
         }
       }
       const imported = { ...initial, ...values } as Preset;
+      imported.theme = (values.theme as Preset["theme"] | undefined) ?? imported.mode;
       if (!Object.hasOwn(values, "surface")) imported.surface = defaultSurfaces[imported.mode];
       setPreset(imported);
-      setTheme(imported.mode);
+      setTheme(imported.theme);
       setFeedback("Theme preset imported.");
     } catch {
       setFeedback("Preset must contain valid JSON.");
