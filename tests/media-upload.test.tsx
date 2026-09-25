@@ -29,10 +29,15 @@ describe("AdminMediaUpload", () => {
 
   it("locks upload actions while pending and announces success", async () => {
     const user = userEvent.setup();
+    let reportProgress!: (progress: number) => void;
     let finish!: (item: { name: string; path: string; publicUrl: string; source: "uploaded"; kind: "image" }) => void;
-    const upload = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+    const upload = vi.fn((_file, options) => {
+      reportProgress = options?.onProgress ?? (() => {});
+      return new Promise((resolve) => { finish = resolve; });
+    });
     const onUploaded = vi.fn();
     render(<AdminI18nProvider locale="en"><AdminMediaUpload adapter={{ list: vi.fn(), upload }} onUploaded={onUploaded} /></AdminI18nProvider>);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const file = new File(["image"], "photo.png", { type: "image/png" });
     await user.upload(input, file);
@@ -45,8 +50,20 @@ describe("AdminMediaUpload", () => {
     expect(screen.getByRole("button", { name: "Uploading" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /Drop a file here/ })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    act(() => reportProgress(42.6));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "43");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuetext", "43%");
+    expect(screen.getByRole("status")).toHaveTextContent("Uploading");
+    act(() => reportProgress(-5));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+    act(() => reportProgress(130));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "99");
+    act(() => reportProgress(Number.NaN));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "99");
+    expect(screen.getByRole("status")).toHaveTextContent("Uploading");
     finish({ name: "photo.png", path: "photo.png", publicUrl: "/photo.png", source: "uploaded", kind: "image" });
-    expect(await screen.findByText("Upload complete")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Upload complete");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
     expect(onUploaded).toHaveBeenCalledTimes(1);
   });
 
@@ -61,7 +78,7 @@ describe("AdminMediaUpload", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Upload failed");
     expect(screen.queryByText(/private\.example/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Upload file" }));
-    expect(await screen.findByText("Upload complete")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Upload complete");
     expect(upload).toHaveBeenCalledTimes(2);
   });
 
