@@ -216,25 +216,23 @@ export function AdminShell({
                       }}
                       transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
                       className={cn(
-                        "overflow-hidden",
+                        "relative overflow-hidden",
                         !collapsed && "ml-2 border-l pl-2 transition-colors duration-200 motion-reduce:transition-none",
                         !collapsed && (isOpen ? "border-zinc-200" : "border-transparent"),
                       )}
                     >
-                      <div className="relative">
-                        {!collapsed && activeIndex >= 0 ? (
-                          <motion.span
-                            aria-hidden="true"
-                            className="pointer-events-none absolute -left-px top-0 h-8 w-[3px] rounded-full bg-brand-500"
-                            animate={{ y: activeIndex * 34 }}
-                            transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-                          />
-                        ) : null}
-                        <div className="space-y-0.5">
-                          {group.items.map((item) => (
-                            <AdminNavLink key={item.href} item={item} iconOnly={collapsed} hideIcon={!collapsed} exact={item.href === homeHref} />
-                          ))}
-                        </div>
+                      {!collapsed && activeIndex >= 0 ? (
+                        <motion.span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute -left-px top-0 z-10 h-8 w-[3px] rounded-full bg-brand-500"
+                          animate={{ y: activeIndex * 34 }}
+                          transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        />
+                      ) : null}
+                      <div className="space-y-0.5">
+                        {group.items.map((item) => (
+                          <AdminNavLink key={item.href} item={item} iconOnly={collapsed} hideIcon={!collapsed} exact={item.href === homeHref} />
+                        ))}
                       </div>
                     </motion.div>
                   </section>

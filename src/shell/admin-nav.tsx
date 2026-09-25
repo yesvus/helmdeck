@@ -86,10 +86,10 @@ export function AdminNavLink({
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex min-h-8 items-center rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
+        "flex min-h-8 items-center rounded-md px-2 py-1.5 text-sm transition-[color,opacity] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface motion-reduce:transition-none",
         hideIcon ? "" : "gap-2.5",
         hideIcon
-          ? active ? "text-zinc-900" : "text-zinc-600 hover:text-zinc-900"
+          ? active ? "text-zinc-900 opacity-100" : "text-zinc-600 opacity-70 hover:text-zinc-900 hover:opacity-100"
           : active
             ? "font-semibold bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
             : "font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",
