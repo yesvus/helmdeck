@@ -104,14 +104,14 @@ export function AdminNavLink({
           aria-hidden="true"
           layoutId="admin-nav-active-indicator"
           className="pointer-events-none absolute -left-[10px] top-0 bottom-0 z-10 w-[3px] rounded-full bg-brand-500"
-          transition={shouldReduceMotion ? { duration: 0 } : undefined}
+          transition={shouldReduceMotion ? { duration: 0 } : { type: "tween", duration: 0.16, ease: "easeOut" }}
         />
       ) : null}
       {!hideIcon && Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
       <motion.span
         className="truncate"
         animate={hideIcon ? { opacity: active ? 1 : 0.7 } : undefined}
-        transition={shouldReduceMotion ? { duration: 0 } : undefined}
+        transition={shouldReduceMotion ? { duration: 0 } : { type: "tween", duration: 0.12, ease: "easeOut" }}
       >
         {label}
       </motion.span>
