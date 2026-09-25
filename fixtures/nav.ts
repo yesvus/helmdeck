@@ -3,6 +3,7 @@ import type { AdminNavGroup, AdminSession } from "@yesvus/helmdeck";
 export const sampleNav: AdminNavGroup[] = [
   {
     label: "Overview",
+    icon: "overview",
     items: [
       { href: "/shell", label: "Dashboard", shortLabel: "Home", icon: "overview", mobilePrimary: true },
       { href: "/shell/analytics", label: "Analytics", shortLabel: "Stats", icon: "chart" },
@@ -10,6 +11,7 @@ export const sampleNav: AdminNavGroup[] = [
   },
   {
     label: "Content",
+    icon: "folder",
     items: [
       {
         href: "/shell/products",
@@ -25,6 +27,7 @@ export const sampleNav: AdminNavGroup[] = [
   },
   {
     label: "Settings",
+    icon: "settings",
     items: [
       { href: "/shell/profile", label: "Profile", shortLabel: "Profile", icon: "users" },
       { href: "/shell/settings/site", label: "Site settings", shortLabel: "Site", icon: "settings" },

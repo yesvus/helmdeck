@@ -10,7 +10,8 @@ import type { AdminNavGroup, AdminSession } from "../adapters/index.js";
 import { filterNavGroups } from "../adapters/index.js";
 import { AdminBreadcrumbs } from "./admin-breadcrumbs.js";
 import { AdminMobileNav } from "./admin-mobile-nav.js";
-import { AdminNavLink } from "./admin-nav.js";
+import { AdminNavLink, isAdminNavItemActive } from "./admin-nav.js";
+import { resolveNavIcon } from "./nav-icons.js";
 import { AdminProfileMenu } from "./admin-profile-menu.js";
 import { AdminSearch, type AdminSearchEntry } from "./admin-search.js";
 import { cn } from "../cn.js";
@@ -80,7 +81,7 @@ export function AdminShell({
   const resolvedProfileHref = profileHref ?? `${homeHref}/profile`;
   const brandHref = brand?.href ?? homeHref;
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
-  const expandedWidth = "var(--admin-sidebar-width, 260px)";
+  const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
   const setContentScrollRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -129,7 +130,7 @@ export function AdminShell({
           <div className="flex h-full flex-col">
             <div
               className={cn(
-                "flex h-[72px] shrink-0 items-center border-b border-zinc-100",
+                "flex h-16 shrink-0 items-center border-b border-zinc-100",
                 collapsed ? "justify-center px-2" : "gap-2.5 px-4",
               )}
             >
@@ -166,15 +167,16 @@ export function AdminShell({
               onExpand={() => setCollapsed(false)}
             />
 
-            <nav className={cn("flex-1 overflow-y-auto py-3", collapsed ? "px-2" : "px-3")}>
+            <nav className={cn("flex-1 overflow-y-auto py-2", collapsed ? "px-2" : "px-2.5")}>
               {visibleNav.map((group) => {
-                const containsActiveRoute = group.items.some((item) =>
-                  item.href === pathname || pathname.startsWith(`${item.href}/`),
-                );
-                const isOpen = containsActiveRoute || openGroups[group.label] !== false;
+                const activeItem = group.items
+                  .filter((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined))
+                  .sort((a, b) => b.href.length - a.href.length)[0];
+                const GroupIcon = resolveNavIcon(group.icon);
+                const isOpen = openGroups[group.label] !== false;
 
                 return (
-                  <section key={group.label} className="mb-2">
+                  <section key={group.label} className="mb-1">
                     {collapsed ? null : (
                       <button
                         type="button"
@@ -185,9 +187,22 @@ export function AdminShell({
                           }))
                         }
                         aria-expanded={isOpen}
-                        className="mb-1 flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600"
+                        className={cn(
+                          "mb-0.5 flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700",
+                          activeItem && "text-admin-brand-text",
+                        )}
                       >
-                        {group.label}
+                        <span className="min-w-0 flex-1">
+                          <span className="flex min-w-0 items-center gap-2">
+                            {GroupIcon ? <GroupIcon className={cn("h-4 w-4 shrink-0", activeItem ? "text-brand-600" : "text-zinc-500")} aria-hidden="true" /> : activeItem ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" /> : null}
+                            <span className="truncate">{group.label}</span>
+                          </span>
+                          {!isOpen && activeItem ? (
+                            <span className="mt-0.5 block truncate text-[11px] font-medium normal-case tracking-normal text-zinc-500">
+                              {activeItem.label}
+                            </span>
+                          ) : null}
+                        </span>
                         <ChevronDown
                           className={cn("h-3.5 w-3.5 transition-transform", isOpen ? "" : "-rotate-90")}
                         />

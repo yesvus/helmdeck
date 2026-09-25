@@ -50,6 +50,7 @@ export type AdminNavItem = {
 
 export type AdminNavGroup = {
   label: string;
+  icon?: AdminNavIconName | AdminNavIconComponent;
   items: AdminNavItem[];
 };
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminShell } from "../src/shell/admin-shell";
 import { AdminPageHeader } from "../src/shell/admin-page-header";
@@ -46,6 +46,29 @@ describe("persistent shell page context", () => {
     );
     expect(screen.getByRole("heading", { name: "Products" })).toBeInTheDocument();
     expect(screen.getByText("Yeni", { selector: '[aria-current="page"]' })).toBeInTheDocument();
+  });
+
+  it("lets the active navigation group collapse while keeping its destination identified", () => {
+    const groupedNav = [{
+      label: "Workspace",
+      icon: "folder" as const,
+      items: [
+        { label: "Products", href: "/shell/products" },
+        { label: "New product", href: "/shell/products/new" },
+      ],
+    }];
+    const { container } = render(<AdminShell nav={groupedNav}><div>Page content</div></AdminShell>);
+
+    const groupButton = screen.getByRole("button", { name: "Workspace" });
+    expect(groupButton).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(groupButton);
+
+    expect(groupButton).toHaveAttribute("aria-expanded", "false");
+    expect(groupButton).toHaveTextContent("New product");
+    const activeLink = container.querySelector('a[href="/shell/products/new"]');
+    expect(activeLink).toHaveAttribute("aria-current", "page");
+    expect(activeLink?.parentElement).toHaveClass("hidden");
+    expect(screen.getByRole("main")).toHaveStyle({ "--admin-sidebar-current": "var(--admin-sidebar-width, 240px)" });
   });
 
   it("shows a page header when the shell topbar is disabled", () => {
