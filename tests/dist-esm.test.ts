@@ -11,8 +11,14 @@ const packageName = "@yesvus/helmdeck";
 const extensionless = /["'`](next\/[^"'`\s]+?)(?<!\.[a-z0-9]+)["'`]/gi;
 // Comments are stripped before matching. Prose that names a specifier, such as a doc comment
 // referring to `next/headers`, is not an import and was being reported as one.
+//
+// `//` only counts as a comment at the start of a line or after whitespace, and never straight
+// after a colon. Matching it anywhere would truncate a line at a `//` inside a string or regex
+// literal, which is how a real extensionless import later on that line would go unnoticed.
 const withoutComments = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+  source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^[^\S\n]*|[^\S\n])\/\/[^\n]*/g, "$1");
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
