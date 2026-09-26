@@ -25,6 +25,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./baseline": {
+      "types": "./dist/baseline.d.ts",
+      "default": "./dist/baseline.js"
+    },
     "./theme.css": "./dist/theme/tokens.css",
     "./package.json": "./package.json"
   },

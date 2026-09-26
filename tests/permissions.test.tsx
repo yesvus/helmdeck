@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 import { AdminI18nProvider } from "../src/i18n";
 import {
   AdminCan,
@@ -18,6 +19,8 @@ vi.mock("next/navigation.js", () => ({
 }));
 
 /** Grants everything except what is named in `denied`. */
+let commitCount = 0;
+
 function adapter(denied: string[] = [], overrides: Partial<AdminPermissionsAdapter> = {}): AdminPermissionsAdapter {
   return {
     can: vi.fn(async (permission: string) => !denied.includes(permission)),
@@ -219,6 +222,34 @@ describe("AdminCan", () => {
     await waitFor(() => expect(screen.getByTestId("can")).toHaveTextContent("true"));
   });
 
+  it("settles when the caller passes a fresh context object on every render", async () => {
+    // titiz's finding: depending on the context object re-ran the effect every render, and the
+    // effect sets state, so the render never settled. A caller writing `{ resourceId }`
+    // inline is the ordinary way to pass one.
+    // Counted in an effect, which is a commit rather than a render, so this measures how many
+    // times React actually committed rather than how many times a function was called.
+    commitCount = 0;
+    function Counting() {
+      const state = useAdminPermission("records.delete", { resourceId: "rec_1" });
+      useEffect(() => {
+        commitCount += 1;
+      });
+      return <span data-testid="state">{state}</span>;
+    }
+    render(
+      <AdminPermissionsProvider adapter={adapter()}>
+        <Counting />
+      </AdminPermissionsProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("allowed"));
+    const settled = commitCount;
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    // A loop would keep climbing; settling means it stopped.
+    expect(commitCount).toBe(settled);
+    expect(commitCount).toBeLessThan(10);
+  });
+
   it("re-resolves when the adapter is replaced", async () => {
     const first = adapter(["billing.write"]);
     const { rerender } = render(
@@ -318,6 +349,23 @@ describe("useAdminPermittedNav", () => {
     // A group left with nothing in it is dropped, so the sidebar does not show an empty
     // heading over nothing.
     expect(groupLabels()).toBe("Workspace");
+  });
+
+  it("shows ungated items and hides gated ones when there is no adapter", async () => {
+    // titiz's other finding: with no adapter the resolve step never ran, so the nav stayed
+    // empty for good. That is fail-closed, but a permanent blank sidebar reads as a broken
+    // shell rather than a refusal.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(
+      <AdminPermissionsProvider>
+        <NavProbe groups={nav} />
+      </AdminPermissionsProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("pending")).toHaveTextContent("false"));
+    expect(labels()).toBe("Dashboard");
+    expect(groupLabels()).toBe("Workspace");
+    expect(warn).toHaveBeenCalled();
   });
 
   it("drops a group whose every item is refused", async () => {

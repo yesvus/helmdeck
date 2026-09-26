@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AdminNavGroup, AdminPermission } from "../adapters/index.js";
-import { useAdminPermissions } from "./permissions.js";
+import { useAdminPermissions, warnNoAdapter } from "./permissions.js";
 
 /**
  * Nav filtered by permission. An item with no `permission` is always kept, so adopting this
@@ -44,7 +44,19 @@ export function useAdminPermittedNav(groups: AdminNavGroup[]): {
   );
   const gated = useMemo(() => (gatedKey ? gatedKey.split("\u0000") : []), [gatedKey]);
 
-  const results = useGatedPermissions(gated, check, adapter !== undefined);
+  // Same fail-closed-without-an-adapter case as the guard, so it gets the same warning rather
+  // than quietly emptying the sidebar.
+  useEffect(() => {
+    if (adapter === undefined && gated.length > 0) warnNoAdapter();
+  }, [adapter, gated.length]);
+
+  const resolved = useGatedPermissions(gated, check, adapter !== undefined);
+  // With no adapter every permission is refused. Waiting for an answer that can never arrive
+  // would leave the nav empty for good, which reads as a broken shell rather than a denial.
+  const results = useMemo(
+    () => (adapter === undefined ? new Map(gated.map((p) => [p, false])) : resolved),
+    [adapter, gated, resolved],
+  );
 
   const permitted = useMemo(() => {
     const allowed = new Set<AdminPermission>();

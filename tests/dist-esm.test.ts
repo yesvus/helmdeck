@@ -66,6 +66,25 @@ describe("published package under Node ESM", () => {
       rmSync(packageDirectory, { recursive: true, force: true });
     });
 
+    it("resolves the baseline subpath by package name", () => {
+      // An exports map typo would ship an entry point nothing can import, and the root entry
+      // resolving says nothing about the subpath.
+      const script = `const m = await import(${JSON.stringify(`${packageName}/baseline`)});`
+        + "process.stdout.write(Object.keys(m).sort().join(','));";
+
+      expect(execFileSync(process.execPath, ["--input-type=module", "-e", script], {
+        cwd: packageDirectory,
+        encoding: "utf8",
+      })).toBe(
+        [
+          "createAuditAdapter",
+          "createCacheAdapter",
+          "createMemoryPersistenceAdapter",
+          "createSessionAuthAdapter",
+        ].join(","),
+      );
+    }, 60_000);
+
     it("resolves the published entry point by package name without a bundler", () => {
       // Run inside the staged package so Node resolves the name through the real exports map.
       const script = `const m = await import(${JSON.stringify(packageName)});`

@@ -25,6 +25,13 @@ export type AdminPermissionContextValue = {
 
 const AdminPermissionsContext = createContext<AdminPermissionContextValue | null>(null);
 
+/** Warns once per mount that a fail-closed decision was made for lack of an adapter. */
+export function warnNoAdapter(): void {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(DENIED_WITHOUT_ADAPTER);
+  }
+}
+
 const DENIED_WITHOUT_ADAPTER =
   "AdminCan was used without an AdminPermissionsProvider. Denying, because a missing adapter " +
   "must not read as permission granted. Wrap the tree in AdminPermissionsProvider, or drop the guard.";
@@ -107,17 +114,19 @@ export function useAdminPermission(
 ): AdminPermissionState {
   const { check, adapter } = useAdminPermissions();
   const [record, setRecord] = useState<{ key: string; state: AdminPermissionState } | null>(null);
+  // A caller writes `{ resourceId }` inline, so the object is a new value every render.
+  // Depending on it re-ran this effect on every render, and the effect sets state, so the
+  // render never settled. The primitives are what the cache is keyed on anyway.
   const resourceId = context?.resourceId;
   const key = cacheKey(permission, resourceId);
 
   const state = record?.key === key ? record.state : "checking";
 
   useEffect(() => {
-    if (!adapter && process.env.NODE_ENV !== "production") {
-      console.warn(DENIED_WITHOUT_ADAPTER);
-    }
+    if (!adapter) warnNoAdapter();
     let active = true;
-    void check(permission, context).then(
+    const scope = resourceId === undefined ? undefined : { resourceId };
+    void check(permission, scope).then(
       (allowed) => {
         if (active) setRecord({ key, state: allowed ? "allowed" : "denied" });
       },
@@ -129,7 +138,7 @@ export function useAdminPermission(
     return () => {
       active = false;
     };
-  }, [adapter, check, context, key, permission]);
+  }, [adapter, check, key, permission, resourceId]);
 
   return state;
 }
