@@ -17,10 +17,10 @@ updates:
       # development and a production group would silently match nothing. The excluded
       # names keep each dependency in exactly one group.
       #
-      # The toolchain is split out because these packages move in majors that break each
-      # other. Keeping them in one group makes that coupling visible in a single diff,
-      # and keeping them out of the routine group means a blocked major, such as
-      # TypeScript 7 waiting on typescript-eslint, does not hold up unrelated updates.
+      # Each group below is a set that has to move together. Dependabot opens one pull
+      # request per group, so a blocked major in one group stalls the rest of that group
+      # and nothing outside it. Keep the groups narrow enough that one blocked pair does
+      # not hold up independent updates.
       peer-ranges:
         patterns:
           - "@dnd-kit/*"
@@ -31,15 +31,24 @@ updates:
           - react
           - react-dom
           - tailwindcss
-      toolchain:
+      # These two only work together, and TypeScript 7 is currently blocked because the
+      # latest typescript-eslint declares typescript ">=4.8.4 <6.1.0".
+      type-pair:
+        patterns:
+          - typescript
+          - typescript-eslint
+      # Independent of the TypeScript version, so an ESLint 10 bump is not held up by a
+      # blocked TypeScript bump.
+      lint:
         patterns:
           - "@eslint/*"
-          - "@types/node"
           - eslint
           - eslint-plugin-react-hooks
           - globals
-          - typescript
-          - typescript-eslint
+      # Tracks the runtime version rather than the build toolchain. See #84.
+      node-types:
+        patterns:
+          - "@types/node"
       routine:
         patterns:
           - "*"
