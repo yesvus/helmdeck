@@ -35,6 +35,20 @@ export type AdminShellLabels = {
   settingsDescription: string;
   settingsOpen: string;
   permissionDenied: string;
+  resourceActions: string;
+  resourceNew: string;
+  resourceEdit: string;
+  resourceDelete: string;
+  resourceEmpty: string;
+  resourceEmptyBody: string;
+  resourceLoadError: string;
+  resourceDeleteFailed: string;
+  resourceNotFound: string;
+  resourceSaveFailed: string;
+  resourceFieldRequired: string;
+  resourceSave: string;
+  resourceSaving: string;
+  resourceCancel: string;
 };
 
 export const defaultAdminLabels: AdminShellLabels = {
@@ -73,6 +87,20 @@ export const defaultAdminLabels: AdminShellLabels = {
   settingsDescription: "Preferences for this account.",
   settingsOpen: "Open settings",
   permissionDenied: "You do not have access to this.",
+  resourceActions: "Actions",
+  resourceNew: "New",
+  resourceEdit: "Edit",
+  resourceDelete: "Delete",
+  resourceEmpty: "Nothing here yet.",
+  resourceEmptyBody: "Records will appear here once they are created.",
+  resourceLoadError: "These records could not be loaded.",
+  resourceDeleteFailed: "That record could not be deleted.",
+  resourceNotFound: "That record no longer exists.",
+  resourceSaveFailed: "That change could not be saved.",
+  resourceFieldRequired: "This field is required.",
+  resourceSave: "Save",
+  resourceSaving: "Saving...",
+  resourceCancel: "Cancel",
 };
 
 export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): AdminShellLabels {

@@ -126,7 +126,7 @@ export function useAdminPermissions(): AdminPermissionContextValue {
  * new one resolves, so switching permissions cannot briefly display the previous verdict.
  */
 export function useAdminPermission(
-  permission: AdminPermission,
+  permission: AdminPermission | undefined,
   context?: { resourceId?: string },
 ): AdminPermissionState {
   const { check, adapter } = useAdminPermissions();
@@ -135,11 +135,16 @@ export function useAdminPermission(
   // Depending on it re-ran this effect on every render, and the effect sets state, so the
   // render never settled. The primitives are what the cache is keyed on anyway.
   const resourceId = context?.resourceId;
-  const key = cacheKey(permission, resourceId);
+  const key = cacheKey(permission ?? "", resourceId);
 
-  const state = record?.key === key ? record.state : "checking";
+  // No permission named means none is required, so nothing is asked and nothing is withheld.
+  // The hooks below still run in the same order either way, since returning early here would
+  // make the hook count depend on the prop.
+  const state =
+    permission === undefined ? "allowed" : record?.key === key ? record.state : "checking";
 
   useEffect(() => {
+    if (permission === undefined) return;
     if (!adapter) warnNoAdapter();
     let active = true;
     const scope = resourceId === undefined ? undefined : { resourceId };
