@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
 import { AdminPermissionsProvider } from "../src/shell/permissions";
 import {
+  absentRequired,
   AdminResourceForm,
   AdminResourceList,
   adminResourcePath,
@@ -135,6 +136,26 @@ describe("adminResourceRecordId", () => {
 });
 
 describe("adminResourceValues", () => {
+  it("does not let a non-finite number satisfy a required field", () => {
+    // Number("abc") is NaN, which is neither null nor empty, so it passed the required check
+    // and reached the adapter as an invalid value.
+    const counted = defineAdminResource({
+      resource: "posts",
+      label: "Posts",
+      columns: [],
+      fields: [{ name: "views", label: "Views", type: "number", required: true }],
+    });
+    const form = new FormData();
+    form.set("views", "abc");
+    expect(absentRequired(counted, adminResourceValues(counted, form))).toEqual(["views"]);
+
+    form.set("views", "Infinity");
+    expect(absentRequired(counted, adminResourceValues(counted, form))).toEqual(["views"]);
+
+    form.set("views", "0");
+    expect(absentRequired(counted, adminResourceValues(counted, form))).toEqual([]);
+  });
+
   it("reads only the declared fields, so a hand-edited request cannot add one", () => {
     const form = new FormData();
     form.set("title", "Hello");
@@ -336,7 +357,11 @@ describe("AdminResourceList", () => {
 
     // The other resource's records are gone, not carried over under the new heading.
     expect(screen.queryByText("From posts")).not.toBeInTheDocument();
-    release([]);
+    // Released inside act, so the resulting state update is flushed rather than landing after
+    // the test has finished.
+    await act(async () => {
+      release([]);
+    });
   });
 
   it("encodes a record id that would otherwise reshape the detail route", async () => {
@@ -511,6 +536,22 @@ describe("AdminResourceForm", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("That record no longer exists.");
     expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+  });
+
+  it("reports a failed read instead of loading for ever", async () => {
+    // titiz's finding: the catch set the message but never settled the keyed read state, so
+    // the loading branch kept winning and the failure was never shown at all.
+    const base = createMemoryPersistenceAdapter();
+    const existing = await base.create<{ id: string }>("posts", { title: "Before" });
+    const broken: AdminPersistenceAdapter = {
+      ...base,
+      read: vi.fn().mockRejectedValue(new Error("database down")),
+    };
+    wrap(<AdminResourceForm definition={posts} persistence={broken} id={existing.id} />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
+    expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+    expect(screen.queryByText("That record no longer exists.")).not.toBeInTheDocument();
   });
 
   it("reports a failed save rather than appearing to have worked", async () => {

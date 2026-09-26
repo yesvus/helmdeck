@@ -240,6 +240,7 @@ export function AdminResourceForm({
     saving?: string;
     cancel?: string;
     notFound?: string;
+    loadError?: string;
     saveFailed?: string;
   };
   onSaved?: (record: AdminResourceRecord) => void;
@@ -250,7 +251,11 @@ export function AdminResourceForm({
   const isNew = id === undefined;
   // Keyed by the id it was read for, so a different record is loading again rather than
   // showing the previous one, and so a resolved miss is distinguishable from no answer yet.
-  const [read, setRead] = useState<{ id: string; value: AdminResourceRecord | null } | null>(null);
+  const [read, setRead] = useState<{
+    id: string;
+    value: AdminResourceRecord | null;
+    failed?: boolean;
+  } | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const [attempted, setAttempted] = useState(false);
   const [message, setMessage] = useState("");
@@ -284,7 +289,8 @@ export function AdminResourceForm({
       },
       (cause: unknown) => {
         if (active) {
-          setMessage(labels?.notFound ?? i18n.shell.resourceNotFound);
+          setRead({ id: id as string, value: null, failed: true });
+          setMessage(labels?.loadError ?? i18n.shell.resourceLoadError);
           onError?.(cause);
         }
       },
@@ -292,7 +298,18 @@ export function AdminResourceForm({
     return () => {
       active = false;
     };
-  }, [definition.resource, i18n.shell.resourceNotFound, id, isNew, labels?.notFound, mayRead, onError, persistence]);
+  }, [
+    definition.resource,
+    i18n.shell.resourceLoadError,
+    i18n.shell.resourceNotFound,
+    id,
+    isNew,
+    labels?.loadError,
+    labels?.notFound,
+    mayRead,
+    onError,
+    persistence,
+  ]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -335,6 +352,14 @@ export function AdminResourceForm({
 
   if (readRefused) {
     return <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">{i18n.shell.permissionDenied}</p>;
+  }
+
+  if (!isNew && read?.failed) {
+    return (
+      <p role="alert" className="text-sm text-red-700 dark:text-red-300">
+        {message || labels?.loadError || i18n.shell.resourceLoadError}
+      </p>
+    );
   }
 
   if (values === null && !isNew) {

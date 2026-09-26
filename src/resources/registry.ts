@@ -130,6 +130,7 @@ export function absentRequired(
     .filter((field) => field.required)
     .filter((field) => {
       const value = values[field.name];
+      if (typeof value === "number") return !Number.isFinite(value);
       return value === null || value === undefined || value === "" || value === false;
     })
     .map((field) => field.name);
