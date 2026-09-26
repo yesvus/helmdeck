@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -49,11 +50,15 @@ export function AdminAuthProvider({
   const [status, setStatus] = useState<AdminSessionStatus>("checking");
   const [error, setError] = useState<unknown | null>(null);
   const [boundAdapter, setBoundAdapter] = useState(adapter);
+  // Bumped by anything that decides the session on its own, so an in-flight read that started
+  // earlier cannot land on top of it.
+  const decided = useRef(0);
 
   // Swapping the adapter invalidates whatever it resolved, which is a prop change, so it is
   // applied in render rather than in a post-paint effect write. The old session is dropped
   // with it: it belonged to the adapter that is going away, and leaving it readable while the
-  // new read is in flight is exactly the stale-session case the guard exists to prevent.
+  // new read is in flight is exactly the stale-session case the guard exists to prevent. The
+  // read that was in flight is already invalidated by the effect re-running.
   if (boundAdapter !== adapter) {
     setBoundAdapter(adapter);
     setSession(null);
@@ -79,12 +84,15 @@ export function AdminAuthProvider({
 
   // A manual refresh records the failure like the initial read does, so the context is never
   // left describing a read that did not happen, and rethrows so a host that awaited it can
-  // still show its own error.
+  // still show its own error. It obeys the same generation rule as the mount read, or a
+  // refresh left in flight would re-apply its answer on top of a later sign-out.
   const refresh = useCallback(async () => {
+    const mine = (decided.current += 1);
     try {
-      applySession(await readSession());
+      const next = await readSession();
+      if (mine === decided.current) applySession(next);
     } catch (cause) {
-      applyFailure(cause);
+      if (mine === decided.current) applyFailure(cause);
       throw cause;
     }
   }, [applyFailure, applySession, readSession]);
@@ -95,12 +103,13 @@ export function AdminAuthProvider({
   // handled, because a read that only settles on success leaves the guard checking forever.
   useEffect(() => {
     let active = true;
+    const mine = (decided.current += 1);
     void readSession().then(
       (next) => {
-        if (active) applySession(next);
+        if (active && mine === decided.current) applySession(next);
       },
       (cause: unknown) => {
-        if (active) applyFailure(cause);
+        if (active && mine === decided.current) applyFailure(cause);
       },
     );
     return () => {
@@ -110,13 +119,16 @@ export function AdminAuthProvider({
 
   const login = useCallback(
     async (credentials: AdminLoginCredentials) => {
+      decided.current += 1;
       const result = await adapter.login(credentials);
       // A failed sign-in must not leave a stale session behind, and a successful one has
       // to be reflected immediately rather than waiting for the next getSession.
       if (result.ok) {
+        setError(null);
         setSession(result.session);
         setStatus("authenticated");
       } else {
+        setError(null);
         setSession(null);
         setStatus("anonymous");
       }
@@ -126,7 +138,9 @@ export function AdminAuthProvider({
   );
 
   const logout = useCallback(async () => {
+    decided.current += 1;
     await adapter.logout();
+    setError(null);
     setSession(null);
     setStatus("anonymous");
   }, [adapter]);
@@ -207,11 +221,17 @@ export function useAdminReturnTo(): string | null {
  * login URL is an ordinary case rather than an exotic one.
  */
 function withNext(loginHref: string, next: string): string {
-  const separator = loginHref.indexOf("?");
-  const base = separator === -1 ? loginHref : loginHref.slice(0, separator);
-  const params = new URLSearchParams(separator === -1 ? "" : loginHref.slice(separator + 1));
+  // Split the fragment off first. Left in place, a login URL ending in "#section" would
+  // swallow the query into the fragment and the destination would be lost.
+  const hashAt = loginHref.indexOf("#");
+  const fragment = hashAt === -1 ? "" : loginHref.slice(hashAt);
+  const withoutFragment = hashAt === -1 ? loginHref : loginHref.slice(0, hashAt);
+
+  const queryAt = withoutFragment.indexOf("?");
+  const base = queryAt === -1 ? withoutFragment : withoutFragment.slice(0, queryAt);
+  const params = new URLSearchParams(queryAt === -1 ? "" : withoutFragment.slice(queryAt + 1));
   params.set("next", next);
-  return `${base}?${params.toString()}`;
+  return `${base}?${params.toString()}${fragment}`;
 }
 
 function destination(pathname: string, search: string | null): string {
@@ -220,11 +240,15 @@ function destination(pathname: string, search: string | null): string {
 }
 
 /**
- * Guards a route tree. While the session is unknown, and while it is known to be anonymous,
- * the children are not rendered at all: rendering them and hiding them would leave
- * focusable controls and readable text in the accessibility tree for content the visitor is
- * not allowed to have. Both states announce themselves, and the anonymous state keeps a
- * real link so the redirect is never the only way forward.
+ * Guards a route tree. While the session is unknown, while it is known to be anonymous, and
+ * while the read has failed, the children are not rendered at all: rendering them and hiding
+ * them would leave focusable controls and readable text in the accessibility tree for content
+ * the visitor is not allowed to have. Each state announces itself, and the anonymous state
+ * keeps a real link so the redirect is never the only way forward.
+ *
+ * Reads the query string to preserve where the visitor was headed, so on a statically
+ * generated page this needs a Suspense boundary, exactly like the other components that read
+ * it. Pass `returnTo` to supply the destination directly and avoid the read.
  */
 export function AdminRequireSession({
   children,
@@ -248,7 +272,8 @@ export function AdminRequireSession({
   const labels = useAdminMessages().shell;
 
   const search = searchParams?.toString() ?? null;
-  const intended = returnTo ?? destination(pathname ?? "", search);
+  const requested = returnTo ?? destination(pathname ?? "", search);
+  const intended = isSameSitePath(requested) ? requested : "/";
   const loginUrl = withNext(loginHref, intended);
 
   useEffect(() => {

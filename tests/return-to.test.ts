@@ -57,19 +57,30 @@ describe("adminReturnTo", () => {
     expect(next("/%2525252545252545admin")).toBeNull();
   });
 
+  // WHATWG URL parsing removes ASCII tab and newline from the input before resolving, so these
+  // three are genuine open redirects. Each passes every other check in the validator: it is
+  // root-relative, is not "//", and contains no backslash. Verified against node's URL.
   it.each([
-    ["carriage return and newline", "/%0D%0A/evil.example"],
-    ["a tab", "/%09/evil.example"],
-    ["a bare newline", "/%0A/evil.example"],
-    ["a form feed", "/%0C/evil.example"],
+    ["carriage return and newline", "/%0D%0A/evil.example", "https://evil.example/"],
+    ["a tab", "/%09/evil.example", "https://evil.example/"],
+    ["a bare newline", "/%0A/evil.example", "https://evil.example/"],
+  ])("refuses %s, which a URL parser strips before resolving", (_label, value, offOrigin) => {
+    expect(next(value)).toBeNull();
+    // The reason this matters is asserted, not just described.
+    expect(new URL(decodeURIComponent(value), "https://admin.example").href).toBe(offOrigin);
+  });
+
+  // These are not open redirects today: a URL parser percent-encodes them rather than
+  // stripping them, so the value stays on the origin. They are refused because a control
+  // character is not a legitimate destination and because a parser that treats them
+  // differently is exactly the kind of drift this check exists to catch.
+  it.each([
     ["a null byte", "/%00/evil.example"],
+    ["a vertical tab", "/%0B/evil.example"],
+    ["a form feed", "/%0C/evil.example"],
     ["a delete character", "/%7F/evil.example"],
     ["controls inside the path", "/admin/%0D%0A/evil.example"],
-  ])("refuses %s, which a URL parser strips before resolving", (_label, value) => {
-    // Each of these passes every other check: root-relative, not "//", no backslash. A URL
-    // parser drops the control characters and then resolves the remainder as a host.
-    const decoded = decodeURIComponent(value);
-    expect(decoded.startsWith("/")).toBe(true);
+  ])("refuses %s, which is not a legitimate destination", (_label, value) => {
     expect(next(value)).toBeNull();
   });
 

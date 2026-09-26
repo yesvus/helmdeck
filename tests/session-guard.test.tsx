@@ -195,6 +195,92 @@ describe("AdminAuthProvider", () => {
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none"));
   });
 
+  it("does not let a read that started before sign-in undo the sign-in", async () => {
+    // The read is still in flight when the visitor authenticates. Its late answer describes
+    // the world before the sign-in, so applying it would sign the visitor straight back out.
+    let release: (value: AdminSession | null) => void = () => {};
+    const auth = adapter({
+      getSession: () => new Promise<AdminSession | null>((resolve) => { release = resolve; }),
+    });
+    render(
+      <AdminAuthProvider adapter={auth}>
+        <StatusProbe />
+        <SessionActions />
+      </AdminAuthProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "do sign in" }).click();
+    });
+    expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com");
+
+    await act(async () => {
+      release(null);
+    });
+
+    expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com");
+  });
+
+  it("does not let a read that started before sign-out re-authenticate the visitor", async () => {
+    // The read in flight here comes from a refresh, not from mount, so nothing but sign-out
+    // itself can retire it. With a sign-in in the history the read would already be stale
+    // before logout ran, and this would pass whether or not logout claimed the decision.
+    const stale = { email: "ada@example.com" };
+    let release: (value: AdminSession | null) => void = () => {};
+    let reads = 0;
+    const auth = adapter({
+      getSession: vi.fn().mockImplementation(() => {
+        reads += 1;
+        return reads === 1
+          ? Promise.resolve(session)
+          : new Promise<AdminSession | null>((resolve) => { release = resolve; });
+      }),
+    });
+    render(
+      <AdminAuthProvider adapter={auth}>
+        <StatusProbe />
+        <SessionActions />
+      </AdminAuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+
+    // Start a refresh and leave it in flight, then sign out underneath it.
+    await act(async () => {
+      screen.getByRole("button", { name: "do refresh" }).click();
+    });
+    await act(async () => {
+      screen.getByRole("button", { name: "do sign out" }).click();
+    });
+    expect(screen.getByTestId("status")).toHaveTextContent("anonymous");
+
+    await act(async () => {
+      release(stale);
+    });
+
+    expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none");
+  });
+
+  it("re-reads and applies a changed session on refresh", async () => {
+    // Without this, a refresh that stopped re-reading, or read but did not apply, would pass
+    // every other provider test in this file.
+    const getSession = vi.fn().mockResolvedValueOnce(session).mockResolvedValueOnce(null);
+    const auth = adapter({ getSession });
+    render(
+      <AdminAuthProvider adapter={auth}>
+        <StatusProbe />
+        <SessionActions />
+      </AdminAuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+
+    await act(async () => {
+      screen.getByRole("button", { name: "do refresh" }).click();
+    });
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none"));
+    expect(getSession).toHaveBeenCalledTimes(2);
+  });
+
   it("settles into an error state when the read rejects, rather than checking forever", async () => {
     // The read settling as rejected is the common case for a session endpoint that is down.
     // Left unhandled it never settled, and the guard sat on "checking" for the lifetime of
@@ -397,6 +483,51 @@ describe("AdminRequireSession", () => {
     await waitFor(() => expect(onRedirect).toHaveBeenCalled());
     const params = new URLSearchParams((onRedirect.mock.calls[0][0] as string).split("?")[1]);
     expect(params.getAll("next")).toEqual(["/admin/fresh"]);
+  });
+
+  it("keeps a fragment on the login URL out of the query", async () => {
+    // Left in place, a login URL ending in "#section" swallows the appended query into the
+    // fragment, and the preserved destination is then unreadable on the login page.
+    const onRedirect = vi.fn();
+    renderGuarded(adapter({ getSession: vi.fn().mockResolvedValue(null) }), {
+      loginHref: "/admin/login#sign-in",
+      onRedirect,
+    });
+
+    await waitFor(() => expect(onRedirect).toHaveBeenCalled());
+    const target = onRedirect.mock.calls[0][0] as string;
+    expect(target.endsWith("#sign-in")).toBe(true);
+    const params = new URLSearchParams(target.slice(target.indexOf("?") + 1, target.indexOf("#")));
+    expect(params.get("next")).toBe("/admin/products");
+  });
+
+  it("handles a login URL carrying both a query and a fragment", async () => {
+    const onRedirect = vi.fn();
+    renderGuarded(adapter({ getSession: vi.fn().mockResolvedValue(null) }), {
+      loginHref: "/admin/login?tenant=acme#sign-in",
+      onRedirect,
+    });
+
+    await waitFor(() => expect(onRedirect).toHaveBeenCalled());
+    const target = onRedirect.mock.calls[0][0] as string;
+    const params = new URLSearchParams(target.slice(target.indexOf("?") + 1, target.indexOf("#")));
+    expect(params.get("tenant")).toBe("acme");
+    expect(params.get("next")).toBe("/admin/products");
+    expect(target.endsWith("#sign-in")).toBe(true);
+  });
+
+  it("refuses a returnTo the host read from its own query string", async () => {
+    // returnTo is host-supplied, so a host that forwards a value from its own URL would
+    // otherwise walk straight past the validation the login-page reader applies.
+    const onRedirect = vi.fn();
+    renderGuarded(adapter({ getSession: vi.fn().mockResolvedValue(null) }), {
+      returnTo: "https://evil.example/steal",
+      onRedirect,
+    });
+
+    await waitFor(() => expect(onRedirect).toHaveBeenCalled());
+    const params = new URLSearchParams((onRedirect.mock.calls[0][0] as string).split("?")[1]);
+    expect(params.get("next")).toBe("/");
   });
 
   it("survives a host that has no pathname to offer yet", async () => {

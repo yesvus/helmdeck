@@ -91,7 +91,7 @@ export function AdminLayout({
 
 ### Search params and static rendering
 
-`AdminUrlFeedback` and `AdminManagedForm` read the query string, which opts them into dynamic rendering. On a statically generated page, wrap either one in a `<Suspense>` boundary:
+`AdminUrlFeedback`, `AdminManagedForm`, and `AdminRequireSession` read the query string, which opts them into dynamic rendering. On a statically generated page, wrap either one in a `<Suspense>` boundary:
 
 ```tsx
 <Suspense fallback={null}>
