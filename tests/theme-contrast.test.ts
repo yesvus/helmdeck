@@ -139,23 +139,33 @@ const BOUNDARY_PAIRS: Array<[string, string]> = [
   ["--admin-border-strong", "--admin-surface"],
 ];
 
-function measure(pairs: Array<[string, string]>, theme: string): { lines: string[]; problems: string[] } {
+type Measurement = { label: string; ratio: number };
+
+function measure(
+  pairs: Array<[string, string]>,
+  theme: string,
+): { measured: Measurement[]; problems: string[] } {
   const palette = palettes()[theme] ?? {};
-  const lines: string[] = [];
+  const measured: Measurement[] = [];
   const problems: string[] = [];
   for (const [fg, bg] of pairs) {
-    for (const token of [fg, bg]) {
-      if (palette[token] === undefined) problems.push(`[${theme}] ${token} is not declared`);
+    const missing = [fg, bg].filter((token) => palette[token] === undefined);
+    if (missing.length > 0) {
+      // Report the undeclared token once, and do not also report a resolve failure for the
+      // same pairing: the missing declaration is the cause and the actionable fact.
+      problems.push(`[${theme}] not declared: ${missing.join(", ")}`);
+      continue;
     }
-    const from = palette[fg] === undefined ? null : resolve(palette[fg], palette);
-    const onto = palette[bg] === undefined ? null : resolve(palette[bg], palette);
+    const from = resolve(palette[fg], palette);
+    const onto = resolve(palette[bg], palette);
     if (!from || !onto) {
       problems.push(`[${theme}] could not resolve ${fg} on ${bg}`);
       continue;
     }
-    lines.push(`${theme} ${fg} on ${bg} = ${contrast(from, onto).toFixed(2)}:1`);
+    const ratio = contrast(from, onto);
+    measured.push({ label: `${theme} ${fg} on ${bg}`, ratio });
   }
-  return { lines, problems };
+  return { measured, problems };
 }
 
 describe("theme token contrast", () => {
@@ -163,9 +173,13 @@ describe("theme token contrast", () => {
     const failures: string[] = [];
     const unresolved: string[] = [];
     for (const theme of ["light", "dark"]) {
-      const { lines, problems } = measure(TEXT_PAIRS, theme);
+      const { measured, problems } = measure(TEXT_PAIRS, theme);
       unresolved.push(...problems);
-      failures.push(...lines.filter((l) => Number(l.split("= ")[1].replace(":1", "")) < 4.5));
+      // Compared on the raw ratio. A ratio of 4.496 formats as "4.50", so comparing the
+      // formatted string let pairs just under the threshold pass.
+      failures.push(
+        ...measured.filter((m) => m.ratio < 4.5).map((m) => `${m.label} = ${m.ratio.toFixed(3)}:1`),
+      );
     }
     // An unresolvable or undeclared token is a failure, not a skip. A renamed token used to
     // make this pass while contributing nothing in the browser.
@@ -175,25 +189,27 @@ describe("theme token contrast", () => {
 
   it("resolves every declared pair in both themes, so the check above is not vacuous", () => {
     for (const theme of ["light", "dark"]) {
-      const { lines, problems } = measure([...TEXT_PAIRS, ...BOUNDARY_PAIRS], theme);
+      const { measured, problems } = measure([...TEXT_PAIRS, ...BOUNDARY_PAIRS], theme);
       expect(problems, theme).toEqual([]);
-      expect(lines.length, theme).toBe(TEXT_PAIRS.length + BOUNDARY_PAIRS.length);
+      expect(measured.length, theme).toBe(TEXT_PAIRS.length + BOUNDARY_PAIRS.length);
     }
   });
 
   it("surfaces the measured boundary contrast, which is below the documented 3:1", () => {
     const report: string[] = [];
     for (const theme of ["light", "dark"]) {
-      const { lines, problems } = measure(BOUNDARY_PAIRS, theme);
+      const { measured, problems } = measure(BOUNDARY_PAIRS, theme);
       expect(problems, theme).toEqual([]);
-      report.push(...lines);
+      report.push(...measured.map((m) => `${m.label} = ${m.ratio.toFixed(2)}:1`));
     }
     // Reported rather than asserted: both border tokens are under 3:1 in the light theme and
     // form controls depend on them, so this is a maintainer's decision, not a fixed rule.
     console.info(`boundary contrast (UI boundaries are documented at 3:1):\n  ${report.join("\n  ")}`);
     expect(report.length).toBe(BOUNDARY_PAIRS.length * 2);
-    for (const line of report) {
-      expect(Number(line.split("= ")[1].replace(":1", ""))).toBeGreaterThan(0);
+    for (const theme of ["light", "dark"]) {
+      for (const m of measure(BOUNDARY_PAIRS, theme).measured) {
+        expect(Number.isFinite(m.ratio), m.label).toBe(true);
+      }
     }
   });
 });
