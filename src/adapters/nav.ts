@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { ComponentType } from "react";
+import type { AdminPermission } from "./host.js";
 
 export type AdminNavIconComponent = ComponentType<{ className?: string }>;
 
@@ -41,6 +42,11 @@ export type AdminNavIconName =
 export type AdminNavItem = {
   href: string;
   label: string;
+  /**
+   * When set, the item is only shown to a session holding this permission. Requires
+   * `useAdminPermittedNav` in place of `filterNavGroups`.
+   */
+  permission?: AdminPermission;
   shortLabel?: string;
   icon?: AdminNavIconName | AdminNavIconComponent;
   roles?: string[];

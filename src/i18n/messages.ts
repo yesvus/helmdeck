@@ -134,6 +134,7 @@ export const turkishAdminMessages: AdminMessages = {
     settings: "Ayarlar",
     settingsDescription: "Bu hesabın tercihleri.",
     settingsOpen: "Ayarları açın",
+    permissionDenied: "Bu içeriğe erişim izniniz yok.",
   },
   media: {
     ...defaultAdminMediaLabels,
