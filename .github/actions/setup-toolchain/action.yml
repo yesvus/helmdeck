@@ -1,0 +1,51 @@
+name: Set up toolchain
+description: >-
+  Install pnpm and Node using the versions the checked-out commit declares, so a
+  dispatched run builds that commit against the toolchain it was written for.
+
+inputs:
+  fallback-node:
+    description: Node major to use when the commit predates .nvmrc
+    required: false
+    default: "22"
+  fallback-pnpm:
+    description: pnpm version to use when the commit declares no packageManager field
+    required: false
+    default: "12.4.1"
+
+runs:
+  using: composite
+  steps:
+    # Both versions live in the checked-out tree, which for a dispatched run may be an
+    # older commit. Supply the documented defaults in that case so a ref predating the
+    # single-source files still runs, and say so in the log rather than failing obscurely.
+    - name: Resolve declared toolchain
+      id: toolchain
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ ! -f .nvmrc ]; then
+          echo "::warning::Checked-out commit has no .nvmrc, falling back to Node ${{ inputs.fallback-node }}."
+          printf '%s\n' '${{ inputs.fallback-node }}' > .nvmrc
+        fi
+        state="$(node -p "try { const m = require('./package.json'); const pm = m.packageManager ?? ''; const de = m.devEngines?.packageManager; (pm.startsWith('pnpm@') || (de?.name === 'pnpm' && de.version)) ? 'declared' : 'missing' } catch { 'missing' }")"
+        if [ "$state" = "missing" ]; then
+          echo "::warning::Checked-out commit declares no pnpm version, falling back to ${{ inputs.fallback-pnpm }}."
+          echo "pnpm=${{ inputs.fallback-pnpm }}" >> "$GITHUB_OUTPUT"
+        else
+          # Empty makes the action resolve packageManager and devEngines itself, in its
+          # own priority order. Only a commit predating both fields needs the fallback.
+          echo "pnpm=" >> "$GITHUB_OUTPUT"
+        fi
+
+    - uses: pnpm/action-setup@v6
+      with:
+        # Left empty whenever the commit declares a version, so the action resolves
+        # packageManager and devEngines in its own priority order. Only commits that
+        # predate both fields need the fallback.
+        version: ${{ steps.toolchain.outputs.pnpm }}
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: pnpm
