@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminManagedForm } from "../src/primitives/managed-form";
 import { AdminUrlFeedback } from "../src/primitives/url-feedback";
@@ -17,6 +17,7 @@ vi.mock("next/navigation.js", () => ({
 
 afterEach(() => {
   navigation.params = new URLSearchParams();
+  vi.useRealTimers();
 });
 
 /**
@@ -35,19 +36,44 @@ describe("components that read search params", () => {
     expect(screen.getByText("Saved")).toBeInTheDocument();
   });
 
-  // The documented override must not be mistaken for a way to drop the boundary.
-  it("still requires a boundary when message and assetUrl are supplied", () => {
+  // Supplying both values means nothing has to be read from the URL, so no boundary.
+  it("renders without a boundary when message and assetUrl are supplied", () => {
+    withoutSearchParams();
+    render(<AdminUrlFeedback message="Saved" assetUrl="/logo.svg" />);
+
+    expect(screen.getByText("Saved")).toBeInTheDocument();
+    expect(screen.getByText("/logo.svg")).toBeInTheDocument();
+  });
+
+  it("still requires a boundary when only one value is supplied", () => {
     withoutSearchParams();
 
-    expect(() => render(<AdminUrlFeedback message="Saved" assetUrl="/logo.svg" />)).toThrow(/AdminUrlFeedback/);
+    expect(() => render(<AdminUrlFeedback message="Saved" />)).toThrow(/AdminUrlFeedback/);
+    expect(() => render(<AdminUrlFeedback assetUrl="/logo.svg" />)).toThrow(/AdminUrlFeedback/);
   });
 
   it("prefers supplied values over the query string", () => {
-    navigation.params = new URLSearchParams("message=FromQuery");
-    render(<AdminUrlFeedback message="FromProps" />);
+    navigation.params = new URLSearchParams("message=FromQuery&assetUrl=/from-query.svg");
+    render(<AdminUrlFeedback message="FromProps" assetUrl="/from-props.svg" />);
 
     expect(screen.getByText("FromProps")).toBeInTheDocument();
+    expect(screen.getByText("/from-props.svg")).toBeInTheDocument();
     expect(screen.queryByText("FromQuery")).not.toBeInTheDocument();
+    expect(screen.queryByText("/from-query.svg")).not.toBeInTheDocument();
+  });
+
+  it("dismisses supplied values once and does not bring them back", () => {
+    vi.useFakeTimers();
+    render(<AdminUrlFeedback durationMs={100} message="Saved" assetUrl="/logo.svg" />);
+
+    expect(screen.getByText("Saved")).toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(100));
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+    expect(screen.queryByText("/logo.svg")).not.toBeInTheDocument();
+
+    act(() => vi.advanceTimersByTime(1000));
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
   });
 
   it("names the component and the fix when the boundary is missing", () => {

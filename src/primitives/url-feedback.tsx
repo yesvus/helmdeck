@@ -2,10 +2,11 @@
 "use client";
 
 import { AlertCircle, CheckCircle2, Link2 } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation.js";
-import { AdminToastCard, AdminToastViewport } from "./toast.js";
+import type { AdminSearchParams } from "./use-admin-search-params.js";
 import { useAdminSearchParams } from "./use-admin-search-params.js";
+import { AdminToastCard, AdminToastViewport } from "./toast.js";
 import { useAdminMessages } from "../i18n.js";
 
 export type AdminUrlFeedbackLabels = {
@@ -28,26 +29,45 @@ const defaultAdminUrlFeedbackQueryKeys: AdminUrlFeedbackQueryKeys = {
   assetUrl: "assetUrl",
 };
 
-/**
- * Shows a message after a redirect by reading the query string.
- *
- * Requires a `<Suspense>` boundary when the page is statically generated, because this
- * component always reads search params. Pass `message` and `assetUrl` to override the
- * values the component would otherwise take from the query string.
- */
-export function AdminUrlFeedback({
-  durationMs = 3200,
-  labels,
-  message,
-  assetUrl,
-  queryKeys = defaultAdminUrlFeedbackQueryKeys,
-}: {
+type AdminUrlFeedbackProps = {
   durationMs?: number;
   labels?: Partial<AdminUrlFeedbackLabels>;
   message?: string;
   assetUrl?: string;
   queryKeys?: Partial<AdminUrlFeedbackQueryKeys>;
-}) {
+};
+
+/**
+ * Shows a message after a redirect by reading the query string.
+ *
+ * When the page is statically generated this needs a `<Suspense>` boundary, because the
+ * query path reads search params. Supplying both `message` and `assetUrl` takes a path
+ * that reads nothing from the URL, so the boundary is not needed there.
+ */
+export function AdminUrlFeedback(props: AdminUrlFeedbackProps) {
+  if (props.message !== undefined && props.assetUrl !== undefined) {
+    return (
+      <AdminUrlFeedbackToast
+        durationMs={props.durationMs}
+        labels={props.labels}
+        message={props.message}
+        assetUrl={props.assetUrl}
+        searchParams={null}
+        onDismiss={null}
+      />
+    );
+  }
+
+  return <AdminUrlFeedbackFromQuery {...props} />;
+}
+
+function AdminUrlFeedbackFromQuery({
+  durationMs = 3200,
+  labels,
+  message,
+  assetUrl,
+  queryKeys = defaultAdminUrlFeedbackQueryKeys,
+}: AdminUrlFeedbackProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useAdminSearchParams("AdminUrlFeedback");
@@ -55,17 +75,6 @@ export function AdminUrlFeedback({
     () => ({ ...defaultAdminUrlFeedbackQueryKeys, ...queryKeys }),
     [queryKeys],
   );
-  const i18n = useAdminMessages();
-  const mergedLabels = {
-    successTitle: i18n.form.successTitle,
-    errorTitle: i18n.form.errorTitle,
-    assetTitle: i18n.form.assetTitle,
-    ...labels,
-  };
-  const feedbackKey = searchParams.get(resolvedQueryKeys.feedback) ?? "";
-  const isError = searchParams.get(resolvedQueryKeys.status) === "error";
-  const activeMessage = message ?? searchParams.get(resolvedQueryKeys.message) ?? undefined;
-  const activeAssetUrl = assetUrl ?? searchParams.get(resolvedQueryKeys.assetUrl) ?? undefined;
 
   const clearFeedback = useCallback(() => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -74,37 +83,92 @@ export function AdminUrlFeedback({
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
   }, [pathname, resolvedQueryKeys, router, searchParams]);
 
+  return (
+    <AdminUrlFeedbackToast
+      durationMs={durationMs}
+      labels={labels}
+      message={message}
+      assetUrl={assetUrl}
+      searchParams={searchParams}
+      queryKeys={resolvedQueryKeys}
+      onDismiss={clearFeedback}
+    />
+  );
+}
+
+function AdminUrlFeedbackToast({
+  durationMs = 3200,
+  labels,
+  message,
+  assetUrl,
+  searchParams,
+  queryKeys = defaultAdminUrlFeedbackQueryKeys,
+  onDismiss,
+}: AdminUrlFeedbackProps & {
+  searchParams: AdminSearchParams | null;
+  queryKeys?: AdminUrlFeedbackQueryKeys;
+  onDismiss: (() => void) | null;
+}) {
+  const i18n = useAdminMessages();
+  const mergedLabels = {
+    successTitle: i18n.form.successTitle,
+    errorTitle: i18n.form.errorTitle,
+    assetTitle: i18n.form.assetTitle,
+    ...labels,
+  };
+  const [dismissed, setDismissed] = useState(false);
+  const feedbackKey = searchParams?.get(queryKeys.feedback) ?? "";
+  const isError = searchParams?.get(queryKeys.status) === "error";
+  const activeMessage = message ?? searchParams?.get(queryKeys.message) ?? undefined;
+  const activeAssetUrl = assetUrl ?? searchParams?.get(queryKeys.assetUrl) ?? undefined;
+  const visibleMessage = dismissed ? undefined : activeMessage;
+  const visibleAssetUrl = dismissed ? undefined : activeAssetUrl;
+
+  const dismiss = useCallback(() => {
+    if (onDismiss) {
+      onDismiss();
+      return;
+    }
+    setDismissed(true);
+  }, [onDismiss]);
+
+  // Resets only when the underlying content changes. Depending on the post-dismiss
+  // values would clear the flag that just hid the toast and bring it straight back.
   useEffect(() => {
-    if (!activeMessage && !activeAssetUrl) {
+    setDismissed(false);
+  }, [activeAssetUrl, activeMessage, feedbackKey]);
+
+  useEffect(() => {
+    if (!visibleMessage && !visibleAssetUrl) {
       return;
     }
 
-    const timeoutId = window.setTimeout(clearFeedback, durationMs);
+    const timeoutId = window.setTimeout(dismiss, durationMs);
     return () => window.clearTimeout(timeoutId);
-  }, [activeAssetUrl, activeMessage, clearFeedback, durationMs, feedbackKey]);
+  }, [dismiss, durationMs, visibleAssetUrl, visibleMessage]);
 
-  if (!activeMessage && !activeAssetUrl) {
+  if (!visibleMessage && !visibleAssetUrl) {
     return null;
   }
 
   return (
-    <AdminToastViewport key={`${feedbackKey}:${activeMessage ?? ""}:${activeAssetUrl ?? ""}`}>
-      {activeMessage ? (
+    <AdminToastViewport key={`${feedbackKey}:${visibleMessage ?? ""}:${visibleAssetUrl ?? ""}`}>
+      {visibleMessage ? (
         <AdminToastCard
           tone={isError ? "error" : "success"}
           title={isError ? mergedLabels.errorTitle : mergedLabels.successTitle}
-          body={activeMessage}
+          body={visibleMessage}
           icon={isError ? <AlertCircle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
-          onClose={clearFeedback}
+          onClose={dismiss}
         />
       ) : null}
-      {activeAssetUrl ? (
+      {visibleAssetUrl ? (
         <AdminToastCard
           tone="info"
           title={mergedLabels.assetTitle}
-          body={activeAssetUrl}
+          body={visibleAssetUrl}
           icon={<Link2 className="h-5 w-5" />}
-          onClose={clearFeedback}
+          onClose={dismiss}
         />
       ) : null}
     </AdminToastViewport>

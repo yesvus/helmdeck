@@ -101,7 +101,13 @@ export function AdminLayout({
 
 Without a boundary, the build fails and the component raises an error naming itself and the two ways to resolve it. Give the form's boundary a fallback that matches the form's own layout so nothing shifts on first paint, or opt the page out of static rendering with `export const dynamic = "force-dynamic"`.
 
-Both components read search params unconditionally, so a boundary is required either way. Passing `message` and `assetUrl` to `AdminUrlFeedback` overrides the values it would otherwise take from the query string; it does not remove the requirement.
+`AdminUrlFeedback` can also be used with no boundary at all by supplying both `message` and `assetUrl`, which takes a path that reads nothing from the URL:
+
+```tsx
+<AdminUrlFeedback message="Saved" assetUrl="/uploads/chair.png" />
+```
+
+On that path the toast dismisses itself after `durationMs` instead of clearing query parameters. Supplying only one of the two still reads the query string for the other, so the boundary remains required.
 
 ### Testing against the package
 

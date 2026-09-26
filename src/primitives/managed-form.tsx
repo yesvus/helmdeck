@@ -111,8 +111,8 @@ function restoreAutosavedFields(
  * Tracks dirty state, autosave, and post-submission feedback for a form.
  *
  * Requires a `<Suspense>` boundary when the page is statically generated, because this
- * component reads search params for autosave scoping and redirect feedback. Give the
- * boundary a fallback that matches the form's own layout to avoid a visible shift.
+ * component reads search params to scope the autosave key. Give the boundary a fallback
+ * that matches the form's own layout to avoid a visible shift.
  */
 export function AdminManagedForm({
   action,

@@ -3,7 +3,7 @@
 
 import { useSearchParams } from "next/navigation.js";
 
-type AdminSearchParams = ReturnType<typeof useSearchParams>;
+export type AdminSearchParams = ReturnType<typeof useSearchParams>;
 
 /**
  * Reads the query string for components that need it, and fails with an actionable
