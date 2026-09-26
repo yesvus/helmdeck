@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: MIT
+version: 2
+updates:
+  # Grouped so a week of upstream releases arrives as one reviewable change instead of
+  # a stream of single-dependency pull requests.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+      peer-dependencies:
+        dependency-type: production
+        patterns:
+          - "@dnd-kit/*"
+          - "@radix-ui/*"
+          - "lucide-react"
+          - "motion"
+          - "next"
+          - "react"
+          - "react-dom"
+          - "tailwindcss"
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns:
+          - "*"
+    labels:
+      - dependencies
+      - github-actions
