@@ -40,6 +40,17 @@ export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord
     return structuredClone(value);
   }
 
+  // Skips ids already in use, so seeding or resetting with an id cannot produce a second
+  // record the CRUD helpers cannot tell apart.
+  function nextId(): string {
+    const taken = new Set(Array.from(store.values()).flat().map((record) => record.id));
+    for (;;) {
+      sequence += 1;
+      const candidate = `mem_${sequence}`;
+      if (!taken.has(candidate)) return candidate;
+    }
+  }
+
   function recordsFor(name: string): MemoryRecord[] {
     const existing = store.get(name);
     if (existing) return existing;
@@ -64,8 +75,7 @@ export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord
     },
 
     async create<T>(resource: string, value: unknown): Promise<T> {
-      sequence += 1;
-      const record = { ...(value as Record<string, unknown>), id: `mem_${sequence}` };
+      const record = { ...clone(value as Record<string, unknown>), id: nextId() };
       recordsFor(resource).push(record);
       return clone(record) as T;
     },
@@ -77,7 +87,7 @@ export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord
         throw new Error(`No ${resource} record with id ${id}`);
       }
       // The id is the record's identity, so an update cannot move it.
-      const updated = { ...(value as Record<string, unknown>), id };
+      const updated = { ...clone(value as Record<string, unknown>), id };
       records[index] = updated;
       return clone(updated) as T;
     },
@@ -140,7 +150,7 @@ export function createCacheAdapter({
 }): AdminCacheInvalidationAdapter {
   return {
     async invalidate({ resource, resourceId }) {
-      const keys = resourceId ? [`${resource}:${resourceId}`] : [resource];
+      const keys = resourceId === undefined ? [resource] : [`${resource}:${resourceId}`];
       try {
         await invalidate(keys);
       } catch (cause) {

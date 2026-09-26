@@ -66,11 +66,18 @@ const DEFAULT_MAX_AGE = 60 * 60 * 24 * 14;
  * credentials belong to and looking that user up stay with the host, along with wherever the
  * session ids themselves are stored. `secret` must be the same value across every instance
  * that has to agree on a session, and a secret held in a repository is not a secret.
+ *
+ * **This adapter is server-side.** The cookie is an HTTP-only value, and the default store
+ * reads it through `next/headers`, which does not run in a browser. `AdminAuthProvider` is a
+ * client component, so passing this adapter straight to it will not work; the intended wiring
+ * is a server action or route handler that owns the cookie, with a thin client-side adapter
+ * that calls it. Pass `cookie` to supply that indirection yourself.
  */
 export function createSessionAuthAdapter({
   verify,
   getUser,
   onSession,
+  onError,
   secret,
   cookieName = DEFAULT_COOKIE,
   maxAge = DEFAULT_MAX_AGE,
@@ -86,6 +93,8 @@ export function createSessionAuthAdapter({
   getUser: (sessionId: string) => Promise<AdminSession | null> | AdminSession | null;
   /** Called with the new session id on sign-in and null on sign-out. */
   onSession?: (sessionId: string | null) => Promise<void> | void;
+  /** Called when the session store fails, since a failure reads as signed out. */
+  onError?: (cause: unknown) => void;
   secret: string;
   cookieName?: string;
   maxAge?: number;
@@ -101,7 +110,15 @@ export function createSessionAuthAdapter({
   }
 
   async function store(): Promise<AdminSessionCookieIO> {
-    return cookie ?? (await nextCookies(cookieName));
+    if (cookie) return cookie;
+    if (typeof window !== "undefined") {
+      throw new Error(
+        "createSessionAuthAdapter reads an HTTP-only cookie and is server-side. Call it from a " +
+          "server action or route handler and hand AdminAuthProvider a client-side adapter that " +
+          "calls that, or pass the cookie option with your own store.",
+      );
+    }
+    return nextCookies(cookieName);
   }
 
   async function seal(sessionId: string): Promise<string> {
@@ -127,9 +144,11 @@ export function createSessionAuthAdapter({
       if (!sessionId) return null;
       try {
         return await getUser(sessionId);
-      } catch {
+      } catch (cause) {
         // A session store that is briefly unreachable must read as signed out rather than
-        // throwing through the provider, which would leave the guard unable to decide.
+        // throwing through the provider, which would leave the guard unable to decide. The
+        // channel is there so an outage is not silently indistinguishable from a sign-out.
+        onError?.(cause);
         return null;
       }
     },
@@ -139,14 +158,16 @@ export function createSessionAuthAdapter({
       if (!sessionId) return { ok: false, message: invalidMessage };
       const session = await getUser(sessionId);
       if (!session) return { ok: false, message: invalidMessage };
-      await (await store()).write(await seal(sessionId), options);
+      // The host's own bookkeeping first: if it fails, nothing has been written, so the two
+      // cannot disagree about whether the visitor is signed in.
       await onSession?.(sessionId);
+      await (await store()).write(await seal(sessionId), options);
       return { ok: true, session };
     },
 
     async logout(): Promise<void> {
-      await (await store()).clear({ path });
       await onSession?.(null);
+      await (await store()).clear({ path });
     },
   };
 }

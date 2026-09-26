@@ -25,7 +25,11 @@ export type AdminPermissionContextValue = {
 
 const AdminPermissionsContext = createContext<AdminPermissionContextValue | null>(null);
 
-/** Warns once per mount that a fail-closed decision was made for lack of an adapter. */
+/**
+ * Warns that a fail-closed decision was made for lack of an adapter. This fires on each
+ * resolution rather than once per mount, because a consumer that re-resolves should keep
+ * being told why it is being refused.
+ */
 export function warnNoAdapter(): void {
   if (process.env.NODE_ENV !== "production") {
     console.warn(DENIED_WITHOUT_ADAPTER);
@@ -44,6 +48,10 @@ function cacheKey(permission: AdminPermission, resourceId?: string): string {
  * Resolves permissions and remembers the answers. Several guards and nav items asking the
  * same question in one render share a single adapter call, and a resolved answer is not
  * re-asked on later renders.
+ *
+ * Pass a stable `adapter`. A new reference drops every cached answer and re-resolves, so an
+ * adapter built inline in a parent render re-asks all permissions and re-flashes the guards
+ * each time it renders. Nothing here can tell a deliberate swap from a fresh literal.
  */
 export function AdminPermissionsProvider({
   adapter,
@@ -79,10 +87,16 @@ export function AdminPermissionsProvider({
       const cached = cache.current.get(key);
       if (cached) return cached;
       // The promise is cached rather than its result, so two guards mounting in the same
-      // render produce one call instead of two, and a rejection is not cached as a denial
-      // that then hides a later retry.
-      const pending = adapter.can(permission, context).catch(() => false);
+      // render produce one call instead of two.
+      const request = adapter.can(permission, context);
+      const pending = request.catch(() => false);
       cache.current.set(key, pending);
+      // A failure is not remembered. Caching it would turn one blip into a denial that
+      // outlives the outage, which is the opposite of failing closed and recovering. Attached
+      // to the request rather than to `pending`, which never rejects.
+      void request.catch(() => {
+        if (cache.current.get(key) === pending) cache.current.delete(key);
+      });
       return pending;
     },
     [adapter, version],

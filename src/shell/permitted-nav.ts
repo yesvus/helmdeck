@@ -35,7 +35,7 @@ export function useAdminPermittedNav(groups: AdminNavGroup[]): {
           groups
             .flatMap((group) => group.items)
             .map((item) => item.permission)
-            .filter((permission): permission is AdminPermission => typeof permission === "string"),
+            .filter((permission): permission is AdminPermission => permission !== undefined),
         ),
       )
         .sort()
@@ -73,7 +73,9 @@ export function useAdminPermittedNav(groups: AdminNavGroup[]): {
       groups
         .map((group) => ({
           ...group,
-          items: group.items.filter((item) => !item.permission || permitted.has(item.permission)),
+          items: group.items.filter(
+            (item) => item.permission === undefined || permitted.has(item.permission),
+          ),
         }))
         .filter((group) => group.items.length > 0),
     [groups, permitted],
@@ -83,25 +85,35 @@ export function useAdminPermittedNav(groups: AdminNavGroup[]): {
   return { groups: pending ? [] : filtered, pending };
 }
 
-/** Resolves a fixed set of permissions and reports which have answered. */
+/**
+ * Resolves a fixed set of permissions and reports which have answered. The answers are stored
+ * against the `check` that produced them, so an adapter swap simply stops matching and the
+ * previous set is discarded during render rather than by a reset inside the effect.
+ */
 function useGatedPermissions(
   permissions: AdminPermission[],
   check: (permission: AdminPermission) => Promise<boolean>,
   enabled: boolean,
 ): Map<AdminPermission, boolean> {
-  const [results, setResults] = useState<Map<AdminPermission, boolean>>(() => new Map());
+  const [record, setRecord] = useState<{
+    check: (permission: AdminPermission) => Promise<boolean>;
+    results: Map<AdminPermission, boolean>;
+  } | null>(null);
+
   useEffect(() => {
     if (!enabled || permissions.length === 0) return;
     let active = true;
     void Promise.all(
       permissions.map((permission) => check(permission).then((allowed) => [permission, allowed] as const)),
     ).then((entries) => {
-      if (active) setResults(new Map(entries));
+      if (active) setRecord({ check, results: new Map(entries) });
     });
     return () => {
       active = false;
     };
   }, [check, enabled, permissions]);
 
-  return results;
+  return record?.check === check ? record.results : EMPTY_RESULTS;
 }
+
+const EMPTY_RESULTS: Map<AdminPermission, boolean> = new Map();

@@ -153,9 +153,10 @@ describe("createSessionAuthAdapter", () => {
 
   it("rejects a cookie whose id was edited, even with a valid-looking shape", async () => {
     const cookies = jar();
+    const getUser = vi.fn((id: string) => (id === "s1" ? user : null));
     const auth = createSessionAuthAdapter({
       verify: () => "s1",
-      getUser: (id) => (id === "s1" ? user : user),
+      getUser,
       secret: SECRET,
       cookie: cookies.io,
     });
@@ -166,6 +167,9 @@ describe("createSessionAuthAdapter", () => {
     // Swap in an administrator id, keeping the original signature.
     cookies.tamper(`root.${signature}`);
     expect(await auth.getSession()).toBeNull();
+    // Asserted rather than implied: a forged id must never reach the host's lookup, which is
+    // what stops the cookie being used to probe which sessions exist.
+    expect(getUser).not.toHaveBeenCalledWith("root", expect.anything());
   });
 
   it("rejects a signature of the wrong length", async () => {
@@ -204,6 +208,61 @@ describe("createSessionAuthAdapter", () => {
     });
 
     expect(await auth.getSession()).toBeNull();
+  });
+
+  it("reports a session store failure through onError, so an outage is not a silent sign-out", async () => {
+    // Without this the swallow is indistinguishable from a visitor signing out, and a broken
+    // session store reads as "logged out" for everyone, forever.
+    const onError = vi.fn();
+    const cookies = jar();
+    // Signing in has to work, so the failure is on the read that follows it.
+    let reads = 0;
+    const auth = createSessionAuthAdapter({
+      verify: () => "s1",
+      getUser: () => {
+        reads += 1;
+        if (reads > 1) throw new Error("session store down");
+        return user;
+      },
+      onError,
+      secret: SECRET,
+      cookie: cookies.io,
+    });
+    await auth.login({ email: "a", password: "b" });
+
+    expect(await auth.getSession()).toBeNull();
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it("does not store a cookie when the host's own bookkeeping fails", async () => {
+    // The reverse order wrote the cookie first, so a failing callback rejected login with the
+    // browser already signed in and the provider still anonymous.
+    const cookies = jar();
+    const auth = createSessionAuthAdapter({
+      verify: () => "s1",
+      getUser: () => user,
+      onSession: () => {
+        throw new Error("session store write failed");
+      },
+      secret: SECRET,
+      cookie: cookies.io,
+    });
+
+    await expect(auth.login({ email: "a", password: "b" })).rejects.toThrow(/write failed/);
+    expect(cookies.writes).toEqual([]);
+  });
+
+  it("says so plainly when used in a browser without a cookie store", async () => {
+    // The default store reads an HTTP-only cookie through next/headers, which does not run in
+    // a browser, and AdminAuthProvider is a client component. Silently returning nothing would
+    // look like a visitor who is simply signed out.
+    const auth = createSessionAuthAdapter({
+      verify: () => "s1",
+      getUser: () => user,
+      secret: SECRET,
+    });
+
+    await expect(auth.getSession()).rejects.toThrow(/server-side/);
   });
 
   it("reads as signed out when the session store throws, rather than propagating", async () => {
@@ -307,6 +366,30 @@ describe("createMemoryPersistenceAdapter", () => {
     const listed = await db.query<{ title: string }>("posts");
     listed[0].title = "also outside";
     expect((await db.read<{ title: string }>("posts", created.id))?.title).toBe("A");
+  });
+
+  it("copies nested values on the way in, not just the top level", async () => {
+    const db = createMemoryPersistenceAdapter();
+    const tags = { primary: ["a"] };
+    const created = await db.create<{ id: string; tags: { primary: string[] } }>("posts", { tags });
+
+    tags.primary.push("b");
+    expect((await db.read<{ tags: { primary: string[] } }>("posts", created.id))?.tags.primary).toEqual(["a"]);
+
+    const replacement = { primary: ["c"] };
+    await db.update("posts", created.id, { tags: replacement });
+    replacement.primary.push("d");
+    expect((await db.read<{ tags: { primary: string[] } }>("posts", created.id))?.tags.primary).toEqual(["c"]);
+  });
+
+  it("does not generate an id that a seeded record already uses", async () => {
+    // Otherwise two records share an id and every read, update and delete addresses the first.
+    const db = createMemoryPersistenceAdapter({ posts: [{ id: "mem_1", title: "Seeded" }] });
+    const created = await db.create<{ id: string }>("posts", { title: "Generated" });
+
+    expect(created.id).not.toBe("mem_1");
+    expect(await db.read("posts", "mem_1")).toEqual({ id: "mem_1", title: "Seeded" });
+    expect(await db.read("posts", created.id)).toEqual({ id: created.id, title: "Generated" });
   });
 
   it("gives each created record a distinct id", async () => {

@@ -18,9 +18,9 @@ vi.mock("next/navigation.js", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-/** Grants everything except what is named in `denied`. */
 let commitCount = 0;
 
+/** Grants everything except what is named in `denied`. */
 function adapter(denied: string[] = [], overrides: Partial<AdminPermissionsAdapter> = {}): AdminPermissionsAdapter {
   return {
     can: vi.fn(async (permission: string) => !denied.includes(permission)),
@@ -200,6 +200,35 @@ describe("AdminCan", () => {
 
     await waitFor(() => expect(screen.getAllByTestId("state")[0]).toHaveTextContent("allowed"));
     expect(auth.can).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks again after a failed check, rather than keeping the denial", async () => {
+    // Caching the rejection turned one outage into a denial that outlived it. The second probe
+    // asks for the *same* permission, which is the only way to reach the cache entry.
+    let calls = 0;
+    const flaky: AdminPermissionsAdapter = {
+      can: vi.fn(async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("permission service down");
+        return true;
+      }),
+    };
+    const { rerender } = render(
+      <AdminPermissionsProvider adapter={flaky}>
+        <Probe permission="billing.read" />
+      </AdminPermissionsProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("denied"));
+
+    rerender(
+      <AdminPermissionsProvider adapter={flaky}>
+        <Probe permission="billing.read" />
+        <Probe permission="billing.read" />
+      </AdminPermissionsProvider>,
+    );
+
+    // Retried, and the retry is what the second probe sees.
+    await waitFor(() => expect(screen.getAllByTestId("state")[1]).toHaveTextContent("allowed"));
   });
 
   it("does not show the previous permission's verdict while a new one resolves", async () => {
@@ -459,6 +488,44 @@ describe("useAdminPermittedNav", () => {
 
     await waitFor(() => expect(screen.getByTestId("pending")).toHaveTextContent("false"));
     expect(auth.can).toHaveBeenCalledTimes(1);
+  });
+
+  it("gates an item whose permission is an empty string", async () => {
+    // An empty string is a name a host can produce by accident, and treating it as absent would
+    // leave the item visible with no check at all.
+    const empty: AdminNavGroup[] = [
+      { label: "Workspace", items: [{ href: "/a", label: "A", permission: "" }] },
+    ];
+    render(
+      <AdminPermissionsProvider adapter={adapter([""])}>
+        <NavProbe groups={empty} />
+      </AdminPermissionsProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("pending")).toHaveTextContent("false"));
+    expect(labels()).toBe("");
+  });
+
+  it("does not keep the previous adapter's answers when the adapter is swapped", async () => {
+    // Stale answers would render links the new adapter has not approved yet.
+    const permissive = adapter();
+    const { rerender } = render(
+      <AdminPermissionsProvider adapter={permissive}>
+        <NavProbe groups={nav} />
+      </AdminPermissionsProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("pending")).toHaveTextContent("false"));
+    expect(labels()).toBe("Dashboard,Billing,Users");
+
+    const strict = adapter(["billing.read", "users.read"]);
+    rerender(
+      <AdminPermissionsProvider adapter={strict}>
+        <NavProbe groups={nav} />
+      </AdminPermissionsProvider>,
+    );
+
+    expect(screen.getByTestId("labels").textContent).toBe("");
+    await waitFor(() => expect(labels()).toBe("Dashboard"));
   });
 
   it("passes a nav with no gated items straight through", async () => {
