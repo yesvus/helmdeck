@@ -124,7 +124,7 @@ export function AdminMediaGalleryField({
                     <button
                       type="button"
                       onClick={() => openPicker(index)}
-                      className="overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 transition hover:border-zinc-400"
+                      className="overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 transition hover:border-zinc-400"
                     >
                       {thumbnail ? (
                         <div

@@ -38,7 +38,7 @@ export function AdminModalContent({
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-admin-overlay/60 backdrop-blur-sm data-[state=open]:animate-[admin-fade-in_150ms_ease-out]" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed z-50 flex max-h-[min(90dvh,56rem)] flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-200 bg-admin-surface p-6 shadow-2xl data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
+          "fixed z-50 flex max-h-[min(90dvh,56rem)] flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-300 bg-admin-surface p-6 shadow-2xl data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
           !hasBaseCustomWidth && "w-full",
           !hasBaseCustomMaxWidth && "max-w-[calc(100%-2rem)] sm:max-w-md",
           !hasHorizontalPlacement && "left-1/2 -translate-x-1/2",

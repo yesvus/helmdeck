@@ -283,7 +283,7 @@ export function AdminMediaPicker({
                     type="button"
                     onClick={() => { setSelectedPath(item.path); onSelect(item); }}
                     aria-pressed={selectedPath === item.path}
-                    className={cn("group overflow-hidden rounded-xl border bg-admin-surface text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 hover:border-zinc-400 hover:shadow-md", selectedPath === item.path ? "border-brand-600 ring-2 ring-brand-500/20" : "border-zinc-200")}
+                    className={cn("group overflow-hidden rounded-xl border bg-admin-surface text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 hover:border-zinc-400 hover:shadow-md", selectedPath === item.path ? "border-brand-600 ring-2 ring-brand-500/20" : "border-zinc-300")}
                   >
                     <div className={cn("relative flex items-center justify-center overflow-hidden bg-zinc-100", getMediaAspectRatioClassName(aspectRatio))}>
                       {thumbnail ? (
