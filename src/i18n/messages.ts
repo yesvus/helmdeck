@@ -121,6 +121,7 @@ export const turkishAdminMessages: AdminMessages = {
     authChecking: "Oturumunuz denetleniyor.",
     authRedirecting: "Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.",
     authSignInLink: "Giriş sayfasına gidin",
+    authSessionError: "Oturumunuz denetlenemedi. Yeniden deneyin.",
   },
   media: {
     ...defaultAdminMediaLabels,

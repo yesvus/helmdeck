@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
 import { AdminAuthProvider, AdminRequireSession, useAdminSession } from "../src/shell/auth";
@@ -52,9 +53,22 @@ function StatusProbe() {
 
 /** Drives the provider through its public API the way a host sign-in form would. */
 function SessionActions() {
-  const { login, logout } = useAdminSession();
+  const { login, logout, refresh } = useAdminSession();
+  const [refreshError, setRefreshError] = useState("");
   return (
     <>
+      <button
+        type="button"
+        onClick={() => {
+          // Only a rejection reaches this, so a message here is the proof that refresh threw.
+          void refresh().catch((cause: unknown) => {
+            setRefreshError(cause instanceof Error ? cause.message : String(cause));
+          });
+        }}
+      >
+        do refresh
+      </button>
+      <span data-testid="refresh-error">{refreshError}</span>
       <button type="button" onClick={() => void login({ email: "ada@example.com", password: "hunter2" })}>
         do sign in
       </button>
@@ -181,6 +195,64 @@ describe("AdminAuthProvider", () => {
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none"));
   });
 
+  it("settles into an error state when the read rejects, rather than checking forever", async () => {
+    // The read settling as rejected is the common case for a session endpoint that is down.
+    // Left unhandled it never settled, and the guard sat on "checking" for the lifetime of
+    // the page with no way forward.
+    const boom = new Error("session endpoint unreachable");
+    const auth = adapter({ getSession: vi.fn().mockRejectedValue(boom) });
+    render(
+      <AdminAuthProvider adapter={auth}>
+        <StatusProbe />
+      </AdminAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("error:none"));
+  });
+
+  it("exposes the failure so a host can log or surface it", async () => {
+    const boom = new Error("session endpoint unreachable");
+    const auth = adapter({ getSession: vi.fn().mockRejectedValue(boom) });
+    function ErrorProbe() {
+      const { error } = useAdminSession();
+      return <span data-testid="error">{error instanceof Error ? error.message : "none"}</span>;
+    }
+    render(
+      <AdminAuthProvider adapter={auth}>
+        <ErrorProbe />
+      </AdminAuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("error")).toHaveTextContent("session endpoint unreachable"));
+  });
+
+  it("records a failed refresh in the context and still rejects to the caller", async () => {
+    // The context must never describe a read that did not happen, and a host that awaited
+    // refresh() to drive its own spinner still needs to see the rejection.
+    const boom = new Error("refresh failed");
+    const auth = adapter({ getSession: vi.fn().mockRejectedValue(boom) });
+    function ErrorProbe() {
+      const { error } = useAdminSession();
+      return <span data-testid="error">{error instanceof Error ? error.message : "none"}</span>;
+    }
+    render(
+      <AdminAuthProvider adapter={auth}>
+        <StatusProbe />
+        <ErrorProbe />
+        <SessionActions />
+      </AdminAuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("error"));
+
+    await act(async () => {
+      screen.getByRole("button", { name: "do refresh" }).click();
+    });
+
+    // Reaching the catch at all is the proof that refresh rejected to its caller.
+    await waitFor(() => expect(screen.getByTestId("refresh-error")).toHaveTextContent("refresh failed"));
+    expect(screen.getByTestId("error")).toHaveTextContent("refresh failed");
+  });
+
   it("refuses to guess when used outside the provider", () => {
     // Silently returning null here would let a host ship a guard that never guards.
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -281,6 +353,50 @@ describe("AdminRequireSession", () => {
     expect(status).toHaveTextContent("You need to sign in to view this page.");
     expect(status).not.toHaveTextContent(TR.redirecting);
     expect(screen.getByRole("link", { name: "Go to sign in" })).toBeInTheDocument();
+  });
+
+  it("announces a failed read and does not bounce the visitor to sign in", async () => {
+    // Redirecting here would send a signed-in visitor to the login page every time their
+    // session endpoint blips, and loop there when the login page needs the same read.
+    const onRedirect = vi.fn();
+    renderGuarded(adapter({ getSession: vi.fn().mockRejectedValue(new Error("down")) }), { onRedirect });
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Oturumunuz denetlenemedi");
+    expect(onRedirect).not.toHaveBeenCalled();
+    expect(navigation.push).not.toHaveBeenCalled();
+    expect(screen.queryByText("Invoices")).not.toBeInTheDocument();
+  });
+
+  it("keeps a query string the host already put on the login URL", async () => {
+    // A second "?" would make the URL malformed, and a tenant or return flag on the login URL
+    // is an ordinary host setup rather than an exotic one.
+    const onRedirect = vi.fn();
+    renderGuarded(adapter({ getSession: vi.fn().mockResolvedValue(null) }), {
+      loginHref: "/admin/login?tenant=acme",
+      onRedirect,
+    });
+
+    await waitFor(() => expect(onRedirect).toHaveBeenCalled());
+    const target = onRedirect.mock.calls[0][0] as string;
+    expect(target.startsWith("/admin/login?")).toBe(true);
+    expect(target.match(/\?/g)).toHaveLength(1);
+    const params = new URLSearchParams(target.split("?")[1]);
+    expect(params.get("tenant")).toBe("acme");
+    expect(params.get("next")).toBe("/admin/products");
+  });
+
+  it("replaces a stale next on the login URL rather than sending both", async () => {
+    const onRedirect = vi.fn();
+    renderGuarded(adapter({ getSession: vi.fn().mockResolvedValue(null) }), {
+      loginHref: "/admin/login?next=/stale",
+      returnTo: "/admin/fresh",
+      onRedirect,
+    });
+
+    await waitFor(() => expect(onRedirect).toHaveBeenCalled());
+    const params = new URLSearchParams((onRedirect.mock.calls[0][0] as string).split("?")[1]);
+    expect(params.getAll("next")).toEqual(["/admin/fresh"]);
   });
 
   it("survives a host that has no pathname to offer yet", async () => {

@@ -21,6 +21,7 @@ export type AdminShellLabels = {
   authChecking: string;
   authRedirecting: string;
   authSignInLink: string;
+  authSessionError: string;
 };
 
 export const defaultAdminLabels: AdminShellLabels = {
@@ -45,6 +46,7 @@ export const defaultAdminLabels: AdminShellLabels = {
   authChecking: "Checking your session.",
   authRedirecting: "You need to sign in to view this page.",
   authSignInLink: "Go to sign in",
+  authSessionError: "Your session could not be checked. Try again.",
 };
 
 export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): AdminShellLabels {
