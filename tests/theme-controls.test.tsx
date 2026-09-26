@@ -64,7 +64,7 @@ describe("fixture theme controls", () => {
     await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
   });
 
-  it("does not re-render after hydration when the server snapshot matches the default", async () => {
+  it("shows no stale theme on any render when the server snapshot matches the default", async () => {
     // useSyncExternalStore only consults getServerSnapshot under hydrateRoot, so a plain
     // render cannot observe this at all. Hydrating the server markup shows the real cost of
     // a mismatched snapshot: the client renders the stale server value before correcting,
@@ -91,15 +91,21 @@ describe("fixture theme controls", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToString(tree);
     document.body.append(container);
-    let root: ReturnType<typeof hydrateRoot>;
-    await act(async () => {
-      root = hydrateRoot(container, tree);
-    });
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, tree);
+      });
 
-    // Every render agrees. With an unaligned snapshot the first two read "light:light".
-    expect(renders.length).toBeGreaterThan(0);
-    expect(new Set(renders)).toEqual(new Set(["system:light"]));
-    await act(async () => root.unmount());
+      // Every render agrees. With an unaligned snapshot the first two read "light:light".
+      expect(renders.length).toBeGreaterThan(0);
+      expect(new Set(renders)).toEqual(new Set(["system:light"]));
+    } finally {
+      // A failed assertion above would otherwise leave a live root subscribed to the
+      // module-level listener set, still writing to the document for the rest of the suite.
+      if (root) await act(async () => root.unmount());
+      container.remove();
+    }
   });
 
   it("keeps an explicit choice across a remount", async () => {

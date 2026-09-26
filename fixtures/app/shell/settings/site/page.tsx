@@ -8,7 +8,7 @@ import { useState } from "react";
 const accents = [
   { name: "Teal", value: "#048b8c" },
   { name: "Violet", value: "#7c3aed" },
-  { name: "Amber", value: "#d97706" },
+  { name: "Amber", value: "#b45309" },
 ];
 
 function ChoiceGroup({ label, options, active, onPick }: {
