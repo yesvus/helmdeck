@@ -3,8 +3,9 @@
 
 import { AlertCircle, CheckCircle2, Link2 } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
+import { usePathname, useRouter } from "next/navigation.js";
 import { AdminToastCard, AdminToastViewport } from "./toast.js";
+import { useAdminSearchParams } from "./use-admin-search-params.js";
 import { useAdminMessages } from "../i18n.js";
 
 export type AdminUrlFeedbackLabels = {
@@ -27,6 +28,13 @@ const defaultAdminUrlFeedbackQueryKeys: AdminUrlFeedbackQueryKeys = {
   assetUrl: "assetUrl",
 };
 
+/**
+ * Shows a message after a redirect by reading the query string.
+ *
+ * Requires a `<Suspense>` boundary when the page is statically generated, because this
+ * component always reads search params. Pass `message` and `assetUrl` to override the
+ * values the component would otherwise take from the query string.
+ */
 export function AdminUrlFeedback({
   durationMs = 3200,
   labels,
@@ -42,7 +50,7 @@ export function AdminUrlFeedback({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useAdminSearchParams("AdminUrlFeedback");
   const resolvedQueryKeys = useMemo(
     () => ({ ...defaultAdminUrlFeedbackQueryKeys, ...queryKeys }),
     [queryKeys],
