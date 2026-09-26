@@ -41,11 +41,9 @@ jobs:
         with:
           ref: ${{ inputs.cindral_ref || github.ref }}
       - uses: pnpm/action-setup@v6
-        with:
-          version: 12.4.1
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: ./scripts/ci
@@ -59,11 +57,9 @@ jobs:
         with:
           ref: ${{ inputs.cindral_ref || github.ref }}
       - uses: pnpm/action-setup@v6
-        with:
-          version: 12.4.1
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: ./scripts/ci
@@ -77,11 +73,9 @@ jobs:
         with:
           ref: ${{ inputs.cindral_ref || github.ref }}
       - uses: pnpm/action-setup@v6
-        with:
-          version: 12.4.1
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: ./scripts/ci
@@ -95,11 +89,9 @@ jobs:
         with:
           ref: ${{ inputs.cindral_ref || github.ref }}
       - uses: pnpm/action-setup@v6
-        with:
-          version: 12.4.1
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: ./scripts/ci
