@@ -29,6 +29,13 @@ describe("persistent shell page context", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
+  it("populates a ref object for the scroll region", () => {
+    const contentScrollRef = { current: null as HTMLDivElement | null };
+    render(<AdminShell nav={nav} contentScrollRef={contentScrollRef}><div>Page content</div></AdminShell>);
+
+    expect(contentScrollRef.current).toBe(screen.getByRole("region", { name: "Products" }));
+  });
+
   it("uses the matched navigation label and shared header height", () => {
     const contentScrollRef = vi.fn();
     const { container } = render(<AdminShell nav={nav} contentScrollRef={contentScrollRef}><div>Page content</div></AdminShell>);

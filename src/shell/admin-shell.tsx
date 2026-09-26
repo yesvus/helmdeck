@@ -86,11 +86,23 @@ export function AdminShell({
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
-  // React performs the write into the host's ref, whether it is a callback or a ref
-  // object. Assigning to the prop from a closure is not allowed, so the ref is handed
-  // over instead of mutated.
+  // Writing to the local ref is fine. A host callback is invoked directly, because
+  // calling a prop function is not a mutation, and that keeps it correct across remounts.
+  // The ref-object form cannot be assigned from a closure, so React performs the write.
+  const setContentScrollRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      internalContentScrollRef.current = element;
+      if (typeof contentScrollRef === "function") {
+        contentScrollRef(element);
+      }
+    },
+    [contentScrollRef],
+  );
+
+  // React tracks the ref argument itself, so an empty dependency list still re-runs when
+  // the host swaps to a different ref object.
   useImperativeHandle(
-    contentScrollRef,
+    typeof contentScrollRef === "function" ? undefined : contentScrollRef,
     () => internalContentScrollRef.current as HTMLDivElement,
     [],
   );
@@ -264,7 +276,7 @@ export function AdminShell({
         ) : null}
 
         <div
-          ref={internalContentScrollRef}
+          ref={setContentScrollRef}
           role="region"
           tabIndex={0}
           aria-label={pageTitle ?? brand?.label ?? mergedLabels.brandLabel}
