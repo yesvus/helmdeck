@@ -71,17 +71,17 @@ export function AdminModalContent({
 }
 
 export function AdminModalHeader({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("flex shrink-0 flex-col gap-2 text-left", className)} {...props} />;
+  return <div className={cn("flex shrink-0 flex-col gap-2 border-b border-admin-border bg-admin-surface-subtle text-left", className)} {...props} />;
 }
 
 export function AdminModalBody({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain", className)} {...props} />;
+  return <div className={cn("min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain py-1", className)} {...props} />;
 }
 
 export function AdminModalFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex shrink-0 flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
+      className={cn("flex shrink-0 flex-col-reverse gap-2 border-t border-admin-border bg-admin-surface-subtle sm:flex-row sm:justify-end", className)}
       {...props}
     />
   );

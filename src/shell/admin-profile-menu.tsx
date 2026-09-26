@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link.js";
 import { ExternalLink, LogOut, User } from "lucide-react";
 import { cn } from "../cn.js";
@@ -16,6 +16,7 @@ export function AdminProfileMenu({
   viewSiteHref,
   onLogout,
   labels,
+  menuExtra,
 }: {
   email: string | null;
   compact?: boolean;
@@ -23,6 +24,12 @@ export function AdminProfileMenu({
   viewSiteHref?: string | null;
   onLogout?: () => void | Promise<void>;
   labels?: Partial<AdminShellLabels>;
+  /**
+   * Content appended below the menu's own links. The popup only closes on an outside
+   * click, on Escape, or from its own items, and clicks inside this slot count as
+   * inside, so a host embedding a link or button here has to route the user itself.
+   */
+  menuExtra?: ReactNode;
 }) {
   const shell = useAdminShell();
   const mergedLabels = mergeAdminLabels({ ...shell?.labels, ...labels });
@@ -93,9 +100,15 @@ export function AdminProfileMenu({
               {mergedLabels.viewSite}
             </Link>
           ) : null}
+          {menuExtra ? (
+            <>
+              {resolvedProfileHref || resolvedViewSiteHref ? <div className="my-1 border-t border-zinc-100" /> : null}
+              <div className="px-3 py-2">{menuExtra}</div>
+            </>
+          ) : null}
           {resolvedOnLogout ? (
             <>
-              {resolvedProfileHref || resolvedViewSiteHref ? (
+              {resolvedProfileHref || resolvedViewSiteHref || menuExtra ? (
                 <div className="my-1 border-t border-zinc-100" />
               ) : null}
               <button
