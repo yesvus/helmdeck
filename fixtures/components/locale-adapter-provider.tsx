@@ -31,27 +31,30 @@ export function LocaleAdapterProvider({ children }: { children: ReactNode }) {
   return (
     <AdminI18nProvider localeAdapter={adapter}>
       {children}
-      <ContentLocaleSwitcher />
     </AdminI18nProvider>
   );
 }
 
-function ContentLocaleSwitcher() {
+export function ContentLocaleSwitcher() {
   const { contentLocale, setContentLocale } = useAdminContentLocale();
   return (
-    <p className="p-4 text-sm">
-      <span className="mr-2 font-semibold">İçerik dili</span>
+    <div className="flex items-center gap-1.5 text-xs">
+      <span className="font-semibold text-zinc-600">İçerik dili:</span>
       {CONTENT_LOCALES.map((locale) => (
         <button
           key={locale}
           type="button"
           aria-pressed={contentLocale === locale}
           onClick={() => setContentLocale(locale)}
-          className="mr-2 underline"
+          className={`rounded px-2 py-1 font-medium transition-colors ${
+            contentLocale === locale
+              ? "bg-brand-500 text-white"
+              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+          }`}
         >
           {locale}
         </button>
       ))}
-    </p>
+    </div>
   );
 }

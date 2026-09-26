@@ -31,14 +31,18 @@ export function AdminI18nProvider({
   messages?: AdminMessages;
   localeAdapter?: AdminLocaleAdapter;
 }) {
-  const [interfaceLocale, setInterfaceLocale] = useState(locale ?? defaultAdminLocale);
+  const [adapterInterfaceLocale, setAdapterInterfaceLocale] = useState<string | null>(null);
   const [contentLocale, setContentLocaleState] = useState("");
 
   useEffect(() => {
-    if (!localeAdapter) return;
+    if (!localeAdapter) {
+      setAdapterInterfaceLocale(null);
+      setContentLocaleState("");
+      return;
+    }
     let active = true;
     void Promise.resolve(localeAdapter.getInterfaceLocale()).then((resolved) => {
-      if (active && resolved) setInterfaceLocale(resolved);
+      if (active && resolved) setAdapterInterfaceLocale(resolved);
     });
     void Promise.resolve(localeAdapter.getContentLocale()).then((resolved) => {
       if (active && resolved) setContentLocaleState(resolved);
@@ -47,6 +51,8 @@ export function AdminI18nProvider({
       active = false;
     };
   }, [localeAdapter]);
+
+  const activeInterfaceLocale = adapterInterfaceLocale ?? locale ?? defaultAdminLocale;
 
   const setContentLocale = useCallback(
     (next: string) => {
@@ -70,7 +76,7 @@ export function AdminI18nProvider({
 
   return (
     <AdminLocaleContext.Provider value={localeValue}>
-      <AdminI18nContext.Provider value={messages ?? getAdminMessages(interfaceLocale)}>
+      <AdminI18nContext.Provider value={messages ?? getAdminMessages(activeInterfaceLocale)}>
         {children}
       </AdminI18nContext.Provider>
     </AdminLocaleContext.Provider>

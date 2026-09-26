@@ -47,6 +47,24 @@ describe("Helmdeck localization", () => {
     expect(screen.getByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
   });
 
+  it("updates interface messages when the locale prop changes", () => {
+    const { rerender } = render(
+      <AdminI18nProvider locale="tr">
+        <MessageProbe />
+      </AdminI18nProvider>,
+    );
+
+    expect(screen.getByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
+
+    rerender(
+      <AdminI18nProvider locale="en">
+        <MessageProbe />
+      </AdminI18nProvider>,
+    );
+
+    expect(screen.getByText("Search admin pages")).toBeInTheDocument();
+  });
+
   it("registers and provides custom dictionaries", () => {
     const custom: AdminMessages = {
       ...englishAdminMessages,
