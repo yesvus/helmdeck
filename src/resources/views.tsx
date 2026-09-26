@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link.js";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "../primitives/button.js";
 import { AdminTable, type AdminTableColumn } from "../primitives/table.js";
@@ -14,6 +15,7 @@ import { useAdminMessages } from "../i18n.js";
 import { cn } from "../cn.js";
 import type { AdminPersistenceAdapter } from "../adapters/index.js";
 import {
+  absentRequired,
   adminResourcePath,
   adminResourceRecordId,
   adminResourceValues,
@@ -49,22 +51,28 @@ export function AdminResourceList({
   onError?: (cause: unknown) => void;
 }) {
   const i18n = useAdminMessages();
-  const [rows, setRows] = useState<AdminResourceRecord[] | null>(null);
+  // Keyed by the resource they came from, so a different resource cannot show these.
+  const [loaded, setLoaded] = useState<{ resource: string; rows: AdminResourceRecord[] } | null>(null);
+  const rows = loaded?.resource === definition.resource ? loaded.rows : null;
   const [message, setMessage] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const base = detailBaseHref ?? adminResourcePath(definition);
   const permissions = definition.permissions ?? {};
+  // Checked before anything is read. Gating the rendered rows would still have queried, and
+  // a denied visitor would have had the records in the response.
+  const mayRead = useAdminPermission(permissions.read);
 
   // Resolved in a callback rather than by awaiting inside the effect body, because a setState
   // in that body is a cascading render.
   useEffect(() => {
+    if (mayRead !== "allowed") return;
     let active = true;
-    const scope = active;
     void persistence.query<AdminResourceRecord>(definition.resource).then(
       (found) => {
-        if (!scope) return;
-        setRows(
-          found
+        if (!active) return;
+        setLoaded({
+          resource: definition.resource,
+          rows: found
             .map((row) => {
               try {
                 return { ...row, id: adminResourceRecordId(row) };
@@ -74,10 +82,10 @@ export function AdminResourceList({
               }
             })
             .filter((row): row is AdminResourceRecord => row !== null),
-        );
+        });
       },
       (cause: unknown) => {
-        if (!scope) return;
+        if (!active) return;
         setMessage(labels?.loadError ?? i18n.shell.resourceLoadError);
         onError?.(cause);
       },
@@ -85,13 +93,17 @@ export function AdminResourceList({
     return () => {
       active = false;
     };
-  }, [definition.resource, i18n.shell.resourceLoadError, labels?.loadError, onError, persistence]);
+  }, [definition.resource, i18n.shell.resourceLoadError, labels?.loadError, mayRead, onError, persistence]);
 
   async function remove(id: string) {
     setBusyId(id);
     try {
       await persistence.delete(definition.resource, id);
-      setRows((current) => (current ?? []).filter((row) => row.id !== id));
+      setLoaded((current) =>
+        current && current.resource === definition.resource
+          ? { ...current, rows: current.rows.filter((row) => row.id !== id) }
+          : current,
+      );
     } catch (cause) {
       setMessage(labels?.deleteFailed ?? i18n.shell.resourceDeleteFailed);
       onError?.(cause);
@@ -117,13 +129,13 @@ export function AdminResourceList({
         <span className="flex items-center justify-end gap-2">
           {permissions.update ? (
             <AdminCan permission={permissions.update}>
-              <a
-                href={`${base}/${row.id}`}
+              <Link
+                href={`${base}/${encodeURIComponent(row.id)}`}
                 aria-label={`${labels?.edit ?? i18n.shell.resourceEdit}: ${row.id}`}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-admin-surface text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-900"
               >
                 <Pencil className="h-4 w-4" aria-hidden="true" />
-              </a>
+              </Link>
             </AdminCan>
           ) : null}
           {permissions.delete ? (
@@ -145,6 +157,14 @@ export function AdminResourceList({
     },
   ];
 
+  if (mayRead === "denied" || mayRead === "error") {
+    return (
+      <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+        {i18n.shell.permissionDenied}
+      </p>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -153,10 +173,10 @@ export function AdminResourceList({
           permissions.create ? (
             <AdminCan permission={permissions.create}>
               <Button asChild variant="default">
-                <a href={`${base}/new`} className="inline-flex items-center gap-2">
+                <Link href={`${base}/new`} className="inline-flex items-center gap-2">
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   {labels?.new ?? i18n.shell.resourceNew}
-                </a>
+                </Link>
               </Button>
             </AdminCan>
           ) : null
@@ -226,27 +246,41 @@ export function AdminResourceForm({
   onError?: (cause: unknown) => void;
 }) {
   const i18n = useAdminMessages();
-  const [loaded, setLoaded] = useState<Record<string, unknown> | null>(null);
-  const [missing, setMissing] = useState<string[]>([]);
-  const [message, setMessage] = useState("");
-  const [pending, setPending] = useState(false);
   const permissions = definition.permissions ?? {};
   const isNew = id === undefined;
+  // Keyed by the id it was read for, so a different record is loading again rather than
+  // showing the previous one, and so a resolved miss is distinguishable from no answer yet.
+  const [read, setRead] = useState<{ id: string; value: AdminResourceRecord | null } | null>(null);
+  const [missing, setMissing] = useState<string[]>([]);
+  const [attempted, setAttempted] = useState(false);
+  const [message, setMessage] = useState("");
+  const [pending, setPending] = useState(false);
   // A resource that declares no create or update permission is ungated, matching the list,
   // where an undeclared permission means no control rather than a hidden one.
   const requiredPermission = isNew ? permissions.create : permissions.update;
   const granted = useAdminPermission(requiredPermission);
+  // Checked before the read, so a denied visitor never has the record in the response.
+  const mayRead = useAdminPermission(permissions.read);
 
   // A new record starts empty without a state write, so switching between new and existing
-  // cannot leave the previous record's values in the form.
-  const values = isNew ? EMPTY_VALUES : loaded;
+  // cannot leave the previous record's values in the form. Loading is the third state the
+  // first version collapsed into "not found": until the read answers, the record is unknown
+  // rather than absent, and saying it does not exist is a claim nothing supports yet.
+  // Loading covers both things still in flight: the read permission and the record itself.
+  // Falling through to "not found" while the permission is merely unresolved reported a
+  // missing record for a visitor who may well be allowed to see it.
+  const readRefused = mayRead === "denied" || mayRead === "error";
+  const loading = !isNew && !readRefused && read?.id !== id;
+  const values = isNew ? EMPTY_VALUES : (read?.value ?? null);
 
   useEffect(() => {
-    if (isNew) return;
+    if (isNew || mayRead !== "allowed") return;
     let active = true;
     void persistence.read<AdminResourceRecord>(definition.resource, id as string).then(
       (found) => {
-        if (active) setLoaded(found ? { ...found, id: adminResourceRecordId(found) } : null);
+        if (active) {
+          setRead({ id: id as string, value: found ? { ...found, id: adminResourceRecordId(found) } : null });
+        }
       },
       (cause: unknown) => {
         if (active) {
@@ -258,12 +292,15 @@ export function AdminResourceForm({
     return () => {
       active = false;
     };
-  }, [definition.resource, i18n.shell.resourceNotFound, id, isNew, labels?.notFound, onError, persistence]);
+  }, [definition.resource, i18n.shell.resourceNotFound, id, isNew, labels?.notFound, mayRead, onError, persistence]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setAttempted(true);
     // Checked here as well as on the button, because a form can be submitted without it.
-    if (granted !== "allowed") {
+    // Only a settled refusal blocks. While it is still checking, saying "no access" would
+    // be a guess, and an early Enter on a focused field would be the common way to hit it.
+    if (granted === "denied" || granted === "error") {
       setMessage(i18n.shell.permissionDenied);
       return;
     }
@@ -271,15 +308,9 @@ export function AdminResourceForm({
     const parsed = adminResourceValues(definition, new FormData(form));
 
     // Enforced here rather than left to the server, so a definition is the whole contract.
-    const absent = definition.fields
-      .filter((field) => field.required)
-      .filter((field) => {
-        const value = parsed[field.name];
-        return value === null || value === undefined || value === "" || value === false;
-      })
-      .map((field) => field.name);
+    const absent = absentRequired(definition, parsed);
+    setMissing(absent);
     if (absent.length > 0) {
-      setMissing(absent);
       return;
     }
 
@@ -298,6 +329,14 @@ export function AdminResourceForm({
     }
   }
 
+  if (loading) {
+    return <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">{i18n.shell.resourceLoading}</p>;
+  }
+
+  if (readRefused) {
+    return <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">{i18n.shell.permissionDenied}</p>;
+  }
+
   if (values === null && !isNew) {
     return (
       <p role="alert" className="text-sm text-red-700 dark:text-red-300">
@@ -307,7 +346,18 @@ export function AdminResourceForm({
   }
 
   return (
-    <form className="space-y-6" onSubmit={(event) => void handleSubmit(event)} noValidate>
+    <form
+      className="space-y-6"
+      noValidate
+      onSubmit={(event) => void handleSubmit(event)}
+      onChange={(event: FormEvent<HTMLFormElement>) => {
+        if (!attempted) return;
+        // Re-checked against the form as it now stands, so fixing a field clears its error
+        // instead of leaving it marked until the next submit.
+        const form = event.currentTarget;
+        setMissing(absentRequired(definition, adminResourceValues(definition, new FormData(form))));
+      }}
+    >
       <AdminPageHeader
         title={isNew ? (labels?.new ?? i18n.shell.resourceNew) : definition.singularLabel ?? definition.label}
         action={

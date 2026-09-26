@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 export {
+  absentRequired,
   adminResourcePath,
   adminResourceRecordId,
   adminResourceValues,

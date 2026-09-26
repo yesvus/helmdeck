@@ -85,7 +85,9 @@ export function adminResourceRecordId(value: unknown): string {
   if (typeof value === "number") return String(value);
   if (value && typeof value === "object" && "id" in value) {
     const id = (value as { id: unknown }).id;
-    if (typeof id === "string" || typeof id === "number") return String(id);
+    // An empty id is as unusable as a missing one, and would build a route ending in a slash.
+    if (typeof id === "string" && id) return id;
+    if (typeof id === "number" && Number.isFinite(id)) return String(id);
   }
   throw new Error("A resource record needs a string or number id");
 }
@@ -117,4 +119,18 @@ export function adminResourceValues(
     values[field.name] = raw === null ? null : String(raw);
   }
   return values;
+}
+
+/** The declared required fields that `values` does not satisfy. */
+export function absentRequired(
+  definition: AdminResourceDefinition,
+  values: Record<string, unknown>,
+): string[] {
+  return definition.fields
+    .filter((field) => field.required)
+    .filter((field) => {
+      const value = values[field.name];
+      return value === null || value === undefined || value === "" || value === false;
+    })
+    .map((field) => field.name);
 }

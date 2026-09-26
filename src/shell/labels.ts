@@ -49,6 +49,7 @@ export type AdminShellLabels = {
   resourceSave: string;
   resourceSaving: string;
   resourceCancel: string;
+  resourceLoading: string;
 };
 
 export const defaultAdminLabels: AdminShellLabels = {
@@ -101,6 +102,7 @@ export const defaultAdminLabels: AdminShellLabels = {
   resourceSave: "Save",
   resourceSaving: "Saving...",
   resourceCancel: "Cancel",
+  resourceLoading: "Loading...",
 };
 
 export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): AdminShellLabels {

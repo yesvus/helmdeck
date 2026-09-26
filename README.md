@@ -140,6 +140,66 @@ Primitives that do not touch routing, such as `defineAdminMessages` and `default
 
 The host owns session resolution, authorization, persistence, route protection, and content-language state. Helmdeck receives configuration and callbacks through explicit props and adapters. Add an optional `icon` to each `AdminNavGroup` to identify sidebar categories. The first category is expanded initially, and groups remain collapsible when they contain the active route. Expanded groups use compact text-only sub-navigation with a vertical guide and a thicker animated indicator beside the active item. `AdminShell` scrolls its content region independently from the header; use its optional `contentScrollRef` to integrate host scroll restoration or scroll-to-top actions. Since the document itself no longer scrolls, call `scrollTo` on this element instead of `window.scrollTo`. The shell resets the region to the top when the route changes.
 
+## Getting started: the admin baseline
+
+Everything below is a working default, not a framework. Each piece satisfies the same contract a hand-rolled one does, so you adopt it where it fits and replace it where you have real differences. The hand-rolled path stays open at every step, and both are shown.
+
+### Session and route protection
+
+`AdminAuthProvider` resolves the session once at the root; `useAdminSession()` reads it. `AdminRequireSession` withholds a route tree until the session is known-good, then either renders it or announces a redirect. It does not render the children and hide them, because that would leave focusable controls in the tab order for a page the visitor may not have access to.
+
+```tsx
+<AdminAuthProvider adapter={auth}>
+  <AdminRequireSession loginHref="/admin/login">{children}</AdminRequireSession>
+</AdminAuthProvider>
+```
+
+The guard records where the visitor was headed in a `next` parameter. `adminReturnTo()` reads it back on the login page and returns a value only if that value is a plain same-site path **at every layer of encoding**, so a crafted link cannot turn the sign-in page into an open redirect. A `getSession()` that rejects produces an `error` status and an announcement, never a redirect, because bouncing a signed-in visitor to the login page on every transient failure is worse than saying so.
+
+**Hand-rolled instead:** implement `AdminAuthAdapter` yourself and pass it. `AdminAuthProvider` has no opinion about where sessions live.
+
+### A baseline auth adapter
+
+`createSessionAuthAdapter` signs the session id with HMAC-SHA256 over the Web Crypto API and puts it in an HTTP-only cookie. It owns the cookie's integrity; you own credential verification, user lookup, and session storage.
+
+```ts
+// A server action or route handler. The cookie is HTTP-only and next/headers is
+// server-only, so this cannot run in a browser.
+export const auth = createSessionAuthAdapter({
+  secret: process.env.SESSION_SECRET,
+  verify: async (credentials) => (await checkPassword(credentials)) ? newSessionId() : null,
+  getUser: (id) => loadUser(id),
+});
+```
+
+It is **server-side**, so pass it to a server action and hand `AdminAuthProvider` a thin client-side adapter that calls that, or supply the `cookie` option with your own store. Using it in a browser without one fails with a message saying exactly that, rather than resolving to nothing and looking like a signed-out visitor.
+
+### Permissions and resources
+
+`AdminPermissionsProvider` resolves and remembers answers. `useAdminPermission(permission)` reports one permission's state, `useAdminCan` is the boolean form, `AdminCan` renders its children only when a permission is held, and `useAdminPermittedNav` filters nav items that carry one.
+
+Everything **fails closed**: no adapter denies, an adapter that rejects denies, and a guard used with no provider denies rather than throwing. A missing adapter must never read as permission granted. Each of those cases also warns in development, so the failure is diagnosable without weakening the control. A failed check is not cached, so one outage does not become a denial that outlives it.
+
+A nav item with no `permission` is always kept, so adopting this costs nothing until you opt an item in. A gated nav renders **empty** until its permissions are answered, because rendering the unfiltered nav and hiding items afterwards would put links to unreachable pages into the tab order.
+
+```tsx
+const posts = defineAdminResource({
+  resource: "posts",
+  label: "Posts",
+  columns: [{ key: "title", header: "Title" }],
+  fields: [{ name: "title", label: "Title", required: true }],
+  permissions: { read: "posts.read", create: "posts.create", update: "posts.update", delete: "posts.delete" },
+});
+```
+
+`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input.
+
+**Hand-rolled instead:** implement `AdminPermissionsAdapter` and `AdminPersistenceAdapter` yourself. Nothing in the views requires the memory adapter; it is one implementation for fixtures and tests.
+
+### The memory adapter
+
+`createMemoryPersistenceAdapter` is CRUD over plain objects, which is enough for a fixture or a test with no database. It hands out copies in both directions, so a caller cannot edit stored state without going through `update`. `createAuditAdapter` and `createCacheAdapter` are thin defaults that swallow their own failures, because the change has already happened by the time either runs; both take an `onError` so the failure is still observable.
+
 ## Host integration contracts
 
 `AdminAuthAdapter` resolves the current session and handles login/logout. `AdminPermissionsAdapter` answers host-defined permission checks; shell navigation role filtering is presentation only and never replaces route or operation authorization. The host owns identity, session lifetime, credentials, permission names, and enforcement.

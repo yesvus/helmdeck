@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
 import { AdminPermissionsProvider } from "../src/shell/permissions";
@@ -20,9 +20,17 @@ vi.mock("next/navigation.js", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+// Every prop is forwarded. A mock that kept only href and children would drop the aria-label
+// and leave these links with no accessible name, which reads as a missing control.
 vi.mock("next/link.js", () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...rest
+  }: { children: React.ReactNode; href: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
   ),
 }));
 
@@ -110,6 +118,13 @@ describe("adminResourceRecordId", () => {
     expect(adminResourceRecordId(7)).toBe("7");
     expect(adminResourceRecordId({ id: "p2" })).toBe("p2");
     expect(adminResourceRecordId({ id: 9 })).toBe("9");
+  });
+
+  it("refuses an empty id on the object branch too", () => {
+    // The scalar path already rejected "", so accepting it on the object path built a route
+    // ending in a slash and addressed nothing.
+    expect(() => adminResourceRecordId({ id: "" })).toThrow(/id/);
+    expect(() => adminResourceRecordId({ id: Number.NaN })).toThrow(/id/);
   });
 
   it("refuses a record it could never address", () => {
@@ -236,8 +251,7 @@ describe("AdminResourceList", () => {
     await db.create("posts", { title: "First" });
     wrap(<AdminResourceList definition={posts} persistence={db} />);
 
-    const remove = await screen.findByRole("button", { name: "Delete: mem_1" });
-    remove.click();
+    fireEvent.click(await screen.findByRole("button", { name: "Delete: mem_1" }));
 
     await waitFor(() => expect(screen.queryByText("First")).not.toBeInTheDocument());
     expect(await db.query("posts")).toEqual([]);
@@ -280,6 +294,62 @@ describe("AdminResourceList", () => {
     await screen.findByText("First");
     expect(screen.queryByRole("link", { name: "Edit: mem_1" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete: mem_1" })).not.toBeInTheDocument();
+  });
+
+  it("never queries when the read permission is refused", async () => {
+    // Gating the rendered rows would still have queried, so a denied visitor would have had
+    // the records in the response even though nothing was drawn.
+    const base = createMemoryPersistenceAdapter();
+    await base.create("posts", { title: "Secret" });
+    const query = vi.fn((resource: string) => base.query(resource));
+    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
+
+    wrap(<AdminResourceList definition={posts} persistence={{ ...base, query }} />, denied);
+
+    expect(await screen.findByText("You do not have access to this.")).toBeInTheDocument();
+    expect(screen.queryByText("Secret")).not.toBeInTheDocument();
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("shows the previous resource's rows to nobody while the next one loads", async () => {
+    const db = createMemoryPersistenceAdapter();
+    await db.create("posts", { title: "From posts" });
+    let release: (rows: unknown[]) => void = () => {};
+    const query = vi.fn(async (resource: string) =>
+      resource === "pages"
+        ? new Promise((resolve) => { release = resolve; })
+        : db.query(resource),
+    );
+    const { rerender } = wrap(
+      <AdminResourceList definition={posts} persistence={{ ...db, query: query as never }} />,
+    );
+    await screen.findByText("From posts");
+
+    const pages = defineAdminResource({ ...posts, resource: "pages" });
+    rerender(
+      <AdminI18nProvider locale="en">
+        <AdminPermissionsProvider adapter={allowAll()}>
+          <AdminResourceList definition={pages} persistence={{ ...db, query: query as never }} />
+        </AdminPermissionsProvider>
+      </AdminI18nProvider>,
+    );
+
+    // The other resource's records are gone, not carried over under the new heading.
+    expect(screen.queryByText("From posts")).not.toBeInTheDocument();
+    release([]);
+  });
+
+  it("encodes a record id that would otherwise reshape the detail route", async () => {
+    // create() assigns its own id, so a hand-written row is the only way to get an awkward one.
+    const db = createMemoryPersistenceAdapter();
+    const awkward: AdminPersistenceAdapter = {
+      ...db,
+      query: async () => [{ id: "a/b?c#d", title: "Awkward" }],
+    };
+    wrap(<AdminResourceList definition={posts} persistence={awkward} />);
+
+    const link = await screen.findByRole("link", { name: "Edit: a/b?c#d" });
+    expect(link).toHaveAttribute("href", "posts/a%2Fb%3Fc%23d");
   });
 
   it("reports a failed load instead of showing an empty table as if it were empty", async () => {
@@ -331,7 +401,7 @@ describe("AdminResourceForm", () => {
     const title = await screen.findByLabelText("Title");
     title.setAttribute("value", "Hello");
     screen.getByLabelText("Body").setAttribute("value", "World");
-    screen.getByRole("button", { name: "Save" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(async () => expect(await db.query("posts")).toHaveLength(1));
     expect((await db.query<{ title: string }>("posts"))[0].title).toBe("Hello");
@@ -342,9 +412,10 @@ describe("AdminResourceForm", () => {
     wrap(<AdminResourceForm definition={posts} persistence={db} onSaved={vi.fn()} />);
 
     await screen.findByLabelText("Title");
-    screen.getByRole("button", { name: "Save" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findAllByText("This field is required.")).not.toHaveLength(0);
+    // Exactly one: `not.toHaveLength(0)` would also pass if the message were duplicated.
+    expect(await screen.findAllByText("This field is required.")).toHaveLength(1);
     expect(await db.query("posts")).toEqual([]);
   });
 
@@ -353,7 +424,7 @@ describe("AdminResourceForm", () => {
     wrap(<AdminResourceForm definition={posts} persistence={db} />);
 
     await screen.findByLabelText("Title");
-    screen.getByRole("button", { name: "Save" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(screen.getByLabelText("Title")).toHaveAttribute("aria-invalid", "true"));
   });
@@ -373,10 +444,65 @@ describe("AdminResourceForm", () => {
 
     wrap(<AdminResourceForm definition={posts} persistence={db} id={created.id} onSaved={onSaved} />);
     await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("Before"));
-    screen.getByRole("button", { name: "Save" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(await db.query("posts")).toHaveLength(1);
+  });
+
+  it("announces loading rather than claiming the record does not exist", async () => {
+    // titiz's finding: the first version answered "not found" from the first paint, before the
+    // read had a chance to say anything. That is a claim nothing supports yet.
+    // The promise exists before the first render, so the resolver is valid immediately: the
+    // effect does not call read until the read permission has resolved.
+    let release: (value: unknown) => void = () => {};
+    const pending = new Promise((resolve) => { release = resolve; });
+    const slow: AdminPersistenceAdapter = { ...createMemoryPersistenceAdapter(), read: vi.fn(() => pending) };
+    wrap(<AdminResourceForm definition={posts} persistence={slow} id="p1" />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading...");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("That record no longer exists.")).not.toBeInTheDocument();
+
+    release({ id: "p1", title: "Eventually" });
+    expect(await screen.findByLabelText("Title")).toHaveValue("Eventually");
+  });
+
+  it("clears a field's error once the visitor fixes it, without another submit", async () => {
+    // titiz's finding: the invalid set was written on submit and never revised, so a corrected
+    // field stayed marked and the form looked broken after being fixed.
+    const db = createMemoryPersistenceAdapter();
+    wrap(<AdminResourceForm definition={posts} persistence={db} />);
+
+    const title = await screen.findByLabelText("Title");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(title).toHaveAttribute("aria-invalid", "true"));
+
+    title.setAttribute("value", "Hello");
+    fireEvent.input(title);
+    await waitFor(() => expect(title).not.toHaveAttribute("aria-invalid"));
+  });
+
+  it("goes back to loading when the id changes, rather than showing the previous record", async () => {
+    // The stored read is keyed by the id it came from, so a new one cannot briefly display the
+    // old record's values or claim the new one does not exist.
+    const db = createMemoryPersistenceAdapter();
+    await db.create("posts", { title: "First" });
+    await db.create("posts", { title: "Second" });
+    const { rerender } = wrap(<AdminResourceForm definition={posts} persistence={db} id="mem_1" />);
+    await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("First"));
+
+    rerender(
+      <AdminI18nProvider locale="en">
+        <AdminPermissionsProvider adapter={allowAll()}>
+          <AdminResourceForm definition={posts} persistence={db} id="mem_2" />
+        </AdminPermissionsProvider>
+      </AdminI18nProvider>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading...");
+    expect(screen.queryByText("That record no longer exists.")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("Second"));
   });
 
   it("reports a record that is not there rather than showing a blank form", async () => {
@@ -398,7 +524,7 @@ describe("AdminResourceForm", () => {
 
     // Title is required, so an empty submit would stop at validation and never reach the write.
     (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
-    screen.getByRole("button", { name: "Save" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("That change could not be saved.")).toBeInTheDocument();
     expect(onSaved).not.toHaveBeenCalled();
@@ -408,23 +534,25 @@ describe("AdminResourceForm", () => {
     // Checked in the handler as well as on the button, because a form can be submitted
     // without it, and a persisted write is not something a hidden button can undo.
     const db = createMemoryPersistenceAdapter();
-    const denied = { can: vi.fn(async () => false) };
-    wrap(<AdminResourceForm definition={posts} persistence={db} />, denied);
-
+    const existing = await db.create<{ id: string }>("posts", { title: "Before" });
+    // Read is granted, so the form renders; only the write is refused.
+    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.update") };
+    wrap(<AdminResourceForm definition={posts} persistence={db} id={existing.id} />, denied);
     (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
     // No button to click, so the submit is driven directly.
     const form = screen.getByLabelText("Title").closest("form");
     await act(async () => {
-      form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      if (form) fireEvent.submit(form);
     });
 
     expect(await screen.findByText("You do not have access to this.")).toBeInTheDocument();
-    expect(await db.query("posts")).toEqual([]);
+    // The record is untouched, which is the point of refusing before the write.
+    expect(await db.query("posts")).toEqual([{ id: existing.id, title: "Before" }]);
   });
 
   it("offers no save control when the write permission is not held", async () => {
     const db = createMemoryPersistenceAdapter();
-    const denied = { can: vi.fn(async () => false) };
+    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.create") };
     wrap(<AdminResourceForm definition={posts} persistence={db} />, denied);
 
     await screen.findByLabelText("Title");
@@ -444,8 +572,42 @@ describe("AdminResourceForm", () => {
     wrap(<AdminResourceForm definition={open} persistence={db} />);
 
     (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
-    screen.getByRole("button", { name: "Save" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(async () => expect(await db.query("notes")).toHaveLength(1));
+  });
+
+  it("never reads a record when the read permission is refused", async () => {
+    const base = createMemoryPersistenceAdapter();
+    const existing = await base.create<{ id: string }>("posts", { title: "Secret" });
+    const read = vi.fn((resource: string, id: string) => base.read(resource, id));
+    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
+
+    wrap(<AdminResourceForm definition={posts} persistence={{ ...base, read }} id={existing.id} />, denied);
+
+    expect(await screen.findByText("You do not have access to this.")).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+  });
+
+  it("does not refuse an early submit while the permission is still being checked", async () => {
+    // Pressing Enter on a focused field is the ordinary way to submit early, and answering
+    // "no access" for a permission that has not been decided yet is a guess.
+    const db = createMemoryPersistenceAdapter();
+    let allow: (value: boolean) => void = () => {};
+    const pending = new Promise<boolean>((resolve) => { allow = resolve; });
+    const slow = { can: vi.fn(() => pending) };
+    wrap(<AdminResourceForm definition={posts} persistence={db} />, slow);
+
+    const title = await screen.findByLabelText("Title");
+    title.setAttribute("value", "Hello");
+    const form = title.closest("form");
+    if (form) fireEvent.submit(form);
+
+    // No refusal while it is still checking.
+    expect(screen.queryByText("You do not have access to this.")).not.toBeInTheDocument();
+
+    allow(true);
+    await waitFor(async () => expect(await db.query("posts")).toHaveLength(1));
   });
 
   it("uses a field's own control when it declares one", async () => {
