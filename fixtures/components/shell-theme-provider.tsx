@@ -30,6 +30,8 @@ function readSnapshot(): ShellThemeSnapshot {
   const saved = window.localStorage.getItem(storageKey);
   const theme: ShellThemePreference =
     saved === "light" || saved === "dark" || saved === "system" ? saved : "light";
+  // Not cached at module scope on purpose: a cached MediaQueryList would go stale when a
+  // host or a test swaps window.matchMedia, which the theme tests rely on.
   const systemTheme: "light" | "dark" = window.matchMedia(darkQuery).matches ? "dark" : "light";
   // useSyncExternalStore requires a stable reference between calls.
   if (snapshot.theme === theme && snapshot.systemTheme === systemTheme) return snapshot;
@@ -47,6 +49,8 @@ function notify() {
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
+  // Resolved per subscription rather than cached at module scope, so a host or a test that
+  // swaps window.matchMedia is honored.
   const media = window.matchMedia(darkQuery);
   const handleMediaChange = () => notify();
   const handleStorage = (event: StorageEvent) => {
