@@ -89,7 +89,7 @@ export function AdminMediaPicker({
   open: boolean;
   title: string;
 }) {
-  const [items, setItems] = useState(initialItems);
+  const [adapterItems, setAdapterItems] = useState(initialItems);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<AdminMediaSort>("date-desc");
   const [showUpload, setShowUpload] = useState(false);
@@ -110,14 +110,19 @@ export function AdminMediaPicker({
 
   useEffect(() => {
     initialItemsRef.current = initialItems;
-    if (!adapter) {
-      setItems(initialItems);
-    }
-  }, [adapter, initialItems]);
+  }, [initialItems]);
+
+  // Without an adapter the prop is the source of truth, so it is derived rather than
+  // mirrored into state. A per-render default array would re-seed state every commit.
+  const items = adapter ? adapterItems : initialItems;
+  const isLoading = loading;
 
   const loadItems = useCallback(
     async (search: string, cursor?: string) => {
       if (!adapter) {
+        // Advance the counter so an in-flight request from a previous adapter cannot
+        // commit stale paging state after the adapter is dropped.
+        requestIdRef.current += 1;
         return;
       }
 
@@ -142,14 +147,14 @@ export function AdminMediaPicker({
         if (requestId !== requestIdRef.current) {
           return;
         }
-        setItems((current) => (cursor ? mergeItems(current, resultItems) : resultItems));
+        setAdapterItems((current) => (cursor ? mergeItems(current, resultItems) : resultItems));
         setNextCursor(result.nextCursor);
         setTotal(result.total);
       } catch {
         if (requestId !== requestIdRef.current) {
           return;
         }
-        setItems((current) => (cursor ? current : initialItemsRef.current));
+        setAdapterItems((current) => (cursor ? current : initialItemsRef.current));
         setNextCursor(undefined);
         setLoadError(loadErrorLabel);
       } finally {
@@ -161,6 +166,10 @@ export function AdminMediaPicker({
     [adapter, allowedKinds, loadErrorLabel, resolvedPageSize, source],
   );
 
+  // This effect owns the dialog's data lifecycle: it cancels in-flight work on close and
+  // fetches on open. The rule reads the loader's state writes as synchronous, but deriving
+  // "a load started" from render state instead broke retry, title changes, and paging.
+  /* eslint-disable react-hooks/set-state-in-effect -- external data fetch lifecycle */
   useEffect(() => {
     if (!open) {
       requestIdRef.current += 1;
@@ -169,19 +178,23 @@ export function AdminMediaPicker({
     }
     void loadItems(query);
   }, [loadItems, open, query]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  useEffect(() => {
-    if (!open) {
-      return;
+  // A new session is identified by the props, so the reset is applied in the same render
+  // rather than a commit later, where children would briefly see the previous session.
+  const [session, setSession] = useState({ open, title });
+  if (session.open !== open || session.title !== title) {
+    setSession({ open, title });
+    if (open) {
+      setQuery("");
+      setSort("date-desc");
+      setSelectedPath(undefined);
+      setShowUpload(false);
+      setNextCursor(undefined);
+      setTotal(undefined);
+      setLoadError(undefined);
     }
-    setQuery("");
-    setSort("date-desc");
-    setSelectedPath(undefined);
-    setShowUpload(false);
-    setNextCursor(undefined);
-    setTotal(undefined);
-    setLoadError(undefined);
-  }, [open, title]);
+  }
 
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase(resolvedLocale);
@@ -246,15 +259,15 @@ export function AdminMediaPicker({
               labels={mergedLabels}
               onUploaded={(item) => {
                 if (matchesAllowedKinds(item, allowedKinds)) {
-                  setItems((current) => [item, ...current]);
+                  setAdapterItems((current) => [item, ...current]);
                 }
               }}
             />
           </div>
         ) : null}
-        <div className="p-5 sm:px-7" aria-busy={loading}>
+        <div className="p-5 sm:px-7" aria-busy={isLoading}>
           {loadError ? <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><span>{loadError}</span><Button type="button" variant="outline" onClick={() => void loadItems(query)}>{mergedLabels.retry}</Button></div> : null}
-          {loading && !items.length ? (
+          {isLoading && !items.length ? (
             <p role="status" className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-5 py-14 text-center text-sm text-zinc-500">
               {mergedLabels.loading}
             </p>
@@ -323,7 +336,7 @@ export function AdminMediaPicker({
         </AdminModalBody>
         <AdminModalFooter className="items-center justify-between border-t border-zinc-200 bg-admin-surface px-5 py-3 sm:px-7">
           <p className="text-sm font-medium text-zinc-600" aria-live="polite">{filteredItems.length} {mergedLabels.results}{typeof total === "number" ? ` · ${total} ${mergedLabels.total}` : ""}</p>
-          {nextCursor && !loading ? <Button type="button" variant="outline" onClick={() => void loadItems(query, nextCursor)}>{mergedLabels.loadMore}</Button> : null}
+          {nextCursor && !isLoading ? <Button type="button" variant="outline" onClick={() => void loadItems(query, nextCursor)}>{mergedLabels.loadMore}</Button> : null}
         </AdminModalFooter>
       </AdminModalContent>
     </AdminModal>

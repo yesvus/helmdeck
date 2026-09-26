@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link.js";
 import { usePathname } from "next/navigation.js";
@@ -86,16 +86,36 @@ export function AdminShell({
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
+  // Writing to the local ref is fine. A host callback is invoked directly, because
+  // calling a prop function is not a mutation, and that keeps it correct across remounts.
+  // The ref-object form cannot be assigned from a closure, so React performs the write.
   const setContentScrollRef = useCallback(
     (element: HTMLDivElement | null) => {
       internalContentScrollRef.current = element;
-      if (typeof contentScrollRef === "function") {
-        contentScrollRef(element);
-      } else if (contentScrollRef) {
-        contentScrollRef.current = element;
+      if (typeof contentScrollRef !== "function") {
+        return;
       }
+      // React 19 lets a callback ref return a cleanup, which runs on detach instead of a
+      // second call with null. The host owns that contract, so it is passed straight
+      // through rather than flattened into a null call.
+      const cleanup = contentScrollRef(element);
+      if (typeof cleanup === "function") {
+        return () => {
+          internalContentScrollRef.current = null;
+          cleanup();
+        };
+      }
+      return undefined;
     },
     [contentScrollRef],
+  );
+
+  // React tracks the ref argument itself, so an empty dependency list still re-runs when
+  // the host swaps to a different ref object.
+  useImperativeHandle(
+    typeof contentScrollRef === "function" ? undefined : contentScrollRef,
+    () => internalContentScrollRef.current as HTMLDivElement,
+    [],
   );
 
   useEffect(() => {

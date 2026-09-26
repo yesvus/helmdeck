@@ -33,11 +33,20 @@ export function AdminI18nProvider({
 }) {
   const [adapterInterfaceLocale, setAdapterInterfaceLocale] = useState<string | null>(null);
   const [contentLocale, setContentLocaleState] = useState("");
+  const [boundAdapter, setBoundAdapter] = useState(localeAdapter);
 
-  useEffect(() => {
+  // Dropping the adapter invalidates whatever it resolved. That is a prop change, so it is
+  // applied in render rather than in a post-paint effect write.
+  if (boundAdapter !== localeAdapter) {
+    setBoundAdapter(localeAdapter);
     if (!localeAdapter) {
       setAdapterInterfaceLocale(null);
       setContentLocaleState("");
+    }
+  }
+
+  useEffect(() => {
+    if (!localeAdapter) {
       return;
     }
     let active = true;

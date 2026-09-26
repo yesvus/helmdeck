@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { cloneElement, createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { cloneElement, createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../cn.js";
 
@@ -11,6 +11,10 @@ type TooltipOptions = { side?: Side; align?: Align; sideOffset?: number; alignOf
 const TooltipContext = createContext<{ delay: number }>({ delay: 0 });
 const useSafeLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
+const subscribeToNothing = () => () => {};
+const isClient = () => true;
+const isServer = () => false;
+
 export function TooltipProvider({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
   return <TooltipContext.Provider value={{ delay }}>{children}</TooltipContext.Provider>;
 }
@@ -18,13 +22,18 @@ export function TooltipProvider({ children, delay = 0 }: { children: ReactNode; 
 export function Tooltip({ children, content, label, className, ...options }: TooltipOptions & { children: ReactElement; content: ReactNode; label?: string; className?: string }) {
   const provider = useContext(TooltipContext);
   const id = useId();
-  const triggerRef = useRef<HTMLElement>(null);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointer = useRef(false);
   const clickOpen = useRef(false);
-  const [mounted, setMounted] = useState(false);
+  // Mount state is a client/server question, not something to copy into state from an
+  // effect. The constant snapshot keeps the server markup and the hydration render equal.
+  const mounted = useSyncExternalStore(subscribeToNothing, isClient, isServer);
   const [open, setOpen] = useState(false);
+
+  // Only ever called from effects and event handlers, never during render.
+  const getTriggerNode = () => wrapperRef.current?.firstElementChild ?? null;
   const [position, setPosition] = useState<{ popup: CSSProperties; arrow: CSSProperties }>({ popup: {}, arrow: {} });
   const show = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -37,7 +46,6 @@ export function Tooltip({ children, content, label, className, ...options }: Too
   };
 
   useEffect(() => {
-    setMounted(true);
     const resetPointer = () => { pointer.current = false; };
     document.addEventListener("pointerup", resetPointer);
     return () => {
@@ -50,7 +58,7 @@ export function Tooltip({ children, content, label, className, ...options }: Too
     if (!open) return;
     const dismiss = (event: Event) => {
       if (event.type === "keydown" && (event as KeyboardEvent).key === "Escape") close(true);
-      if (event.type === "pointerdown" && !triggerRef.current?.contains(event.target as Node) && !contentRef.current?.contains(event.target as Node)) close(true);
+      if (event.type === "pointerdown" && !getTriggerNode()?.contains(event.target as Node) && !contentRef.current?.contains(event.target as Node)) close(true);
     };
     document.addEventListener("keydown", dismiss);
     document.addEventListener("pointerdown", dismiss);
@@ -61,15 +69,15 @@ export function Tooltip({ children, content, label, className, ...options }: Too
   }, [open]);
 
   useSafeLayoutEffect(() => {
-    if (!mounted || !open || !triggerRef.current || !contentRef.current) return;
+    if (!mounted || !open || !getTriggerNode() || !contentRef.current) return;
     const side = options.side ?? "bottom";
     const align = options.align ?? "center";
     const gap = options.sideOffset ?? 8;
     const shift = options.alignOffset ?? 0;
     const horizontal = side === "top" || side === "bottom";
     const updatePosition = () => {
-      if (!triggerRef.current || !contentRef.current) return;
-      const anchor = triggerRef.current.getBoundingClientRect();
+      if (!getTriggerNode() || !contentRef.current) return;
+      const anchor = getTriggerNode()!.getBoundingClientRect();
       const popup = contentRef.current.getBoundingClientRect();
       let left = horizontal ? anchor.left + (align === "start" ? 0 : align === "end" ? anchor.width - popup.width : (anchor.width - popup.width) / 2) + shift : side === "right" ? anchor.right + gap : anchor.left - popup.width - gap;
       let top = horizontal ? side === "bottom" ? anchor.bottom + gap : anchor.top - popup.height - gap : anchor.top + (align === "start" ? 0 : align === "end" ? anchor.height - popup.height : (anchor.height - popup.height) / 2) + shift;
@@ -92,8 +100,12 @@ export function Tooltip({ children, content, label, className, ...options }: Too
   }, [mounted, open, options.align, options.alignOffset, options.side, options.sideOffset]);
 
   const childProps = children.props as Record<string, unknown>;
+  // The cloned handlers below read and write the pointer, click, and timer refs. That is
+  // the intended use of a ref: bookkeeping that must not trigger a render. The rule flags
+  // any ref captured by a function passed during render, which would require moving this
+  // bookkeeping into state and re-rendering on every pointer move.
+  // eslint-disable-next-line react-hooks/refs -- event handlers only, never read during render
   const trigger = cloneElement(children, {
-    ref: triggerRef,
     "aria-label": label ?? childProps["aria-label"],
     "aria-describedby": [childProps["aria-describedby"], id].filter(Boolean).join(" "),
     "aria-expanded": open,
@@ -108,7 +120,7 @@ export function Tooltip({ children, content, label, className, ...options }: Too
       (childProps.onClick as ((event: React.MouseEvent<HTMLElement>) => void) | undefined)?.(event);
       event.stopPropagation();
       if (event.defaultPrevented) return;
-      if (triggerRef.current?.closest("label")) event.preventDefault();
+      if (getTriggerNode()?.closest("label")) event.preventDefault();
       if (timer.current) clearTimeout(timer.current);
       clickOpen.current = !clickOpen.current;
       if (clickOpen.current && !open) setPosition({ popup: {}, arrow: {} });
@@ -124,8 +136,8 @@ export function Tooltip({ children, content, label, className, ...options }: Too
     },
   } as never);
 
-  return <span className={cn("relative inline-flex shrink-0 align-middle", className)} onPointerEnter={() => { if (!pointer.current) show(); }} onPointerLeave={() => { if (document.activeElement !== triggerRef.current) close(); }}>
+  return <span ref={wrapperRef} className={cn("relative inline-flex shrink-0 align-middle", className)} onPointerEnter={() => { if (!pointer.current) show(); }} onPointerLeave={() => { if (document.activeElement !== getTriggerNode()) close(); }}>
     {trigger}
-    {mounted && createPortal(<div ref={contentRef} id={id} role="tooltip" data-side={options.side ?? "bottom"} data-align={options.align ?? "center"} hidden={!open} style={{ ...position.popup, visibility: open && position.popup.position === "fixed" ? "visible" : "hidden" }} onPointerEnter={() => { if (timer.current) clearTimeout(timer.current); }} onPointerLeave={() => { if (document.activeElement !== triggerRef.current) close(); }} className={cn("z-[100] w-max max-w-64 rounded-md bg-zinc-950 px-3 py-2 text-xs font-normal leading-5 text-white shadow-lg motion-reduce:transition-none", open && "animate-in fade-in-0 duration-100")}><span className="absolute size-2 rotate-45 bg-zinc-950" style={position.arrow} aria-hidden="true" />{content}</div>, document.body)}
+    {mounted && createPortal(<div ref={contentRef} id={id} role="tooltip" data-side={options.side ?? "bottom"} data-align={options.align ?? "center"} hidden={!open} style={{ ...position.popup, visibility: open && position.popup.position === "fixed" ? "visible" : "hidden" }} onPointerEnter={() => { if (timer.current) clearTimeout(timer.current); }} onPointerLeave={() => { if (document.activeElement !== getTriggerNode()) close(); }} className={cn("z-[100] w-max max-w-64 rounded-md bg-zinc-950 px-3 py-2 text-xs font-normal leading-5 text-white shadow-lg motion-reduce:transition-none", open && "animate-in fade-in-0 duration-100")}><span className="absolute size-2 rotate-45 bg-zinc-950" style={position.arrow} aria-hidden="true" />{content}</div>, document.body)}
   </span>;
 }

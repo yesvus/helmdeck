@@ -123,11 +123,16 @@ function AdminUrlFeedbackToast({
     assetTitle: i18n.form.assetTitle,
     ...labels,
   };
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissedSignature, setDismissedSignature] = useState<string | null>(null);
   const feedbackKey = searchParams?.get(queryKeys.feedback) ?? "";
   const isError = (status ?? searchParams?.get(queryKeys.status)) === "error";
   const activeMessage = message ?? searchParams?.get(queryKeys.message) ?? undefined;
   const activeAssetUrl = assetUrl ?? searchParams?.get(queryKeys.assetUrl) ?? undefined;
+  // Signed on the pre-dismiss values, so dismissing cannot clear its own signature and
+  // the toast cannot reappear. JSON keeps the fields unambiguous even if one contains the
+  // separator.
+  const feedbackSignature = JSON.stringify([feedbackKey, activeMessage ?? "", activeAssetUrl ?? ""]);
+  const dismissed = dismissedSignature === feedbackSignature;
   const visibleMessage = dismissed ? undefined : activeMessage;
   const visibleAssetUrl = dismissed ? undefined : activeAssetUrl;
 
@@ -136,14 +141,14 @@ function AdminUrlFeedbackToast({
       onDismiss();
       return;
     }
-    setDismissed(true);
-  }, [onDismiss]);
+    setDismissedSignature(feedbackSignature);
+  }, [feedbackSignature, onDismiss]);
 
-  // Resets only when the underlying content changes. Depending on the post-dismiss
-  // values would clear the flag that just hid the toast and bring it straight back.
-  useEffect(() => {
-    setDismissed(false);
-  }, [activeAssetUrl, activeMessage, feedbackKey]);
+  // New content is a render-time fact, so the stale signature is dropped in the same pass
+  // instead of after a commit that would render nothing.
+  if (dismissedSignature !== null && dismissedSignature !== feedbackSignature) {
+    setDismissedSignature(null);
+  }
 
   useEffect(() => {
     if (!visibleMessage && !visibleAssetUrl) {

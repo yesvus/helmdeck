@@ -171,4 +171,33 @@ describe("host locale adapter", () => {
       "/admin?locale=en",
     );
   });
+
+  it("drops the resolved content locale when the adapter stops mapping hrefs", async () => {
+    function HrefProbe() {
+      const toHref = useAdminHref();
+      return <a href={toHref("/admin/urunler")}>probe</a>;
+    }
+
+    const { rerender } = render(
+      <LocaleAdapter adapter={adapter()}>
+        <HrefProbe />
+      </LocaleAdapter>,
+    );
+
+    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
+      "href",
+      "/admin/urunler?locale=en",
+    );
+
+    rerender(
+      <LocaleAdapter adapter={adapter({ toHref: undefined })}>
+        <HrefProbe />
+      </LocaleAdapter>,
+    );
+
+    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
+      "href",
+      "/admin/urunler",
+    );
+  });
 });
