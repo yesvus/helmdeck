@@ -19,6 +19,11 @@ export type AdminLocaleAdapter = {
   getInterfaceLocale: () => string | Promise<string>;
   getContentLocale: () => string | Promise<string>;
   setContentLocale?: (locale: string) => void | Promise<void>;
+  /**
+   * Maps a shell href onto the content locale. Hosts encode content locale in
+   * their own URL shape, so the shell asks instead of assuming a parameter name.
+   */
+  toHref?: (href: string, contentLocale: string) => string;
 };
 
 export type AdminAuditEvent = {

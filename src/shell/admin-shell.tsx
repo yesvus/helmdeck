@@ -21,7 +21,7 @@ import type { AdminShellLabels } from "./labels.js";
 import { mergeAdminLabels } from "./labels.js";
 import { useAdminBranding } from "../theme/branding.js";
 import { useBreadcrumbs } from "./use-breadcrumbs.js";
-import { useAdminMessages } from "../i18n.js";
+import { useAdminHref, useAdminMessages } from "../i18n.js";
 
 export function AdminShell({
   nav,
@@ -63,6 +63,7 @@ export function AdminShell({
   const pathname = usePathname();
   const shouldReduceMotion = useReducedMotion();
   const i18n = useAdminMessages();
+  const toHref = useAdminHref();
   const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...labels });
   const resolvedSearchNormalize = useCallback(
     (value: string) =>
@@ -80,8 +81,8 @@ export function AdminShell({
   );
   const trail = useBreadcrumbs(nav);
   const pageTitle = currentPageTitle ?? trail?.item.label;
-  const resolvedProfileHref = profileHref ?? `${homeHref}/profile`;
-  const brandHref = brand?.href ?? homeHref;
+  const resolvedProfileHref = toHref(profileHref ?? `${homeHref}/profile`);
+  const brandHref = toHref(brand?.href ?? homeHref);
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
 

@@ -153,6 +153,33 @@ export function GermanAdminProvider({ children }: { children: React.ReactNode })
 
 A server layout can import and render `GermanAdminProvider`; it should not call `defineAdminMessages` directly in the server module.
 
+### Interface locale and content locale
+
+Hosts that edit content in more than one language keep the two apart: the interface language a maintainer reads, and the content language being edited. Pass a `localeAdapter` and the shell resolves both, independent of each other:
+
+```tsx
+"use client";
+
+import { AdminI18nProvider, type AdminLocaleAdapter } from "@yesvus/helmdeck";
+
+const adapter: AdminLocaleAdapter = {
+  getInterfaceLocale: () => "tr",
+  getContentLocale: () => "en",
+  setContentLocale: (locale) => router.push(`?locale=${locale}`),
+  toHref: (href, contentLocale) => `${href}?locale=${contentLocale}`,
+};
+
+export function AdminLocaleProvider({ children }: { children: React.ReactNode }) {
+  return <AdminI18nProvider localeAdapter={adapter}>{children}</AdminI18nProvider>;
+}
+```
+
+- `getInterfaceLocale` selects the interface dictionary and still falls back to Turkish.
+- `getContentLocale` and `setContentLocale` are read and written through `useAdminContentLocale()`, so a host can render its own content-language control.
+- `toHref` is how the host states its own URL shape. The shell applies it to sidebar and mobile navigation, breadcrumbs, the brand link, and the profile link, so content locale survives navigation. Omit it and every href is left untouched.
+
+Getters may return promises; the provider resolves them after first paint. The fixture at `/locale` runs a Turkish interface with an English content locale.
+
 ## Media adapters
 
 The package does not choose a storage provider. Implement `AdminMediaAdapter` for the host's list, upload, external-link, rename, and delete operations, then pass it to `AdminMediaUpload`, `AdminMediaPicker`, `AdminMediaField`, or `AdminMediaGalleryField`.

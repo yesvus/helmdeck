@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+pnpm version:check
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm test:release
+pnpm build:fixtures
+pnpm audit --prod
