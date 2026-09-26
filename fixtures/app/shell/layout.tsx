@@ -28,7 +28,7 @@ function ThemeSelector() {
 
 export default function ShellLayout({ children }: { children: ReactNode }) {
   const [role, setRole] = useState("editor");
-  const [accent, setAccent] = useState("#048b8c");
+  const [accent, setAccent] = useState("#b45309");
   const [logoutMessage, setLogoutMessage] = useState("");
 
   return (

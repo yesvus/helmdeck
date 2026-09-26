@@ -20,7 +20,7 @@ describe("fixture theme controls", () => {
   it("retains dark mode after remounting the theme editor", async () => {
     const user = userEvent.setup();
     const firstMount = renderControls();
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("light"));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("system"));
     await user.selectOptions(screen.getByRole("combobox", { name: "Color mode" }), "dark");
     await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("dark"));
     expect(document.documentElement.dataset.adminTheme).toBe("dark");
@@ -32,6 +32,48 @@ describe("fixture theme controls", () => {
       expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
       expect(document.documentElement.dataset.adminTheme).toBe("dark");
     });
+  });
+
+  it("defaults to system and follows the operating system before any explicit choice", async () => {
+    let matches = true;
+    const media = {
+      get matches() {
+        return matches;
+      },
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList;
+    vi.spyOn(window, "matchMedia").mockReturnValue(media);
+
+    renderControls();
+
+    // No stored preference, so the selector sits on System rather than Light.
+    expect(await screen.findByRole("combobox", { name: "Color mode" })).toHaveValue("system");
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("dark"));
+    // Nothing is written until the visitor chooses, so the default is not persisted.
+    expect(window.localStorage.getItem("helmdeck-demo-theme")).toBeNull();
+
+    matches = false;
+    act(() => {
+      (window.matchMedia("(prefers-color-scheme: dark)") as unknown as {
+        addEventListener: (t: string, l: () => void) => void;
+      }).addEventListener.mock.calls[0]?.[1]?.();
+    });
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
+  });
+
+  it("keeps an explicit choice across a remount", async () => {
+    const user = userEvent.setup();
+    const first = renderControls();
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("system"));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Color mode" }), "light");
+    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("light"));
+
+    first.unmount();
+    renderControls();
+
+    // An explicit Light must win over the System default on the next mount.
+    expect(await screen.findByRole("combobox", { name: "Color mode" })).toHaveValue("light");
   });
 
   it("follows the system preference and updates when it changes", async () => {
@@ -66,7 +108,7 @@ describe("fixture theme controls", () => {
     const user = userEvent.setup();
     render(<ThemePage />);
     const mode = screen.getByRole("combobox", { name: "Color mode" });
-    await waitFor(() => expect(mode).toHaveValue("light"));
+    await waitFor(() => expect(mode).toHaveValue("system"));
     await user.selectOptions(mode, "system");
     await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("system"));
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValueOnce();

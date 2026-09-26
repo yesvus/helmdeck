@@ -38,7 +38,7 @@ function readStoredTheme(): string | null {
 function readSnapshot(): ShellThemeSnapshot {
   const saved = readStoredTheme();
   const theme: ShellThemePreference =
-    saved === "light" || saved === "dark" || saved === "system" ? saved : "light";
+    saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
   // Not cached at module scope on purpose: a cached MediaQueryList would go stale when a
   // host or a test swaps window.matchMedia, which the theme tests rely on.
   const systemTheme: "light" | "dark" = window.matchMedia(darkQuery).matches ? "dark" : "light";
