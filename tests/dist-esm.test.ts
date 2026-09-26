@@ -31,17 +31,23 @@ describe("published package under Node ESM", () => {
 
     beforeAll(() => {
       buildDirectory = mkdtempSync(join(root, "node_modules", ".helmdeck-esm-"));
-      execFileSync(
-        process.execPath,
-        [
-          resolve(root, "node_modules", "typescript", "bin", "tsc"),
-          "-p",
-          "tsconfig.build.json",
-          "--outDir",
-          buildDirectory,
-        ],
-        { cwd: root, stdio: "ignore" },
-      );
+      try {
+        execFileSync(
+          process.execPath,
+          [
+            resolve(root, "node_modules", "typescript", "bin", "tsc"),
+            "-p",
+            "tsconfig.build.json",
+            "--outDir",
+            buildDirectory,
+          ],
+          { cwd: root, encoding: "utf8" },
+        );
+      } catch (error) {
+        const { stdout = "", stderr = "" } = error as { stdout?: string; stderr?: string };
+        rmSync(buildDirectory, { recursive: true, force: true });
+        throw new Error(`Package build failed for the ESM resolution check:\n${stdout}${stderr}`);
+      }
       copyFileSync(join(root, "src", "theme", "tokens.css"), join(buildDirectory, "theme", "tokens.css"));
     }, 120_000);
 

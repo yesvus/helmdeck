@@ -96,6 +96,8 @@ The published `dist` is ESM and imports `next/link.js` and `next/navigation.js` 
 Shell and form components call Next.js navigation hooks, so tests that render them need the App Router context. Mock the module the same way the host's own components are mocked:
 
 ```ts
+import { vi } from "vitest";
+
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/products",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
