@@ -119,7 +119,7 @@ export function AdminMediaField({
             type="button"
             onClick={() => setOpen(true)}
             className={cn(
-              "block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 text-left transition hover:border-zinc-400",
+              "block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left transition hover:border-zinc-400",
               !value && "border-dashed",
             )}
           >

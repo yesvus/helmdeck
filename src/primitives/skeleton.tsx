@@ -11,7 +11,7 @@ export function AdminContentSkeleton() {
     <div className="space-y-6">
       <div>
         <AdminSkeleton className="mb-2 h-3 w-24" />
-        <AdminSkeleton className="mb-2 h-7 w-48 bg-zinc-300" />
+        <AdminSkeleton className="mb-2 h-7 w-48 bg-admin-skeleton" />
         <AdminSkeleton className="h-4 w-80 bg-zinc-100" />
       </div>
 

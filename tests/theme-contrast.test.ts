@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 // The README states the rule this enforces: normal text at 4.5:1, large text and UI
@@ -17,9 +18,15 @@ import { describe, expect, it } from "vitest";
 //   - A value the parser cannot resolve yields NaN, and `NaN < 4.5` is false, so the pair
 //     passed without being measured. Unresolvable values now fail instead.
 //
-// Borders are measured and surfaced but not asserted. Both border tokens sit below the 3:1
-// the README sets for UI boundaries and form controls rely on them, so tightening them is a
-// palette change for a maintainer to decide rather than something to encode as acceptable.
+// Borders split by role. --admin-border-strong is asserted at 3:1 because every control
+// boundary resolves to it, and its ratio is measured from the palette. --admin-border is
+// decorative, so its ratio is recorded rather than asserted; darkening it enough to clear
+// 3:1 would make the two tokens indistinguishable and flatten the border hierarchy.
+//
+// Measuring a token proves nothing about whether a control is actually wired to it, so the
+// second half of this file reads the components and fails when an interactive element draws
+// its boundary from the decorative token. Both halves failed as a pair before: the palette
+// was asserted at 3:1 while seven controls still sat on the token at 1.26:1.
 const css = readFileSync(join(process.cwd(), "src/theme/tokens.css"), "utf8");
 
 type Palette = Record<string, Record<string, string>>;
@@ -134,10 +141,14 @@ const TEXT_PAIRS: Array<[string, string]> = [
   ["--admin-warning-text", "--admin-warning-surface"],
 ];
 
-const BOUNDARY_PAIRS: Array<[string, string]> = [
-  ["--admin-border", "--admin-surface"],
-  ["--admin-border-strong", "--admin-surface"],
-];
+// WCAG 1.4.11 asks for 3:1 on the boundaries of controls, since those identify an
+// interactive component. Every control border resolves to --admin-border-strong, so that is
+// the pair held to 3:1. --admin-border is for decorative separators, which identify nothing
+// and are measured but not asserted, because darkening them would flatten the border
+// hierarchy without improving accessibility.
+const CONTROL_BOUNDARY_PAIRS: Array<[string, string]> = [["--admin-border-strong", "--admin-surface"]];
+
+const DECORATIVE_BOUNDARY_PAIRS: Array<[string, string]> = [["--admin-border", "--admin-surface"]];
 
 type Measurement = { label: string; ratio: number };
 
@@ -187,29 +198,121 @@ describe("theme token contrast", () => {
     expect(failures).toEqual([]);
   });
 
-  it("resolves every declared pair in both themes, so the check above is not vacuous", () => {
+  it("meets 3:1 for the boundary that identifies a control", () => {
+    const failures: string[] = [];
+    const unresolved: string[] = [];
     for (const theme of ["light", "dark"]) {
-      const { measured, problems } = measure([...TEXT_PAIRS, ...BOUNDARY_PAIRS], theme);
-      expect(problems, theme).toEqual([]);
-      expect(measured.length, theme).toBe(TEXT_PAIRS.length + BOUNDARY_PAIRS.length);
+      const { measured, problems } = measure(CONTROL_BOUNDARY_PAIRS, theme);
+      unresolved.push(...problems);
+      // Raw ratio, not the formatted label: 2.996 must not round up and pass.
+      failures.push(...measured.filter((m) => m.ratio < 3).map((m) => `${m.label} = ${m.ratio.toFixed(3)}:1`));
     }
+    expect(unresolved).toEqual([]);
+    expect(failures).toEqual([]);
   });
 
-  it("surfaces the measured boundary contrast, which is below the documented 3:1", () => {
+  it("reports the decorative separator contrast, which is below 3:1 by design", () => {
     const report: string[] = [];
     for (const theme of ["light", "dark"]) {
-      const { measured, problems } = measure(BOUNDARY_PAIRS, theme);
+      const { measured, problems } = measure(DECORATIVE_BOUNDARY_PAIRS, theme);
       expect(problems, theme).toEqual([]);
       report.push(...measured.map((m) => `${m.label} = ${m.ratio.toFixed(2)}:1`));
     }
-    // Reported rather than asserted: both border tokens are under 3:1 in the light theme and
-    // form controls depend on them, so this is a maintainer's decision, not a fixed rule.
-    console.info(`boundary contrast (UI boundaries are documented at 3:1):\n  ${report.join("\n  ")}`);
-    expect(report.length).toBe(BOUNDARY_PAIRS.length * 2);
+    // Recorded rather than asserted. This token draws card edges and section rules, which
+    // identify no control, so WCAG 1.4.11 does not apply and darkening it to 3:1 would
+    // flatten the border hierarchy for no accessibility gain.
+    console.info(`decorative separator contrast (no 3:1 requirement):\n  ${report.join("\n  ")}`);
+    expect(report.length).toBe(DECORATIVE_BOUNDARY_PAIRS.length * 2);
+  });
+
+  it("resolves every declared pair in both themes, so the checks above are not vacuous", () => {
     for (const theme of ["light", "dark"]) {
-      for (const m of measure(BOUNDARY_PAIRS, theme).measured) {
-        expect(Number.isFinite(m.ratio), m.label).toBe(true);
-      }
+      const { measured, problems } = measure(
+        [...TEXT_PAIRS, ...CONTROL_BOUNDARY_PAIRS, ...DECORATIVE_BOUNDARY_PAIRS],
+        theme,
+      );
+      expect(problems, theme).toEqual([]);
+      expect(measured.length, theme).toBe(
+        TEXT_PAIRS.length + CONTROL_BOUNDARY_PAIRS.length + DECORATIVE_BOUNDARY_PAIRS.length,
+      );
     }
+  });
+});
+
+// Interactive elements, and our own components whose className is forwarded onto one. A border
+// class on any of these is the control's own boundary, so it has to be the strong token.
+const CONTROL_TAGS = new Set([
+  "button",
+  "input",
+  "textarea",
+  "select",
+  "summary",
+  "Button",
+  "AdminInput",
+  "AdminTextarea",
+  "AdminSelect",
+  "DialogPrimitive.Content",
+]);
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(full);
+    return entry.name.endsWith(".tsx") ? [full] : [];
+  });
+}
+
+/** Raw text of a className/class attribute, so string and cn() forms are both covered. */
+function classAttrText(el: ts.JsxOpeningElement | ts.JsxSelfClosingElement): string {
+  const attrs = el.attributes.properties.filter(ts.isJsxAttribute);
+  const attr = attrs.find((a) => a.name.text === "className" || a.name.text === "class");
+  if (!attr || !attr.initializer) return "";
+  if (ts.isStringLiteral(attr.initializer)) return attr.initializer.text;
+  return attr.initializer.getText();
+}
+
+describe("control boundaries are wired to the token that clears 3:1", () => {
+  const files = sourceFiles(join(process.cwd(), "src"));
+
+  it("scans the component tree rather than an empty or moved directory", () => {
+    // If src ever moved, every check below would match nothing and pass vacuously.
+    expect(files.length).toBeGreaterThan(10);
+  });
+
+  it("keeps every interactive element off the decorative border token", () => {
+    const offenders: string[] = [];
+    let inspected = 0;
+    for (const file of files) {
+      const text = readFileSync(file, "utf8");
+      const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+      const name = file.slice(process.cwd().length + 1);
+      const visit = (node: ts.Node): void => {
+        if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+          // At runtime JsxElement carries the tag on openingElement, not on itself.
+          const opening = ts.isJsxSelfClosingElement(node) ? node : node.openingElement;
+          const tag = opening.tagName.getText(source);
+          if (CONTROL_TAGS.has(tag)) {
+            inspected += 1;
+            const classes = classAttrText(opening);
+            if (/\bborder-zinc-200\b/.test(classes)) {
+              const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
+              offenders.push(`${name}:${line + 1} <${tag}> draws its boundary from --admin-border (1.26:1)`);
+            }
+          }
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(source);
+    }
+    expect(offenders, "route control boundaries to border-zinc-300 (--admin-border-strong)").toEqual([]);
+    // A parser that silently matched nothing would leave the assertion above trivially true.
+    expect(inspected, "no interactive elements were inspected").toBeGreaterThan(20);
+  });
+
+  it("still finds the decorative token on non-control elements", () => {
+    // The scan is only meaningful if the token is still in use somewhere: if every decorative
+    // site had been converted, the guard would be guarding nothing.
+    const hits = files.filter((file) => readFileSync(file, "utf8").includes("border-zinc-200"));
+    expect(hits.length).toBeGreaterThan(5);
   });
 });

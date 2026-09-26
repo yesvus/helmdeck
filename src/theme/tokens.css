@@ -7,6 +7,7 @@
   --color-admin-surface-subtle: var(--admin-surface-subtle);
   --color-admin-surface-muted: var(--admin-surface-muted);
   --color-admin-border: var(--admin-border);
+  --color-admin-skeleton: var(--admin-skeleton);
   --radius-admin-card: var(--admin-card-radius);
   --color-admin-overlay: var(--admin-overlay);
   --color-admin-media-backdrop: var(--admin-media-backdrop);
@@ -80,8 +81,19 @@
   --admin-surface-muted: #f5f5f4;
   --admin-surface-subtle: #fafaf9;
   --admin-card-radius: 0.875rem;
+  /* Decorative only: card edges, section rules, dividers. None of these identify a
+     control, so WCAG 1.4.11 does not apply and this stays light. Raising it to 3:1
+     would need #959392, which is indistinguishable from --admin-border-strong and would
+     flatten the border hierarchy for no accessibility gain. */
   --admin-border: #e7e5e4;
-  --admin-border-strong: #a8a29e;
+  /* 3.41:1 on --admin-surface. This is the token every control boundary must use: the
+     border on an input, button, toggle, drag handle or dialog. --admin-border is for
+     decoration, and routing a control to it is a bug that tests/theme-contrast.test.ts
+     fails on. */
+  --admin-border-strong: #908a86;
+  /* Loading placeholder fill. A dedicated token because the role is neither a border
+     nor a surface, and it must not shift when either of those is retuned. */
+  --admin-skeleton: #d6d3d1;
   --admin-text-primary: #1c1917;
   --admin-text-secondary: #44403c;
   --admin-text-muted: #57534e;
@@ -117,6 +129,7 @@
   --admin-card-radius: 0.875rem;
   --admin-border: #44403c;
   --admin-border-strong: #78716c;
+  --admin-skeleton: #44403c;
   --admin-text-primary: #fafaf9;
   --admin-text-secondary: #e7e5e4;
   --admin-text-muted: #d6d3d1;
