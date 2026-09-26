@@ -1,8 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
-import { ShellThemeProvider } from "../fixtures/components/shell-theme-provider";
+import { ShellThemeProvider, useShellTheme } from "../fixtures/components/shell-theme-provider";
 import ThemePage from "../fixtures/app/theme/page";
 
 afterEach(() => {
@@ -60,6 +62,44 @@ describe("fixture theme controls", () => {
       }).addEventListener.mock.calls[0]?.[1]?.();
     });
     await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
+  });
+
+  it("does not re-render after hydration when the server snapshot matches the default", async () => {
+    // useSyncExternalStore only consults getServerSnapshot under hydrateRoot, so a plain
+    // render cannot observe this at all. Hydrating the server markup shows the real cost of
+    // a mismatched snapshot: the client renders the stale server value before correcting,
+    // so the selector briefly reads Light on a machine that should say System.
+    const media = {
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList;
+    vi.spyOn(window, "matchMedia").mockReturnValue(media);
+
+    const renders: string[] = [];
+    function Probe() {
+      const { theme, resolvedTheme } = useShellTheme();
+      renders.push(`${theme}:${resolvedTheme}`);
+      return null;
+    }
+    const tree = (
+      <ShellThemeProvider>
+        <Probe />
+      </ShellThemeProvider>
+    );
+
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(tree);
+    document.body.append(container);
+    let root: ReturnType<typeof hydrateRoot>;
+    await act(async () => {
+      root = hydrateRoot(container, tree);
+    });
+
+    // Every render agrees. With an unaligned snapshot the first two read "light:light".
+    expect(renders.length).toBeGreaterThan(0);
+    expect(new Set(renders)).toEqual(new Set(["system:light"]));
+    await act(async () => root.unmount());
   });
 
   it("keeps an explicit choice across a remount", async () => {

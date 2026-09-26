@@ -22,7 +22,11 @@ type ShellThemeSnapshot = { theme: ShellThemePreference; systemTheme: "light" | 
 // through useSyncExternalStore rather than copied into state from an effect. Reading them
 // in a state initializer is not an option either, because these pages are server
 // rendered and a client-only initializer would break hydration.
-const serverSnapshot: ShellThemeSnapshot = { theme: "light", systemTheme: "light" };
+// Matches the client default so that, on a light-OS visitor with no stored preference,
+// readSnapshot returns this exact object and useSyncExternalStore does not re-render after
+// hydration. A dark-OS visitor still differs on systemTheme and re-renders, which is
+// unavoidable since a server cannot know the preference.
+const serverSnapshot: ShellThemeSnapshot = { theme: "system", systemTheme: "light" };
 const listeners = new Set<() => void>();
 let snapshot = serverSnapshot;
 
