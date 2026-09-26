@@ -2,9 +2,11 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
+import { AdminShell } from "../src/shell/admin-shell";
 import { AdminProfilePage } from "../src/shell/admin-profile-page";
 import { AdminSettingsPage } from "../src/shell/admin-settings-page";
 import type { AdminSession } from "../src/adapters/index";
+import { fireEvent } from "@testing-library/react";
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/profile",
@@ -247,5 +249,60 @@ describe("AdminSettingsPage", () => {
     renderPage("en", <AdminSettingsPage />);
 
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+  });
+});
+
+describe("the profile entry has a real destination by default", () => {
+  // The issue's criterion: with no profileHref supplied, the entry points at the shipped
+  // profile page rather than dropping. The default lives in AdminShell, so this renders the
+  // real shell rather than asserting on the resolution expression.
+  function openProfileMenu() {
+    render(
+      <AdminI18nProvider locale="en">
+        <AdminShell nav={[]} homeHref="/admin" session={session} onLogout={vi.fn()} showTopbar={false}>
+          <p>content</p>
+        </AdminShell>
+      </AdminI18nProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Profile menu" }));
+  }
+
+  it("points the menu entry at the documented profile route", () => {
+    openProfileMenu();
+
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/admin/profile");
+  });
+
+  it("lets a host override the route without losing the entry", () => {
+    render(
+      <AdminI18nProvider locale="en">
+        <AdminShell
+          nav={[]}
+          homeHref="/admin"
+          profileHref="/admin/me"
+          session={session}
+          onLogout={vi.fn()}
+          showTopbar={false}
+        >
+          <p>content</p>
+        </AdminShell>
+      </AdminI18nProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Profile menu" }));
+
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/admin/me");
+  });
+
+  it("follows the shell's homeHref when the admin is mounted somewhere else", () => {
+    render(
+      <AdminI18nProvider locale="en">
+        <AdminShell nav={[]} homeHref="/backoffice" session={session} onLogout={vi.fn()} showTopbar={false}>
+          <p>content</p>
+        </AdminShell>
+      </AdminI18nProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Profile menu" }));
+
+    expect(screen.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/backoffice/profile");
   });
 });
