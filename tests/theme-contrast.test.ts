@@ -273,9 +273,11 @@ function classAttrText(el: ts.JsxOpeningElement | ts.JsxSelfClosingElement): str
 
 describe("control boundaries are wired to the token that clears 3:1", () => {
   const files = sourceFiles(join(process.cwd(), "src"));
-  // If src ever moves or stops parsing, the scan would match nothing and the guard below would
-  // pass while checking zero controls, so the file count is asserted first.
-  expect(files.length).toBeGreaterThan(10);
+
+  it("scans the component tree rather than an empty or moved directory", () => {
+    // If src ever moved, every check below would match nothing and pass vacuously.
+    expect(files.length).toBeGreaterThan(10);
+  });
 
   it("keeps every interactive element off the decorative border token", () => {
     const offenders: string[] = [];
