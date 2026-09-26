@@ -89,6 +89,26 @@ export function AdminLayout({
 }
 ```
 
+### Search params and static rendering
+
+`AdminUrlFeedback` and `AdminManagedForm` read the query string, which opts them into dynamic rendering. On a statically generated page, wrap either one in a `<Suspense>` boundary:
+
+```tsx
+<Suspense fallback={null}>
+  <AdminUrlFeedback />
+</Suspense>
+```
+
+Without a boundary, the build fails and the component raises an error naming itself and the two ways to resolve it. Give the form's boundary a fallback that matches the form's own layout so nothing shifts on first paint, or opt the page out of static rendering with `export const dynamic = "force-dynamic"`.
+
+`AdminUrlFeedback` can also be used with no boundary at all by supplying both `message` and `assetUrl`, which takes a path that reads nothing from the URL:
+
+```tsx
+<AdminUrlFeedback message="Saved" assetUrl="/uploads/chair.png" />
+```
+
+On that path the toast dismisses itself after `durationMs` instead of clearing query parameters. Because nothing is read from the URL, pass `status` to control the tone, since it would otherwise come from the `status` query parameter. Supplying only one of `message` and `assetUrl` still reads the query string for the other, so the boundary remains required.
+
 ### Testing against the package
 
 The published `dist` is ESM and imports `next/link.js` and `next/navigation.js` with explicit extensions, so the barrel resolves under plain Node ESM. Importing `@yesvus/helmdeck` from a Node-environment test runner needs no extra configuration.

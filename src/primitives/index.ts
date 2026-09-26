@@ -77,3 +77,4 @@ export { AdminToastCard, AdminToastViewport } from "./toast.js";
 export type { AdminToastTone } from "./toast.js";
 export { AdminUrlFeedback } from "./url-feedback.js";
 export type { AdminUrlFeedbackLabels, AdminUrlFeedbackQueryKeys } from "./url-feedback.js";
+export { useAdminSearchParams } from "./use-admin-search-params.js";

@@ -13,8 +13,9 @@ import {
   type ReactNode,
 } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
+import { usePathname, useRouter } from "next/navigation.js";
 import { AdminToastCard, AdminToastViewport } from "./toast.js";
+import { useAdminSearchParams } from "./use-admin-search-params.js";
 import {
   defaultAdminManagedFormFeedbackLabels,
   type AdminManagedFormFeedbackLabels,
@@ -106,6 +107,13 @@ function restoreAutosavedFields(
   }
 }
 
+/**
+ * Tracks dirty state, autosave, and post-submission feedback for a form.
+ *
+ * Requires a `<Suspense>` boundary when the page is statically generated, because this
+ * component reads search params to scope the autosave key. Give the boundary a fallback
+ * that matches the form's own layout to avoid a visible shift.
+ */
 export function AdminManagedForm({
   action,
   autosaveKey,
@@ -128,7 +136,7 @@ export function AdminManagedForm({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = useAdminSearchParams("AdminManagedForm");
   const resolvedAutosaveKey = autosaveKey?.({ pathname, searchParams }) ?? null;
   const autosaveStorageKey = resolvedAutosaveKey
     ? `${autosaveStoragePrefix}:${resolvedAutosaveKey}`
