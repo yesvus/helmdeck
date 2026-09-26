@@ -135,7 +135,7 @@ export function AdminSearch({
                 key={`${entry.href}:${entry.label}`}
                 href={entry.href}
                 onClick={() => setQuery("")}
-                className="block border-b border-zinc-100 px-3 py-2.5 last:border-0 hover:bg-brand-100"
+                className="block border-b border-zinc-100 px-3 py-2.5 last:border-0 hover:bg-admin-surface-muted"
               >
                 <span className="block text-sm font-semibold text-zinc-900">{entry.label}</span>
                 {entry.group ? (

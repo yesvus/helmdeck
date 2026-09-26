@@ -249,7 +249,7 @@ export default function PrimitivesPage() {
               <AdminSortableCard
                 key={item}
                 id={item}
-                className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2"
+                className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-admin-surface px-3 py-2"
               >
                 <AdminDragHandle label={text.reorder(item)} />
                 <span className="min-w-0 flex-1 truncate text-sm text-zinc-700">{item}</span>
