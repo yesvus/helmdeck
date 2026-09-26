@@ -75,7 +75,13 @@ describe("AdminContextualHelp", () => {
     );
 
     expect(screen.getByText("Card content").closest("details")).toBeNull();
-    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    // Assert the placement, not just that the action renders: it belongs to the header
+    // row that also holds the title, not to the body below the border.
+    const action = screen.getByRole("button", { name: "Save" });
+    const header = action.parentElement!.parentElement!;
+    expect(header).toContainElement(screen.getByText("Identity"));
+    expect(header).toHaveClass("border-b");
+    expect(screen.getByText("Card content")).not.toContainElement(action);
   });
 
   it("does not activate an implicit field label when its help trigger is clicked", async () => {

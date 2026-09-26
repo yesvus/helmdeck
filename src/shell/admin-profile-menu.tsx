@@ -24,6 +24,11 @@ export function AdminProfileMenu({
   viewSiteHref?: string | null;
   onLogout?: () => void | Promise<void>;
   labels?: Partial<AdminShellLabels>;
+  /**
+   * Content appended below the menu's own links. The popup only closes on an outside
+   * click, on Escape, or from its own items, and clicks inside this slot count as
+   * inside, so a host embedding a link or button here has to route the user itself.
+   */
   menuExtra?: ReactNode;
 }) {
   const shell = useAdminShell();

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link.js";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { AdminShell } from "@yesvus/helmdeck";
 import { sampleNav, sampleSession } from "../../nav";
@@ -40,8 +41,8 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         viewSiteHref="/"
         profileHref="/shell/profile"
         onLogout={() => setLogoutMessage("Demo sign-out confirmed. Your account session remains managed by the host application.")}
-        topbarExtra={logoutMessage ? <span role="status" className="max-w-56 text-xs text-zinc-600">{logoutMessage}</span> : null}
-        profileMenuExtra={<ThemeSelector />}
+        topbarExtra={<><ThemeSelector />{logoutMessage ? <span role="status" className="max-w-56 text-xs text-zinc-600">{logoutMessage}</span> : null}</>}
+        profileMenuExtra={<Link className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50" href="/shell/settings/site">Site settings</Link>}
         brand={{
           label: "Northstar Supply",
           accent,

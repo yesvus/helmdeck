@@ -149,10 +149,11 @@ export function AdminFormCard({
     "overflow-hidden rounded-xl border border-admin-border",
     accent === "muted" ? "border-dashed bg-admin-surface-subtle" : "bg-admin-surface",
   );
-  const headerClassName =
-    "flex min-w-0 items-center justify-between gap-4 border-b border-admin-border bg-admin-surface-subtle px-4 py-3.5";
+  // The row lays the title and chevron out; the surface belongs to the summary or the
+  // wrapper, so a collapsible card does not get padding and a border applied twice.
+  const headerSurfaceClassName = "border-b border-admin-border bg-admin-surface-subtle px-4 py-3.5";
   const header = (
-    <div className={cn(collapsible ? headerClassName : undefined)}>
+    <div className="flex min-w-0 items-center justify-between gap-4">
       <div className="min-w-0">
         <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm font-semibold text-zinc-900"><span>{title}</span>{subtitle ? <AdminContextualHelp label={`Help: ${title}`}>{subtitle}</AdminContextualHelp> : null}</p>
       </div>
@@ -170,7 +171,7 @@ export function AdminFormCard({
   if (collapsible) {
     return (
       <details open={defaultOpen} className={cn("group", cardClassName)}>
-        <summary className={cn("cursor-pointer list-none", headerClassName)}>{header}</summary>
+        <summary className={cn("cursor-pointer list-none", headerSurfaceClassName)}>{header}</summary>
         <div className="p-4">
           {action ? <div className="mb-4 flex justify-end">{action}</div> : null}
           {children}
@@ -181,7 +182,7 @@ export function AdminFormCard({
 
   return (
     <div className={cardClassName}>
-      <div className={headerClassName}>
+      <div className={cn("flex items-center justify-between gap-4", headerSurfaceClassName)}>
         {header}
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>

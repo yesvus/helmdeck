@@ -71,7 +71,7 @@ export function AdminModalContent({
 }
 
 export function AdminModalHeader({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("-mx-6 -mt-6 flex shrink-0 flex-col gap-2 border-b border-admin-border bg-admin-surface-subtle px-6 py-4 pr-14 text-left", className)} {...props} />;
+  return <div className={cn("flex shrink-0 flex-col gap-2 border-b border-admin-border bg-admin-surface-subtle text-left", className)} {...props} />;
 }
 
 export function AdminModalBody({ className, ...props }: ComponentProps<"div">) {
@@ -81,7 +81,7 @@ export function AdminModalBody({ className, ...props }: ComponentProps<"div">) {
 export function AdminModalFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
-      className={cn("-mx-6 -mb-6 mt-2 flex shrink-0 flex-col-reverse gap-2 border-t border-admin-border bg-admin-surface-subtle px-6 py-4 sm:flex-row sm:justify-end", className)}
+      className={cn("flex shrink-0 flex-col-reverse gap-2 border-t border-admin-border bg-admin-surface-subtle sm:flex-row sm:justify-end", className)}
       {...props}
     />
   );
