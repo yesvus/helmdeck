@@ -28,22 +28,21 @@ runs:
           echo "::warning::Checked-out commit has no .nvmrc, falling back to Node ${{ inputs.fallback-node }}."
           printf '%s\n' '${{ inputs.fallback-node }}' > .nvmrc
         fi
-        state="$(node -p "try { const m = require('./package.json'); const pm = m.packageManager ?? ''; const de = m.devEngines?.packageManager; (pm.startsWith('pnpm@') || (de?.name === 'pnpm' && de.version)) ? 'declared' : 'missing' } catch { 'missing' }")"
-        if [ "$state" = "missing" ]; then
-          echo "::warning::Checked-out commit declares no pnpm version, falling back to ${{ inputs.fallback-pnpm }}."
-          echo "pnpm=${{ inputs.fallback-pnpm }}" >> "$GITHUB_OUTPUT"
-        else
+        # grep rather than node: this runs before actions/setup-node, so a runner without
+        # Node on PATH would fail on a command-not-found under set -e.
+        if grep -qE '"packageManager"[[:space:]]*:[[:space:]]*"pnpm@' package.json 2>/dev/null \
+          || grep -qE '"devEngines"[[:space:]]*:' package.json 2>/dev/null; then
           # Empty makes the action resolve packageManager and devEngines itself, in its
           # own priority order. Only a commit predating both fields needs the fallback.
-          echo "pnpm=" >> "$GITHUB_OUTPUT"
+          echo "version=" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::Checked-out commit declares no pnpm version, falling back to ${{ inputs.fallback-pnpm }}."
+          echo "version=${{ inputs.fallback-pnpm }}" >> "$GITHUB_OUTPUT"
         fi
 
     - uses: pnpm/action-setup@v6
       with:
-        # Left empty whenever the commit declares a version, so the action resolves
-        # packageManager and devEngines in its own priority order. Only commits that
-        # predate both fields need the fallback.
-        version: ${{ steps.toolchain.outputs.pnpm }}
+        version: ${{ steps.toolchain.outputs.version }}
 
     - uses: actions/setup-node@v7
       with:

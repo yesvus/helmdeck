@@ -40,7 +40,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.cindral_ref || github.ref }}
-      - uses: ./.github/actions/setup-toolchain
+      # The $/ prefix resolves the action at the workflow's own commit. A plain ./
+      # path would resolve inside the checked-out cindral_ref workspace, where this
+      # action does not exist for older refs.
+      - uses: $/.github/actions/setup-toolchain
       - run: pnpm install --frozen-lockfile
       - run: ./scripts/ci
 
@@ -52,7 +55,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.cindral_ref || github.ref }}
-      - uses: ./.github/actions/setup-toolchain
+      # The $/ prefix resolves the action at the workflow's own commit. A plain ./
+      # path would resolve inside the checked-out cindral_ref workspace, where this
+      # action does not exist for older refs.
+      - uses: $/.github/actions/setup-toolchain
       - run: pnpm install --frozen-lockfile
       - run: ./scripts/ci
 
@@ -64,7 +70,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.cindral_ref || github.ref }}
-      - uses: ./.github/actions/setup-toolchain
+      # The $/ prefix resolves the action at the workflow's own commit. A plain ./
+      # path would resolve inside the checked-out cindral_ref workspace, where this
+      # action does not exist for older refs.
+      - uses: $/.github/actions/setup-toolchain
       - run: pnpm install --frozen-lockfile
       - run: ./scripts/ci
 
@@ -76,6 +85,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.cindral_ref || github.ref }}
-      - uses: ./.github/actions/setup-toolchain
+      # The $/ prefix resolves the action at the workflow's own commit. A plain ./
+      # path would resolve inside the checked-out cindral_ref workspace, where this
+      # action does not exist for older refs.
+      - uses: $/.github/actions/setup-toolchain
       - run: pnpm install --frozen-lockfile
       - run: ./scripts/ci
