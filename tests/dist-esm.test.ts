@@ -2,6 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "..");
@@ -49,8 +50,8 @@ describe("published package under Node ESM", () => {
     });
 
     it("resolves the package barrel without a bundler", () => {
-      const entry = join(buildDirectory, "index.js");
-      const script = `const m = await import(${JSON.stringify(`file://${entry}`)});`
+      const entry = pathToFileURL(join(buildDirectory, "index.js")).href;
+      const script = `const m = await import(${JSON.stringify(entry)});`
         + "process.stdout.write(m.defaultAdminLocale);";
 
       expect(execFileSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8" })).toBe("tr");
