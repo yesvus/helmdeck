@@ -118,6 +118,9 @@ export const turkishAdminMessages: AdminMessages = {
     loginPassword: "Şifre",
     loginSubmit: "Giriş yapın",
     loginBack: "Siteye dönün",
+    authChecking: "Oturumunuz denetleniyor.",
+    authRedirecting: "Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.",
+    authSignInLink: "Giriş sayfasına gidin",
   },
   media: {
     ...defaultAdminMediaLabels,

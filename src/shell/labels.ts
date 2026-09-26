@@ -18,6 +18,9 @@ export type AdminShellLabels = {
   loginPassword: string;
   loginSubmit: string;
   loginBack: string;
+  authChecking: string;
+  authRedirecting: string;
+  authSignInLink: string;
 };
 
 export const defaultAdminLabels: AdminShellLabels = {
@@ -39,6 +42,9 @@ export const defaultAdminLabels: AdminShellLabels = {
   loginPassword: "Password",
   loginSubmit: "Sign in",
   loginBack: "Back to site",
+  authChecking: "Checking your session.",
+  authRedirecting: "You need to sign in to view this page.",
+  authSignInLink: "Go to sign in",
 };
 
 export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): AdminShellLabels {
