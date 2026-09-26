@@ -37,6 +37,7 @@ export function AdminShell({
   viewSiteHref = "/",
   onLogout,
   contentScrollRef,
+  profileMenuExtra,
   showTopbar = true,
   topbarExtra,
   sidebarExtra,
@@ -55,6 +56,7 @@ export function AdminShell({
   viewSiteHref?: string;
   onLogout?: () => void | Promise<void>;
   contentScrollRef?: Ref<HTMLDivElement>;
+  profileMenuExtra?: ReactNode;
   showTopbar?: boolean;
   topbarExtra?: ReactNode;
   sidebarExtra?: ReactNode;
@@ -259,7 +261,7 @@ export function AdminShell({
             ) : null}
 
             {session ? (
-              <AdminProfileMenu email={session.email} compact={collapsed} />
+              <AdminProfileMenu email={session.email} compact={collapsed} menuExtra={profileMenuExtra} />
             ) : null}
           </div>
         </aside>

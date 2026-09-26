@@ -40,7 +40,8 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
         viewSiteHref="/"
         profileHref="/shell/profile"
         onLogout={() => setLogoutMessage("Demo sign-out confirmed. Your account session remains managed by the host application.")}
-        topbarExtra={<><ThemeSelector />{logoutMessage ? <span role="status" className="max-w-56 text-xs text-zinc-600">{logoutMessage}</span> : null}</>}
+        topbarExtra={logoutMessage ? <span role="status" className="max-w-56 text-xs text-zinc-600">{logoutMessage}</span> : null}
+        profileMenuExtra={<ThemeSelector />}
         brand={{
           label: "Northstar Supply",
           accent,

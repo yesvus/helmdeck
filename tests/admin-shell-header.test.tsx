@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AdminShell } from "../src/shell/admin-shell";
 import { AdminPageHeader } from "../src/shell/admin-page-header";
@@ -27,6 +28,19 @@ describe("persistent shell page context", () => {
 
     expect(screen.queryByRole("heading", { name: "Duplicate catalog title" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+  });
+
+  it("renders profileMenuExtra inside the profile menu", async () => {
+    const user = userEvent.setup();
+    render(
+      <AdminShell nav={nav} session={{ email: "ops@example.com" }} profileMenuExtra={<button type="button">Theme</button>}>
+        <div>Page content</div>
+      </AdminShell>,
+    );
+
+    // The trigger label is localized, so find it by the session email it displays.
+    await user.click(screen.getByText("ops@example.com").closest("button")!);
+    expect(screen.getByRole("button", { name: "Theme" })).toBeInTheDocument();
   });
 
   it("populates a ref object for the scroll region", () => {

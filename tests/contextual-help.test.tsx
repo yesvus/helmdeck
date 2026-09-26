@@ -50,7 +50,7 @@ describe("AdminContextualHelp", () => {
         <AdminFormSection title="Details" description="Section guidance">
           Section content
         </AdminFormSection>
-        <AdminFormCard title="Identity" subtitle="Card guidance" collapsible>
+        <AdminFormCard title="Identity" subtitle="Card guidance" collapsible action={<button type="button">Actions</button>}>
           Card content
         </AdminFormCard>
       </>,
@@ -60,10 +60,22 @@ describe("AdminContextualHelp", () => {
     const cardDetails = screen.getByText("Card content").closest("details");
     expect(sectionDetails).toHaveAttribute("open");
     expect(cardDetails).toHaveAttribute("open");
+    expect(screen.getByRole("button", { name: "Actions" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Help: Details" }));
     await user.click(screen.getByRole("button", { name: "Help: Identity" }));
     expect(sectionDetails).toHaveAttribute("open");
     expect(cardDetails).toHaveAttribute("open");
+  });
+
+  it("renders a card action beside the title when the card is not collapsible", () => {
+    render(
+      <AdminFormCard title="Identity" action={<button type="button">Save</button>}>
+        Card content
+      </AdminFormCard>,
+    );
+
+    expect(screen.getByText("Card content").closest("details")).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
   it("does not activate an implicit field label when its help trigger is clicked", async () => {

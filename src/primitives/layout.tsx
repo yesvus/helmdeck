@@ -132,6 +132,7 @@ export function AdminFormCard({
   title,
   subtitle,
   children,
+  action,
   accent = "default",
   collapsible = false,
   defaultOpen = true,
@@ -139,16 +140,19 @@ export function AdminFormCard({
   title: string;
   subtitle?: string;
   children: ReactNode;
+  action?: ReactNode;
   accent?: "default" | "muted";
   collapsible?: boolean;
   defaultOpen?: boolean;
 }) {
   const cardClassName = cn(
-    "rounded-lg border border-admin-border p-4",
+    "overflow-hidden rounded-xl border border-admin-border",
     accent === "muted" ? "border-dashed bg-admin-surface-subtle" : "bg-admin-surface",
   );
+  const headerClassName =
+    "flex min-w-0 items-center justify-between gap-4 border-b border-admin-border bg-admin-surface-subtle px-4 py-3.5";
   const header = (
-    <div className={cn(collapsible && "flex items-start justify-between gap-4")}>
+    <div className={cn(collapsible ? headerClassName : undefined)}>
       <div className="min-w-0">
         <p className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm font-semibold text-zinc-900"><span>{title}</span>{subtitle ? <AdminContextualHelp label={`Help: ${title}`}>{subtitle}</AdminContextualHelp> : null}</p>
       </div>
@@ -166,16 +170,22 @@ export function AdminFormCard({
   if (collapsible) {
     return (
       <details open={defaultOpen} className={cn("group", cardClassName)}>
-        <summary className="cursor-pointer list-none">{header}</summary>
-        <div className="mt-4">{children}</div>
+        <summary className={cn("cursor-pointer list-none", headerClassName)}>{header}</summary>
+        <div className="p-4">
+          {action ? <div className="mb-4 flex justify-end">{action}</div> : null}
+          {children}
+        </div>
       </details>
     );
   }
 
   return (
     <div className={cardClassName}>
-      <div className="mb-4">{header}</div>
-      {children}
+      <div className={headerClassName}>
+        {header}
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+      <div className="p-4">{children}</div>
     </div>
   );
 }

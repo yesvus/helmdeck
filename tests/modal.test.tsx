@@ -39,8 +39,9 @@ describe("AdminModalContent", () => {
     );
     const dialog = await screen.findByRole("dialog", { name: "Long form" });
     expect(dialog.firstElementChild).toHaveClass("shrink-0");
+    expect(dialog.firstElementChild).toHaveClass("border-b", "bg-admin-surface-subtle");
     expect(screen.getByTestId("modal-body")).toHaveClass("min-h-0", "flex-1", "overflow-y-auto");
-    expect(screen.getByTestId("modal-footer")).toHaveClass("shrink-0", "flex-col-reverse", "sm:flex-row");
+    expect(screen.getByTestId("modal-footer")).toHaveClass("shrink-0", "flex-col-reverse", "sm:flex-row", "border-t", "bg-admin-surface-subtle");
     expect(dialog).toHaveClass("max-h-[min(90dvh,56rem)]");
   });
 
