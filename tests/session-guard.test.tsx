@@ -69,7 +69,14 @@ function SessionActions() {
         do refresh
       </button>
       <span data-testid="refresh-error">{refreshError}</span>
-      <button type="button" onClick={() => void login({ email: "ada@example.com", password: "hunter2" })}>
+      <button
+        type="button"
+        onClick={() => {
+          void login({ email: "ada@example.com", password: "hunter2" }).catch((cause: unknown) => {
+            setRefreshError(cause instanceof Error ? cause.message : String(cause));
+          });
+        }}
+      >
         do sign in
       </button>
       <button type="button" onClick={() => void logout()}>
@@ -258,6 +265,55 @@ describe("AdminAuthProvider", () => {
     });
 
     expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none");
+  });
+
+  it("does not strand the status when a sign-in is attempted while the read is pending", async () => {
+    // cubic's case: the sign-in retires the in-flight read, then itself fails, and with
+    // nothing left able to report a session the guard sat on "checking" indefinitely.
+    let release: (value: AdminSession | null) => void = () => {};
+    const auth = adapter({
+      getSession: () => new Promise<AdminSession | null>((resolve) => { release = resolve; }),
+      login: vi.fn().mockRejectedValue(new Error("identity provider unreachable")),
+    });
+    render(
+      <AdminAuthProvider adapter={auth}>
+        <StatusProbe />
+        <SessionActions />
+      </AdminAuthProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "do sign in" }).click();
+    });
+    // The read is still live, so the failed sign-in must not have retired it.
+    await act(async () => {
+      release(null);
+    });
+
+    expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none");
+  });
+
+  it("lets the live read report a failure when a sign-in was attempted and failed", async () => {
+    let reject: (cause: unknown) => void = () => {};
+    const auth = adapter({
+      getSession: () => new Promise<AdminSession | null>((_resolve, cause) => { reject = cause; }),
+      login: vi.fn().mockRejectedValue(new Error("identity provider unreachable")),
+    });
+    render(
+      <AdminAuthProvider adapter={auth}>
+        <StatusProbe />
+        <SessionActions />
+      </AdminAuthProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "do sign in" }).click();
+    });
+    await act(async () => {
+      reject(new Error("session endpoint down"));
+    });
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("error:none"));
   });
 
   it("re-reads and applies a changed session on refresh", async () => {

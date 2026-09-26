@@ -119,10 +119,10 @@ export function AdminAuthProvider({
 
   const login = useCallback(
     async (credentials: AdminLoginCredentials) => {
-      decided.current += 1;
       const result = await adapter.login(credentials);
       // A failed sign-in must not leave a stale session behind, and a successful one has
       // to be reflected immediately rather than waiting for the next getSession.
+      decided.current += 1;
       if (result.ok) {
         setError(null);
         setSession(result.session);
@@ -138,8 +138,8 @@ export function AdminAuthProvider({
   );
 
   const logout = useCallback(async () => {
-    decided.current += 1;
     await adapter.logout();
+    decided.current += 1;
     setError(null);
     setSession(null);
     setStatus("anonymous");
