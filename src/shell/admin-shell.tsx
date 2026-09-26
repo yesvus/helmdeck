@@ -151,7 +151,7 @@ export function AdminShell({
         className="flex h-[100dvh] flex-col overflow-hidden bg-zinc-50 text-zinc-900 print:h-auto print:min-h-0 print:overflow-visible dark:bg-zinc-950 dark:text-zinc-100"
         style={sidebarStyle}
       >
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition dark:border-zinc-800-[width] duration-300 ease-in-out motion-reduce:transition-none lg:block print:hidden">
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-300 ease-in-out motion-reduce:transition-none dark:border-zinc-800 lg:block print:hidden">
           <div className="flex h-full flex-col">
             <div
               className={cn(
