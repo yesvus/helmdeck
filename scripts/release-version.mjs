@@ -9,6 +9,10 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packagePath = resolve(root, "package.json");
 const versionPath = resolve(root, "VERSION");
+const readmePath = resolve(root, "README.md");
+// The install snippet is the only place a consumer finds the artifact URL, so it is
+// rewritten with the release instead of left for a human to remember on release day.
+const installUrlPattern = /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/releases\/download\/v[^/\s]+\/[^/\s]+\.tgz/g;
 const semverIdentifier = "(?:0|[1-9]\\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)";
 const semverPattern = new RegExp(
   `^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(${semverIdentifier}(?:\\.${semverIdentifier})*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`,
@@ -47,7 +51,37 @@ function readState() {
     fail(`Version drift: VERSION is ${version}, package.json is ${packageJson.version}`);
   }
 
+  const readme = readFileSync(readmePath, "utf8");
+  if (!installVersions(readme).includes(version)) {
+    fail(`README install command does not point at v${version}. Run: pnpm version:bump <type>`);
+  }
+
   return { tag, version, packageJson };
+}
+
+function installVersions(readme) {
+  return [...readme.matchAll(installUrlPattern)].map((match) => versionInUrl(match[0]));
+}
+
+// Keeps the owner, repository, and asset naming already in the README and moves only the
+// version, so the documented URL shape stays owned by the README itself. The artifact
+// filename repeats the version, so the download tag and the filename move together.
+export function rewriteInstallUrls(readme, version) {
+  return readme.replace(installUrlPattern, (raw) => {
+    const current = versionInUrl(raw);
+    if (!current) {
+      return raw;
+    }
+    return raw
+      .split(`v${current}/`)
+      .join(`v${version}/`)
+      .split(`-${current}.tgz`)
+      .join(`-${version}.tgz`);
+  });
+}
+
+function versionInUrl(url) {
+  return /\/download\/v([^/]+)\//.exec(url)?.[1] ?? "";
 }
 
 function formatTag({ major, minor, patch, prerelease }) {
@@ -139,9 +173,16 @@ function writeTag(tag) {
   }
 
   const { packageJson } = readState();
-  packageJson.version = tag.slice(1);
+  const version = tag.slice(1);
+  packageJson.version = version;
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
   writeFileSync(versionPath, `${tag}\n`);
+
+  const readme = readFileSync(readmePath, "utf8");
+  if (installVersions(readme).length === 0) {
+    fail("README has no release download URL to update");
+  }
+  writeFileSync(readmePath, rewriteInstallUrls(readme, version));
 }
 
 export function main(args = process.argv.slice(2)) {
