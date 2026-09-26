@@ -16,6 +16,11 @@ updates:
       # covers dependencies and optionalDependencies, so every package here is classified
       # development and a production group would silently match nothing. The excluded
       # names keep each dependency in exactly one group.
+      #
+      # The toolchain is split out because these packages move in majors that break each
+      # other. Keeping them in one group makes that coupling visible in a single diff,
+      # and keeping them out of the routine group means a blocked major, such as
+      # TypeScript 7 waiting on typescript-eslint, does not hold up unrelated updates.
       peer-ranges:
         patterns:
           - "@dnd-kit/*"
@@ -26,18 +31,34 @@ updates:
           - react
           - react-dom
           - tailwindcss
-      build-tooling:
+      toolchain:
+        patterns:
+          - "@eslint/*"
+          - "@types/node"
+          - eslint
+          - eslint-plugin-react-hooks
+          - globals
+          - typescript
+          - typescript-eslint
+      routine:
         patterns:
           - "*"
         exclude-patterns:
           - "@dnd-kit/*"
+          - "@eslint/*"
           - "@radix-ui/*"
+          - "@types/node"
+          - eslint
+          - eslint-plugin-react-hooks
+          - globals
           - lucide-react
           - motion
           - next
           - react
           - react-dom
           - tailwindcss
+          - typescript
+          - typescript-eslint
     labels:
       - dependencies
 
