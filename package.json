@@ -87,7 +87,7 @@
     "eslint-plugin-react-hooks": "^5",
     "globals": "^15",
     "jsdom": "^30.1.1",
-    "lucide-react": "^0.575",
+    "lucide-react": "^1.47",
     "motion": "^13.4.2",
     "next": "^16",
     "playwright": "^1.63.0",
