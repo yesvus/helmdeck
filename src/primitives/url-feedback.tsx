@@ -34,6 +34,7 @@ type AdminUrlFeedbackProps = {
   labels?: Partial<AdminUrlFeedbackLabels>;
   message?: string;
   assetUrl?: string;
+  status?: "success" | "error";
   queryKeys?: Partial<AdminUrlFeedbackQueryKeys>;
 };
 
@@ -42,7 +43,9 @@ type AdminUrlFeedbackProps = {
  *
  * When the page is statically generated this needs a `<Suspense>` boundary, because the
  * query path reads search params. Supplying both `message` and `assetUrl` takes a path
- * that reads nothing from the URL, so the boundary is not needed there.
+ * that reads nothing from the URL, so the boundary is not needed there. That path also
+ * needs `status` to render anything other than a success tone, since the tone otherwise
+ * comes from the query string.
  */
 export function AdminUrlFeedback(props: AdminUrlFeedbackProps) {
   if (props.message !== undefined && props.assetUrl !== undefined) {
@@ -52,6 +55,7 @@ export function AdminUrlFeedback(props: AdminUrlFeedbackProps) {
         labels={props.labels}
         message={props.message}
         assetUrl={props.assetUrl}
+        status={props.status}
         searchParams={null}
         onDismiss={null}
       />
@@ -66,6 +70,7 @@ function AdminUrlFeedbackFromQuery({
   labels,
   message,
   assetUrl,
+  status,
   queryKeys = defaultAdminUrlFeedbackQueryKeys,
 }: AdminUrlFeedbackProps) {
   const pathname = usePathname();
@@ -89,6 +94,7 @@ function AdminUrlFeedbackFromQuery({
       labels={labels}
       message={message}
       assetUrl={assetUrl}
+      status={status}
       searchParams={searchParams}
       queryKeys={resolvedQueryKeys}
       onDismiss={clearFeedback}
@@ -101,6 +107,7 @@ function AdminUrlFeedbackToast({
   labels,
   message,
   assetUrl,
+  status,
   searchParams,
   queryKeys = defaultAdminUrlFeedbackQueryKeys,
   onDismiss,
@@ -118,7 +125,7 @@ function AdminUrlFeedbackToast({
   };
   const [dismissed, setDismissed] = useState(false);
   const feedbackKey = searchParams?.get(queryKeys.feedback) ?? "";
-  const isError = searchParams?.get(queryKeys.status) === "error";
+  const isError = (status ?? searchParams?.get(queryKeys.status)) === "error";
   const activeMessage = message ?? searchParams?.get(queryKeys.message) ?? undefined;
   const activeAssetUrl = assetUrl ?? searchParams?.get(queryKeys.assetUrl) ?? undefined;
   const visibleMessage = dismissed ? undefined : activeMessage;

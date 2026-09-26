@@ -52,6 +52,21 @@ describe("components that read search params", () => {
     expect(() => render(<AdminUrlFeedback assetUrl="/logo.svg" />)).toThrow(/AdminUrlFeedback/);
   });
 
+  it("renders an error tone from the status prop without a boundary", () => {
+    withoutSearchParams();
+    render(
+      <AdminUrlFeedback
+        message="Could not save"
+        assetUrl="/logo.svg"
+        status="error"
+        labels={{ errorTitle: "Save failed" }}
+      />,
+    );
+
+    expect(screen.getByText("Save failed")).toBeInTheDocument();
+    expect(screen.getByText("Could not save")).toBeInTheDocument();
+  });
+
   it("prefers supplied values over the query string", () => {
     navigation.params = new URLSearchParams("message=FromQuery&assetUrl=/from-query.svg");
     render(<AdminUrlFeedback message="FromProps" assetUrl="/from-props.svg" />);

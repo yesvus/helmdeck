@@ -107,7 +107,7 @@ Without a boundary, the build fails and the component raises an error naming its
 <AdminUrlFeedback message="Saved" assetUrl="/uploads/chair.png" />
 ```
 
-On that path the toast dismisses itself after `durationMs` instead of clearing query parameters. Supplying only one of the two still reads the query string for the other, so the boundary remains required.
+On that path the toast dismisses itself after `durationMs` instead of clearing query parameters. Because nothing is read from the URL, pass `status` to control the tone, since it would otherwise come from the `status` query parameter. Supplying only one of `message` and `assetUrl` still reads the query string for the other, so the boundary remains required.
 
 ### Testing against the package
 
