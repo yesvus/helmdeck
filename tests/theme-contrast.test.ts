@@ -8,35 +8,110 @@ import { describe, expect, it } from "vitest";
 // drift from the palette, and so a theme edit that breaks text contrast fails here rather
 // than in a browser.
 //
-// Borders are measured too, but only reported. Both border tokens sit below the 3:1 the
-// README sets for UI boundaries, and form controls rely on them, so tightening them is a
-// palette change for a maintainer to decide rather than something to assert either way.
+// Two failure modes this deliberately refuses to tolerate, both of which produced a green
+// run that measured nothing:
+//
+//   - A pairing whose token is missing or renamed is skipped. A deleted token falls back to
+//     nothing in the browser while the test still passed, so every declared pair must be
+//     resolvable or this fails.
+//   - A value the parser cannot resolve yields NaN, and `NaN < 4.5` is false, so the pair
+//     passed without being measured. Unresolvable values now fail instead.
+//
+// Borders are measured and surfaced but not asserted. Both border tokens sit below the 3:1
+// the README sets for UI boundaries and form controls rely on them, so tightening them is a
+// palette change for a maintainer to decide rather than something to encode as acceptable.
 const css = readFileSync(join(process.cwd(), "src/theme/tokens.css"), "utf8");
 
 type Palette = Record<string, Record<string, string>>;
 
+/**
+ * The cascade is `:root, [data-admin-theme="light"]` followed by a dark block that only
+ * overrides, so dark inherits every token it does not restate. Each theme is therefore the
+ * light values with that theme's own declarations layered on top.
+ */
 function palettes(): Palette {
-  const found: Palette = {};
-  for (const block of css.matchAll(/(\[data-admin-theme="(\w+)"\]|:root)\s*\{([^}]*)\}/g)) {
-    const values = Object.fromEntries(
-      [...block[3].matchAll(/(--admin-[a-z0-9-]+):\s*(#[0-9a-fA-F]{3,8})/g)].map((m) => [m[1], m[2]]),
-    );
-    if (Object.keys(values).length > 0) found[block[2] ?? "root"] = values;
+  const blocks: Record<string, Record<string, string>> = {};
+  const order: string[] = [];
+  for (const block of css.matchAll(/(:root\s*,\s*\[data-admin-theme="light"\]|\[data-admin-theme="(\w+)"\])\s*\{([^}]*)\}/g)) {
+    const theme = block[2] ?? "light";
+    if (!blocks[theme]) {
+      order.push(theme);
+      blocks[theme] = {};
+    }
+    for (const decl of block[3].matchAll(/(--admin-[a-z0-9-]+):\s*([^;]+);/g)) {
+      blocks[theme][decl[1]] = decl[2].trim();
+    }
   }
-  return found;
+  const base = blocks.light ?? {};
+  const resolved: Palette = { light: { ...base } };
+  for (const theme of order) {
+    if (theme === "light") continue;
+    resolved[theme] = { ...base, ...blocks[theme] };
+  }
+  return resolved;
 }
 
-function luminance(hex: string): number {
-  let value = hex.replace("#", "");
-  if (value.length === 3) value = [...value].map((c) => c + c).join("");
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(value.slice(i, i + 2), 16) / 255);
-  const linear = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+/** Only 3- and 6-digit hex are understood. Anything else is reported, not guessed at. */
+function parseHex(value: string): [number, number, number] | null {
+  const hex = value.trim().toLowerCase();
+  if (!/^#[0-9a-f]{3}$|^#[0-9a-f]{6}$/.test(hex)) return null;
+  const full = hex.length === 4 ? [...hex.slice(1)].map((c) => c + c).join("") : hex.slice(1);
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
 }
 
-function contrast(a: string, b: string): number {
-  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p);
-  return (x + 0.05) / (y + 0.05);
+const NAMED: Record<string, [number, number, number]> = {
+  black: [0, 0, 0],
+  white: [255, 255, 255],
+};
+
+/**
+ * Resolves a token value to RGB, following `var()` references and `color-mix()` in srgb.
+ * Returns null when the value cannot be resolved, so the caller can fail rather than
+ * silently measuring nothing.
+ */
+function resolve(value: string, palette: Record<string, string>, depth = 0): [number, number, number] | null {
+  if (depth > 6) return null;
+  const direct = parseHex(value);
+  if (direct) return direct;
+  const named = NAMED[value.trim().toLowerCase()];
+  if (named) return named;
+
+  const reference = value.match(/^var\((--admin-[a-z0-9-]+)\)$/);
+  if (reference) {
+    const target = palette[reference[1]];
+    return target === undefined ? null : resolve(target, palette, depth + 1);
+  }
+
+  // One side may omit its percentage, as `--admin-brand-text: color-mix(in srgb,
+  // var(--admin-brand-500) 80%, black)` does, in which case it takes the remainder.
+  const mix = value.match(
+    /^color-mix\(\s*in srgb\s*,\s*(.+?)\s*(?:([\d.]+)%)?\s*,\s*(.+?)\s*(?:([\d.]+)%)?\s*\)$/,
+  );
+  if (mix) {
+    const a = resolve(mix[1], palette, depth + 1);
+    const b = resolve(mix[3], palette, depth + 1);
+    if (!a || !b) return null;
+    const first = mix[2] === undefined ? null : Number(mix[2]) / 100;
+    const second = mix[4] === undefined ? null : Number(mix[4]) / 100;
+    const wa = first ?? (second === null ? null : 1 - second);
+    const wb = second ?? (first === null ? null : 1 - first);
+    if (wa === null || wb === null) return null;
+    const total = wa + wb;
+    if (total === 0) return null;
+    return [0, 1, 2].map((i) => Math.round((a[i] * wa + b[i] * wb) / total)) as [number, number, number];
+  }
+
+  return null;
+}
+
+function contrast(a: [number, number, number], b: [number, number, number]): number {
+  const luminance = ([r, g, bl]: [number, number, number]) => {
+    const [R, G, B] = [r, g, bl].map((c) => c / 255);
+    const linear = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * linear(R) + 0.7152 * linear(G) + 0.0722 * linear(B);
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((p, q) => q - p);
+  return (hi + 0.05) / (lo + 0.05);
 }
 
 const TEXT_PAIRS: Array<[string, string]> = [
@@ -48,7 +123,12 @@ const TEXT_PAIRS: Array<[string, string]> = [
   ["--admin-text-muted", "--admin-surface-subtle"],
   ["--admin-text-secondary", "--admin-surface-muted"],
   ["--admin-text-muted", "--admin-surface-muted"],
+  ["--admin-brand-text", "--admin-surface"],
+  ["--admin-brand-text", "--admin-surface-subtle"],
   ["--admin-on-brand", "--admin-brand-500"],
+  ["--admin-on-brand", "--admin-brand-600"],
+  ["--admin-on-danger", "--admin-danger-action"],
+  ["--admin-on-success", "--admin-success-action"],
   ["--admin-success-text", "--admin-success-surface"],
   ["--admin-danger-text", "--admin-danger-surface"],
   ["--admin-warning-text", "--admin-warning-surface"],
@@ -59,45 +139,61 @@ const BOUNDARY_PAIRS: Array<[string, string]> = [
   ["--admin-border-strong", "--admin-surface"],
 ];
 
-function measure(pairs: Array<[string, string]>, theme: string): string[] {
+function measure(pairs: Array<[string, string]>, theme: string): { lines: string[]; problems: string[] } {
   const palette = palettes()[theme] ?? {};
-  return pairs
-    .filter(([fg, bg]) => palette[fg] && palette[bg])
-    .map(([fg, bg]) => `${fg} on ${bg} = ${contrast(palette[fg], palette[bg]).toFixed(2)}:1`);
+  const lines: string[] = [];
+  const problems: string[] = [];
+  for (const [fg, bg] of pairs) {
+    for (const token of [fg, bg]) {
+      if (palette[token] === undefined) problems.push(`[${theme}] ${token} is not declared`);
+    }
+    const from = palette[fg] === undefined ? null : resolve(palette[fg], palette);
+    const onto = palette[bg] === undefined ? null : resolve(palette[bg], palette);
+    if (!from || !onto) {
+      problems.push(`[${theme}] could not resolve ${fg} on ${bg}`);
+      continue;
+    }
+    lines.push(`${theme} ${fg} on ${bg} = ${contrast(from, onto).toFixed(2)}:1`);
+  }
+  return { lines, problems };
 }
 
 describe("theme token contrast", () => {
   it("meets 4.5:1 for every text pairing the components use", () => {
     const failures: string[] = [];
+    const unresolved: string[] = [];
     for (const theme of ["light", "dark"]) {
-      const palette = palettes()[theme] ?? {};
-      for (const [fg, bg] of TEXT_PAIRS) {
-        if (!palette[fg] || !palette[bg]) continue;
-        const ratio = contrast(palette[fg], palette[bg]);
-        if (ratio < 4.5) failures.push(`[${theme}] ${fg} on ${bg} = ${ratio.toFixed(2)}:1`);
-      }
+      const { lines, problems } = measure(TEXT_PAIRS, theme);
+      unresolved.push(...problems);
+      failures.push(...lines.filter((l) => Number(l.split("= ")[1].replace(":1", "")) < 4.5));
     }
+    // An unresolvable or undeclared token is a failure, not a skip. A renamed token used to
+    // make this pass while contributing nothing in the browser.
+    expect(unresolved).toEqual([]);
     expect(failures).toEqual([]);
   });
 
-  it("reads a real palette for both themes, so the check above is not vacuous", () => {
-    const found = palettes();
-    expect(Object.keys(found).sort()).toEqual(["dark", "light"]);
-    expect(found.light["--admin-surface"]).toBeTruthy();
-    expect(found.dark["--admin-surface"]).toBeTruthy();
-    expect(found.light["--admin-surface"]).not.toBe(found.dark["--admin-surface"]);
+  it("resolves every declared pair in both themes, so the check above is not vacuous", () => {
+    for (const theme of ["light", "dark"]) {
+      const { lines, problems } = measure([...TEXT_PAIRS, ...BOUNDARY_PAIRS], theme);
+      expect(problems, theme).toEqual([]);
+      expect(lines.length, theme).toBe(TEXT_PAIRS.length + BOUNDARY_PAIRS.length);
+    }
   });
 
-  it("records the measured boundary contrast, which is below the documented 3:1", () => {
-    // Not an assertion of compliance. Both border tokens are under 3:1 against the surface
-    // in the light theme, and form controls use them, so this is reported for a maintainer
-    // to decide on rather than silently encoded as acceptable.
+  it("surfaces the measured boundary contrast, which is below the documented 3:1", () => {
+    const report: string[] = [];
     for (const theme of ["light", "dark"]) {
-      for (const line of measure(BOUNDARY_PAIRS, theme)) {
-        const ratio = Number(line.split("= ")[1].replace(":1", ""));
-        expect(ratio).toBeGreaterThan(0);
-      }
+      const { lines, problems } = measure(BOUNDARY_PAIRS, theme);
+      expect(problems, theme).toEqual([]);
+      report.push(...lines);
     }
-    expect(measure(BOUNDARY_PAIRS, "light").length).toBe(BOUNDARY_PAIRS.length);
+    // Reported rather than asserted: both border tokens are under 3:1 in the light theme and
+    // form controls depend on them, so this is a maintainer's decision, not a fixed rule.
+    console.info(`boundary contrast (UI boundaries are documented at 3:1):\n  ${report.join("\n  ")}`);
+    expect(report.length).toBe(BOUNDARY_PAIRS.length * 2);
+    for (const line of report) {
+      expect(Number(line.split("= ")[1].replace(":1", ""))).toBeGreaterThan(0);
+    }
   });
 });
