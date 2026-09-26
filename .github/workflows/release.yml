@@ -97,12 +97,17 @@ jobs:
           asset_name="$(basename "$asset")"
           expected="yesvus-helmdeck-${TAG#v}.tgz"
           test "$asset_name" = "$expected"
+          canonical_asset="yesvus-helmdeck.tgz"
+          cp "$asset" "release/$canonical_asset"
           (
             cd release
             sha256sum "$asset_name" > "$asset_name.sha256"
+            sha256sum "$canonical_asset" > "$canonical_asset.sha256"
           )
           echo "asset=$GITHUB_WORKSPACE/release/$asset_name" >> "$GITHUB_OUTPUT"
           echo "checksum=$GITHUB_WORKSPACE/release/$asset_name.sha256" >> "$GITHUB_OUTPUT"
+          echo "canonical=$GITHUB_WORKSPACE/release/$canonical_asset" >> "$GITHUB_OUTPUT"
+          echo "canonical_checksum=$GITHUB_WORKSPACE/release/$canonical_asset.sha256" >> "$GITHUB_OUTPUT"
       - name: Validate release metadata
         if: ${{ inputs.dry_run != true }}
         env:
@@ -156,14 +161,16 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
           ASSET: ${{ steps.artifact.outputs.asset }}
           CHECKSUM: ${{ steps.artifact.outputs.checksum }}
+          CANONICAL: ${{ steps.artifact.outputs.canonical }}
+          CANONICAL_CHECKSUM: ${{ steps.artifact.outputs.canonical_checksum }}
         run: |
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$ASSET" "$CHECKSUM" --clobber
+            gh release upload "$TAG" "$ASSET" "$CHECKSUM" "$CANONICAL" "$CANONICAL_CHECKSUM" --clobber
             exit 0
           fi
           if [[ "$TAG" == *-* ]]; then
-            gh release create "$TAG" "$ASSET" "$CHECKSUM" --verify-tag --generate-notes --title "$TAG" --prerelease
+            gh release create "$TAG" "$ASSET" "$CHECKSUM" "$CANONICAL" "$CANONICAL_CHECKSUM" --verify-tag --generate-notes --title "$TAG" --prerelease
           else
-            gh release create "$TAG" "$ASSET" "$CHECKSUM" --verify-tag --generate-notes --title "$TAG"
+            gh release create "$TAG" "$ASSET" "$CHECKSUM" "$CANONICAL" "$CANONICAL_CHECKSUM" --verify-tag --generate-notes --title "$TAG"
           fi
