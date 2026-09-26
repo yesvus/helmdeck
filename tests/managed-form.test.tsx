@@ -10,7 +10,7 @@ import { AdminMediaField } from "../src/media/field";
 
 const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/products/new",
   useRouter: () => ({ replace: navigation.replace }),
   useSearchParams: () => new URLSearchParams("locale=en"),

@@ -8,7 +8,7 @@ const navigation = vi.hoisted(() => ({
   replace: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/products",
   useRouter: () => ({ replace: navigation.replace }),
   useSearchParams: () => navigation.params,

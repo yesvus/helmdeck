@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import Link from "next/link";
+import Link from "next/link.js";
 import { ChevronRight } from "lucide-react";
 import type { AdminNavGroup } from "../adapters/index.js";
 import { useAdminShell } from "./context.js";

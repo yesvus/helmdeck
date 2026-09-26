@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import Link from "next/link";
+import Link from "next/link.js";
 import type { AdminLoginCredentials } from "../adapters/index.js";
 import type { AdminShellLabels } from "./labels.js";
 import { mergeAdminLabels } from "./labels.js";

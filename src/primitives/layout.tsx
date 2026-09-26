@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { ReactNode } from "react";
-import Link from "next/link";
+import Link from "next/link.js";
 import { ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "../cn.js";
 import { buttonVariants } from "./button.js";

@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
 import { AdminToastCard, AdminToastViewport } from "./toast.js";
 import {
   defaultAdminManagedFormFeedbackLabels,

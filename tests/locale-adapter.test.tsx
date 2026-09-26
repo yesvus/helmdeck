@@ -12,7 +12,7 @@ import {
   type AdminNavGroup,
 } from "../src";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/admin" }));
+vi.mock("next/navigation.js", () => ({ usePathname: () => "/admin" }));
 
 const nav: AdminNavGroup[] = [
   {

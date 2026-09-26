@@ -6,7 +6,7 @@ import { AdminPageHeader } from "../src/shell/admin-page-header";
 import { AdminShellProvider } from "../src/shell/context";
 import type { AdminShellContextValue } from "../src/shell/context";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/shell/products/new" }));
+vi.mock("next/navigation.js", () => ({ usePathname: () => "/shell/products/new" }));
 
 const shellValue = { currentPageTitle: "Catalog", nav: [] } as AdminShellContextValue;
 const nav = [{
