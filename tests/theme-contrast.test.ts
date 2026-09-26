@@ -134,10 +134,14 @@ const TEXT_PAIRS: Array<[string, string]> = [
   ["--admin-warning-text", "--admin-warning-surface"],
 ];
 
-const BOUNDARY_PAIRS: Array<[string, string]> = [
-  ["--admin-border", "--admin-surface"],
-  ["--admin-border-strong", "--admin-surface"],
-];
+// WCAG 1.4.11 asks for 3:1 on the boundaries of controls, since those identify an
+// interactive component. Every control border resolves to --admin-border-strong, so that is
+// the pair held to 3:1. --admin-border is for decorative separators, which identify nothing
+// and are measured but not asserted, because darkening them would flatten the border
+// hierarchy without improving accessibility.
+const CONTROL_BOUNDARY_PAIRS: Array<[string, string]> = [["--admin-border-strong", "--admin-surface"]];
+
+const DECORATIVE_BOUNDARY_PAIRS: Array<[string, string]> = [["--admin-border", "--admin-surface"]];
 
 type Measurement = { label: string; ratio: number };
 
@@ -187,29 +191,43 @@ describe("theme token contrast", () => {
     expect(failures).toEqual([]);
   });
 
-  it("resolves every declared pair in both themes, so the check above is not vacuous", () => {
+  it("meets 3:1 for the boundary that identifies a control", () => {
+    const failures: string[] = [];
+    const unresolved: string[] = [];
     for (const theme of ["light", "dark"]) {
-      const { measured, problems } = measure([...TEXT_PAIRS, ...BOUNDARY_PAIRS], theme);
-      expect(problems, theme).toEqual([]);
-      expect(measured.length, theme).toBe(TEXT_PAIRS.length + BOUNDARY_PAIRS.length);
+      const { measured, problems } = measure(CONTROL_BOUNDARY_PAIRS, theme);
+      unresolved.push(...problems);
+      // Raw ratio, not the formatted label: 2.996 must not round up and pass.
+      failures.push(...measured.filter((m) => m.ratio < 3).map((m) => `${m.label} = ${m.ratio.toFixed(3)}:1`));
     }
+    expect(unresolved).toEqual([]);
+    expect(failures).toEqual([]);
   });
 
-  it("surfaces the measured boundary contrast, which is below the documented 3:1", () => {
+  it("reports the decorative separator contrast, which is below 3:1 by design", () => {
     const report: string[] = [];
     for (const theme of ["light", "dark"]) {
-      const { measured, problems } = measure(BOUNDARY_PAIRS, theme);
+      const { measured, problems } = measure(DECORATIVE_BOUNDARY_PAIRS, theme);
       expect(problems, theme).toEqual([]);
       report.push(...measured.map((m) => `${m.label} = ${m.ratio.toFixed(2)}:1`));
     }
-    // Reported rather than asserted: both border tokens are under 3:1 in the light theme and
-    // form controls depend on them, so this is a maintainer's decision, not a fixed rule.
-    console.info(`boundary contrast (UI boundaries are documented at 3:1):\n  ${report.join("\n  ")}`);
-    expect(report.length).toBe(BOUNDARY_PAIRS.length * 2);
+    // Recorded rather than asserted. This token draws card edges and section rules, which
+    // identify no control, so WCAG 1.4.11 does not apply and darkening it to 3:1 would
+    // flatten the border hierarchy for no accessibility gain.
+    console.info(`decorative separator contrast (no 3:1 requirement):\n  ${report.join("\n  ")}`);
+    expect(report.length).toBe(DECORATIVE_BOUNDARY_PAIRS.length * 2);
+  });
+
+  it("resolves every declared pair in both themes, so the checks above are not vacuous", () => {
     for (const theme of ["light", "dark"]) {
-      for (const m of measure(BOUNDARY_PAIRS, theme).measured) {
-        expect(Number.isFinite(m.ratio), m.label).toBe(true);
-      }
+      const { measured, problems } = measure(
+        [...TEXT_PAIRS, ...CONTROL_BOUNDARY_PAIRS, ...DECORATIVE_BOUNDARY_PAIRS],
+        theme,
+      );
+      expect(problems, theme).toEqual([]);
+      expect(measured.length, theme).toBe(
+        TEXT_PAIRS.length + CONTROL_BOUNDARY_PAIRS.length + DECORATIVE_BOUNDARY_PAIRS.length,
+      );
     }
   });
 });

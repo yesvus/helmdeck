@@ -81,7 +81,10 @@
   --admin-surface-subtle: #fafaf9;
   --admin-card-radius: 0.875rem;
   --admin-border: #e7e5e4;
-  --admin-border-strong: #a8a29e;
+  /* 3.41:1 on --admin-surface. Every control border resolves here, so this is the
+     token that has to clear the 3:1 boundary requirement. --admin-border below is
+     for decorative separators and is deliberately allowed to be lower. */
+  --admin-border-strong: #908a86;
   --admin-text-primary: #1c1917;
   --admin-text-secondary: #44403c;
   --admin-text-muted: #57534e;
