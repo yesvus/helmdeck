@@ -50,6 +50,17 @@ Keep normal text/background combinations at WCAG AA contrast (4.5:1), and large 
 
 ## Quick start
 
+### The profile and settings routes
+
+`AdminShell` points its profile entry at `${homeHref}/profile` when no `profileHref` is given, so mount `AdminProfilePage` there and the entry works with no wiring. `AdminSettingsPage` is a frame that takes sections as props, and is what `settingsHref` should point at.
+
+```tsx
+// app/admin/profile/page.tsx
+<AdminProfilePage session={session} settingsHref="/admin/settings" onSignOut={signOut} />
+```
+
+Sessions and the sign-out-everywhere control are yours to supply, because `AdminSession` carries no timestamps and the auth contract cannot revoke other sessions. Where you cannot honour one, the page leaves it out rather than rendering a control that does nothing.
+
 ### Dialog layout
 
 `AdminModalContent` keeps its existing direct-child API and scrolls its content. For long forms, compose `AdminModalHeader`, `AdminModalBody`, and `AdminModalFooter` explicitly. The header and footer remain visible while the body scrolls, and footer actions stack on narrow screens. Set `preventClose` while a submission is pending to block Escape, outside-click, and close-button dismissal. Destructive confirmations use `AdminDestructiveAction` and remain separate from ordinary dialogs.

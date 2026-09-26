@@ -22,6 +22,18 @@ export type AdminShellLabels = {
   authRedirecting: string;
   authSignInLink: string;
   authSessionError: string;
+  profileIdentity: string;
+  profileName: string;
+  profileEmail: string;
+  profileRole: string;
+  profileSessions: string;
+  profileSessionsDescription: string;
+  profileNoOtherSessions: string;
+  profileSessionStarted: string;
+  signOutEverywhere: string;
+  settings: string;
+  settingsDescription: string;
+  settingsOpen: string;
 };
 
 export const defaultAdminLabels: AdminShellLabels = {
@@ -47,6 +59,18 @@ export const defaultAdminLabels: AdminShellLabels = {
   authRedirecting: "You need to sign in to view this page.",
   authSignInLink: "Go to sign in",
   authSessionError: "Your session could not be checked. Try again.",
+  profileIdentity: "Identity",
+  profileName: "Name",
+  profileEmail: "Email",
+  profileRole: "Role",
+  profileSessions: "Signed-in sessions",
+  profileSessionsDescription: "Devices currently signed in to this account.",
+  profileNoOtherSessions: "No other sessions.",
+  profileSessionStarted: "Started",
+  signOutEverywhere: "Sign out everywhere",
+  settings: "Settings",
+  settingsDescription: "Preferences for this account.",
+  settingsOpen: "Open settings",
 };
 
 export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): AdminShellLabels {
