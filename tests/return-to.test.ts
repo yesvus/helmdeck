@@ -57,6 +57,22 @@ describe("adminReturnTo", () => {
     expect(next("/%2525252545252545admin")).toBeNull();
   });
 
+  it.each([
+    ["carriage return and newline", "/%0D%0A/evil.example"],
+    ["a tab", "/%09/evil.example"],
+    ["a bare newline", "/%0A/evil.example"],
+    ["a form feed", "/%0C/evil.example"],
+    ["a null byte", "/%00/evil.example"],
+    ["a delete character", "/%7F/evil.example"],
+    ["controls inside the path", "/admin/%0D%0A/evil.example"],
+  ])("refuses %s, which a URL parser strips before resolving", (_label, value) => {
+    // Each of these passes every other check: root-relative, not "//", no backslash. A URL
+    // parser drops the control characters and then resolves the remainder as a host.
+    const decoded = decodeURIComponent(value);
+    expect(decoded.startsWith("/")).toBe(true);
+    expect(next(value)).toBeNull();
+  });
+
   it("refuses a value with a malformed percent escape", () => {
     expect(next("/admin/%")).toBeNull();
     expect(next("/admin/%zz")).toBeNull();
@@ -66,5 +82,50 @@ describe("adminReturnTo", () => {
     // %20 is a space, so this decodes to "/admin/a b" and then settles. A blanket ban on "%"
     // would break legitimate encoded paths.
     expect(next("/admin/a%20b")).toBe("/admin/a b");
+  });
+});
+
+describe("adminReturnTo cannot hand back a value that leaves the origin", () => {
+  // The property that matters, asserted rather than the individual cases: whatever this
+  // function accepts must resolve against a base URL to that same origin. Written as a
+  // property so a future parser quirk, or a new encoding trick, fails here without anyone
+  // having to anticipate it.
+  const base = "https://admin.example";
+  const candidates = [
+    "/admin/products",
+    "/admin/products?page=2",
+    "/admin/a%20b",
+    "//evil.example",
+    "/\\evil.example",
+    "https://evil.example",
+    "javascript:alert(1)",
+    "data:text/html,x",
+    "/%0D%0A/evil.example",
+    "/%09/evil.example",
+    "/%0A%2Fevil.example",
+    "/%00/evil.example",
+    "/%7Fevil.example",
+    "/%0C%0B%0C/evil.example",
+    "/%2F%2Fevil.example",
+    "/%5C%5Cevil.example",
+    "/%252F%252Fevil.example",
+    "/admin/%2e%2e//evil.example",
+    "/admin/..//evil.example",
+    "admin/products",
+    "evil.example",
+    "",
+  ];
+
+  it("only returns values that stay on the origin the login page was served from", () => {
+    const accepted: string[] = [];
+    for (const value of candidates) {
+      const result = adminReturnTo(new URLSearchParams(`next=${encodeURIComponent(value)}`));
+      if (result === null) continue;
+      accepted.push(value);
+      const resolved = new URL(result, base);
+      expect(`${value} -> ${resolved.origin}`, "left the origin").toBe(`${value} -> ${base}`);
+    }
+    // Guard against the property passing because nothing was accepted at all.
+    expect(accepted.length).toBeGreaterThan(0);
   });
 });

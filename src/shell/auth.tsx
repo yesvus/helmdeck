@@ -124,8 +124,15 @@ export function useAdminSession(): AdminAuthContextValue {
  * A destination is usable only if every layer of encoding in it is still a plain same-site
  * path. Root-relative, not protocol-relative, and free of backslashes, which several
  * browsers normalise into a host separator.
+ *
+ * Control characters are refused as well. A URL parser strips them before resolving, so
+ * "/%0D%0A/evil.example" passes every other check here and still resolves to another origin.
  */
+// eslint-disable-next-line no-control-regex -- the point is to reject these, not to match them
+const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F]/;
+
 function isSameSitePath(value: string): boolean {
+  if (CONTROL_CHARACTERS.test(value)) return false;
   if (!value.startsWith("/")) return false;
   if (value.startsWith("//") || value.startsWith("/\\")) return false;
   return !value.includes("\\");
