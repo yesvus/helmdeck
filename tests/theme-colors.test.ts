@@ -23,10 +23,11 @@ import { describe, expect, it } from "vitest";
 // screen, is wrapped in `admin-theme-fixed:start` and `admin-theme-fixed:end`. A single
 // line can carry a bare `admin-theme-fixed` marker instead.
 //
-// Scope is `src/` only, which is the code published to consumers. The fixture app under
-// `fixtures/` is demo code that ships to nobody, and it is not covered: the landing page
-// carried several of these defects and they were found by reading, not by this check.
-const sourceRoot = join(process.cwd(), "src");
+// Scope is `src/`, which is published to consumers, and `fixtures/`, which is the demo
+// people actually look at. Both have carried these defects. An earlier version scanned
+// `src/` only, and every one of the landing page's problems was therefore invisible to it
+// while still being real to anyone running the demo.
+const sourceRoots = [join(process.cwd(), "src"), join(process.cwd(), "fixtures")];
 
 function collectSources(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -40,6 +41,26 @@ function collectSources(directory: string): string[] {
 // are part of the match, including breakpoint prefixes such as `2xl:`, because
 // `hover:bg-white` and `2xl:bg-white` are the same defect as the bare utility.
 const RISKY = /(?:^|["'`\s])((?:[a-z0-9-]+:)*bg-(?:white|zinc-800|zinc-900|zinc-950|brand-100))\b/g;
+
+// Which palette utilities actually theme is read from tokens.css rather than listed here.
+// Hardcoding the list is how `amber-400` and `emerald-400` became false positives: they sit
+// in a remapped prefix but are not themselves remapped, so they stay literal.
+function remappedUtilities(): Set<string> {
+  const css = readFileSync(join(process.cwd(), "src/theme/tokens.css"), "utf8");
+  const remapped = new Set<string>();
+  // The token name may itself end in a shade, as --admin-brand-100 does, so digits belong
+  // in the character class. Leaving them out made brand-100 read as unremapped, which is the
+  // token that inverted the landing page badge.
+  for (const match of css.matchAll(/--color-([a-z]+-\d+):\s*var\(--admin-[a-z0-9-]+\)/g)) {
+    remapped.add(match[1]);
+  }
+  return remapped;
+}
+
+// A region marked as fixed must not contain any remapped utility, because one is enough to
+// make the region theme after all.
+const REMAPPED_SHADES = remappedUtilities();
+const UTILITY_SHAPE = /(?:^|["'`\s])((?:[a-z0-9-]+:)*(?:bg|text|border|from|via|to|ring|fill|stroke|divide|outline|decoration)-([a-z]+-\d+))\b/g;
 
 const START = "admin-theme-fixed:start";
 const END = "admin-theme-fixed:end";
@@ -57,7 +78,17 @@ function riskyIn(file: string): string[] {
   lines.forEach((line, index) => {
     if (line.includes(START)) inFixedRegion = true;
     if (line.includes(END)) inFixedRegion = false;
-    if (inFixedRegion) return;
+    if (inFixedRegion) {
+      // A fixed region is only fixed if nothing in it can theme, so this is checked rather
+      // than trusted. Marking a region and then leaving one remapped utility inside it is
+      // how the landing page's mockup window ended up half-themed.
+      for (const match of line.matchAll(UTILITY_SHAPE)) {
+        if (REMAPPED_SHADES.has(match[2])) {
+          risky.push(`${file}:${index + 1} ${match[1]} themes but sits in a fixed region`);
+        }
+      }
+      return;
+    }
     const matches = [...line.matchAll(RISKY)];
     if (matches.length === 0) return;
     const context = lines.slice(Math.max(0, index - LOOKBACK), index + 1).join("\n");
@@ -70,9 +101,21 @@ function riskyIn(file: string): string[] {
 }
 
 describe("theme-aware color usage in shipped components", () => {
-  it("avoids backgrounds that cannot flip or that invert in dark mode, in src/", () => {
-    const risky = collectSources(sourceRoot).flatMap(riskyIn);
+  it("avoids backgrounds that cannot flip or that invert in dark mode", () => {
+    const risky = sourceRoots.flatMap(collectSources).flatMap(riskyIn);
     expect(risky).toEqual([]);
+  });
+
+  it("derives the remapped palette from tokens.css, including the partial prefixes", () => {
+    // Guarding against the two ways this has been wrong: listing the shades by hand, which
+    // produced false positives for amber-400, and assuming a prefix is wholly remapped,
+    // which is false for emerald and amber, where only some shades are mapped.
+    expect(REMAPPED_SHADES.has("zinc-900")).toBe(true);
+    expect(REMAPPED_SHADES.has("brand-100")).toBe(true);
+    expect(REMAPPED_SHADES.has("emerald-400")).toBe(true);
+    expect(REMAPPED_SHADES.has("amber-400")).toBe(false);
+    expect(REMAPPED_SHADES.has("rose-400")).toBe(false);
+    expect(REMAPPED_SHADES.has("slate-500")).toBe(false);
   });
 
   it("matches bare utilities and every variant form, so the coverage above is real", () => {

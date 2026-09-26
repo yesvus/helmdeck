@@ -81,7 +81,7 @@ export default function MediaDemoPage() {
           {!loading && !loadError && items.map((item) => {
             const thumbnail = getAdminMediaThumbnailUrl(item);
             return (
-              <button key={item.path} type="button" aria-pressed={selectedPath === item.path} onClick={() => setSelectedPath(item.path)} className={`overflow-hidden rounded-xl border bg-white text-left transition hover:border-brand-400 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 ${selectedPath === item.path ? "border-brand-500 ring-2 ring-brand-200" : "border-zinc-200"}`}>
+              <button key={item.path} type="button" aria-pressed={selectedPath === item.path} onClick={() => setSelectedPath(item.path)} className={`overflow-hidden rounded-xl border bg-admin-surface text-left transition hover:border-brand-400 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 ${selectedPath === item.path ? "border-brand-500 ring-2 ring-brand-200" : "border-zinc-200"}`}>
                 <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-zinc-100">
                   {thumbnail && item.kind === "image" ? (
                     <div role="img" aria-label={item.name} className="h-full w-full bg-cover bg-center" style={{ backgroundImage: `url("${thumbnail}")` }} />

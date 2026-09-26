@@ -35,7 +35,7 @@ export default function FormsPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 lg:px-8">
-      <Suspense fallback={<div className="rounded-xl border border-zinc-200 bg-white p-8">{copy.forms.loading}</div>}>
+      <Suspense fallback={<div className="rounded-xl border border-zinc-200 bg-admin-surface p-8">{copy.forms.loading}</div>}>
         <AdminManagedForm
       action={save}
       autosaveKey={({ pathname }) => pathname}
