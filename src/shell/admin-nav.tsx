@@ -9,6 +9,7 @@ import type { AdminNavItem } from "../adapters/index.js";
 import { getAdminHrefPathname, isActiveHref } from "../adapters/index.js";
 import { resolveNavIcon } from "./nav-icons.js";
 import { useAdminShell } from "./context.js";
+import { useAdminHref } from "../i18n.js";
 
 export function isAdminNavItemActive(pathname: string, href: string, homeHref?: string) {
   const navPath = normalizeRoutePath(href);
@@ -40,16 +41,18 @@ export function AdminNavLink({
   const pathname = usePathname();
   const shouldReduceMotion = useReducedMotion();
   const shell = useAdminShell();
+  const toHref = useAdminHref();
+  const href = toHref(item.href);
   const active = exact
-    ? isAdminNavItemActive(pathname, item.href, item.href)
-    : isAdminNavItemActive(pathname, item.href, shell?.homeHref);
+    ? isAdminNavItemActive(pathname, href, href)
+    : isAdminNavItemActive(pathname, href, shell?.homeHref ? toHref(shell.homeHref) : undefined);
   const Icon = resolveNavIcon(item.icon);
   const label = iconOnly || compact ? (item.shortLabel ?? item.label) : item.label;
 
   if (compact) {
     return (
       <Link
-        href={item.href}
+        href={href}
         title={item.label}
         aria-label={item.label}
         aria-current={active ? "page" : undefined}
@@ -69,7 +72,7 @@ export function AdminNavLink({
   if (iconOnly) {
     return (
       <Link
-        href={item.href}
+        href={href}
         title={item.label}
         aria-label={item.label}
         aria-current={active ? "page" : undefined}
@@ -87,7 +90,7 @@ export function AdminNavLink({
 
   return (
     <Link
-      href={item.href}
+      href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
         "relative flex min-h-8 items-center rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
