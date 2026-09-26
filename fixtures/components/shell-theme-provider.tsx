@@ -26,8 +26,17 @@ const serverSnapshot: ShellThemeSnapshot = { theme: "light", systemTheme: "light
 const listeners = new Set<() => void>();
 let snapshot = serverSnapshot;
 
+function readStoredTheme(): string | null {
+  try {
+    return window.localStorage.getItem(storageKey);
+  } catch {
+    // Storage can be unavailable in private or restricted contexts.
+    return null;
+  }
+}
+
 function readSnapshot(): ShellThemeSnapshot {
-  const saved = window.localStorage.getItem(storageKey);
+  const saved = readStoredTheme();
   const theme: ShellThemePreference =
     saved === "light" || saved === "dark" || saved === "system" ? saved : "light";
   // Not cached at module scope on purpose: a cached MediaQueryList would go stale when a
@@ -54,7 +63,8 @@ function subscribe(listener: () => void) {
   const media = window.matchMedia(darkQuery);
   const handleMediaChange = () => notify();
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === storageKey) notify();
+    // A null key means the whole store was cleared, which also drops the preference.
+    if (event.key === storageKey || event.key === null) notify();
   };
   media.addEventListener("change", handleMediaChange);
   window.addEventListener("storage", handleStorage);
@@ -75,7 +85,12 @@ export function ShellThemeProvider({ children }: { children: ReactNode }) {
   const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   const setTheme = useCallback((value: ShellThemePreference) => {
-    window.localStorage.setItem(storageKey, value);
+    try {
+      window.localStorage.setItem(storageKey, value);
+    } catch {
+      // A failed write must not abort the handler, or the subscribers never re-render
+      // and the control keeps the old selection. The preference simply will not persist.
+    }
     // localStorage does not fire a storage event in the document that wrote it, so the
     // subscribers are notified here instead.
     notify();

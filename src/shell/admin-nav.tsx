@@ -13,7 +13,7 @@ import { useAdminHref } from "../i18n.js";
 
 /**
  * Renders a nav icon from a component reference. The reference arrives as a prop, so the
- * icon is not constructed during render, which keeps the icon identity stable.
+ * JSX tag is not a value the compiler sees as constructed during render.
  */
 function AdminNavItemIcon({ icon: Icon }: { icon: AdminNavIconComponent | null }) {
   if (!Icon) return null;

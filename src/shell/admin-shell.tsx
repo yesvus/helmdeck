@@ -92,9 +92,20 @@ export function AdminShell({
   const setContentScrollRef = useCallback(
     (element: HTMLDivElement | null) => {
       internalContentScrollRef.current = element;
-      if (typeof contentScrollRef === "function") {
-        contentScrollRef(element);
+      if (typeof contentScrollRef !== "function") {
+        return;
       }
+      // React 19 lets a callback ref return a cleanup, which runs on detach instead of a
+      // second call with null. The host owns that contract, so it is passed straight
+      // through rather than flattened into a null call.
+      const cleanup = contentScrollRef(element);
+      if (typeof cleanup === "function") {
+        return () => {
+          internalContentScrollRef.current = null;
+          cleanup();
+        };
+      }
+      return undefined;
     },
     [contentScrollRef],
   );

@@ -129,8 +129,9 @@ function AdminUrlFeedbackToast({
   const activeMessage = message ?? searchParams?.get(queryKeys.message) ?? undefined;
   const activeAssetUrl = assetUrl ?? searchParams?.get(queryKeys.assetUrl) ?? undefined;
   // Signed on the pre-dismiss values, so dismissing cannot clear its own signature and
-  // the toast cannot reappear.
-  const feedbackSignature = `${feedbackKey}\u0000${activeMessage ?? ""}\u0000${activeAssetUrl ?? ""}`;
+  // the toast cannot reappear. JSON keeps the fields unambiguous even if one contains the
+  // separator.
+  const feedbackSignature = JSON.stringify([feedbackKey, activeMessage ?? "", activeAssetUrl ?? ""]);
   const dismissed = dismissedSignature === feedbackSignature;
   const visibleMessage = dismissed ? undefined : activeMessage;
   const visibleAssetUrl = dismissed ? undefined : activeAssetUrl;
