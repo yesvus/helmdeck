@@ -68,6 +68,8 @@ export function AdminNavLink({
         className={cn(
           "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-2 py-3 text-center text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500",
           active
+            // admin-theme-fixed: a light indicator bar over the brand fill, meant to read
+            // the same in both themes.
             ? "bg-brand-500 !text-white after:absolute after:inset-x-3 after:top-0 after:h-0.5 after:rounded-b after:bg-white/70"
             : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900",
         )}

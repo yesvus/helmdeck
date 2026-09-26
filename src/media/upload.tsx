@@ -215,7 +215,7 @@ export function AdminMediaUpload({
             className={cn(
               "block w-full cursor-pointer rounded-xl border-2 border-dashed p-5 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2",
               compact ? "min-h-32" : "min-h-48",
-              error ? "border-red-400 bg-red-50" : dragging ? "border-brand-600 bg-brand-50" : "border-zinc-300 bg-zinc-50 hover:border-brand-500 hover:bg-white",
+              error ? "border-red-400 bg-red-50" : dragging ? "border-brand-600 bg-brand-50" : "border-zinc-300 bg-zinc-50 hover:border-brand-500 hover:bg-admin-surface",
               busy && "cursor-wait opacity-70",
             )}
           >
