@@ -10,9 +10,13 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packagePath = resolve(root, "package.json");
 const versionPath = resolve(root, "VERSION");
 const readmePath = resolve(root, "README.md");
-// The install snippet is the only place a consumer finds the artifact URL, so it is
-// rewritten with the release instead of left for a human to remember on release day.
-const installUrlPattern = /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/releases\/download\/v[^/\s]+\/[^/\s]+\.tgz/g;
+// Anchored on the documented install command so an unrelated release link elsewhere in the
+// README is never rewritten. The capture keeps owner, repository, and asset naming owned by
+// the README, so only the version moves.
+const installUrlPattern = /(pnpm add https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/releases\/download\/v[^/\s]+\/[^/\s]+\.tgz)/g;
+// Splits a release asset into its stable prefix and its trailing version, so the prefix
+// stays owned by the README while the version is replaced.
+const assetPattern = /\/([^/\s]+)-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\.tgz$/;
 const semverIdentifier = "(?:0|[1-9]\\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)";
 const semverPattern = new RegExp(
   `^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(${semverIdentifier}(?:\\.${semverIdentifier})*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`,
@@ -51,32 +55,42 @@ function readState() {
     fail(`Version drift: VERSION is ${version}, package.json is ${packageJson.version}`);
   }
 
-  const readme = readFileSync(readmePath, "utf8");
-  if (!installVersions(readme).includes(version)) {
-    fail(`README install command does not point at v${version}. Run: pnpm version:bump <type>`);
-  }
-
   return { tag, version, packageJson };
 }
 
-function installVersions(readme) {
-  return [...readme.matchAll(installUrlPattern)].map((match) => versionInUrl(match[0]));
+// Separate from readState so that a bump can repair the install command. Enforcing the
+// README here would make drift unrecoverable, because the repair path runs this same gate.
+function assertReadmeInSync(version) {
+  const readme = readFileSync(readmePath, "utf8");
+  const commands = installCommands(readme);
+
+  if (commands.length === 0) {
+    fail("README has no `pnpm add` install command to verify");
+  }
+
+  for (const command of commands) {
+    if (versionInUrl(command) !== version || !command.endsWith(`-${version}.tgz`)) {
+      fail(`README install command does not point at v${version} in both the tag and the artifact name.\n`
+        + `Found: ${command}\nRun: pnpm version:bump <type>`);
+    }
+  }
+}
+
+function installCommands(readme) {
+  return [...readme.matchAll(installUrlPattern)].map((match) => match[1]);
 }
 
 // Keeps the owner, repository, and asset naming already in the README and moves only the
-// version, so the documented URL shape stays owned by the README itself. The artifact
-// filename repeats the version, so the download tag and the filename move together.
+// version. The tag and the artifact filename are rewritten independently, because a
+// half-updated URL points at a release asset that does not exist.
 export function rewriteInstallUrls(readme, version) {
-  return readme.replace(installUrlPattern, (raw) => {
-    const current = versionInUrl(raw);
-    if (!current) {
-      return raw;
-    }
-    return raw
-      .split(`v${current}/`)
-      .join(`v${version}/`)
-      .split(`-${current}.tgz`)
-      .join(`-${version}.tgz`);
+  return readme.replace(installUrlPattern, (match, command) => {
+    const current = versionInUrl(command);
+    const rewritten = current
+      ? command.replace(/\/download\/v[^/]+\//, `/download/v${version}/`).replace(assetPattern, `/$1-${version}.tgz`)
+      : command;
+
+    return match.replace(command, rewritten);
   });
 }
 
@@ -177,19 +191,14 @@ function writeTag(tag) {
   packageJson.version = version;
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
   writeFileSync(versionPath, `${tag}\n`);
-
-  const readme = readFileSync(readmePath, "utf8");
-  if (installVersions(readme).length === 0) {
-    fail("README has no release download URL to update");
-  }
-  writeFileSync(readmePath, rewriteInstallUrls(readme, version));
+  writeFileSync(readmePath, rewriteInstallUrls(readFileSync(readmePath, "utf8"), version));
 }
 
 export function main(args = process.argv.slice(2)) {
   const [command, value] = args;
 
   if (command === "check") {
-    readState();
+    assertReadmeInSync(readState().version);
     return;
   }
 
