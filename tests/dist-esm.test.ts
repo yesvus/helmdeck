@@ -9,6 +9,16 @@ const packageName = "@yesvus/helmdeck";
 // Matches any next specifier literal that is not immediately followed by a file extension,
 // so side-effect, dynamic, and nested imports such as next/font/google are covered too.
 const extensionless = /["'`](next\/[^"'`\s]+?)(?<!\.[a-z0-9]+)["'`]/gi;
+// Comments are stripped before matching. Prose that names a specifier, such as a doc comment
+// referring to `next/headers`, is not an import and was being reported as one.
+//
+// `//` only counts as a comment at the start of a line or after whitespace, and never straight
+// after a colon. Matching it anywhere would truncate a line at a `//` inside a string or regex
+// literal, which is how a real extensionless import later on that line would go unnoticed.
+const withoutComments = (source: string) =>
+  source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^[^\S\n]*|[^\S\n])\/\/[^\n]*/g, "$1");
 
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
@@ -21,7 +31,9 @@ function sourceFiles(directory: string): string[] {
 describe("published package under Node ESM", () => {
   it("imports every next specifier with an explicit extension", () => {
     const offenders = sourceFiles(join(root, "src")).flatMap((path) => {
-      const specifiers = [...readFileSync(path, "utf8").matchAll(extensionless)].map((match) => match[1]);
+      const specifiers = [...withoutComments(readFileSync(path, "utf8")).matchAll(extensionless)].map(
+        (match) => match[1],
+      );
       return specifiers.map((specifier) => `${path.slice(root.length + 1)}: ${specifier}`);
     });
 
@@ -65,6 +77,25 @@ describe("published package under Node ESM", () => {
     afterAll(() => {
       rmSync(packageDirectory, { recursive: true, force: true });
     });
+
+    it("resolves the baseline subpath by package name", () => {
+      // An exports map typo would ship an entry point nothing can import, and the root entry
+      // resolving says nothing about the subpath.
+      const script = `const m = await import(${JSON.stringify(`${packageName}/baseline`)});`
+        + "process.stdout.write(Object.keys(m).sort().join(','));";
+
+      expect(execFileSync(process.execPath, ["--input-type=module", "-e", script], {
+        cwd: packageDirectory,
+        encoding: "utf8",
+      })).toBe(
+        [
+          "createAuditAdapter",
+          "createCacheAdapter",
+          "createMemoryPersistenceAdapter",
+          "createSessionAuthAdapter",
+        ].join(","),
+      );
+    }, 60_000);
 
     it("resolves the published entry point by package name without a bundler", () => {
       // Run inside the staged package so Node resolves the name through the real exports map.

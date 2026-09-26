@@ -34,6 +34,7 @@ export type AdminShellLabels = {
   settings: string;
   settingsDescription: string;
   settingsOpen: string;
+  permissionDenied: string;
 };
 
 export const defaultAdminLabels: AdminShellLabels = {
@@ -71,6 +72,7 @@ export const defaultAdminLabels: AdminShellLabels = {
   settings: "Settings",
   settingsDescription: "Preferences for this account.",
   settingsOpen: "Open settings",
+  permissionDenied: "You do not have access to this.",
 };
 
 export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): AdminShellLabels {
