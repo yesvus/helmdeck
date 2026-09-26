@@ -3,8 +3,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from "next/link.js";
+import { usePathname } from "next/navigation.js";
 import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { AdminNavGroup, AdminSession } from "../adapters/index.js";

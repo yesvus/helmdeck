@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname } from "next/navigation.js";
 import type { AdminNavGroup, AdminNavItem } from "../adapters/index.js";
 import { getAdminHrefPathname } from "../adapters/index.js";
 import { useAdminShell } from "./context.js";

@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import Link from "next/link.js";
 import { ExternalLink, LogOut, User } from "lucide-react";
 import { cn } from "../cn.js";
 import { useAdminShell } from "./context.js";

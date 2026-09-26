@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import Link from "next/link";
+import Link from "next/link.js";
 import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AdminNavGroup } from "../adapters/index.js";

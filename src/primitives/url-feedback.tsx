@@ -3,7 +3,7 @@
 
 import { AlertCircle, CheckCircle2, Link2 } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
 import { AdminToastCard, AdminToastViewport } from "./toast.js";
 import { useAdminMessages } from "../i18n.js";
 

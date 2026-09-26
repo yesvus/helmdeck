@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from "next/link.js";
+import { usePathname } from "next/navigation.js";
 import { motion, useReducedMotion } from "motion/react";
 import { cn } from "../cn.js";
 import type { AdminNavItem } from "../adapters/index.js";
