@@ -70,6 +70,7 @@ export function AdminResourceList({
     void persistence.query<AdminResourceRecord>(definition.resource).then(
       (found) => {
         if (!active) return;
+        setMessage("");
         setLoaded({
           resource: definition.resource,
           rows: found
@@ -99,6 +100,7 @@ export function AdminResourceList({
     setBusyId(id);
     try {
       await persistence.delete(definition.resource, id);
+      setMessage("");
       setLoaded((current) =>
         current && current.resource === definition.resource
           ? { ...current, rows: current.rows.filter((row) => row.id !== id) }

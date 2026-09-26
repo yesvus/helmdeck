@@ -220,6 +220,64 @@ describe("AdminResourceList", () => {
     expect(screen.getByText("live")).toBeInTheDocument();
   });
 
+  it("clears a stale error once a later operation succeeds", async () => {
+    // titiz's finding: a failed load or delete left its message up for ever, so a retry that
+    // worked still showed the old failure.
+    let failNext = true;
+    const base = createMemoryPersistenceAdapter();
+    const flaky: AdminPersistenceAdapter = {
+      ...base,
+      query: vi.fn(async (resource: string) => {
+        if (failNext) {
+          failNext = false;
+          throw new Error("database down");
+        }
+        return base.query(resource);
+      }),
+    };
+    const { rerender } = wrap(<AdminResourceList definition={posts} persistence={flaky} />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
+
+    // A retry is a new adapter, which is what changes the effect's dependencies. Calling the
+    // old one directly would resolve nothing and re-render nothing.
+    await base.create("posts", { title: "Recovered" });
+    const recovered: AdminPersistenceAdapter = { ...base, query: vi.fn((r: string) => base.query(r)) };
+    rerender(
+      <AdminI18nProvider locale="en">
+        <AdminPermissionsProvider adapter={allowAll()}>
+          <AdminResourceList definition={posts} persistence={recovered} />
+        </AdminPermissionsProvider>
+      </AdminI18nProvider>,
+    );
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(await screen.findByText("Recovered")).toBeInTheDocument();
+  });
+
+  it("clears a stale delete error once a later delete succeeds", async () => {
+    const base = createMemoryPersistenceAdapter();
+    const first = await base.create<{ id: string }>("posts", { title: "One" });
+    const second = await base.create<{ id: string }>("posts", { title: "Two" });
+    let failNext = true;
+    const flaky: AdminPersistenceAdapter = {
+      ...base,
+      delete: vi.fn(async (resource: string, id: string) => {
+        if (failNext) {
+          failNext = false;
+          throw new Error("delete rejected");
+        }
+        return base.delete(resource, id);
+      }),
+    };
+    wrap(<AdminResourceList definition={posts} persistence={flaky} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: `Delete: ${first.id}` }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("That record could not be deleted.");
+
+    fireEvent.click(await screen.findByRole("button", { name: `Delete: ${second.id}` }));
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
   it("shows the empty state rather than a bare table", async () => {
     const db = createMemoryPersistenceAdapter();
     wrap(<AdminResourceList definition={posts} persistence={db} />);
