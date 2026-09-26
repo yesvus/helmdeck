@@ -1,8 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
-import { ShellThemeProvider } from "../fixtures/components/shell-theme-provider";
+import { ShellThemeProvider, useShellTheme } from "../fixtures/components/shell-theme-provider";
 import ThemePage from "../fixtures/app/theme/page";
 
 afterEach(() => {
@@ -20,7 +22,7 @@ describe("fixture theme controls", () => {
   it("retains dark mode after remounting the theme editor", async () => {
     const user = userEvent.setup();
     const firstMount = renderControls();
-    await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("light"));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("system"));
     await user.selectOptions(screen.getByRole("combobox", { name: "Color mode" }), "dark");
     await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("dark"));
     expect(document.documentElement.dataset.adminTheme).toBe("dark");
@@ -32,6 +34,107 @@ describe("fixture theme controls", () => {
       expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
       expect(document.documentElement.dataset.adminTheme).toBe("dark");
     });
+  });
+
+  it("defaults to system and follows the operating system before any explicit choice", async () => {
+    let matches = true;
+    const media = {
+      get matches() {
+        return matches;
+      },
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList;
+    vi.spyOn(window, "matchMedia").mockReturnValue(media);
+
+    renderControls();
+
+    // No stored preference, so the selector sits on System rather than Light.
+    expect(await screen.findByRole("combobox", { name: "Color mode" })).toHaveValue("system");
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("dark"));
+    // Nothing is written until the visitor chooses, so the default is not persisted.
+    expect(window.localStorage.getItem("helmdeck-demo-theme")).toBeNull();
+
+    matches = false;
+    act(() => {
+      (window.matchMedia("(prefers-color-scheme: dark)") as unknown as {
+        addEventListener: (t: string, l: () => void) => void;
+      }).addEventListener.mock.calls[0]?.[1]?.();
+    });
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
+  });
+
+  it("reports the same default from the hook when used outside a provider", () => {
+    function Probe() {
+      const { theme, resolvedTheme } = useShellTheme();
+      return <span>{`${theme}:${resolvedTheme}`}</span>;
+    }
+    render(<Probe />);
+
+    // `theme` must match the provider's default, or a consumer rendering the hook before
+    // the provider mounts would flash a different selection. `resolvedTheme` deliberately
+    // does not: the fallback has no way to read the operating system preference, so it
+    // stays light even where the provider would resolve to dark. What holds is the
+    // selection, not the resolved value.
+    expect(screen.getByText("system:light")).toBeInTheDocument();
+  });
+
+  it("shows no stale theme on any render when the server snapshot matches the default", async () => {
+    // useSyncExternalStore only consults getServerSnapshot under hydrateRoot, so a plain
+    // render cannot observe this at all. Hydrating the server markup shows the real cost of
+    // a mismatched snapshot: the client renders the stale server value before correcting,
+    // so the selector briefly reads Light on a machine that should say System.
+    const media = {
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList;
+    vi.spyOn(window, "matchMedia").mockReturnValue(media);
+
+    const renders: string[] = [];
+    function Probe() {
+      const { theme, resolvedTheme } = useShellTheme();
+      renders.push(`${theme}:${resolvedTheme}`);
+      return null;
+    }
+    const tree = (
+      <ShellThemeProvider>
+        <Probe />
+      </ShellThemeProvider>
+    );
+
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(tree);
+    document.body.append(container);
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, tree);
+      });
+
+      // Every render agrees. With an unaligned snapshot the first two read "light:light".
+      expect(renders.length).toBeGreaterThan(0);
+      expect(new Set(renders)).toEqual(new Set(["system:light"]));
+    } finally {
+      // A failed assertion above would otherwise leave a live root subscribed to the
+      // module-level listener set, still writing to the document for the rest of the suite.
+      if (root) await act(async () => root.unmount());
+      container.remove();
+    }
+  });
+
+  it("keeps an explicit choice across a remount", async () => {
+    const user = userEvent.setup();
+    const first = renderControls();
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("system"));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Color mode" }), "light");
+    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("light"));
+
+    first.unmount();
+    renderControls();
+
+    // An explicit Light must win over the System default on the next mount.
+    expect(await screen.findByRole("combobox", { name: "Color mode" })).toHaveValue("light");
   });
 
   it("follows the system preference and updates when it changes", async () => {
@@ -66,7 +169,11 @@ describe("fixture theme controls", () => {
     const user = userEvent.setup();
     render(<ThemePage />);
     const mode = screen.getByRole("combobox", { name: "Color mode" });
-    await waitFor(() => expect(mode).toHaveValue("light"));
+    await waitFor(() => expect(mode).toHaveValue("system"));
+    // The default is now System, so selecting it fires no change event. Move away
+    // first so the switch back is a real transition and actually persists.
+    await user.selectOptions(mode, "light");
+    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("light"));
     await user.selectOptions(mode, "system");
     await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("system"));
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValueOnce();

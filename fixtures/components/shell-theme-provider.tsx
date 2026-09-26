@@ -22,7 +22,11 @@ type ShellThemeSnapshot = { theme: ShellThemePreference; systemTheme: "light" | 
 // through useSyncExternalStore rather than copied into state from an effect. Reading them
 // in a state initializer is not an option either, because these pages are server
 // rendered and a client-only initializer would break hydration.
-const serverSnapshot: ShellThemeSnapshot = { theme: "light", systemTheme: "light" };
+// Matches the client default so that, on a light-OS visitor with no stored preference,
+// readSnapshot returns this exact object and useSyncExternalStore does not re-render after
+// hydration. A dark-OS visitor still differs on systemTheme and re-renders, which is
+// unavoidable since a server cannot know the preference.
+const serverSnapshot: ShellThemeSnapshot = { theme: "system", systemTheme: "light" };
 const listeners = new Set<() => void>();
 let snapshot = serverSnapshot;
 
@@ -38,7 +42,7 @@ function readStoredTheme(): string | null {
 function readSnapshot(): ShellThemeSnapshot {
   const saved = readStoredTheme();
   const theme: ShellThemePreference =
-    saved === "light" || saved === "dark" || saved === "system" ? saved : "light";
+    saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
   // Not cached at module scope on purpose: a cached MediaQueryList would go stale when a
   // host or a test swaps window.matchMedia, which the theme tests rely on.
   const systemTheme: "light" | "dark" = window.matchMedia(darkQuery).matches ? "dark" : "light";
@@ -77,7 +81,11 @@ function subscribe(listener: () => void) {
 
 export function useShellTheme() {
   const theme = useContext(ShellThemeContext);
-  return theme ?? { theme: "light", resolvedTheme: "light", setTheme: () => {}, ready: true };
+  // `theme` matches the provider default. `resolvedTheme` deliberately stays light: this
+  // fallback runs without a provider, so there is no subscription to read the operating
+  // system preference from, and inventing one would disagree with the provider on a dark
+  // machine.
+  return theme ?? { theme: "system", resolvedTheme: "light", setTheme: () => {}, ready: true };
 }
 
 export function ShellThemeProvider({ children }: { children: ReactNode }) {
