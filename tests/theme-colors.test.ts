@@ -51,7 +51,10 @@ function remappedUtilities(): Set<string> {
   // The token name may itself end in a shade, as --admin-brand-100 does, so digits belong
   // in the character class. Leaving them out made brand-100 read as unremapped, which is the
   // token that inverted the landing page badge.
-  for (const match of css.matchAll(/--color-([a-z]+-\d+):\s*var\(--admin-[a-z0-9-]+\)/g)) {
+  // The colour name is captured whole, not as `<palette>-<shade>`. The admin-* utilities
+  // have no shade, so a shade-shaped pattern left bg-admin-surface and
+  // border-admin-border invisible to the fixed-region check below.
+  for (const match of css.matchAll(/--color-([a-z0-9-]+):\s*var\(--admin-[a-z0-9-]+\)/g)) {
     remapped.add(match[1]);
   }
   return remapped;
@@ -60,7 +63,7 @@ function remappedUtilities(): Set<string> {
 // A region marked as fixed must not contain any remapped utility, because one is enough to
 // make the region theme after all.
 const REMAPPED_SHADES = remappedUtilities();
-const UTILITY_SHAPE = /(?:^|["'`\s])((?:[a-z0-9-]+:)*(?:bg|text|border|from|via|to|ring|fill|stroke|divide|outline|decoration)-([a-z]+-\d+))\b/g;
+const UTILITY_SHAPE = /(?:^|["'`\s])((?:[a-z0-9-]+:)*(?:bg|text|border|from|via|to|ring|fill|stroke|divide|outline|decoration)-([a-z0-9-]+))\b/g;
 
 const START = "admin-theme-fixed:start";
 const END = "admin-theme-fixed:end";
@@ -116,6 +119,11 @@ describe("theme-aware color usage in shipped components", () => {
     expect(REMAPPED_SHADES.has("amber-400")).toBe(false);
     expect(REMAPPED_SHADES.has("rose-400")).toBe(false);
     expect(REMAPPED_SHADES.has("slate-500")).toBe(false);
+    // The admin-* utilities carry no shade and were previously missed entirely.
+    expect(REMAPPED_SHADES.has("admin-surface")).toBe(true);
+    expect(REMAPPED_SHADES.has("admin-border")).toBe(true);
+    expect(REMAPPED_SHADES.has("admin-brand-text")).toBe(true);
+    expect(REMAPPED_SHADES.has("admin-nope")).toBe(false);
   });
 
   it("matches bare utilities and every variant form, so the coverage above is real", () => {
