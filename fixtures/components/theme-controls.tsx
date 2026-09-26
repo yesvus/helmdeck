@@ -40,8 +40,15 @@ export function ThemeControls() {
 
   // The preset mirrors the shell theme, so a change to either is applied in the same
   // render rather than a commit later, where the CSS effect below would see a stale mode.
+  // A preset that disagrees with the shell, such as one just imported, is normalized here
+  // too, because the CSS effect only writes tokens when the two agree.
   const [syncedTheme, setSyncedTheme] = useState({ resolvedTheme, theme });
-  if (syncedTheme.resolvedTheme !== resolvedTheme || syncedTheme.theme !== theme) {
+  if (
+    syncedTheme.resolvedTheme !== resolvedTheme
+    || syncedTheme.theme !== theme
+    || preset.mode !== resolvedTheme
+    || preset.theme !== theme
+  ) {
     setSyncedTheme({ resolvedTheme, theme });
     setPreset((current) => ({
       ...current,

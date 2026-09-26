@@ -120,6 +120,9 @@ export function AdminMediaPicker({
   const loadItems = useCallback(
     async (search: string, cursor?: string) => {
       if (!adapter) {
+        // Advance the counter so an in-flight request from a previous adapter cannot
+        // commit stale paging state after the adapter is dropped.
+        requestIdRef.current += 1;
         return;
       }
 
