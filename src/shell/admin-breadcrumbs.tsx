@@ -40,14 +40,14 @@ export function AdminBreadcrumbs({
   const currentCrumb = trail.crumbs.at(-1);
 
   return (
-    <nav aria-label={mergedLabels.breadcrumbLabel} className="flex items-center gap-1.5 text-xs text-zinc-500">
+    <nav aria-label={mergedLabels.breadcrumbLabel} className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
       {trail.crumbs.length === 1 ? (
         <span className="sr-only" aria-current="page">{currentCrumb?.label}</span>
       ) : trail.crumbs.map((crumb, index) => (
         <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-1.5">
           {index > 0 ? <ChevronRight className="h-3 w-3 shrink-0" /> : null}
-          {crumb.href && !crumb.current ? <Link href={toHref(crumb.href)} className="truncate hover:text-zinc-900">{crumb.label}</Link> : null}
-          {!crumb.href || crumb.current ? <span aria-current={crumb.current ? "page" : undefined} className={crumb.current ? "truncate text-zinc-700" : "truncate"}>{crumb.href ? crumb.label : resolve(crumb.label, mergedLabels)}</span> : null}
+          {crumb.href && !crumb.current ? <Link href={toHref(crumb.href)} className="truncate hover:text-zinc-900 dark:hover:text-zinc-100">{crumb.label}</Link> : null}
+          {!crumb.href || crumb.current ? <span aria-current={crumb.current ? "page" : undefined} className={crumb.current ? "truncate text-zinc-700 dark:text-zinc-200" : "truncate"}>{crumb.href ? crumb.label : resolve(crumb.label, mergedLabels)}</span> : null}
         </span>
       ))}
     </nav>

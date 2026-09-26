@@ -8,6 +8,7 @@ import ThemePage from "../fixtures/app/theme/page";
 afterEach(() => {
   cleanup();
   document.documentElement.removeAttribute("data-admin-theme");
+  document.documentElement.classList.remove("dark");
   document.documentElement.removeAttribute("style");
   window.localStorage.removeItem("helmdeck-demo-theme");
 });
@@ -32,6 +33,23 @@ describe("fixture theme controls", () => {
       expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
       expect(document.documentElement.dataset.adminTheme).toBe("dark");
     });
+  });
+
+  it("keeps the dark class and the theme attribute in agreement", async () => {
+    const user = userEvent.setup();
+    renderControls();
+    const mode = await screen.findByRole("combobox", { name: "Color mode" });
+
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
+    expect(document.documentElement).not.toHaveClass("dark");
+
+    await user.selectOptions(mode, "dark");
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("dark"));
+    expect(document.documentElement).toHaveClass("dark");
+
+    await user.selectOptions(mode, "light");
+    await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
+    expect(document.documentElement).not.toHaveClass("dark");
   });
 
   it("follows the system preference and updates when it changes", async () => {

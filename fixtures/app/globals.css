@@ -1,5 +1,9 @@
 @import "tailwindcss";
 @import "../../src/theme/tokens.css";
 
+/* Dark is driven by a class rather than the OS media query, so an explicit
+   light, dark, or system choice can control every dark: variant. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @source "../../src";
 @source "../";

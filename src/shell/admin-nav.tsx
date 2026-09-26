@@ -89,7 +89,7 @@ export function AdminNavLink({
           "flex h-11 w-11 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
           active
             ? "bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
-            : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
+            : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
         )}
       >
         {Icon ? <AdminNavItemIcon icon={Icon} /> : null}
@@ -105,7 +105,7 @@ export function AdminNavLink({
         "relative flex min-h-8 items-center rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-admin-surface",
         hideIcon ? "" : "gap-2.5",
         hideIcon
-          ? active ? "text-zinc-900" : "text-zinc-600 hover:text-zinc-900"
+          ? active ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
           : active
             ? "font-semibold bg-brand-500 !text-white ring-1 ring-inset ring-brand-500/30"
             : "font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900",

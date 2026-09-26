@@ -70,14 +70,14 @@ export function AdminProfileMenu({
     <div
       ref={containerRef}
       className={cn(
-        "relative shrink-0 border-t border-zinc-100 p-3",
+        "relative shrink-0 border-t border-zinc-100 p-3 dark:border-zinc-800",
         compact && "flex justify-center",
       )}
     >
       {open ? (
         <div
           className={cn(
-            "absolute bottom-full mb-2 rounded-xl border border-zinc-200 bg-admin-surface p-1.5 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]",
+            "absolute bottom-full mb-2 rounded-xl border border-zinc-200 bg-admin-surface p-1.5 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)] dark:border-zinc-700",
             compact ? "left-3 w-56" : "inset-x-3",
           )}
         >
@@ -85,7 +85,7 @@ export function AdminProfileMenu({
             <Link
               href={resolvedProfileHref}
               onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-600 hover:bg-zinc-50"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               <User className="h-4 w-4" />
               {mergedLabels.profile}
@@ -94,7 +94,7 @@ export function AdminProfileMenu({
           {resolvedViewSiteHref ? (
             <Link
               href={resolvedViewSiteHref}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-600 hover:bg-zinc-50"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-600 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
               <ExternalLink className="h-4 w-4" />
               {mergedLabels.viewSite}
@@ -109,7 +109,7 @@ export function AdminProfileMenu({
           {resolvedOnLogout ? (
             <>
               {resolvedProfileHref || resolvedViewSiteHref || menuExtra ? (
-                <div className="my-1 border-t border-zinc-100" />
+                <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
               ) : null}
               <button
                 type="button"
@@ -134,7 +134,7 @@ export function AdminProfileMenu({
         aria-label={mergedLabels.profileMenu}
         title={compact ? (email ?? mergedLabels.profileMenu) : undefined}
         className={cn(
-          "flex items-center rounded-lg text-left transition-colors hover:bg-zinc-100",
+          "flex items-center rounded-lg text-left transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800",
           compact ? "h-10 w-10 justify-center" : "w-full gap-2.5 px-2 py-2",
         )}
       >

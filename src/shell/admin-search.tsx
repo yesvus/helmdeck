@@ -97,14 +97,14 @@ export function AdminSearch({
 
   if (collapsed) {
     return (
-      <div className="border-b border-zinc-100 p-3">
+      <div className="border-b border-zinc-100 p-3 dark:border-zinc-800">
         <button
           type="button"
           onClick={() => {
             onExpand?.();
             window.setTimeout(() => inputRef.current?.focus(), 0);
           }}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 hover:border-brand-500 hover:bg-admin-surface hover:text-admin-brand-text"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-500 hover:border-brand-500 hover:bg-admin-surface hover:text-admin-brand-text dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
           aria-label={mergedLabels.searchLabel}
           title={mergedLabels.searchHint}
         >
@@ -115,7 +115,7 @@ export function AdminSearch({
   }
 
   return (
-    <div className="relative border-b border-zinc-100 p-3">
+    <div className="relative border-b border-zinc-100 p-3 dark:border-zinc-800">
       <label className="relative block">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
         <input
@@ -124,27 +124,27 @@ export function AdminSearch({
           onChange={(event) => setQuery(event.target.value)}
           placeholder={mergedLabels.searchPlaceholder}
           aria-label={mergedLabels.searchLabel}
-          className="h-10 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-9 pr-3 text-sm outline-none transition focus:border-brand-500 focus:bg-admin-surface"
+          className="h-10 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-9 pr-3 text-sm outline-none transition focus:border-brand-500 focus:bg-admin-surface dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:bg-zinc-700"
         />
       </label>
       {normalized ? (
-        <div className="absolute left-3 right-3 top-[3.35rem] z-50 overflow-hidden rounded-lg border border-zinc-200 bg-admin-surface shadow-xl">
+        <div className="absolute left-3 right-3 top-[3.35rem] z-50 overflow-hidden rounded-lg border border-zinc-200 bg-admin-surface shadow-xl dark:border-zinc-700">
           {results.length ? (
             results.map((entry) => (
               <Link
                 key={`${entry.href}:${entry.label}`}
                 href={entry.href}
                 onClick={() => setQuery("")}
-                className="block border-b border-zinc-100 px-3 py-2.5 last:border-0 hover:bg-brand-100"
+                className="block border-b border-zinc-100 px-3 py-2.5 last:border-0 hover:bg-brand-100 dark:border-zinc-800 dark:hover:bg-zinc-800"
               >
-                <span className="block text-sm font-semibold text-zinc-900">{entry.label}</span>
+                <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{entry.label}</span>
                 {entry.group ? (
                   <span className="text-xs text-zinc-400">{entry.group}</span>
                 ) : null}
               </Link>
             ))
           ) : (
-            <p className="px-3 py-4 text-sm text-zinc-500">{mergedLabels.searchNoResults}</p>
+            <p className="px-3 py-4 text-sm text-zinc-500 dark:text-zinc-400">{mergedLabels.searchNoResults}</p>
           )}
         </div>
       ) : null}

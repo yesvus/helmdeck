@@ -98,6 +98,9 @@ export function ShellThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.adminTheme = resolvedTheme;
+    // The tokens read the data attribute, the dark: variants read the class. Both are
+    // set from the same resolved value so they cannot disagree.
+    document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
   }, [resolvedTheme]);
 
   const value: ShellTheme = { theme, resolvedTheme, setTheme, ready: true };

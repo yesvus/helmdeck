@@ -148,10 +148,10 @@ export function AdminShell({
       }}
     >
       <main
-        className="flex h-[100dvh] flex-col overflow-hidden bg-zinc-50 text-zinc-900 print:h-auto print:min-h-0 print:overflow-visible"
+        className="flex h-[100dvh] flex-col overflow-hidden bg-zinc-50 text-zinc-900 print:h-auto print:min-h-0 print:overflow-visible dark:bg-zinc-950 dark:text-zinc-100"
         style={sidebarStyle}
       >
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:block print:hidden">
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--admin-sidebar-current)] border-r border-zinc-200 bg-admin-surface transition dark:border-zinc-800-[width] duration-300 ease-in-out motion-reduce:transition-none lg:block print:hidden">
           <div className="flex h-full flex-col">
             <div
               className={cn(
@@ -166,7 +166,7 @@ export function AdminShell({
                   className="flex min-w-0 flex-1 items-center gap-2.5"
                 >
                   {brand?.logo ?? null}
-                  <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                  <span className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
                     {brand?.label ?? mergedLabels.brandLabel}
                   </span>
                 </Link>
@@ -174,7 +174,7 @@ export function AdminShell({
               <button
                 type="button"
                 onClick={() => setCollapsed((current) => !current)}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                 aria-label={collapsed ? mergedLabels.sidebarExpand : mergedLabels.sidebarCollapse}
                 title={collapsed ? mergedLabels.sidebarExpand : mergedLabels.sidebarCollapse}
               >
@@ -214,13 +214,13 @@ export function AdminShell({
                           }
                           aria-expanded={isOpen}
                           className={cn(
-                            "mb-0.5 flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700",
+                            "mb-0.5 flex min-h-8 w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 hover:text-zinc-700",
                             activeItem && "text-admin-brand-text",
                           )}
                         >
                           <span className="min-w-0 flex-1">
                             <span className="flex min-w-0 items-center gap-2">
-                              {GroupIcon ? <GroupIcon className={cn("h-4 w-4 shrink-0", activeItem ? "text-brand-600" : "text-zinc-500")} aria-hidden="true" /> : activeItem ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" /> : null}
+                              {GroupIcon ? <GroupIcon className={cn("h-4 w-4 shrink-0", activeItem ? "text-brand-600" : "text-zinc-500 dark:text-zinc-400")} aria-hidden="true" /> : activeItem ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" /> : null}
                               <span className="truncate">{group.label}</span>
                             </span>
                           </span>
@@ -267,14 +267,14 @@ export function AdminShell({
         </aside>
 
         {showTopbar ? (
-          <header className="flex h-[var(--admin-header-height)] shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
+          <header className="flex h-[var(--admin-header-height)] shrink-0 items-center justify-between gap-3 border-b border-zinc-200 bg-admin-surface px-4 py-2 transition-[margin] duration-200 dark:border-zinc-800 sm:px-5 lg:ml-[var(--admin-sidebar-current)] lg:px-6 xl:px-7">
             <div className="flex min-w-0 items-center gap-3">
               <div className="min-w-0">
                 {trail && pageTitle ? <AdminBreadcrumbs groups={nav} /> : null}
                 {pageTitle ? (
-                  <h1 className="truncate text-sm font-semibold text-zinc-900">{pageTitle}</h1>
+                  <h1 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{pageTitle}</h1>
                 ) : !trail ? (
-                  <p className="truncate text-sm font-semibold text-zinc-900">
+                  <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     {brand?.label ?? mergedLabels.brandLabel}
                   </p>
                 ) : null}
