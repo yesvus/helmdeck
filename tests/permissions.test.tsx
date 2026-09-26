@@ -203,23 +203,79 @@ describe("AdminCan", () => {
   });
 
   it("does not show the previous permission's verdict while a new one resolves", async () => {
+    // Asserted on the raw state, not through useAdminCan. That hook collapses "checking" and
+    // a stale "denied" to the same false, so it cannot tell this correct behaviour from the
+    // carry-over bug it is meant to catch.
     const auth = adapter(["billing.write"]);
     const { rerender } = render(
       <AdminPermissionsProvider adapter={auth}>
-        <CanProbe permission="billing.write" />
+        <Probe permission="billing.write" />
       </AdminPermissionsProvider>,
     );
-    await waitFor(() => expect(screen.getByTestId("can")).toHaveTextContent("false"));
+    await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("denied"));
 
     rerender(
+      <AdminPermissionsProvider adapter={auth}>
+        <Probe permission="billing.read" />
+      </AdminPermissionsProvider>,
+    );
+
+    expect(screen.getByTestId("state")).toHaveTextContent("checking");
+    await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("allowed"));
+  });
+
+  it("reports useAdminCan as false until the permission is confirmed, then true", async () => {
+    // The boolean form is a public export, so its own contract is asserted rather than only
+    // reached through the raw state.
+    const auth = adapter();
+    render(
       <AdminPermissionsProvider adapter={auth}>
         <CanProbe permission="billing.read" />
       </AdminPermissionsProvider>,
     );
 
-    // "checking" is not false and not true: the stale refusal is not carried over.
     expect(screen.getByTestId("can")).toHaveTextContent("false");
     await waitFor(() => expect(screen.getByTestId("can")).toHaveTextContent("true"));
+  });
+
+  it("settles when a guard is used with no provider at all", async () => {
+    // cubic's finding: the provider-less fallback was rebuilt every render, so `check` had a
+    // new identity and the resolve effect re-ran without end. Asserting only that the guard
+    // denies would have passed anyway, because the denial appears before the loop does.
+    commitCount = 0;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    function Counting() {
+      const state = useAdminPermission("billing.write");
+      useEffect(() => {
+        commitCount += 1;
+      });
+      return <span data-testid="state">{state}</span>;
+    }
+    render(<Counting />);
+
+    await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("denied"));
+    const settled = commitCount;
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(commitCount).toBe(settled);
+    expect(commitCount).toBeLessThan(10);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("settles when a nav is filtered with no provider at all", async () => {
+    commitCount = 0;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    function Counting() {
+      useAdminPermittedNav(nav);
+      useEffect(() => {
+        commitCount += 1;
+      });
+      return null;
+    }
+    render(<Counting />);
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(commitCount).toBeLessThan(10);
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("settles when the caller passes a fresh context object on every render", async () => {

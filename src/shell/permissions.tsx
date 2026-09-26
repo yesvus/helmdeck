@@ -93,15 +93,18 @@ export function AdminPermissionsProvider({
   return <AdminPermissionsContext.Provider value={value}>{children}</AdminPermissionsContext.Provider>;
 }
 
+// A module constant, not an inline fallback. Building it per render gave `check` a new
+// identity every time, and the resolve effect depends on `check`, so a provider-less guard
+// re-ran it forever: set state, re-render, new `check`, re-run.
+const NO_ADAPTER: AdminPermissionContextValue = {
+  adapter: undefined,
+  check: () => Promise.resolve(false),
+};
+
 export function useAdminPermissions(): AdminPermissionContextValue {
   // Absent a provider this returns the fail-closed check, so a guard used on its own denies
   // rather than throwing in a render path and taking the page down with it.
-  return (
-    useContext(AdminPermissionsContext) ?? {
-      adapter: undefined,
-      check: () => Promise.resolve(false),
-    }
-  );
+  return useContext(AdminPermissionsContext) ?? NO_ADAPTER;
 }
 
 /**
