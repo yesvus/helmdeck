@@ -2,6 +2,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link.js";
 import { KeyRound, LogOut, Settings, User } from "lucide-react";
 import { Button } from "../primitives/button.js";
 import { AdminSectionCard } from "../primitives/layout.js";
@@ -148,12 +149,12 @@ export function AdminProfilePage({
 
       {resolvedSettingsHref ? (
         <AdminSectionCard icon={Settings} title={mergedLabels.settings} description={mergedLabels.settingsDescription}>
-          <a
+          <Link
             href={resolvedSettingsHref}
             className="text-sm font-medium text-admin-brand-text underline underline-offset-4 hover:underline"
           >
             {mergedLabels.settingsOpen}
-          </a>
+          </Link>
         </AdminSectionCard>
       ) : null}
     </div>

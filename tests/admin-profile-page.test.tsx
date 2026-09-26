@@ -14,10 +14,13 @@ vi.mock("next/navigation.js", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+const nextLinkMock = vi.hoisted(() => vi.fn());
+
 vi.mock("next/link.js", () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
-  ),
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => {
+    nextLinkMock(href);
+    return <a href={href}>{children}</a>;
+  },
 }));
 
 const session: AdminSession = { email: "ada@example.com", name: "Ada Lovelace", role: "editor" };
@@ -189,6 +192,13 @@ describe("AdminProfilePage", () => {
     const rendered = screen.getAllByText(/^Started: /);
     expect(rendered).toHaveLength(3);
     expect(new Set(rendered.map((node) => node.textContent)).size).toBe(1);
+  });
+
+  it("routes the settings link through the app router rather than reloading the page", () => {
+    // A bare anchor on an internal href forces a full document load, which loses the shell
+    // state and is visibly slower. The rest of the package navigates with next/link.
+    renderPage("en", <AdminProfilePage session={session} settingsHref="/admin/settings" />);
+    expect(nextLinkMock).toHaveBeenCalled();
   });
 
   it("omits the settings card unless the host supplies a destination", () => {
