@@ -126,7 +126,7 @@ export const turkishAdminMessages: AdminMessages = {
     profileName: "Ad",
     profileEmail: "E-posta",
     profileRole: "Rol",
-    profileSessions: "Oturum açmış oturumlar",
+    profileSessions: "Açık oturumlar",
     profileSessionsDescription: "Bu hesaba şu anda giriş yapmış cihazlar.",
     profileNoOtherSessions: "Başka oturum yok.",
     profileSessionStarted: "Başlangıç",

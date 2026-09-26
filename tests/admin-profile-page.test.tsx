@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
 import { AdminShell } from "../src/shell/admin-shell";
@@ -161,6 +161,85 @@ describe("AdminProfilePage", () => {
     expect(turkish.split(": ")[1]).toMatch(/^\d{1,2} /);
   });
 
+  it("pins the default format to UTC, so a server render and hydration cannot disagree", () => {
+    // cubic's finding: avoiding the clock is not enough, because the runtime timezone moves
+    // the rendered string. The same instant formats as 9:30, 12:30 or 1:30 by zone.
+    const sessions = [{ id: "laptop", label: "Laptop", startedAt: STARTED }];
+    const { unmount } = renderPage("en", <AdminProfilePage session={session} sessions={sessions} />);
+    const rendered = screen.getByText(/^Started: /).textContent;
+    unmount();
+
+    // Same instant, a zone far from UTC. The text moves, which is the point of the prop.
+    const west = renderPage(
+      "en",
+      <AdminProfilePage session={session} sessions={sessions} timeZone="America/Los_Angeles" />,
+    );
+    expect(screen.getByText(/^Started: /).textContent).not.toBe(rendered);
+    west.unmount();
+
+    // Back to the default, and identical to the first render.
+    renderPage("en", <AdminProfilePage session={session} sessions={sessions} timeZone="UTC" />);
+    expect(screen.getByText(/^Started: /).textContent).toBe(rendered);
+    expect(rendered).toContain("9:30");
+  });
+
+  it("survives an unparseable session start instead of taking the page down", () => {
+    // Both Intl formatting and toISOString throw on an Invalid Date, so the fallback has to
+    // reject the value before formatting rather than after.
+    expect(() =>
+      renderPage(
+        "en",
+        <AdminProfilePage session={session} sessions={[{ id: "laptop", label: "Laptop", startedAt: "not a date" }]} />,
+      ),
+    ).not.toThrow();
+
+    // The session is still listed; only the unreadable date is left out. Asserted on the
+    // item's whole text, because a query for "Started: " is defeated by the whitespace
+    // normaliser trimming the trailing space off a rendered "Started: ".
+    const item = screen.getByText("Laptop").closest("li");
+    expect(item?.textContent).toBe("Laptop");
+  });
+
+  it("does not hand an unusable date to a host formatter", () => {
+    // The default formatter has its own catch, so it can mask a bad value. A host formatter
+    // has no such protection, which is what makes the parse check load-bearing rather than
+    // redundant.
+    const seen: number[] = [];
+    expect(() =>
+      renderPage(
+        "en",
+        <AdminProfilePage
+          session={session}
+          sessions={[{ id: "laptop", label: "Laptop", startedAt: "not a date" }]}
+          formatSessionAge={(value) => {
+            if (Number.isNaN(value.getTime())) throw new Error("formatter received an invalid date");
+            seen.push(value.getTime());
+            return "ok";
+          }}
+        />,
+      ),
+    ).not.toThrow();
+
+    expect(seen).toEqual([]);
+    expect(screen.getByText("Laptop").closest("li")?.textContent).toBe("Laptop");
+  });
+
+  it("survives an unrecognised timezone rather than taking the page down", () => {
+    expect(() =>
+      renderPage(
+        "en",
+        <AdminProfilePage
+          session={session}
+          sessions={[{ id: "laptop", label: "Laptop", startedAt: STARTED }]}
+          timeZone="Mars/Olympus_Mons"
+        />,
+      ),
+    ).not.toThrow();
+
+    expect(screen.getByText("Laptop")).toBeInTheDocument();
+    expect(screen.queryByText(/^Started: /)).not.toBeInTheDocument();
+  });
+
   it("uses a host formatter when one is supplied", () => {
     renderPage(
       "en",
@@ -192,6 +271,25 @@ describe("AdminProfilePage", () => {
     const rendered = screen.getAllByText(/^Started: /);
     expect(rendered).toHaveLength(3);
     expect(new Set(rendered.map((node) => node.textContent)).size).toBe(1);
+  });
+
+  it("resolves the settings link through the host's href mapping", async () => {
+    // A locale-enabled host encodes the content locale in its URLs, so bypassing toHref
+    // silently drops it and the link lands on the wrong locale. The mapping only activates
+    // once the content locale has resolved, which is why this awaits.
+    const toHref = vi.fn((href: string) => `${href}?locale=tr`);
+    render(
+      <AdminI18nProvider
+        locale="en"
+        localeAdapter={{ getInterfaceLocale: () => "en", getContentLocale: () => "tr", toHref }}
+      >
+        <AdminProfilePage session={session} settingsHref="/admin/settings" />
+      </AdminI18nProvider>,
+    );
+
+    const link = await screen.findByRole("link", { name: "Open settings" });
+    await waitFor(() => expect(toHref).toHaveBeenCalledWith("/admin/settings", "tr"));
+    expect(link).toHaveAttribute("href", "/admin/settings?locale=tr");
   });
 
   it("routes the settings link through the app router rather than reloading the page", () => {
