@@ -80,22 +80,22 @@ export default function HomePage() {
           {/* admin-theme-fixed: a decorative pastel glow behind the mockup window, on both themes. */}
           <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-teal-200/70 via-amber-100 to-rose-200/60 blur-2xl" />
           <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-[#18181b] p-3 shadow-[0_40px_100px_-35px_rgba(15,23,42,.65)]">
-            {/* admin-theme-fixed: a light panel inside the always-dark mockup window. */}
-            <div className="rounded-[1.4rem] bg-[#fafafa] p-5">
+            {/* admin-theme-fixed:start a static illustration of a light-mode screen. */}
+            <div className="rounded-[1.4rem] bg-[#fafafa] p-5 text-[#18181b]">
               <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
                 <div className="flex items-center gap-2">
                   <span className="h-3 w-3 rounded-full bg-rose-400" />
                   <span className="h-3 w-3 rounded-full bg-amber-400" />
                   <span className="h-3 w-3 rounded-full bg-emerald-400" />
                 </div>
-                <span className="text-xs font-semibold text-zinc-400">helmdeck.yesvus.com</span>
+                <span className="text-xs font-semibold text-[#a1a1aa]">helmdeck.yesvus.com</span>
               </div>
               <div className="mt-5 grid gap-4 sm:grid-cols-[150px_1fr]">
-                <div className="space-y-2 rounded-xl bg-admin-surface p-3 shadow-sm">
+                <div className="space-y-2 rounded-xl bg-white p-3 shadow-sm">
                   {["Overview", "Products", "Media", "Orders", "Settings"].map((item, index) => (
                     <div
                       key={item}
-                      className={`rounded-lg px-3 py-2 text-xs font-semibold ${index === 0 ? "bg-admin-surface-muted text-admin-brand-text" : "text-zinc-500"}`}
+                      className={`rounded-lg px-3 py-2 text-xs font-semibold ${index === 0 ? "bg-[#f5f5f4] text-[#b45309]" : "text-zinc-500"}`}
                     >
                       {item}
                     </div>
@@ -108,8 +108,8 @@ export default function HomePage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {["Published", "Pending", "Revenue", "Storage"].map((label, index) => (
-                      <div key={label} className="rounded-xl border border-zinc-200 bg-admin-surface p-4 shadow-sm">
-                        <p className="text-xs text-zinc-400">{label}</p>
+                      <div key={label} className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+                        <p className="text-xs text-[#a1a1aa]">{label}</p>
                         <p className="mt-2 text-xl font-bold">{[128, 14, "$48k", "68%"][index]}</p>
                       </div>
                     ))}
@@ -117,6 +117,7 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
+            {/* admin-theme-fixed:end */}
           </div>
         </div>
       </section>
