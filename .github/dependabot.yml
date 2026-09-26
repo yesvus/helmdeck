@@ -12,19 +12,32 @@ updates:
       timezone: Etc/UTC
     open-pull-requests-limit: 5
     groups:
-      dev-dependencies:
-        dependency-type: development
-      peer-dependencies:
-        dependency-type: production
+      # Split by name, not by dependency-type. Dependabot's npm production check only
+      # covers dependencies and optionalDependencies, so every package here is classified
+      # development and a production group would silently match nothing. The excluded
+      # names keep each dependency in exactly one group.
+      peer-ranges:
         patterns:
           - "@dnd-kit/*"
           - "@radix-ui/*"
-          - "lucide-react"
-          - "motion"
-          - "next"
-          - "react"
-          - "react-dom"
-          - "tailwindcss"
+          - lucide-react
+          - motion
+          - next
+          - react
+          - react-dom
+          - tailwindcss
+      build-tooling:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@dnd-kit/*"
+          - "@radix-ui/*"
+          - lucide-react
+          - motion
+          - next
+          - react
+          - react-dom
+          - tailwindcss
     labels:
       - dependencies
 
