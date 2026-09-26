@@ -71,8 +71,11 @@ describe("fixture theme controls", () => {
     }
     render(<Probe />);
 
-    // The fallback must not contradict the provider's own default, or a consumer that
-    // renders the hook before the provider mounts would flash a different value.
+    // `theme` must match the provider's default, or a consumer rendering the hook before
+    // the provider mounts would flash a different selection. `resolvedTheme` deliberately
+    // does not: the fallback has no way to read the operating system preference, so it
+    // stays light even where the provider would resolve to dark. What holds is the
+    // selection, not the resolved value.
     expect(screen.getByText("system:light")).toBeInTheDocument();
   });
 

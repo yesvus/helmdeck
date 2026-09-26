@@ -81,8 +81,10 @@ function subscribe(listener: () => void) {
 
 export function useShellTheme() {
   const theme = useContext(ShellThemeContext);
-  // Matches the provider default. resolvedTheme stays light because a consumer without a
-  // provider has no way to read the operating system preference.
+  // `theme` matches the provider default. `resolvedTheme` deliberately stays light: this
+  // fallback runs without a provider, so there is no subscription to read the operating
+  // system preference from, and inventing one would disagree with the provider on a dark
+  // machine.
   return theme ?? { theme: "system", resolvedTheme: "light", setTheme: () => {}, ready: true };
 }
 
