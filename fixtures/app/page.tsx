@@ -19,7 +19,7 @@ export default function HomePage() {
   const { copy } = useDemoLocale();
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f7f8f4] text-zinc-950">
+    <main className="min-h-screen overflow-hidden bg-admin-surface-subtle text-zinc-950">
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#18181b] text-sm font-black text-white">HD</span>
@@ -31,7 +31,7 @@ export default function HomePage() {
         <div className="flex items-center gap-3">
           <Link
             href="/shell"
-            className="hidden items-center gap-2 rounded-lg bg-[#18181b] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-admin-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 sm:inline-flex"
+            className="hidden items-center gap-2 rounded-lg bg-[#18181b] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-admin-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 sm:inline-flex"
           >
             {copy.openDemo}
             <ArrowRight className="h-4 w-4" />
@@ -42,7 +42,7 @@ export default function HomePage() {
       <section className="relative mx-auto grid max-w-7xl gap-14 px-5 pb-20 pt-16 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:px-8 lg:pb-28 lg:pt-24">
         <div className="absolute -left-32 top-8 h-96 w-96 rounded-full bg-brand-500/20 blur-3xl" />
         <div className="relative">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-100 px-3 py-1.5 text-xs font-semibold text-admin-brand-text">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-admin-border bg-admin-surface-muted px-3 py-1.5 text-xs font-semibold text-admin-brand-text">
             <Sparkles className="h-3.5 w-3.5" />
             Next.js App Router
           </div>
@@ -53,14 +53,14 @@ export default function HomePage() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               href="/shell"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#18181b] px-5 py-3 text-sm font-bold text-white transition hover:bg-admin-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#18181b] px-5 py-3 text-sm font-bold text-white transition hover:bg-admin-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             >
               {copy.exploreShell}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
               href="https://github.com/yesvus/helmdeck"
-              className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-admin-surface px-5 py-3 text-sm font-bold text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700"
+              className="inline-flex items-center gap-2 rounded-lg border border-zinc-300 bg-admin-surface px-5 py-3 text-sm font-bold text-zinc-800 transition hover:border-zinc-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             >
               <Code2 className="h-4 w-4" />
               {copy.viewSource}
@@ -77,8 +77,10 @@ export default function HomePage() {
         </div>
 
         <div className="relative">
+          {/* admin-theme-fixed: a decorative pastel glow behind the mockup window, on both themes. */}
           <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-teal-200/70 via-amber-100 to-rose-200/60 blur-2xl" />
           <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-[#18181b] p-3 shadow-[0_40px_100px_-35px_rgba(15,23,42,.65)]">
+            {/* admin-theme-fixed: a light panel inside the always-dark mockup window. */}
             <div className="rounded-[1.4rem] bg-[#fafafa] p-5">
               <div className="flex items-center justify-between border-b border-zinc-200 pb-4">
                 <div className="flex items-center gap-2">
@@ -93,7 +95,7 @@ export default function HomePage() {
                   {["Overview", "Products", "Media", "Orders", "Settings"].map((item, index) => (
                     <div
                       key={item}
-                      className={`rounded-lg px-3 py-2 text-xs font-semibold ${index === 0 ? "bg-brand-100 text-admin-brand-text" : "text-zinc-500"}`}
+                      className={`rounded-lg px-3 py-2 text-xs font-semibold ${index === 0 ? "bg-admin-surface-muted text-admin-brand-text" : "text-zinc-500"}`}
                     >
                       {item}
                     </div>
@@ -101,7 +103,7 @@ export default function HomePage() {
                 </div>
                 <div className="space-y-4">
                   <div className="rounded-xl bg-[#18181b] p-5 text-white">
-                    <p className="text-xs uppercase tracking-[.2em] text-teal-300">Operations</p>
+                    <p className="text-xs uppercase tracking-[.2em] text-brand-100">Operations</p>
                     <p className="mt-2 text-2xl font-bold">Everything in view.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -145,7 +147,7 @@ export default function HomePage() {
             <Link
               key={href}
               href={href}
-              className={`group rounded-2xl border p-6 transition hover:-translate-y-1 hover:border-admin-brand-500 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 ${index === 0 ? "bg-[#18181b] text-white" : "border-zinc-200 bg-admin-surface"}`}
+              className={`group rounded-2xl border p-6 transition hover:-translate-y-1 hover:border-admin-brand-500 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${index === 0 ? "bg-[#18181b] text-white" : "border-zinc-200 bg-admin-surface"}`}
             >
               <div className="flex items-center justify-between">
                 <span className={`text-xs font-bold uppercase tracking-[.18em] ${index === 0 ? "text-brand-100" : "text-admin-brand-text"}`}>Demo</span>
