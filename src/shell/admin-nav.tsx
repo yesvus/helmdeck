@@ -5,11 +5,20 @@ import Link from "next/link.js";
 import { usePathname } from "next/navigation.js";
 import { motion, useReducedMotion } from "motion/react";
 import { cn } from "../cn.js";
-import type { AdminNavItem } from "../adapters/index.js";
+import type { AdminNavIconComponent, AdminNavItem } from "../adapters/index.js";
 import { getAdminHrefPathname, isActiveHref } from "../adapters/index.js";
 import { resolveNavIcon } from "./nav-icons.js";
 import { useAdminShell } from "./context.js";
 import { useAdminHref } from "../i18n.js";
+
+/**
+ * Renders a nav icon from a component reference. The reference arrives as a prop, so the
+ * icon is not constructed during render, which keeps the icon identity stable.
+ */
+function AdminNavItemIcon({ icon: Icon }: { icon: AdminNavIconComponent | null }) {
+  if (!Icon) return null;
+  return <Icon className="h-5 w-5 shrink-0" />;
+}
 
 export function isAdminNavItemActive(pathname: string, href: string, homeHref?: string) {
   const navPath = normalizeRoutePath(href);
@@ -63,7 +72,7 @@ export function AdminNavLink({
             : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900",
         )}
       >
-        {Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
+        {Icon ? <AdminNavItemIcon icon={Icon} /> : null}
         <span className="truncate">{label}</span>
       </Link>
     );
@@ -83,7 +92,7 @@ export function AdminNavLink({
             : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900",
         )}
       >
-        {Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
+        {Icon ? <AdminNavItemIcon icon={Icon} /> : null}
       </Link>
     );
   }
@@ -110,7 +119,7 @@ export function AdminNavLink({
           transition={shouldReduceMotion ? { duration: 0 } : { type: "tween", duration: 0.16, ease: "easeOut" }}
         />
       ) : null}
-      {!hideIcon && Icon ? <Icon className="h-5 w-5 shrink-0" /> : null}
+      {!hideIcon && Icon ? <AdminNavItemIcon icon={Icon} /> : null}
       <motion.span
         className="truncate"
         animate={hideIcon ? { opacity: active ? 1 : 0.7 } : undefined}

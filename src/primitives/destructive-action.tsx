@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { cn } from "../cn.js";
@@ -76,6 +76,7 @@ export function AdminDestructiveAction({
   const dialogId = useId();
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const { pending: formPending } = useFormStatus();
+  const [settledFormPending, setSettledFormPending] = useState(formPending);
   const i18n = useAdminMessages();
   const resolvedLabels = {
     title: title ?? i18n.destructive.title,
@@ -86,11 +87,14 @@ export function AdminDestructiveAction({
   };
   const hasFormAction = action !== undefined;
 
-  useEffect(() => {
+  // Clearing busy tracks a prop transition, so it is applied in the same render rather
+  // than in a post-paint effect write.
+  if (settledFormPending !== formPending) {
+    setSettledFormPending(formPending);
     if (!formPending) {
       setBusy(false);
     }
-  }, [formPending]);
+  }
 
   const wrappedAction =
     typeof action === "function"

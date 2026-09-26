@@ -73,8 +73,12 @@ export default function PrimitivesPage() {
   });
 
   function pushToast(sample: Pick<Toast, "tone" | "title" | "body" | "icon">) {
-    const id = Date.now();
-    setToasts((current) => [...current, { id, ...sample }]);
+    setToasts((current) => {
+      // Derived from the list being updated, so the function stays pure. Two toasts
+      // pushed in the same millisecond used to collide on a Date.now() id.
+      const id = current.reduce((highest, toast) => Math.max(highest, toast.id), 0) + 1;
+      return [...current, { id, ...sample }];
+    });
   }
 
   return (

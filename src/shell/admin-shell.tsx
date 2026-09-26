@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link.js";
 import { usePathname } from "next/navigation.js";
@@ -86,16 +86,13 @@ export function AdminShell({
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
-  const setContentScrollRef = useCallback(
-    (element: HTMLDivElement | null) => {
-      internalContentScrollRef.current = element;
-      if (typeof contentScrollRef === "function") {
-        contentScrollRef(element);
-      } else if (contentScrollRef) {
-        contentScrollRef.current = element;
-      }
-    },
-    [contentScrollRef],
+  // React performs the write into the host's ref, whether it is a callback or a ref
+  // object. Assigning to the prop from a closure is not allowed, so the ref is handed
+  // over instead of mutated.
+  useImperativeHandle(
+    contentScrollRef,
+    () => internalContentScrollRef.current as HTMLDivElement,
+    [],
   );
 
   useEffect(() => {
@@ -267,7 +264,7 @@ export function AdminShell({
         ) : null}
 
         <div
-          ref={setContentScrollRef}
+          ref={internalContentScrollRef}
           role="region"
           tabIndex={0}
           aria-label={pageTitle ?? brand?.label ?? mergedLabels.brandLabel}

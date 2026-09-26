@@ -22,20 +22,23 @@ export default function MediaDemoPage() {
   const [items, setItems] = useState<AdminMediaItem[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string>();
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [settled, setSettled] = useState({ key: -1, error: false });
+
+  // The request status is derived from which reload has settled, so the effect only has to
+  // report the outcome instead of re-arming the flags on every attempt.
+  const loading = settled.key !== reloadKey;
+  const loadError = !loading && settled.error;
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setLoadError(false);
     void getDemoMediaItems().then((nextItems) => {
-      if (active) setItems(nextItems);
+      if (!active) return;
+      setItems(nextItems);
+      setSettled({ key: reloadKey, error: false });
     }).catch(() => {
-      if (active) setLoadError(true);
-    }).finally(() => {
-      if (active) setLoading(false);
+      if (!active) return;
+      setSettled({ key: reloadKey, error: true });
     });
     return () => { active = false; };
   }, [reloadKey]);

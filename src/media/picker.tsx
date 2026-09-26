@@ -89,14 +89,14 @@ export function AdminMediaPicker({
   open: boolean;
   title: string;
 }) {
-  const [items, setItems] = useState(initialItems);
+  const [adapterItems, setAdapterItems] = useState(initialItems);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<AdminMediaSort>("date-desc");
   const [showUpload, setShowUpload] = useState(false);
   const [nextCursor, setNextCursor] = useState<string>();
   const [total, setTotal] = useState<number>();
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string>();
+  const [settled, setSettled] = useState<{ trigger: string; error: boolean } | null>(null);
+  const [pendingMore, setPendingMore] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string>();
   const requestIdRef = useRef(0);
   const initialItemsRef = useRef(initialItems);
@@ -110,78 +110,95 @@ export function AdminMediaPicker({
 
   useEffect(() => {
     initialItemsRef.current = initialItems;
-    if (!adapter) {
-      setItems(initialItems);
-    }
-  }, [adapter, initialItems]);
+  }, [initialItems]);
 
+  // A load is in flight whenever the current trigger has not settled. Deriving it keeps
+  // the effect free of state writes, and the adapter term matters: with no adapter
+  // nothing would ever settle and the placeholder would stick.
+  const loadTrigger = `${open}|${query}|${resolvedPageSize}|${source ?? ""}`;
+  const isLoading = pendingMore || (open && Boolean(adapter) && settled?.trigger !== loadTrigger);
+  const loadError = !isLoading && settled?.trigger === loadTrigger && settled.error
+    ? loadErrorLabel
+    : undefined;
+  // Without an adapter the prop is the source of truth, so it is derived rather than
+  // mirrored into state. A per-render default array would re-seed state every commit.
+  const items = adapter ? adapterItems : initialItems;
+
+  // Written as a promise chain rather than async/await so every state update sits in a
+  // callback. The compiler does not model the microtask boundary, so state written
+  // directly in an async body still looks synchronous to the effect that started it.
   const loadItems = useCallback(
-    async (search: string, cursor?: string) => {
+    (search: string, cursor?: string) => {
       if (!adapter) {
         return;
       }
 
       const requestId = ++requestIdRef.current;
-      setLoading(true);
-      setLoadError(undefined);
+      const trigger = loadTrigger;
+      const kindFilter = allowedKinds?.length === 1
+        ? { kind: allowedKinds[0] }
+        : allowedKinds?.length
+          ? { kinds: allowedKinds }
+          : {};
 
-      try {
-        const kindFilter = allowedKinds?.length === 1
-          ? { kind: allowedKinds[0] }
-          : allowedKinds?.length
-            ? { kinds: allowedKinds }
-            : {};
-        const result = await adapter.list({
+      void adapter
+        .list({
           ...kindFilter,
           cursor,
           limit: resolvedPageSize,
           search: search.trim() || undefined,
           source,
+        })
+        .then((result) => {
+          if (requestId !== requestIdRef.current) {
+            return;
+          }
+          const resultItems = result.items.filter((item) => matchesAllowedKinds(item, allowedKinds));
+          setAdapterItems((current) => (cursor ? mergeItems(current, resultItems) : resultItems));
+          setNextCursor(result.nextCursor);
+          setTotal(result.total);
+          setSettled({ trigger, error: false });
+        })
+        .catch(() => {
+          if (requestId !== requestIdRef.current) {
+            return;
+          }
+          setAdapterItems((current) => (cursor ? current : initialItemsRef.current));
+          setNextCursor(undefined);
+          setSettled({ trigger, error: true });
+        })
+        .finally(() => {
+          if (cursor) {
+            setPendingMore(false);
+          }
         });
-        const resultItems = result.items.filter((item) => matchesAllowedKinds(item, allowedKinds));
-        if (requestId !== requestIdRef.current) {
-          return;
-        }
-        setItems((current) => (cursor ? mergeItems(current, resultItems) : resultItems));
-        setNextCursor(result.nextCursor);
-        setTotal(result.total);
-      } catch {
-        if (requestId !== requestIdRef.current) {
-          return;
-        }
-        setItems((current) => (cursor ? current : initialItemsRef.current));
-        setNextCursor(undefined);
-        setLoadError(loadErrorLabel);
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setLoading(false);
-        }
-      }
     },
-    [adapter, allowedKinds, loadErrorLabel, resolvedPageSize, source],
+    [adapter, allowedKinds, loadTrigger, resolvedPageSize, source],
   );
 
   useEffect(() => {
     if (!open) {
       requestIdRef.current += 1;
-      setLoading(false);
       return;
     }
     void loadItems(query);
   }, [loadItems, open, query]);
 
-  useEffect(() => {
-    if (!open) {
-      return;
+  // A new session is identified by the props, so the reset is applied in the same render
+  // rather than a commit later, where children would briefly see the previous session.
+  const [session, setSession] = useState({ open, title });
+  if (session.open !== open || session.title !== title) {
+    setSession({ open, title });
+    if (open) {
+      setQuery("");
+      setSort("date-desc");
+      setSelectedPath(undefined);
+      setShowUpload(false);
+      setNextCursor(undefined);
+      setTotal(undefined);
+      setSettled(null);
     }
-    setQuery("");
-    setSort("date-desc");
-    setSelectedPath(undefined);
-    setShowUpload(false);
-    setNextCursor(undefined);
-    setTotal(undefined);
-    setLoadError(undefined);
-  }, [open, title]);
+  }
 
   const filteredItems = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase(resolvedLocale);
@@ -246,15 +263,15 @@ export function AdminMediaPicker({
               labels={mergedLabels}
               onUploaded={(item) => {
                 if (matchesAllowedKinds(item, allowedKinds)) {
-                  setItems((current) => [item, ...current]);
+                  setAdapterItems((current) => [item, ...current]);
                 }
               }}
             />
           </div>
         ) : null}
-        <div className="p-5 sm:px-7" aria-busy={loading}>
+        <div className="p-5 sm:px-7" aria-busy={isLoading}>
           {loadError ? <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><span>{loadError}</span><Button type="button" variant="outline" onClick={() => void loadItems(query)}>{mergedLabels.retry}</Button></div> : null}
-          {loading && !items.length ? (
+          {isLoading && !items.length ? (
             <p role="status" className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-5 py-14 text-center text-sm text-zinc-500">
               {mergedLabels.loading}
             </p>
@@ -323,7 +340,7 @@ export function AdminMediaPicker({
         </AdminModalBody>
         <AdminModalFooter className="items-center justify-between border-t border-zinc-200 bg-admin-surface px-5 py-3 sm:px-7">
           <p className="text-sm font-medium text-zinc-600" aria-live="polite">{filteredItems.length} {mergedLabels.results}{typeof total === "number" ? ` · ${total} ${mergedLabels.total}` : ""}</p>
-          {nextCursor && !loading ? <Button type="button" variant="outline" onClick={() => void loadItems(query, nextCursor)}>{mergedLabels.loadMore}</Button> : null}
+          {nextCursor && !isLoading ? <Button type="button" variant="outline" onClick={() => { setPendingMore(true); void loadItems(query, nextCursor); }}>{mergedLabels.loadMore}</Button> : null}
         </AdminModalFooter>
       </AdminModalContent>
     </AdminModal>

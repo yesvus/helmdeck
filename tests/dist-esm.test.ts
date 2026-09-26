@@ -48,7 +48,10 @@ describe("published package under Node ESM", () => {
       } catch (error) {
         const { stdout = "", stderr = "" } = error as { stdout?: string; stderr?: string };
         rmSync(packageDirectory, { recursive: true, force: true });
-        throw new Error(`Package build failed for the ESM resolution check:\n${stdout}${stderr}`);
+        throw new Error(
+          `Package build failed for the ESM resolution check:\n${stdout}${stderr}`,
+          { cause: error },
+        );
       }
 
       const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
