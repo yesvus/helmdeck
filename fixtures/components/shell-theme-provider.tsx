@@ -81,7 +81,9 @@ function subscribe(listener: () => void) {
 
 export function useShellTheme() {
   const theme = useContext(ShellThemeContext);
-  return theme ?? { theme: "light", resolvedTheme: "light", setTheme: () => {}, ready: true };
+  // Matches the provider default. resolvedTheme stays light because a consumer without a
+  // provider has no way to read the operating system preference.
+  return theme ?? { theme: "system", resolvedTheme: "light", setTheme: () => {}, ready: true };
 }
 
 export function ShellThemeProvider({ children }: { children: ReactNode }) {

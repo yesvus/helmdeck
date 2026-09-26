@@ -64,6 +64,18 @@ describe("fixture theme controls", () => {
     await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
   });
 
+  it("reports the same default from the hook when used outside a provider", () => {
+    function Probe() {
+      const { theme, resolvedTheme } = useShellTheme();
+      return <span>{`${theme}:${resolvedTheme}`}</span>;
+    }
+    render(<Probe />);
+
+    // The fallback must not contradict the provider's own default, or a consumer that
+    // renders the hook before the provider mounts would flash a different value.
+    expect(screen.getByText("system:light")).toBeInTheDocument();
+  });
+
   it("shows no stale theme on any render when the server snapshot matches the default", async () => {
     // useSyncExternalStore only consults getServerSnapshot under hydrateRoot, so a plain
     // render cannot observe this at all. Hydrating the server markup shows the real cost of
@@ -155,6 +167,10 @@ describe("fixture theme controls", () => {
     render(<ThemePage />);
     const mode = screen.getByRole("combobox", { name: "Color mode" });
     await waitFor(() => expect(mode).toHaveValue("system"));
+    // The default is now System, so selecting it fires no change event. Move away
+    // first so the switch back is a real transition and actually persists.
+    await user.selectOptions(mode, "light");
+    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("light"));
     await user.selectOptions(mode, "system");
     await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("system"));
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValueOnce();
