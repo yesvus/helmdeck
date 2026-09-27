@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# Measure the built fixtures in a real browser.
+#
+# The unit tests read class attributes, which proves the contract but not the
+# pixels: a Tailwind class can be missing from the stylesheet, or lose to another
+# utility by source order, and every class-string assertion still passes. This
+# asserts the rendered geometry instead.
+#
+# Usage: scripts/verify-layout [--port 4319]
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+PORT=4319
+if [ "${1:-}" = "--port" ]; then PORT="$2"; fi
+
+if ! command -v playwright-cli >/dev/null 2>&1; then
+  # Not a package dependency: the browser download is large and only this script needs it.
+  echo "playwright-cli is not installed." >&2
+  echo "install it with:  npm i -g @playwright/cli && playwright-cli install-browser chromium" >&2
+  exit 2
+fi
+
+if ! curl -sf -o /dev/null "http://localhost:$PORT/primitives"; then
+  echo "fixtures are not being served on port $PORT" >&2
+  echo "start them first:  pnpm build:fixtures && pnpm exec next start fixtures -p $PORT" >&2
+  exit 2
+fi
+
+WORKDIR=$(mktemp -d)
+SESSION="verify-layout-$$"
+cleanup() { playwright-cli -s="$SESSION" close >/dev/null 2>&1 || true; rm -rf "$WORKDIR"; }
+trap cleanup EXIT
+cd "$WORKDIR"
+
+# Key=value pairs rather than JSON: the CLI wraps a returned string in a quoted,
+# escaped JSON string, which is awkward to unwrap in the shell.
+MEASURE='(() => {
+  const out = {};
+  const put = (k, v) => { out[k] = v; };
+  const root = getComputedStyle(document.documentElement);
+  // Compare against the token rather than a card element, so the check does not depend on which
+  // primitives happen to be mounted on the page being measured.
+  put("cardRadius", root.getPropertyValue("--admin-card-radius").trim() || "missing");
+  const dialog = document.querySelector("[role=dialog]");
+  if (!dialog) return "error=no-dialog";
+  const box = dialog.getBoundingClientRect();
+  const style = getComputedStyle(dialog);
+  put("vw", Math.round(innerWidth));
+  put("vh", Math.round(innerHeight));
+  put("width", Math.round(box.width));
+  put("height", Math.round(box.height));
+  put("marginLeft", Math.round(box.left));
+  put("marginRight", Math.round(innerWidth - box.right));
+  put("marginTop", Math.round(box.top));
+  put("marginBottom", Math.round(innerHeight - box.bottom));
+  put("radius", style.borderRadius);
+  put("maxHeight", style.maxHeight);
+  // A pinned header with a scrolling body must leave exactly one live scroller. The dialog itself
+  // is included, because a regression to scrolling content rather than the body would be invisible
+  // to a descendants-only scan, and that is the regression this check exists for.
+  const scrollersOf = () => [dialog, ...dialog.querySelectorAll("*")].filter((n) => {
+    const o = getComputedStyle(n).overflowY;
+    return (o === "auto" || o === "scroll") && n.scrollHeight > n.clientHeight;
+  });
+  put("liveScrollers", scrollersOf().length);
+  // All four bounds, not just the horizontal ones. A dialog taller than the viewport has equal
+  // negative top and bottom margins, so a centred check alone would pass it.
+  const overflows = (b) => b.left < 0 || b.right > innerWidth || b.top < 0 || b.bottom > innerHeight;
+  put("overflowsViewport", overflows(box));
+  // The close button sits in the title row, so the row has to reserve room for it. The box of that
+  // row is full width by design, so compare where its content ends against where the button starts.
+  const close = dialog.querySelector("button[aria-label]");
+  const first = dialog.firstElementChild;
+  if (close && first) {
+    const contentRight = first.getBoundingClientRect().right - parseFloat(getComputedStyle(first).paddingRight || "0");
+    put("closeOverlapsContent", contentRight > close.getBoundingClientRect().left);
+  } else { put("closeOverlapsContent", "no-close"); }
+  return Object.entries(out).map(([k, v]) => k + "=" + v).join(";");
+})()'
+
+# Run once per viewport. Each is named and asserted separately, because a check that only holds at
+# one window size is not a check.
+assert_viewport() {
+  local label=$1
+  local raw measured
+  raw=$(playwright-cli -s="$SESSION" eval "$MEASURE" 2>/dev/null | sed -n '2p')
+  measured=$(printf '%s' "$raw" | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{process.stdout.write(JSON.parse(s))})')
+  if [ -z "$measured" ]; then
+    echo "  FAIL  $label: could not measure the dialog" >&2
+    return 1
+  fi
+  echo "  $label: $measured"
+  LABEL="$label" MEASURED="$measured" node <<'NODE'
+const m = Object.fromEntries(process.env.MEASURED.split(";").map((p) => p.split("=")));
+const label = process.env.LABEL;
+let failed = 0;
+const ok = (name, actual, expected) => {
+  if (String(actual) === String(expected)) console.log(`    ok    ${name} (${actual})`);
+  else { console.error(`    FAIL  ${name}: expected ${expected}, measured ${actual}`); failed = 1; }
+};
+if (m.error) { console.error(`    FAIL  ${m.error}`); process.exit(1); }
+
+ok("dialog is horizontally centred", m.marginLeft, m.marginRight);
+ok("dialog is vertically centred", m.marginTop, m.marginBottom);
+ok("dialog does not overflow the viewport", m.overflowsViewport, "false");
+ok("margins are never negative", Number(m.marginTop) >= 0 && Number(m.marginBottom) >= 0, true);
+const tokenPx = m.cardRadius.endsWith("rem") ? parseFloat(m.cardRadius) * 16 : parseFloat(m.cardRadius);
+ok("dialog radius matches the card radius token", m.radius, `${tokenPx}px`);
+// min(56rem, 100dvh - 4rem): 56rem is 896px.
+ok("height cap is min(56rem, 100dvh - 4rem)", m.maxHeight, `${Math.min(896, Number(m.vh) - 64)}px`);
+ok("title row content clears the close button", m.closeOverlapsContent, "false");
+ok("at most one live scroller", Number(m.liveScrollers) <= 1, true);
+process.exit(failed);
+NODE
+}
+
+if ! LAUNCH=$(playwright-cli -s="$SESSION" open "http://localhost:$PORT/primitives" --browser chromium 2>&1); then
+  # Discarding stderr here would let set -e exit on a launch failure with nothing to act on.
+  echo "  FAIL  could not launch the browser" >&2
+  echo "$LAUNCH" | head -10 >&2
+  exit 1
+fi
+# Take the ref from the button line specifically. A snapshot nests the match inside generic
+# containers, so the first ref on any matching line is the container, not the control.
+REF=$(playwright-cli -s="$SESSION" find "Open modal" 2>/dev/null \
+  | sed -n '/"Open modal"/s/^[[:space:]]*- button[^[]*\[ref=\(e[0-9]*\)\].*/\1/p' | head -1)
+if [ -z "$REF" ]; then
+  echo "  FAIL  could not find the default dialog trigger" >&2
+  playwright-cli -s="$SESSION" find "Open modal" 2>&1 | head -20 >&2
+  exit 1
+fi
+playwright-cli -s="$SESSION" click "$REF" >/dev/null
+
+# An explicit desktop size, then a deliberately short one where the vertical cap actually binds and
+# the dialog must not be taller than the viewport allows.
+playwright-cli -s="$SESSION" resize 1280 720 >/dev/null
+# "|| FAILED=1" rather than a bare call: under set -e a bare non-zero return would end the script
+# here, and the short viewport plus the positive controls would never run.
+FAILED=0
+assert_viewport "1280x720" || FAILED=1
+playwright-cli -s="$SESSION" resize 1280 360 >/dev/null
+assert_viewport "1280x360" || FAILED=1
+
+# Positive controls, so a detector that stopped matching cannot pass unnoticed. Run on the short
+# viewport and last, so they cannot perturb the measurements above.
+playwright-cli -s="$SESSION" resize 1280 720 >/dev/null
+CONTROLS=$(playwright-cli -s="$SESSION" eval '(() => {
+  const dialog = document.querySelector("[role=dialog]");
+  const scrollersOf = () => [dialog, ...dialog.querySelectorAll("*")].filter((n) => {
+    const o = getComputedStyle(n).overflowY;
+    return (o === "auto" || o === "scroll") && n.scrollHeight > n.clientHeight;
+  });
+  const style = getComputedStyle(dialog);
+  const priorOverflow = style.overflowY, priorHeight = style.height;
+  dialog.style.overflowY = "auto";
+  dialog.style.height = "10px";
+  const seesDialogItself = scrollersOf().some((n) => n === dialog);
+  dialog.style.overflowY = priorOverflow;
+  dialog.style.height = priorHeight;
+  const overflows = (b) => b.left < 0 || b.right > innerWidth || b.top < 0 || b.bottom > innerHeight;
+  return [
+    "seesDialogItselfScroll=" + seesDialogItself,
+    "detectsVerticalOverflow=" + overflows({ left: 10, right: 200, top: -100, bottom: innerHeight + 100 }),
+    "detectsHorizontalOverflow=" + overflows({ left: -100, right: innerWidth + 100, top: 10, bottom: 200 }),
+  ].join(";");
+})()' 2>/dev/null | sed -n '2p' | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{process.stdout.write(JSON.parse(s))})')
+
+CONTROLS="$CONTROLS" node <<'NODE' || FAILED=1
+const m = Object.fromEntries((process.env.CONTROLS || "").split(";").filter(Boolean).map((p) => p.split("=")));
+let failed = 0;
+const ok = (name, actual, expected) => {
+  if (String(actual) === String(expected)) console.log(`  ok    ${name} (${actual})`);
+  else { console.error(`  FAIL  ${name}: expected ${expected}, measured ${actual}`); failed = 1; }
+};
+if (Object.keys(m).length === 0) { console.error("  FAIL  positive controls did not run"); process.exit(1); }
+ok("the scroller scan sees the dialog itself", m.seesDialogItselfScroll, "true");
+ok("the overflow check sees vertical overflow", m.detectsVerticalOverflow, "true");
+ok("the overflow check sees horizontal overflow", m.detectsHorizontalOverflow, "true");
+process.exit(failed);
+NODE
+
+[ "$FAILED" = 0 ] || exit 1
+echo "  all layout checks passed"

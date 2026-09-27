@@ -212,7 +212,7 @@ export function AdminMediaPicker({
   return (
     <AdminModal open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
       <AdminModalContent className="left-1/2 top-1/2 flex h-[min(92dvh,52rem)] max-h-[min(92dvh,52rem)] w-[calc(100%_-_1rem)] max-w-[88rem] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100%_-_2rem)] sm:max-w-[88rem]">
-        <AdminModalHeader className="shrink-0 border-b border-zinc-200 bg-admin-surface px-5 py-5 pr-14 sm:px-7">
+        <AdminModalHeader className="shrink-0 border-b border-zinc-200 bg-admin-surface px-5 py-5 sm:px-7">
           <AdminModalTitle className="text-xl font-bold text-zinc-900">{title}</AdminModalTitle>
           <AdminModalDescription>{mergedLabels.description}</AdminModalDescription>
           {aspectRatio ? (

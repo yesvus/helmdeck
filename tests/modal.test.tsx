@@ -45,6 +45,62 @@ describe("AdminModalContent", () => {
     expect(dialog).toHaveClass("max-h-[min(56rem,100dvh_-_4rem)]");
   });
 
+  it("shares the card surface radius rather than a literal one", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent aria-label="Rounded dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Rounded dialog" });
+
+    // The dialog was the last surface still on its own radius, at 16px against the cards' 14px.
+    expect(dialog).toHaveClass("rounded-admin-card");
+    expect(dialog.className).not.toMatch(/\brounded-2xl\b/);
+  });
+
+  it("reserves room for the close button in the title row itself", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent aria-label="Reserved dialog">
+          <AdminModalHeader><AdminModalTitle>Reserved</AdminModalTitle></AdminModalHeader>
+        </AdminModalContent>
+      </AdminModal>,
+    );
+    // aria-labelledby, which Radix points at the title, outranks aria-label, so the accessible
+    // name here is the title text and not the aria-label.
+    const withButton = await screen.findByRole("dialog", { name: "Reserved" });
+    // Asking each consumer for a "pr-14" leaked the requirement out of the component, and
+    // AdminDestructiveAction never passed it, so its close button sat on the title.
+    expect(withButton).toHaveClass("[&>:first-child]:pr-14");
+  });
+
+  it("reserves nothing when there is no close button to clear", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent aria-label="Bare dialog" showCloseButton={false}>
+          <AdminModalHeader><AdminModalTitle>Bare</AdminModalTitle></AdminModalHeader>
+        </AdminModalContent>
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Bare" });
+
+    expect(dialog.className).not.toContain("[&>:first-child]:pr-14");
+    expect(dialog.querySelector("button[aria-label]")).toBeNull();
+  });
+
+  it("positions the close button in the title row", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent aria-label="Closeable dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Closeable dialog" });
+
+    // right-5/top-5 rather than right-4/top-4: the button is 32px wide, so at 16px from the edge it
+    // reached past the p-6 content edge and into the text.
+    expect(dialog.querySelector("button[aria-label]")).toHaveClass("absolute", "right-5", "top-5");
+  });
+
   it("prevents Escape, outside click, and close-button dismissal while pending", async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
