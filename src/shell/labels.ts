@@ -39,6 +39,7 @@ export type AdminShellLabels = {
   resourceNew: string;
   resourceEdit: string;
   resourceDelete: string;
+  resourceDeleteTitle: string;
   resourceEmpty: string;
   resourceEmptyBody: string;
   resourceLoadError: string;
@@ -92,6 +93,7 @@ export const defaultAdminLabels: AdminShellLabels = {
   resourceNew: "New",
   resourceEdit: "Edit",
   resourceDelete: "Delete",
+  resourceDeleteTitle: "Delete this record?",
   resourceEmpty: "Nothing here yet.",
   resourceEmptyBody: "Records will appear here once they are created.",
   resourceLoadError: "These records could not be loaded.",

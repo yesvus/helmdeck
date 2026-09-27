@@ -61,6 +61,12 @@ function allowAll() {
   return { can: vi.fn(async () => true) };
 }
 
+/** Deleting is confirmed, so a test has to open the confirmation and confirm it. */
+async function confirmDelete(name: string) {
+  fireEvent.click(await screen.findByRole("button", { name }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }));
+}
+
 function tree(element: React.ReactElement, adapter = allowAll()) {
   return (
     <AdminI18nProvider locale="en">
@@ -231,10 +237,13 @@ describe("AdminResourceList", () => {
     // create() assigns its own id, so the rows are written directly.
     const rows = [{ id: "mine", title: "Mine" }, { id: "theirs", title: "Theirs" }];
     const db: AdminPersistenceAdapter = { ...createMemoryPersistenceAdapter(), query: async () => rows };
+    // Read is granted: the read check passes no id, so denying it here would empty the list
+    // and make every row assertion below pass for the wrong reason.
     const perRecord = {
-      can: vi.fn(async (permission: string, context?: { resourceId?: string }) =>
-        permission === "posts.update" ? context?.resourceId === "mine" : true,
-      ),
+      can: vi.fn(async (permission: string, context?: { resourceId?: string }) => {
+        if (permission === "posts.read") return true;
+        return permission === "posts.update" ? context?.resourceId === "mine" : true;
+      }),
     };
 
     wrap(<AdminResourceList definition={posts} persistence={db} />, perRecord);
@@ -272,6 +281,22 @@ describe("AdminResourceList", () => {
     expect(await screen.findByText("Recovered")).toBeInTheDocument();
   });
 
+  it("asks before deleting, because a delete cannot be undone from here", async () => {
+    // One stray click on a permanent delete destroys a record with no way back from the UI.
+    const base = createMemoryPersistenceAdapter();
+    const created = await base.create<{ id: string }>("posts", { title: "Precious" });
+    const db: AdminPersistenceAdapter = { ...base, delete: vi.fn((r: string, id: string) => base.delete(r, id)) };
+    wrap(<AdminResourceList definition={posts} persistence={db} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: `Delete: ${created.id}` }));
+    // The dialog is open and nothing has been written.
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(db.delete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
+    await waitFor(() => expect(db.delete).toHaveBeenCalledWith("posts", created.id));
+  });
+
   it("clears a stale delete error once a later delete succeeds", async () => {
     const base = createMemoryPersistenceAdapter();
     const first = await base.create<{ id: string }>("posts", { title: "One" });
@@ -289,10 +314,10 @@ describe("AdminResourceList", () => {
     };
     wrap(<AdminResourceList definition={posts} persistence={flaky} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: `Delete: ${first.id}` }));
+    await confirmDelete(`Delete: ${first.id}`);
     expect(await screen.findByRole("alert")).toHaveTextContent("That record could not be deleted.");
 
-    fireEvent.click(await screen.findByRole("button", { name: `Delete: ${second.id}` }));
+    await confirmDelete(`Delete: ${second.id}`);
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
@@ -348,7 +373,7 @@ describe("AdminResourceList", () => {
     await db.create("posts", { title: "First" });
     wrap(<AdminResourceList definition={posts} persistence={db} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Delete: mem_1" }));
+    await confirmDelete("Delete: mem_1");
 
     await waitFor(() => expect(screen.queryByText("First")).not.toBeInTheDocument());
     expect(await db.query("posts")).toEqual([]);
@@ -800,11 +825,18 @@ describe("AdminResourceForm", () => {
   it("decides the form's write by the record being edited, not the resource", async () => {
     const base = createMemoryPersistenceAdapter();
     const existing = await base.create<{ id: string }>("posts", { title: "Theirs" });
+    // Read granted, write decided by the record. Denying read here would stop the form
+    // rendering at all, and the absent Save button would prove nothing.
     const perRecord = {
-      can: vi.fn(async (_permission: string, context?: { resourceId?: string }) => context?.resourceId === "mine"),
+      can: vi.fn(async (permission: string, context?: { resourceId?: string }) => {
+        if (permission === "posts.read") return true;
+        return context?.resourceId === "mine";
+      }),
     };
     wrap(<AdminResourceForm definition={posts} persistence={base} id={existing.id} />, perRecord);
 
+    // The form is on screen, so the absent Save is a refusal rather than an empty page.
+    await screen.findByLabelText("Title");
     await waitFor(() => expect(perRecord.can).toHaveBeenCalledWith("posts.update", { resourceId: existing.id }));
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });

@@ -3,8 +3,9 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link.js";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { Button } from "../primitives/button.js";
+import { AdminDestructiveAction } from "../primitives/destructive-action.js";
 import { AdminTable, type AdminTableColumn } from "../primitives/table.js";
 import { AdminEmptyState } from "../primitives/empty-state.js";
 import { AdminField, AdminFieldGrid, AdminFormActions } from "../primitives/field.js";
@@ -56,7 +57,6 @@ export function AdminResourceList({
   const [loaded, setLoaded] = useState<{ resource: string; rows: AdminResourceRecord[] } | null>(null);
   const rows = loaded?.resource === definition.resource ? loaded.rows : null;
   const [message, setMessage] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
   const base = detailBaseHref ?? adminResourcePath(definition);
   const permissions = definition.permissions ?? {};
   // Checked before anything is read. Gating the rendered rows would still have queried, and
@@ -98,7 +98,6 @@ export function AdminResourceList({
   }, [definition.resource, i18n.shell.resourceLoadError, labels?.loadError, mayRead, onError, persistence]);
 
   async function remove(id: string) {
-    setBusyId(id);
     try {
       await persistence.delete(definition.resource, id);
       setMessage("");
@@ -110,8 +109,6 @@ export function AdminResourceList({
     } catch (cause) {
       setMessage(labels?.deleteFailed ?? i18n.shell.resourceDeleteFailed);
       onError?.(cause);
-    } finally {
-      setBusyId(null);
     }
   }
 
@@ -143,16 +140,17 @@ export function AdminResourceList({
           ) : null}
           {permissions.delete ? (
             <AdminCan permission={permissions.delete} resourceId={row.id} fallback={null}>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busyId === row.id}
-                aria-busy={busyId === row.id || undefined}
-                aria-label={`${labels?.remove ?? i18n.shell.resourceDelete}: ${row.id}`}
-                onClick={() => void remove(row.id)}
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </Button>
+              {/* Confirmed, because a delete is not undoable from here and one stray click
+                  would destroy a record with no way back. */}
+              <AdminDestructiveAction
+                buttonText={labels?.remove ?? i18n.shell.resourceDelete}
+                title={i18n.shell.resourceDeleteTitle}
+                confirmLabel={labels?.remove ?? i18n.shell.resourceDelete}
+                onConfirm={() => remove(row.id)}
+                triggerVariant="outline"
+                triggerClassName="h-8 w-8 p-0"
+                triggerAriaLabel={`${labels?.remove ?? i18n.shell.resourceDelete}: ${row.id}`}
+              />
             </AdminCan>
           ) : null}
         </span>

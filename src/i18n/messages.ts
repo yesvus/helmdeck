@@ -139,6 +139,7 @@ export const turkishAdminMessages: AdminMessages = {
     resourceNew: "Yeni",
     resourceEdit: "Düzenleyin",
     resourceDelete: "Silin",
+    resourceDeleteTitle: "Bu kayıt silinsin mi?",
     resourceEmpty: "Burada henüz bir şey yok.",
     resourceEmptyBody: "Kayıtlar oluşturulduktan sonra burada görünecek.",
     resourceLoadError: "Bu kayıtlar yüklenemedi.",

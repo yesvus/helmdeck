@@ -53,6 +53,7 @@ export function AdminDestructiveAction({
   hiddenFields,
   onConfirm,
   triggerVariant = "destructive",
+  triggerAriaLabel,
   triggerClassName,
   buttonClassName,
   icon = <AlertTriangle className="h-5 w-5" />,
@@ -67,6 +68,11 @@ export function AdminDestructiveAction({
   hiddenFields?: Record<string, string | number | undefined>;
   onConfirm?: () => void | Promise<void>;
   triggerVariant?: ButtonVariant;
+  /**
+   * For an icon-only trigger, whose visible text is an icon and therefore names nothing. A
+   * row of records needs each trigger to say which record it would destroy.
+   */
+  triggerAriaLabel?: string;
   triggerClassName?: string;
   buttonClassName?: string;
   icon?: ReactNode;
@@ -132,6 +138,7 @@ export function AdminDestructiveAction({
         aria-controls={dialogId}
         aria-expanded={open}
         aria-haspopup="dialog"
+        aria-label={triggerAriaLabel}
       >
         {buttonText}
       </Button>
