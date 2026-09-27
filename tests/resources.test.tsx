@@ -61,12 +61,16 @@ function allowAll() {
   return { can: vi.fn(async () => true) };
 }
 
-function wrap(element: React.ReactElement, adapter = allowAll()) {
-  return render(
+function tree(element: React.ReactElement, adapter = allowAll()) {
+  return (
     <AdminI18nProvider locale="en">
       <AdminPermissionsProvider adapter={adapter}>{element}</AdminPermissionsProvider>
-    </AdminI18nProvider>,
+    </AdminI18nProvider>
   );
+}
+
+function wrap(element: React.ReactElement, adapter = allowAll()) {
+  return render(tree(element, adapter));
 }
 
 describe("defineAdminResource", () => {
@@ -242,13 +246,7 @@ describe("AdminResourceList", () => {
     // old one directly would resolve nothing and re-render nothing.
     await base.create("posts", { title: "Recovered" });
     const recovered: AdminPersistenceAdapter = { ...base, query: vi.fn((r: string) => base.query(r)) };
-    rerender(
-      <AdminI18nProvider locale="en">
-        <AdminPermissionsProvider adapter={allowAll()}>
-          <AdminResourceList definition={posts} persistence={recovered} />
-        </AdminPermissionsProvider>
-      </AdminI18nProvider>,
-    );
+    rerender(tree(<AdminResourceList definition={posts} persistence={recovered} />));
 
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(await screen.findByText("Recovered")).toBeInTheDocument();
@@ -405,13 +403,7 @@ describe("AdminResourceList", () => {
     await screen.findByText("From posts");
 
     const pages = defineAdminResource({ ...posts, resource: "pages" });
-    rerender(
-      <AdminI18nProvider locale="en">
-        <AdminPermissionsProvider adapter={allowAll()}>
-          <AdminResourceList definition={pages} persistence={{ ...db, query: query as never }} />
-        </AdminPermissionsProvider>
-      </AdminI18nProvider>,
-    );
+    rerender(tree(<AdminResourceList definition={pages} persistence={{ ...db, query: query as never }} />));
 
     // The other resource's records are gone, not carried over under the new heading.
     expect(screen.queryByText("From posts")).not.toBeInTheDocument();
@@ -575,13 +567,7 @@ describe("AdminResourceForm", () => {
     const { rerender } = wrap(<AdminResourceForm definition={posts} persistence={db} id="mem_1" />);
     await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("First"));
 
-    rerender(
-      <AdminI18nProvider locale="en">
-        <AdminPermissionsProvider adapter={allowAll()}>
-          <AdminResourceForm definition={posts} persistence={db} id="mem_2" />
-        </AdminPermissionsProvider>
-      </AdminI18nProvider>,
-    );
+    rerender(tree(<AdminResourceForm definition={posts} persistence={db} id="mem_2" />));
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading...");
     expect(screen.queryByText("That record no longer exists.")).not.toBeInTheDocument();
@@ -610,6 +596,30 @@ describe("AdminResourceForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
     expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
     expect(screen.queryByText("That record no longer exists.")).not.toBeInTheDocument();
+  });
+
+  it("clears a save error once a later read of the same record succeeds", async () => {
+    const base = createMemoryPersistenceAdapter();
+    const existing = await base.create<{ id: string }>("posts", { title: "Before" });
+    let failNext = true;
+    const flaky: AdminPersistenceAdapter = {
+      ...base,
+      update: vi.fn(async (resource: string, id: string, value: unknown) => {
+        if (failNext) {
+          failNext = false;
+          throw new Error("write rejected");
+        }
+        return base.update(resource, id, value);
+      }),
+    };
+    const { rerender } = wrap(<AdminResourceForm definition={posts} persistence={flaky} id={existing.id} />);
+    await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("Before"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("That change could not be saved.")).toBeInTheDocument();
+
+    rerender(tree(<AdminResourceForm definition={posts} persistence={base} id={existing.id} />));
+    await waitFor(() => expect(screen.queryByText("That change could not be saved.")).not.toBeInTheDocument());
   });
 
   it("reports a failed save rather than appearing to have worked", async () => {

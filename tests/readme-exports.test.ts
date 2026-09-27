@@ -37,6 +37,10 @@ const DOCUMENTED_COMPONENTS = [
  * README's main import and got a module with no such export.
  */
 const DOCUMENTED_BASELINE = [
+  "createSessionAuthAdapter",
+  "createMemoryPersistenceAdapter",
+  "createAuditAdapter",
+  "createCacheAdapter",
 ];
 
 const DOCUMENTED_FUNCTIONS = [
@@ -76,7 +80,11 @@ describe("the getting-started documentation matches the package", () => {
     expect(unmentioned, "listed here but no longer in the README").toEqual([]);
   });
 
-  it("checks a meaningful number of names", () => {
+  it("checks a meaningful number of names, and does not check an empty list", () => {
+    // An empty DOCUMENTED_BASELINE made both subpath assertions vacuously true, which is
+    // exactly the shape of failure this file exists to catch.
+    expect(DOCUMENTED_BASELINE.length).toBeGreaterThan(0);
+    expect(DOCUMENTED_FUNCTIONS.length).toBeGreaterThan(0);
     expect(ALL.length).toBeGreaterThan(15);
     // And the lists are not simply a copy of the exports, which would make the rest vacuous.
     expect(ALL.length).toBeLessThan(rootNames.size + baselineNames.size);

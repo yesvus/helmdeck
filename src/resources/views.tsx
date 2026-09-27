@@ -286,6 +286,9 @@ export function AdminResourceForm({
     void persistence.read<AdminResourceRecord>(definition.resource, id as string).then(
       (found) => {
         if (active) {
+          // A successful read clears whatever a previous save or read left behind, so a
+          // freshly loaded record does not carry an error that belonged to the last one.
+          setMessage("");
           setRead({ id: id as string, value: found ? { ...found, id: adminResourceRecordId(found) } : null });
         }
       },
