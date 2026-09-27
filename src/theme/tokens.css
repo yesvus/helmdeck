@@ -9,6 +9,7 @@
   --color-admin-border: var(--admin-border);
   --color-admin-skeleton: var(--admin-skeleton);
   --radius-admin-card: var(--admin-card-radius);
+  --radius-admin-control: var(--admin-control-radius);
   --color-admin-overlay: var(--admin-overlay);
   --color-admin-media-backdrop: var(--admin-media-backdrop);
   --color-admin-brand-text: var(--admin-brand-text);
@@ -81,6 +82,7 @@
   --admin-surface-muted: #f5f5f4;
   --admin-surface-subtle: #fafaf9;
   --admin-card-radius: 0.875rem;
+  --admin-control-radius: 0.75rem;
   /* Decorative only: card edges, section rules, dividers. None of these identify a
      control, so WCAG 1.4.11 does not apply and this stays light. Raising it to 3:1
      would need #959392, which is indistinguishable from --admin-border-strong and would
@@ -127,6 +129,7 @@
   --admin-surface-muted: #292524;
   --admin-surface-subtle: #0c0a09;
   --admin-card-radius: 0.875rem;
+  --admin-control-radius: 0.75rem;
   --admin-border: #44403c;
   --admin-border-strong: #78716c;
   --admin-skeleton: #44403c;

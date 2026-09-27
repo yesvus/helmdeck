@@ -35,4 +35,38 @@ describe("theme tokens", () => {
     expect((luminance("ffffff") + 0.05) / (luminance("dc2626") + 0.05)).toBeGreaterThanOrEqual(4.5);
     expect((luminance("ffffff") + 0.05) / (luminance("15803d") + 0.05)).toBeGreaterThanOrEqual(4.5);
   });
+
+  it("never lets the dark block introduce a token the light block lacks", () => {
+    // A token present in only one block resolves against the cascade rather than the theme, so the
+    // other mode silently gets a fallback instead of a deliberate value. Mode-invariant tokens are
+    // declared once in the light block, so the allowlist below is the complete set of those.
+    const css = readFileSync(resolve("src/theme/tokens.css"), "utf8");
+    // The light block has to end where the dark block begins. Slicing it to the end of the file would
+    // include the dark tokens and make the containment assertion below true by construction.
+    const lightStart = css.indexOf('[data-admin-theme="light"]');
+    const darkStart = css.indexOf('[data-admin-theme="dark"]');
+    expect(lightStart, "no light theme block").toBeGreaterThan(-1);
+    expect(darkStart, "no dark theme block").toBeGreaterThan(lightStart);
+    const light = css.slice(lightStart, darkStart);
+    const dark = css.slice(darkStart);
+    const names = (block: string) =>
+      new Set([...block.matchAll(/(--admin-[a-z0-9-]+):/g)].map((match) => match[1]));
+
+    const lightNames = names(light);
+    const darkNames = names(dark);
+    expect(darkNames.size, "no dark tokens were found").toBeGreaterThan(20);
+    expect([...darkNames].filter((name) => !lightNames.has(name)).sort()).toEqual([]);
+    expect([...lightNames].filter((name) => !darkNames.has(name)).sort()).toEqual([
+      "--admin-brand-100",
+      "--admin-brand-500",
+      "--admin-brand-600",
+      "--admin-density",
+      "--admin-font-family",
+      "--admin-on-brand",
+      "--admin-on-danger",
+      "--admin-on-success",
+      "--admin-radius",
+      "--admin-spacing",
+    ]);
+  });
 });
