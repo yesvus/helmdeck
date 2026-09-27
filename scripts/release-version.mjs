@@ -10,6 +10,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packagePath = resolve(root, "package.json");
 const versionPath = resolve(root, "VERSION");
 const readmePath = resolve(root, "README.md");
+const changelogPath = resolve(root, "CHANGELOG.md");
+const UNRELEASED_HEADING = /^## Unreleased$/m;
 // Anchored on the documented install command so an unrelated release link elsewhere in the
 // README is never rewritten. The capture keeps owner, repository, and asset naming owned by
 // the README, so only the version moves.
@@ -181,6 +183,16 @@ export function nextTag(currentTag, bump) {
   });
 }
 
+// Stamps the pending section with the version being cut, so the changelog can never announce a
+// release the rest of the repository does not agree has happened. The section is authored as
+// "Unreleased" and renamed here, in the same commit as VERSION and package.json.
+export function rewriteChangelogHeading(content, version) {
+  if (!UNRELEASED_HEADING.test(content)) {
+    fail("CHANGELOG.md has no '## Unreleased' section to stamp");
+  }
+  return content.replace(UNRELEASED_HEADING, `## ${version}`);
+}
+
 function writeTag(tag) {
   if (!tagPattern.test(tag)) {
     fail(`Invalid release tag: ${tag}`);
@@ -192,6 +204,7 @@ function writeTag(tag) {
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
   writeFileSync(versionPath, `${tag}\n`);
   writeFileSync(readmePath, rewriteInstallUrls(readFileSync(readmePath, "utf8"), version));
+  writeFileSync(changelogPath, rewriteChangelogHeading(readFileSync(changelogPath, "utf8"), version));
 }
 
 export function main(args = process.argv.slice(2)) {

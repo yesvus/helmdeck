@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { nextTag, rewriteInstallUrls } from "./release-version.mjs";
+import { nextTag, rewriteChangelogHeading, rewriteInstallUrls } from "./release-version.mjs";
 
 test("increments an alpha prerelease", () => {
   assert.equal(nextTag("v0.1.0-alpha.1", "alpha"), "v0.1.0-alpha.2");
@@ -94,4 +94,27 @@ test("the committed README install command matches the released version", async 
     command.includes(`/download/v${version}/`) && command.endsWith(`-${version}.tgz`),
     `README install command is not v${version}: ${command}`,
   );
+});
+
+test("stamps the pending changelog section with the version being cut", () => {
+  const changelog = ["# Changelog", "", "## Unreleased", "", "- Something new", "", "## 0.3.2", "", "- Older"].join("\n");
+
+  // The section is authored as Unreleased and renamed by the release, so the changelog can never
+  // announce a release the rest of the repository does not agree has happened.
+  assert.equal(rewriteChangelogHeading(changelog, "0.4.0"), changelog.replace("## Unreleased", "## 0.4.0"));
+});
+
+test("stamps only the pending section and leaves released ones alone", () => {
+  const changelog = ["## Unreleased", "", "- New", "", "## 0.3.2", "", "- Old"].join("\n");
+  const stamped = rewriteChangelogHeading(changelog, "0.4.0");
+
+  assert.match(stamped, /^## 0\.4\.0$/m);
+  assert.match(stamped, /^## 0\.3\.2$/m);
+  assert.doesNotMatch(stamped, /Unreleased/);
+});
+
+test("refuses to cut a release with no pending changelog section", () => {
+  // Failing loudly beats stamping nothing: a silent skip would leave the changelog describing a
+  // release that never got notes, which is the state this exists to prevent.
+  assert.throws(() => rewriteChangelogHeading("## 0.3.2\n", "0.4.0"), /Unreleased/);
 });
