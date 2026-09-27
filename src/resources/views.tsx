@@ -148,7 +148,7 @@ export function AdminResourceList({
                 confirmLabel={labels?.remove ?? i18n.shell.resourceDelete}
                 onConfirm={() => remove(row.id)}
                 triggerVariant="outline"
-                triggerClassName="h-8 w-8 p-0"
+                triggerClassName="h-8 px-2 text-xs"
                 triggerAriaLabel={`${labels?.remove ?? i18n.shell.resourceDelete}: ${row.id}`}
               />
             </AdminCan>
@@ -297,27 +297,28 @@ export function AdminResourceForm({
   useEffect(() => {
     if (isNew || mayRead !== "allowed") return;
     let active = true;
-    void persistence.read<AdminResourceRecord>(definition.resource, id as string).then(
-      (found) => {
-        if (active) {
-          // A successful read clears whatever a previous save or read left behind, so a
-          // freshly loaded record does not carry an error that belonged to the last one.
-          setMessage("");
-          setRead({
-            resource: definition.resource,
-            id: id as string,
-            value: found ? { ...found, id: adminResourceRecordId(found) } : null,
-          });
-        }
-      },
-      (cause: unknown) => {
-        if (active) {
-          setRead({ resource: definition.resource, id: id as string, value: null, failed: true });
-          setMessage(labels?.loadError ?? i18n.shell.resourceLoadError);
-          onError?.(cause);
-        }
-      },
-    );
+    // A catch rather than a second argument to then: a record whose id cannot be read throws
+    // inside the fulfilled handler, and a rejection argument would not see it, leaving the
+    // form loading for ever.
+    void persistence
+      .read<AdminResourceRecord>(definition.resource, id as string)
+      .then((found) => {
+        if (!active) return;
+        // A successful read clears whatever a previous save or read left behind, so a freshly
+        // loaded record does not carry an error that belonged to the last one.
+        setMessage("");
+        setRead({
+          resource: definition.resource,
+          id: id as string,
+          value: found ? { ...found, id: adminResourceRecordId(found) } : null,
+        });
+      })
+      .catch((cause: unknown) => {
+        if (!active) return;
+        setRead({ resource: definition.resource, id: id as string, value: null, failed: true });
+        setMessage(labels?.loadError ?? i18n.shell.resourceLoadError);
+        onError?.(cause);
+      });
     return () => {
       active = false;
     };
@@ -336,12 +337,15 @@ export function AdminResourceForm({
     event.preventDefault();
     setAttempted(true);
     // Checked here as well as on the button, because a form can be submitted without it.
-    // Only a settled refusal blocks. While it is still checking, saying "no access" would
-    // be a guess, and an early Enter on a focused field would be the common way to hit it.
-    if (!declared || held === "denied" || held === "error") {
+    if (!declared) {
       setMessage(i18n.shell.permissionDenied);
       return;
     }
+    if (held === "denied" || held === "error") {
+      setMessage(i18n.shell.permissionDenied);
+      return;
+    }
+    if (held === "checking") return;
     const form = event.currentTarget;
     const parsed = adminResourceValues(definition, new FormData(form));
 

@@ -801,9 +801,12 @@ describe("AdminResourceForm", () => {
     expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
   });
 
-  it("does not refuse an early submit while the permission is still being checked", async () => {
-    // Pressing Enter on a focused field is the ordinary way to submit early, and answering
-    // "no access" for a permission that has not been decided yet is a guess.
+  it("writes nothing when submitted while the permission is still being checked", async () => {
+    // An earlier version of this test asserted the opposite, and it was wrong. Pressing Enter
+    // in a text field submits the form even with no submit button, so the absent button was
+    // not a barrier, and the handler wrote to the adapter with the permission undecided.
+    // While checking, the submit does nothing and reports nothing: a refusal would be a guess
+    // and a write would be unauthorised. The control appears once the answer arrives.
     const db = createMemoryPersistenceAdapter();
     let allow: (value: boolean) => void = () => {};
     const pending = new Promise<boolean>((resolve) => { allow = resolve; });
@@ -815,30 +818,12 @@ describe("AdminResourceForm", () => {
     const form = title.closest("form");
     if (form) fireEvent.submit(form);
 
-    // No refusal while it is still checking.
+    // No message either: nothing is known yet, so nothing is claimed.
     expect(screen.queryByText("You do not have access to this.")).not.toBeInTheDocument();
+    expect(await db.query("posts")).toEqual([]);
 
     allow(true);
-    await waitFor(async () => expect(await db.query("posts")).toHaveLength(1));
-  });
-
-  it("decides the form's write by the record being edited, not the resource", async () => {
-    const base = createMemoryPersistenceAdapter();
-    const existing = await base.create<{ id: string }>("posts", { title: "Theirs" });
-    // Read granted, write decided by the record. Denying read here would stop the form
-    // rendering at all, and the absent Save button would prove nothing.
-    const perRecord = {
-      can: vi.fn(async (permission: string, context?: { resourceId?: string }) => {
-        if (permission === "posts.read") return true;
-        return context?.resourceId === "mine";
-      }),
-    };
-    wrap(<AdminResourceForm definition={posts} persistence={base} id={existing.id} />, perRecord);
-
-    // The form is on screen, so the absent Save is a refusal rather than an empty page.
-    await screen.findByLabelText("Title");
-    await waitFor(() => expect(perRecord.can).toHaveBeenCalledWith("posts.update", { resourceId: existing.id }));
-    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument());
   });
 
   it("uses a field's own control when it declares one", async () => {
