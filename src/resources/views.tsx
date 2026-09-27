@@ -117,7 +117,11 @@ export function AdminResourceList({
     }
   }
 
-  const hasRowActions = permissions.update !== undefined || permissions.delete !== undefined;
+  // A non-empty name, not merely a present one: an empty string is a permission nothing can
+  // be granted, so it would render a column of controls that never appear. Written inline
+  // rather than through a helper so the narrowing reaches the type.
+  const nonEmpty = (permission: string | undefined) => permission !== undefined && permission.length > 0;
+  const hasRowActions = nonEmpty(permissions.update) || nonEmpty(permissions.delete);
   const columns: AdminTableColumn<AdminResourceRecord>[] = [
     ...definition.columns.map((column) => ({
       key: column.key,
@@ -134,7 +138,7 @@ export function AdminResourceList({
       align: "right" as const,
       cell: (row: AdminResourceRecord) => (
         <span className="flex items-center justify-end gap-2">
-          {permissions.update ? (
+          {permissions.update !== undefined && permissions.update.length > 0 ? (
             <AdminCan permission={permissions.update} resourceId={row.id} fallback={null}>
               <Link
                 href={toHref(`${base}/${encodeURIComponent(row.id)}`)}
@@ -145,7 +149,7 @@ export function AdminResourceList({
               </Link>
             </AdminCan>
           ) : null}
-          {permissions.delete ? (
+          {permissions.delete !== undefined && permissions.delete.length > 0 ? (
             <AdminCan permission={permissions.delete} resourceId={row.id} fallback={null}>
               {/* Confirmed, because a delete is not undoable from here and one stray click
                   would destroy a record with no way back. */}
@@ -179,7 +183,7 @@ export function AdminResourceList({
       <AdminPageHeader
         title={definition.label}
         action={
-          permissions.create ? (
+          permissions.create !== undefined ? (
             <AdminCan permission={permissions.create}>
               <Button asChild variant="default">
                 <Link href={toHref(`${base}/new`)} className="inline-flex items-center gap-2">

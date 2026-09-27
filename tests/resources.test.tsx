@@ -455,6 +455,20 @@ describe("AdminResourceList", () => {
     expect(screen.queryByRole("columnheader", { name: "Actions" })).not.toBeInTheDocument();
   });
 
+  it("treats an empty permission name as no permission at all", async () => {
+    // An empty string is a permission nothing can be granted, so it must not produce a column
+    // of controls that never appear.
+    const base = createMemoryPersistenceAdapter();
+    await base.create("posts", { title: "One" });
+    const empty = defineAdminResource({ ...posts, permissions: { read: "posts.read", update: "", delete: "" } });
+
+    wrap(<AdminResourceList definition={empty} persistence={base} />);
+
+    await screen.findByText("One");
+    expect(screen.queryByRole("columnheader", { name: "Actions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Edit: / })).not.toBeInTheDocument();
+  });
+
   it("offers no row controls when the resource declares none of those permissions", async () => {
     // The inner guard would hide them anyway, so this is about not rendering a guard per
     // button for a resource that opted into nothing.
