@@ -428,6 +428,33 @@ describe("AdminResourceList", () => {
     await waitFor(() => expect(screen.queryByRole("link", { name: "Edit: mem_1" })).not.toBeInTheDocument());
   });
 
+  it("shows no refusal text inside a row whose update permission is refused", async () => {
+    // The edit guard had no fallback, so every refused row rendered the page-level refusal
+    // message inside its own actions cell.
+    const base = createMemoryPersistenceAdapter();
+    await base.create("posts", { title: "One" });
+    await base.create("posts", { title: "Two" });
+    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.update") };
+
+    wrap(<AdminResourceList definition={posts} persistence={base} />, denied);
+
+    await screen.findByText("One");
+    await waitFor(() => expect(screen.queryByRole("link", { name: /^Edit: / })).not.toBeInTheDocument());
+    expect(screen.queryAllByText("You do not have access to this.")).toHaveLength(0);
+  });
+
+  it("drops the actions column when a resource offers no row actions at all", async () => {
+    const base = createMemoryPersistenceAdapter();
+    await base.create("posts", { title: "One" });
+    const readOnly = defineAdminResource({ ...posts, permissions: { read: "posts.read" } });
+
+    wrap(<AdminResourceList definition={readOnly} persistence={base} />);
+
+    await screen.findByText("One");
+    // An empty actions column is a column of nothing, which reads as a broken table.
+    expect(screen.queryByRole("columnheader", { name: "Actions" })).not.toBeInTheDocument();
+  });
+
   it("offers no row controls when the resource declares none of those permissions", async () => {
     // The inner guard would hide them anyway, so this is about not rendering a guard per
     // button for a resource that opted into nothing.

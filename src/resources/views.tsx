@@ -117,6 +117,7 @@ export function AdminResourceList({
     }
   }
 
+  const hasRowActions = permissions.update !== undefined || permissions.delete !== undefined;
   const columns: AdminTableColumn<AdminResourceRecord>[] = [
     ...definition.columns.map((column) => ({
       key: column.key,
@@ -126,14 +127,15 @@ export function AdminResourceList({
       cell: (row: AdminResourceRecord) =>
         column.format ? column.format(row[column.key], row) : renderValue(row[column.key]),
     })),
-    {
+    ...(hasRowActions
+      ? [{
       key: "__actions",
       header: i18n.shell.resourceActions,
-      align: "right",
+      align: "right" as const,
       cell: (row: AdminResourceRecord) => (
         <span className="flex items-center justify-end gap-2">
           {permissions.update ? (
-            <AdminCan permission={permissions.update} resourceId={row.id}>
+            <AdminCan permission={permissions.update} resourceId={row.id} fallback={null}>
               <Link
                 href={toHref(`${base}/${encodeURIComponent(row.id)}`)}
                 aria-label={`${labels?.edit ?? i18n.shell.resourceEdit}: ${row.id}`}
@@ -160,7 +162,8 @@ export function AdminResourceList({
           ) : null}
         </span>
       ),
-    },
+    }]
+      : []),
   ];
 
   if (mayRead === "denied" || mayRead === "error") {

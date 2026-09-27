@@ -267,6 +267,21 @@ describe("AdminCan", () => {
     await waitFor(() => expect(screen.getByTestId("can")).toHaveTextContent("true"));
   });
 
+  it("renders nothing for an explicit null fallback", async () => {
+    // `fallback ?? default` meant an explicit null fell through to the default, so
+    // `fallback={null}` silently rendered the very message it was meant to suppress.
+    render(
+      <AdminPermissionsProvider adapter={adapter(["billing.write"])}>
+        <AdminCan permission="billing.write" fallback={null}>
+          <p>secret</p>
+        </AdminCan>
+      </AdminPermissionsProvider>,
+    );
+
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(document.body.textContent).toBe("");
+  });
+
   it("settles when a guard is used with no provider at all", async () => {
     // cubic's finding: the provider-less fallback was rebuilt every render, so `check` had a
     // new identity and the resolve effect re-ran without end. Asserting only that the guard

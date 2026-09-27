@@ -199,14 +199,15 @@ export function AdminCan({
 
   if (state === "allowed") return <>{children}</>;
   if (state === "denied" || state === "error") {
-    return (
-      <>
-        {fallback ?? (
-          <p role="status" className={cn("text-sm text-zinc-600 dark:text-zinc-400", className)}>
-            {labels?.permissionDenied ?? i18n.shell.permissionDenied}
-          </p>
-        )}
-      </>
+    // Presence, not nullishness. `fallback ?? default` means an explicit null falls through
+    // to the default, so `fallback={null}` silently rendered the message it was meant to
+    // suppress.
+    return fallback === undefined ? (
+      <p role="status" className={cn("text-sm text-zinc-600 dark:text-zinc-400", className)}>
+        {labels?.permissionDenied ?? i18n.shell.permissionDenied}
+      </p>
+    ) : (
+      <>{fallback}</>
     );
   }
   return null;
