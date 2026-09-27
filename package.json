@@ -55,6 +55,7 @@
     "test:release": "node --test scripts/release-version.test.mjs",
     "test:modal-geometry": "node scripts/modal-geometry.test.mjs",
     "test": "vitest run",
+    "verify:layout": "bash scripts/verify-layout",
     "test:watch": "vitest",
     "lint": "eslint .",
     "dev": "next dev fixtures",

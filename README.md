@@ -316,3 +316,9 @@ Optional `hint`, `description`, `subtitle`, and stat `detail` content on the fie
 - `pnpm test` runs the package tests.
 - `pnpm build` emits the package to `dist/`.
 - `pnpm build:fixtures` builds the production fixture app.
+- `pnpm verify:layout` measures the built fixture app in a real browser. The unit tests read class
+  attributes, which cannot see a utility missing from the stylesheet or losing to another by source
+  order. It needs a production fixture build and a running server:
+  `pnpm build:fixtures && pnpm exec next start fixtures -p 4319`, then `pnpm verify:layout` in
+  another shell. It uses the Playwright CLI, which is not a package dependency:
+  `npm i -g @playwright/cli && playwright-cli install-browser chromium`.
