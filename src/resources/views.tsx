@@ -258,6 +258,7 @@ export function AdminResourceForm({
   // Keyed by the id it was read for, so a different record is loading again rather than
   // showing the previous one, and so a resolved miss is distinguishable from no answer yet.
   const [read, setRead] = useState<{
+    resource: string;
     id: string;
     value: AdminResourceRecord | null;
     failed?: boolean;
@@ -284,7 +285,10 @@ export function AdminResourceForm({
   // Falling through to "not found" while the permission is merely unresolved reported a
   // missing record for a visitor who may well be allowed to see it.
   const readRefused = mayRead === "denied" || mayRead === "error";
-  const loading = !isNew && !readRefused && read?.id !== id;
+  // Keyed by resource and id together: the same id on a different resource is a different
+  // record, and showing the previous one's values would save them to this one.
+  const loading =
+    !isNew && !readRefused && (read?.resource !== definition.resource || read?.id !== id);
   const values = isNew ? EMPTY_VALUES : (read?.value ?? null);
 
   useEffect(() => {
@@ -296,12 +300,16 @@ export function AdminResourceForm({
           // A successful read clears whatever a previous save or read left behind, so a
           // freshly loaded record does not carry an error that belonged to the last one.
           setMessage("");
-          setRead({ id: id as string, value: found ? { ...found, id: adminResourceRecordId(found) } : null });
+          setRead({
+            resource: definition.resource,
+            id: id as string,
+            value: found ? { ...found, id: adminResourceRecordId(found) } : null,
+          });
         }
       },
       (cause: unknown) => {
         if (active) {
-          setRead({ id: id as string, value: null, failed: true });
+          setRead({ resource: definition.resource, id: id as string, value: null, failed: true });
           setMessage(labels?.loadError ?? i18n.shell.resourceLoadError);
           onError?.(cause);
         }

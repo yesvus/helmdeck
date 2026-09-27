@@ -574,6 +574,30 @@ describe("AdminResourceForm", () => {
     await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("Second"));
   });
 
+  it("does not carry one resource's record over to another with the same id", async () => {
+    // The same id on a different resource is a different record, and the previous one's
+    // values would be saved into this one.
+    const db = createMemoryPersistenceAdapter();
+    await db.create("posts", { id: "shared", title: "A post" });
+    const other = defineAdminResource({ ...posts, resource: "pages" });
+    const withBoth: AdminPersistenceAdapter = {
+      ...db,
+      read: vi.fn(async (resource: string) =>
+        resource === "posts" ? { id: "shared", title: "A post" } : { id: "shared", title: "A page" },
+      ),
+    };
+    const { rerender } = wrap(
+      <AdminResourceForm definition={posts} persistence={withBoth} id="shared" />,
+    );
+    await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("A post"));
+
+    rerender(tree(<AdminResourceForm definition={other} persistence={withBoth} id="shared" />));
+
+    // Back to loading, never showing the post's title on the page form.
+    expect(screen.getByRole("status")).toHaveTextContent("Loading...");
+    await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("A page"));
+  });
+
   it("reports a record that is not there rather than showing a blank form", async () => {
     const db = createMemoryPersistenceAdapter();
     wrap(<AdminResourceForm definition={posts} persistence={db} id="nope" />);
