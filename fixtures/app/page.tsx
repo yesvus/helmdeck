@@ -22,7 +22,7 @@ export default function HomePage() {
     <main className="min-h-screen overflow-hidden bg-admin-surface-subtle text-zinc-950">
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#18181b] text-sm font-black text-white">HD</span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-admin-inverted-surface text-sm font-black text-admin-inverted-text">HD</span>
           <span>
             <span className="block text-sm font-bold tracking-tight">Helmdeck</span>
             <span className="block text-xs text-zinc-500">{copy.productDescription}</span>
@@ -31,7 +31,7 @@ export default function HomePage() {
         <div className="flex items-center gap-3">
           <Link
             href="/shell"
-            className="hidden items-center gap-2 rounded-lg bg-[#18181b] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-admin-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 sm:inline-flex"
+            className="hidden items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-admin-on-brand transition hover:bg-admin-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 sm:inline-flex"
           >
             {copy.openDemo}
             <ArrowRight className="h-4 w-4" />
@@ -53,7 +53,7 @@ export default function HomePage() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               href="/shell"
-              className="inline-flex items-center gap-2 rounded-lg bg-[#18181b] px-5 py-3 text-sm font-bold text-white transition hover:bg-admin-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-5 py-3 text-sm font-bold text-admin-on-brand transition hover:bg-admin-brand-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
             >
               {copy.exploreShell}
               <ArrowRight className="h-4 w-4" />
@@ -77,10 +77,10 @@ export default function HomePage() {
         </div>
 
         <div className="relative">
-          {/* admin-theme-fixed: a decorative pastel glow behind the mockup window, on both themes. */}
+          {/* admin-theme-fixed:start a static illustration of a light-mode screen, its window
+              chrome and the decorative glow behind it. None of it may theme. */}
           <div className="absolute -inset-8 rounded-[3rem] bg-gradient-to-br from-teal-200/70 via-[#fef3c7] to-rose-200/60 blur-2xl" />
           <div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-[#18181b] p-3 shadow-[0_40px_100px_-35px_rgba(15,23,42,.65)]">
-            {/* admin-theme-fixed:start a static illustration of a light-mode screen. */}
             <div className="rounded-[1.4rem] bg-[#fafafa] p-5 text-[#18181b]">
               <div className="flex items-center justify-between border-b border-[#e5e5e5] pb-4">
                 <div className="flex items-center gap-2">
@@ -148,14 +148,14 @@ export default function HomePage() {
             <Link
               key={href}
               href={href}
-              className={`group rounded-2xl border p-6 transition hover:-translate-y-1 hover:border-admin-brand-500 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${index === 0 ? "bg-[#18181b] text-white" : "border-zinc-200 bg-admin-surface"}`}
+              className={`group rounded-2xl border p-6 transition hover:-translate-y-1 hover:border-admin-brand-500 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${index === 0 ? "bg-admin-inverted-surface text-admin-inverted-text" : "border-zinc-200 bg-admin-surface"}`}
             >
               <div className="flex items-center justify-between">
-                <span className={`text-xs font-bold uppercase tracking-[.18em] ${index === 0 ? "text-brand-100" : "text-admin-brand-text"}`}>Demo</span>
+                <span className={`text-xs font-bold uppercase tracking-[.18em] ${index === 0 ? "text-admin-inverted-text/80" : "text-admin-brand-text"}`}>Demo</span>
                 <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
               </div>
               <h3 className="mt-8 text-xl font-bold">{label}</h3>
-              <p className={`mt-2 text-sm leading-6 ${index === 0 ? "text-zinc-300" : "text-zinc-500"}`}>{body}</p>
+              <p className={`mt-2 text-sm leading-6 ${index === 0 ? "text-admin-inverted-text/70" : "text-zinc-500"}`}>{body}</p>
             </Link>
           ))}
         </div>

@@ -40,7 +40,16 @@ function collectSources(directory: string): string[] {
 // A literal that never flips, or a background that inverts in dark mode. Variant prefixes
 // are part of the match, including breakpoint prefixes such as `2xl:`, because
 // `hover:bg-white` and `2xl:bg-white` are the same defect as the bare utility.
-const RISKY = /(?:^|["'`\s])((?:[a-z0-9-]+:)*bg-(?:white|zinc-800|zinc-900|zinc-950|brand-100))\b/g;
+//
+// The arbitrary-value branch is the important one. `bg-[#18181b]` names a colour directly, so it
+// can never resolve to a token, and it sat on the landing page's buttons, logo badge and featured
+// card where it rendered as the page colour in dark mode. The palette branch could not see it,
+// because the value after `bg-` is not a palette name.
+const RISKY =
+  // The variant group has to accept a bracketed variant such as "data-[state=open]:", not just
+  // bare words like "hover:" or "2xl:". A prefix grammar that only knows [a-z0-9-]+ silently
+  // accepts the utility behind such a variant, which is the same defect wearing a prefix.
+  /(?:^|["'`\s])((?:[a-z0-9-]+:|[a-z0-9-]*\[[^\]]*\]:)*bg-(?:white|zinc-800|zinc-900|zinc-950|brand-100|\[[^\]]*\]))(?![a-z0-9-])/g;
 
 // Which palette utilities actually theme is read from tokens.css rather than listed here.
 // Hardcoding the list is how `amber-400` and `emerald-400` became false positives: they sit
@@ -136,11 +145,17 @@ describe("theme-aware color usage in shipped components", () => {
       "2xl:bg-white",
       "hover:bg-brand-100",
       "dark:hover:bg-zinc-900",
+      "bg-[#18181b]",
+      "sm:bg-[rgb(0,0,0)]",
+      "hover:bg-[#fff]",
+      "data-[state=open]:bg-[#fff]",
+      "data-[state=open]:bg-white",
+      "group-data-[open]:bg-white",
     ]) {
       expect(`${token} `.match(RISKY), token).not.toBeNull();
     }
     // The remapped light end of the palette is fine and must not be flagged.
-    for (const token of ["bg-zinc-50", "bg-zinc-100", "bg-zinc-300", "bg-admin-surface"]) {
+    for (const token of ["bg-zinc-50", "bg-zinc-100", "bg-zinc-300", "bg-admin-surface", "bg-admin-inverted-surface"]) {
       expect(`${token} `.match(RISKY), token).toBeNull();
     }
   });

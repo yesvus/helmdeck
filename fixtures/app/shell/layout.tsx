@@ -4,7 +4,7 @@ import Link from "next/link.js";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { AdminShell } from "@yesvus/helmdeck";
 import { sampleNav, sampleSession } from "../../nav";
-import { ShellThemeProvider, useShellTheme } from "../../components/shell-theme-provider";
+import { useShellTheme } from "../../components/shell-theme-provider";
 
 type ShellSettings = {
   role: string;
@@ -33,7 +33,6 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
 
   return (
     <SettingsContext.Provider value={{ role, setRole, accent, setAccent }}>
-      <ShellThemeProvider>
       <AdminShell
         nav={sampleNav}
         session={{ ...sampleSession, role }}
@@ -51,7 +50,6 @@ export default function ShellLayout({ children }: { children: ReactNode }) {
       >
         {children}
       </AdminShell>
-      </ShellThemeProvider>
     </SettingsContext.Provider>
   );
 }
