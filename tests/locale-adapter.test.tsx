@@ -99,11 +99,15 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    const products = await screen.findAllByRole("link", { name: "Ürünler" });
-    expect(products.length).toBeGreaterThan(0);
-    for (const link of products) {
-      expect(link).toHaveAttribute("href", "/admin/urunler?locale=en");
-    }
+    // Awaited on the attribute, not the element: the content locale resolves in an effect, so
+    // the href settles after the links are already on screen.
+    await waitFor(() => {
+      const products = screen.getAllByRole("link", { name: "Ürünler" });
+      expect(products.length).toBeGreaterThan(0);
+      for (const link of products) {
+        expect(link).toHaveAttribute("href", "/admin/urunler?locale=en");
+      }
+    });
   });
 
   it("changes content locale without changing interface messages", async () => {

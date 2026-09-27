@@ -367,7 +367,14 @@ export function AdminResourceForm({
       const saved = isNew
         ? await persistence.create<AdminResourceRecord>(definition.resource, parsed)
         : await persistence.update<AdminResourceRecord>(definition.resource, id, parsed);
-      onSaved?.({ ...saved, id: adminResourceRecordId(saved) });
+      // Outside the catch below, and separately reported. The record is already written at
+      // this point, so calling it a failed save would invite exactly the duplicate submit a
+      // host would then make.
+      try {
+        onSaved?.({ ...saved, id: adminResourceRecordId(saved) });
+      } catch (cause) {
+        onError?.(cause);
+      }
     } catch (cause) {
       setMessage(labels?.saveFailed ?? i18n.shell.resourceSaveFailed);
       onError?.(cause);

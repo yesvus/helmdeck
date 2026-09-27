@@ -776,25 +776,11 @@ describe("AdminResourceForm", () => {
     await screen.findByLabelText("Title");
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
 
-    const form = screen.getByLabelText("Title").closest("form");
-    if (form) fireEvent.submit(form);
-    expect(await db.query("notes")).toEqual([]);
-  });
-
-  it("refuses an early submit when no write permission is declared", async () => {
-    const db = createMemoryPersistenceAdapter();
-    const open = defineAdminResource({
-      resource: "notes",
-      label: "Notes",
-      columns: [],
-      fields: [{ name: "title", label: "Title" }],
-    });
-    wrap(<AdminResourceForm definition={open} persistence={db} />);
-
+    // A direct submit writes nothing either, so the control is not the only thing standing
+    // between a caller and the write.
     (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
     const form = screen.getByLabelText("Title").closest("form");
     if (form) fireEvent.submit(form);
-
     expect(await db.query("notes")).toEqual([]);
   });
 
@@ -847,6 +833,30 @@ describe("AdminResourceForm", () => {
 
     allow(true);
     await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument());
+  });
+
+  it("does not report a failed save when the host's onSaved callback throws", async () => {
+    // The record is already written by then, so calling it a failed save invites the
+    // duplicate submit a host would reasonably make next.
+    const db = createMemoryPersistenceAdapter();
+    const onError = vi.fn();
+    wrap(
+      <AdminResourceForm
+        definition={posts}
+        persistence={db}
+        onSaved={() => {
+          throw new Error("host routing failed");
+        }}
+        onError={onError}
+      />,
+    );
+
+    (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(async () => expect(await db.query("posts")).toHaveLength(1));
+    expect(screen.queryByText("That change could not be saved.")).not.toBeInTheDocument();
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it("uses a field's own control when it declares one", async () => {
