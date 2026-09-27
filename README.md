@@ -63,7 +63,7 @@ Sessions and the sign-out-everywhere control are yours to supply, because `Admin
 
 ### Dialog layout
 
-`AdminModalContent` keeps its existing direct-child API and scrolls its content. For long forms, compose `AdminModalHeader`, `AdminModalBody`, and `AdminModalFooter` explicitly. The header and footer remain visible while the body scrolls, and footer actions stack on narrow screens. Set `preventClose` while a submission is pending to block Escape, outside-click, and close-button dismissal. Destructive confirmations use `AdminDestructiveAction` and remain separate from ordinary dialogs.
+`AdminModalContent` keeps its existing direct-child API, but it only bounds the height. `AdminModalBody` is the scroll container, so compose `AdminModalHeader`, `AdminModalBody`, and `AdminModalFooter` for anything taller than the dialog: the header and footer stay pinned while the body scrolls, and footer actions stack on narrow screens. Content placed directly in the dialog is clipped rather than scrolled, which keeps one scrollbar instead of two. Width belongs to the consumer: any `w-` or `max-w-` utility you pass, at any breakpoint, replaces the built-in default width rather than competing with it. The dialog still stays clear of the viewport edge unless you supply your own `max-w-`. Set `preventClose` while a submission is pending to block Escape, outside-click, and close-button dismissal. Destructive confirmations use `AdminDestructiveAction` and remain separate from ordinary dialogs.
 
 ```tsx
 <AdminModalContent preventClose={saving}>

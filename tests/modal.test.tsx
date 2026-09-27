@@ -104,7 +104,7 @@ describe("AdminModalContent", () => {
     expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
   });
 
-  it("preserves base sizing defaults when consumer sizing utilities are breakpoint-scoped", async () => {
+  it("hands width ownership to the consumer when sizing utilities are breakpoint-scoped", async () => {
     render(
       <AdminModal defaultOpen>
         <AdminModalContent className="sm:w-96 lg:max-w-4xl" aria-label="Responsive dialog" />
@@ -112,38 +112,195 @@ describe("AdminModalContent", () => {
     );
     const dialog = await screen.findByRole("dialog", { name: "Responsive dialog" });
 
-    expect(dialog).toHaveClass("w-full", "max-w-[calc(100%-2rem)]", "sm:max-w-md", "sm:w-96", "lg:max-w-4xl");
+    expect(dialog).toHaveClass("sm:w-96", "lg:max-w-4xl");
+    // The base cap used to ship alongside "sm:w-96", and with no merging behind them the winner was
+    // whichever Tailwind ordered last, so a consumer could not reliably widen the dialog.
+    expect(dialog.className).not.toMatch(/(?:^|\s)w-full(?:\s|$)/);
+    expect(dialog.className).not.toContain("sm:max-w-md");
+    expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
   });
 
-  it.each(["right-8", "start-8", "end-8", "inset-x-8", "inset-8"])(
-    "does not add a centered horizontal anchor with %s",
-    async (placement) => {
+  it.each([
+    "2xl:w-96",
+    "min-[900px]:w-96",
+    "[&:hover]:w-96",
+    "[@supports(display:grid)]:w-96",
+  ])("recognises %s as a consumer-owned width", async (utility) => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className={utility} aria-label="Variant width dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Variant width dialog" });
+
+    // The default width cap is surrendered even though only "w-" was supplied: a max-width smaller
+    // than the requested width wins by clamping, so keeping "sm:max-w-md" would cap "lg:w-[60rem]"
+    // at 28rem. The viewport bound stays, because it only engages past the viewport width.
+    expect(dialog.className).not.toMatch(/(?:^|\s)w-full(?:\s|$)/);
+    expect(dialog.className).not.toContain("sm:max-w-md");
+    expect(dialog).toHaveClass("max-w-[calc(100%-2rem)]");
+  });
+
+  it.each(["2xl:max-w-4xl", "min-[900px]:max-w-4xl", "dark:max-w-4xl"])(
+    "recognises %s as a consumer-owned maximum width",
+    async (utility) => {
       render(
         <AdminModal defaultOpen>
-          <AdminModalContent className={placement} aria-label="Placed dialog" />
+          <AdminModalContent className={utility} aria-label="Variant max dialog" />
         </AdminModal>,
       );
-      const dialog = await screen.findByRole("dialog", { name: "Placed dialog" });
+      const dialog = await screen.findByRole("dialog", { name: "Variant max dialog" });
 
-      expect(dialog).toHaveClass(placement);
-      expect(dialog.className).not.toMatch(/(?:^|\s)left-1\/2(?:\s|$)/);
+      expect(dialog.className).not.toContain("sm:max-w-md");
+      expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
     },
   );
 
-  it.each(["bottom-8", "inset-y-8", "inset-8"])(
-    "does not add a centered vertical anchor with %s",
-    async (placement) => {
+  it.each(["2xl:left-8", "min-[900px]:left-8"])("drops the centered horizontal anchor for %s", async (utility) => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className={utility} aria-label="Variant placed dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Variant placed dialog" });
+
+    expect(dialog.className).not.toMatch(/(?:^|\s)left-1\/2(?:\s|$)/);
+    expect(dialog.className).not.toMatch(/(?:^|\s)-translate-x-1\/2(?:\s|$)/);
+    expect(dialog).toHaveClass("top-1/2", "-translate-y-1/2");
+  });
+
+  it.each(["2xl:top-12", "min-[900px]:top-12"])("drops the centered vertical anchor for %s", async (utility) => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className={utility} aria-label="Variant placed dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Variant placed dialog" });
+
+    expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
+    expect(dialog.className).not.toMatch(/(?:^|\s)-translate-y-1\/2(?:\s|$)/);
+    expect(dialog).toHaveClass("left-1/2", "-translate-x-1/2");
+  });
+
+  it("keeps the centering anchors for variant-scoped utilities that are not placement", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className="data-[state=open]:w-96 hover:max-w-lg" aria-label="Anchored dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Anchored dialog" });
+
+    expect(dialog).toHaveClass("left-1/2", "-translate-x-1/2", "top-1/2", "-translate-y-1/2");
+  });
+
+  it("keeps the vertical anchor when only the horizontal axis is placed", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className="inset-x-8" aria-label="Horizontal only dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Horizontal only dialog" });
+
+    expect(dialog.className).not.toMatch(/(?:^|\s)left-1\/2(?:\s|$)/);
+    expect(dialog).toHaveClass("top-1/2", "-translate-y-1/2");
+  });
+
+  it("keeps the horizontal anchor when only the vertical axis is placed", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className="inset-y-8" aria-label="Vertical only dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Vertical only dialog" });
+
+    expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
+    expect(dialog).toHaveClass("left-1/2", "-translate-x-1/2");
+  });
+
+  it.each(["lg:max-w-4xl", "max-w-4xl", "2xl:max-w-4xl"])(
+    "keeps the base width for the max-width-only consumer %s",
+    async (utility) => {
       render(
         <AdminModal defaultOpen>
-          <AdminModalContent className={placement} aria-label="Placed dialog" />
-        </AdminModal>,
+          <AdminModalContent className={utility} aria-label="Max only dialog" />
+      </AdminModal>,
       );
-      const dialog = await screen.findByRole("dialog", { name: "Placed dialog" });
+      const dialog = await screen.findByRole("dialog", { name: "Max only dialog" });
 
-      expect(dialog).toHaveClass(placement);
-      expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
+      // A max-w is not a width. Dropping "w-full" here left the dialog at its intrinsic content
+      // width wherever the consumer's own breakpoint did not apply.
+      expect(dialog).toHaveClass("w-full");
+      expect(dialog.className).not.toContain("sm:max-w-md");
+      expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
     },
   );
+
+  it("applies the base sizing defaults only when the consumer supplies no width", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className="p-8" aria-label="Default dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Default dialog" });
+
+    expect(dialog).toHaveClass("w-full", "max-w-[calc(100%-2rem)]", "sm:max-w-md");
+  });
+
+  it("keeps the body as the only scroll container so the header and footer stay pinned", async () => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent>
+          <AdminModalHeader><AdminModalTitle>Long form</AdminModalTitle></AdminModalHeader>
+          <AdminModalBody>Scrollable content</AdminModalBody>
+          <AdminModalFooter><button type="button">Save</button></AdminModalFooter>
+        </AdminModalContent>
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Long form" });
+    // Two live scrollbars at once put a strip of empty space inside the body's right padding, and
+    // the collapsed flex child let the header scroll away despite the pinned-region contract.
+    expect(dialog).toHaveClass("overflow-hidden");
+    expect(dialog.className).not.toMatch(/(?:^|\s)overflow-y-auto(?:\s|$)/);
+  });
+
+  it.each([
+    ["right-8", true],
+    ["start-8", true],
+    ["end-8", true],
+    ["inset-x-8", true],
+    ["inset-8", false],
+  ])("does not add a centered horizontal anchor with %s", async (placement, keepsVertical) => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className={placement} aria-label="Placed dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Placed dialog" });
+
+    expect(dialog).toHaveClass(placement);
+    expect(dialog.className).not.toMatch(/(?:^|\s)left-1\/2(?:\s|$)/);
+    // A single-axis placement must leave the other axis centred; a bare "inset-" places both.
+    if (keepsVertical) expect(dialog).toHaveClass("top-1/2", "-translate-y-1/2");
+    else expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
+  });
+
+  it.each([
+    ["bottom-8", true],
+    ["inset-y-8", true],
+    ["inset-8", false],
+  ])("does not add a centered vertical anchor with %s", async (placement, keepsHorizontal) => {
+    render(
+      <AdminModal defaultOpen>
+        <AdminModalContent className={placement} aria-label="Placed dialog" />
+      </AdminModal>,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Placed dialog" });
+
+    expect(dialog).toHaveClass(placement);
+    expect(dialog.className).not.toMatch(/(?:^|\s)top-1\/2(?:\s|$)/);
+    if (keepsHorizontal) expect(dialog).toHaveClass("left-1/2", "-translate-x-1/2");
+    else expect(dialog.className).not.toMatch(/(?:^|\s)left-1\/2(?:\s|$)/);
+  });
 
   it("keeps focus management and closes on Escape", async () => {
     const user = userEvent.setup();
