@@ -224,6 +224,26 @@ describe("AdminResourceList", () => {
     expect(screen.getByText("live")).toBeInTheDocument();
   });
 
+  it("decides each row by its own id, so per-record rules can hide a row's controls", async () => {
+    // AdminPermissionsAdapter.can takes a resourceId for exactly this, and the generated views
+    // were asking once for the whole resource, so a host allowing edits only on their own
+    // records would have seen an edit control on every row.
+    // create() assigns its own id, so the rows are written directly.
+    const rows = [{ id: "mine", title: "Mine" }, { id: "theirs", title: "Theirs" }];
+    const db: AdminPersistenceAdapter = { ...createMemoryPersistenceAdapter(), query: async () => rows };
+    const perRecord = {
+      can: vi.fn(async (permission: string, context?: { resourceId?: string }) =>
+        permission === "posts.update" ? context?.resourceId === "mine" : true,
+      ),
+    };
+
+    wrap(<AdminResourceList definition={posts} persistence={db} />, perRecord);
+
+    expect(await screen.findByRole("link", { name: "Edit: mine" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Edit: theirs" })).not.toBeInTheDocument());
+    expect(perRecord.can).toHaveBeenCalledWith("posts.update", { resourceId: "theirs" });
+  });
+
   it("clears a stale error once a later operation succeeds", async () => {
     // titiz's finding: a failed load or delete left its message up for ever, so a retry that
     // worked still showed the old failure.
@@ -775,6 +795,18 @@ describe("AdminResourceForm", () => {
 
     allow(true);
     await waitFor(async () => expect(await db.query("posts")).toHaveLength(1));
+  });
+
+  it("decides the form's write by the record being edited, not the resource", async () => {
+    const base = createMemoryPersistenceAdapter();
+    const existing = await base.create<{ id: string }>("posts", { title: "Theirs" });
+    const perRecord = {
+      can: vi.fn(async (_permission: string, context?: { resourceId?: string }) => context?.resourceId === "mine"),
+    };
+    wrap(<AdminResourceForm definition={posts} persistence={base} id={existing.id} />, perRecord);
+
+    await waitFor(() => expect(perRecord.can).toHaveBeenCalledWith("posts.update", { resourceId: existing.id }));
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
   it("uses a field's own control when it declares one", async () => {

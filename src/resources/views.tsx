@@ -131,7 +131,7 @@ export function AdminResourceList({
       cell: (row: AdminResourceRecord) => (
         <span className="flex items-center justify-end gap-2">
           {permissions.update ? (
-            <AdminCan permission={permissions.update}>
+            <AdminCan permission={permissions.update} resourceId={row.id}>
               <Link
                 href={toHref(`${base}/${encodeURIComponent(row.id)}`)}
                 aria-label={`${labels?.edit ?? i18n.shell.resourceEdit}: ${row.id}`}
@@ -142,7 +142,7 @@ export function AdminResourceList({
             </AdminCan>
           ) : null}
           {permissions.delete ? (
-            <AdminCan permission={permissions.delete} fallback={null}>
+            <AdminCan permission={permissions.delete} resourceId={row.id} fallback={null}>
               <Button
                 type="button"
                 variant="outline"
@@ -272,7 +272,12 @@ export function AdminResourceForm({
   // permission showed no New control and still had a working form at the new route.
   const requiredPermission = isNew ? permissions.create : permissions.update;
   const declared = requiredPermission !== undefined;
-  const held = useAdminPermission(requiredPermission);
+  // The id goes in, so a host whose rules are per record decides this record rather than the
+  // resource as a whole. A new record has no id yet and is decided on the resource alone.
+  const held = useAdminPermission(
+    requiredPermission,
+    isNew || id === undefined ? undefined : { resourceId: id },
+  );
   const granted = declared && held === "allowed";
   // Checked before the read, so a denied visitor never has the record in the response.
   const mayRead = useAdminPermission(permissions.read);
@@ -469,13 +474,13 @@ export function AdminResourceForm({
         })}
       </AdminFieldGrid>
 
-      <AdminFormActions>
-        {granted ? (
+      {granted ? (
+        <AdminFormActions>
           <Button type="submit" disabled={pending} aria-busy={pending || undefined}>
             {pending ? (labels?.saving ?? i18n.shell.resourceSaving) : (labels?.save ?? i18n.shell.resourceSave)}
           </Button>
-        ) : null}
-      </AdminFormActions>
+        </AdminFormActions>
+      ) : null}
     </form>
   );
 }
