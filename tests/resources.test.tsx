@@ -685,6 +685,19 @@ describe("AdminResourceForm", () => {
     await waitFor(async () => expect(await db.query("notes")).toHaveLength(1));
   });
 
+  it("still allows a new record when the read permission is refused", async () => {
+    // Creating needs create permission and reads nothing, so a read refusal must not lock a
+    // visitor out of a form they are allowed to fill in.
+    const db = createMemoryPersistenceAdapter();
+    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
+
+    wrap(<AdminResourceForm definition={posts} persistence={db} />, denied);
+
+    (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(async () => expect(await db.query("posts")).toHaveLength(1));
+  });
+
   it("never reads a record when the read permission is refused", async () => {
     const base = createMemoryPersistenceAdapter();
     const existing = await base.create<{ id: string }>("posts", { title: "Secret" });

@@ -355,7 +355,10 @@ export function AdminResourceForm({
     return <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">{i18n.shell.resourceLoading}</p>;
   }
 
-  if (readRefused) {
+  // Only an existing record is read, so only an existing record is gated on read. A new one
+  // needs create permission and fetches nothing, and denying read must not lock a visitor
+  // out of the form they are allowed to fill in.
+  if (!isNew && readRefused) {
     return <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">{i18n.shell.permissionDenied}</p>;
   }
 
