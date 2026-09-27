@@ -43,17 +43,13 @@ export function AdminModalContent({
 }) {
   const i18n = useAdminMessages();
   const utilities = className?.split(/\s+/).map((name) => utilityName(name).replace(/^!/, "")) ?? [];
-  // Three separate questions, because a max-w utility is not a width: dropping w-full for a
-  // max-w-only consumer would leave the dialog at its intrinsic width wherever the consumer's
-  // breakpoint does not apply. The viewport bound is kept unless a max-w is supplied, since it only
-  // engages when a consumer asks for more than the viewport offers, the case it exists for.
+  // A gutter class is a width and a max-w is not, so they answer separate questions. A max-w-only
+  // consumer keeps the gutter. A w-only consumer needs an explicit bound instead, because with the
+  // gutter gone nothing stops a fixed rem width from exceeding the viewport. The default cap
+  // surrenders to either, since a max-width smaller than the requested width wins by clamping
+  // rather than losing the cascade.
   const hasWidthUtility = utilities.some((name) => /^w-/.test(name));
   const hasMaxWidthUtility = utilities.some((name) => /^max-w-/.test(name));
-  // The opinionated default width surrenders to either, at any breakpoint. Emitting it alongside a
-  // consumer utility left both in the class list, and with no merging behind them the winner was
-  // whichever Tailwind happened to order last, so a consumer could not reliably widen the dialog.
-  // "sm:max-w-md" had to go for a plain "lg:w-[60rem]" too: a max-width smaller than the requested
-  // width wins by clamping, not by losing the cascade.
   const hasAnyWidthUtility = hasWidthUtility || hasMaxWidthUtility;
   // A bare "inset-" places on both axes, but "inset-x-" only the horizontal and "inset-y-" only the
   // vertical. Without the exclusions each one suppressed the opposite axis's centring anchor too.
@@ -71,10 +67,20 @@ export function AdminModalContent({
           // Clips rather than scrolls: AdminModalBody is the only scroll container, so the header and
           // footer stay pinned. Content scrolling here as well gave a tall dialog two live
           // scrollbars at once, and the inner one sat inside the body's right padding.
-          "fixed z-50 flex max-h-[min(90dvh,56rem)] flex-col gap-4 overflow-hidden overscroll-contain rounded-2xl border border-zinc-300 bg-admin-surface p-6 shadow-2xl data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
-          !hasWidthUtility && "w-full",
-          !hasMaxWidthUtility && "max-w-[calc(100%-2rem)]",
-          !hasAnyWidthUtility && "sm:max-w-md",
+          // The previous 90dvh made the top and bottom margin a percentage of the viewport, so it was
+          // 40px on a phone and 108px on a 2160p display, and matched neither the side margin nor
+          // anything else on the page. Tailwind unwraps calc() here, emitting
+          // "min(56rem, 100dvh - 4rem)", so the dialog keeps 2rem clear of the top and bottom edges
+          // whenever its content is tall enough to reach the cap.
+          "fixed z-50 flex max-h-[min(56rem,100dvh_-_4rem)] flex-col gap-4 overflow-hidden overscroll-contain rounded-2xl border border-zinc-300 bg-admin-surface p-6 shadow-2xl data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
+          // Below sm the dialog spans the width less 1rem per side. From sm up it is capped and
+          // centred, so the side margin grows with the viewport: 4rem at 640px, 704px at 1920px.
+          // There is deliberately no "sm:w-..." here. The cap is the smaller value at every width
+          // above sm, so such a class never decided the rendered width.
+          !hasWidthUtility && "w-[calc(100%_-_2rem)]",
+          // 32rem, the width shadcn/ui defaults a dialog to. Ant Design's 520px is 32.5rem.
+          !hasAnyWidthUtility && "sm:max-w-lg",
+          hasWidthUtility && !hasMaxWidthUtility && "max-w-[calc(100%_-_2rem)]",
           !hasHorizontalPlacement && "left-1/2 -translate-x-1/2",
           !hasVerticalPlacement && "top-1/2 -translate-y-1/2",
           className,
