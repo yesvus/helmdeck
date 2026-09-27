@@ -89,6 +89,11 @@ export function AdminResourceList({
       (cause: unknown) => {
         if (!active) return;
         setMessage(labels?.loadError ?? i18n.shell.resourceLoadError);
+        // Dropped as well as reported. Leaving the previous rows under an error message shows
+        // records the list can no longer vouch for, next to a claim that loading failed.
+        setLoaded((current) =>
+          current && current.resource === definition.resource ? { ...current, rows: [] } : current,
+        );
         onError?.(cause);
       },
     );

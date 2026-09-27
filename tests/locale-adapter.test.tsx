@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -76,9 +76,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
-      "href",
-      "/admin/urunler?locale=en",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "probe" })).toHaveAttribute("href", "/admin/urunler?locale=en"),
     );
     unmount();
 
@@ -151,9 +150,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
-      "href",
-      "/admin/urunler?locale=en",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "probe" })).toHaveAttribute("href", "/admin/urunler?locale=en"),
     );
   });
 
@@ -166,9 +164,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "Genel bakış" })).toHaveAttribute(
-      "href",
-      "/admin?locale=en",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Genel bakış" })).toHaveAttribute("href", "/admin?locale=en"),
     );
   });
 
@@ -184,9 +181,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
-      "href",
-      "/admin/urunler?locale=en",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "probe" })).toHaveAttribute("href", "/admin/urunler?locale=en"),
     );
 
     rerender(
@@ -195,9 +191,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
-      "href",
-      "/admin/urunler",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "probe" })).toHaveAttribute("href", "/admin/urunler"),
     );
   });
 });

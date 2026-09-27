@@ -253,6 +253,29 @@ describe("AdminResourceList", () => {
     expect(perRecord.can).toHaveBeenCalledWith("posts.update", { resourceId: "theirs" });
   });
 
+  it("drops the rows it can no longer vouch for when a load fails", async () => {
+    // cubic's finding: the previous rows stayed on screen under the error message, so records
+    // the list can no longer vouch for were shown next to a claim that loading failed.
+    const base = createMemoryPersistenceAdapter();
+    await base.create("posts", { title: "Earlier" });
+    let failNext = false;
+    const flaky: AdminPersistenceAdapter = {
+      ...base,
+      query: vi.fn(async (resource: string) => {
+        if (failNext) throw new Error("database down");
+        return base.query(resource);
+      }),
+    };
+    const { rerender } = wrap(<AdminResourceList definition={posts} persistence={flaky} />);
+    expect(await screen.findByText("Earlier")).toBeInTheDocument();
+
+    failNext = true;
+    rerender(tree(<AdminResourceList definition={posts} persistence={{ ...flaky, query: flaky.query }} />));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
+    expect(screen.queryByText("Earlier")).not.toBeInTheDocument();
+  });
+
   it("clears a stale error once a later operation succeeds", async () => {
     // titiz's finding: a failed load or delete left its message up for ever, so a retry that
     // worked still showed the old failure.
