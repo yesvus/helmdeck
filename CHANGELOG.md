@@ -6,7 +6,7 @@ canonical and must match `package.json` and the install command in the README.
 Artifacts are distributed as GitHub release tarballs. npm publication is postponed indefinitely, so
 upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
-## 0.4.0
+## Unreleased
 
 A host can now assemble a working admin from the package alone: a session contract, a permission
 layer, generated resource views, and a preconfigured baseline. Theming and the surface primitives
