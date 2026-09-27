@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -76,9 +76,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
-      "href",
-      "/admin/urunler?locale=en",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "probe" })).toHaveAttribute("href", "/admin/urunler?locale=en"),
     );
     unmount();
 
@@ -100,11 +99,15 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    const products = await screen.findAllByRole("link", { name: "Ürünler" });
-    expect(products.length).toBeGreaterThan(0);
-    for (const link of products) {
-      expect(link).toHaveAttribute("href", "/admin/urunler?locale=en");
-    }
+    // Awaited on the attribute, not the element: the content locale resolves in an effect, so
+    // the href settles after the links are already on screen.
+    await waitFor(() => {
+      const products = screen.getAllByRole("link", { name: "Ürünler" });
+      expect(products.length).toBeGreaterThan(0);
+      for (const link of products) {
+        expect(link).toHaveAttribute("href", "/admin/urunler?locale=en");
+      }
+    });
   });
 
   it("changes content locale without changing interface messages", async () => {
@@ -151,9 +154,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
-      "href",
-      "/admin/urunler?locale=en",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "probe" })).toHaveAttribute("href", "/admin/urunler?locale=en"),
     );
   });
 
@@ -166,9 +168,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "Genel bakış" })).toHaveAttribute(
-      "href",
-      "/admin?locale=en",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Genel bakış" })).toHaveAttribute("href", "/admin?locale=en"),
     );
   });
 
@@ -184,9 +185,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
-      "href",
-      "/admin/urunler?locale=en",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "probe" })).toHaveAttribute("href", "/admin/urunler?locale=en"),
     );
 
     rerender(
@@ -195,9 +195,8 @@ describe("host locale adapter", () => {
       </LocaleAdapter>,
     );
 
-    expect(await screen.findByRole("link", { name: "probe" })).toHaveAttribute(
-      "href",
-      "/admin/urunler",
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "probe" })).toHaveAttribute("href", "/admin/urunler"),
     );
   });
 });
