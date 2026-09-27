@@ -668,11 +668,30 @@ describe("AdminResourceForm", () => {
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
-  it("saves when the resource declares no write permission at all", async () => {
-    // An undeclared permission means the resource is ungated, matching the list, where an
-    // undeclared permission means no control rather than a hidden one.
+  it("offers no save at all when the resource declares no write permission", async () => {
+    // This test used to assert the opposite, and it was wrong. The list and the form meant
+    // opposite things by an undeclared permission: no New control on the list, a working Save
+    // here. One rule now, and it is the fail-closed one the rest of the slice follows.
     const db = createMemoryPersistenceAdapter();
-    const open: ReturnType<typeof defineAdminResource> = defineAdminResource({
+    const open = defineAdminResource({
+      resource: "notes",
+      label: "Notes",
+      columns: [],
+      fields: [{ name: "title", label: "Title" }],
+    });
+    wrap(<AdminResourceForm definition={open} persistence={db} />);
+
+    await screen.findByLabelText("Title");
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+
+    const form = screen.getByLabelText("Title").closest("form");
+    if (form) fireEvent.submit(form);
+    expect(await db.query("notes")).toEqual([]);
+  });
+
+  it("refuses an early submit when no write permission is declared", async () => {
+    const db = createMemoryPersistenceAdapter();
+    const open = defineAdminResource({
       resource: "notes",
       label: "Notes",
       columns: [],
@@ -681,8 +700,10 @@ describe("AdminResourceForm", () => {
     wrap(<AdminResourceForm definition={open} persistence={db} />);
 
     (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(async () => expect(await db.query("notes")).toHaveLength(1));
+    const form = screen.getByLabelText("Title").closest("form");
+    if (form) fireEvent.submit(form);
+
+    expect(await db.query("notes")).toEqual([]);
   });
 
   it("still allows a new record when the read permission is refused", async () => {

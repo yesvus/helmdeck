@@ -11,7 +11,7 @@ import { AdminField, AdminFieldGrid, AdminFormActions } from "../primitives/fiel
 import { AdminInput, AdminTextarea } from "../primitives/input.js";
 import { AdminPageHeader } from "../shell/admin-page-header.js";
 import { AdminCan, useAdminPermission } from "../shell/permissions.js";
-import { useAdminMessages } from "../i18n.js";
+import { useAdminHref, useAdminMessages } from "../i18n.js";
 import { cn } from "../cn.js";
 import type { AdminPersistenceAdapter } from "../adapters/index.js";
 import {
@@ -51,6 +51,7 @@ export function AdminResourceList({
   onError?: (cause: unknown) => void;
 }) {
   const i18n = useAdminMessages();
+  const toHref = useAdminHref();
   // Keyed by the resource they came from, so a different resource cannot show these.
   const [loaded, setLoaded] = useState<{ resource: string; rows: AdminResourceRecord[] } | null>(null);
   const rows = loaded?.resource === definition.resource ? loaded.rows : null;
@@ -132,7 +133,7 @@ export function AdminResourceList({
           {permissions.update ? (
             <AdminCan permission={permissions.update}>
               <Link
-                href={`${base}/${encodeURIComponent(row.id)}`}
+                href={toHref(`${base}/${encodeURIComponent(row.id)}`)}
                 aria-label={`${labels?.edit ?? i18n.shell.resourceEdit}: ${row.id}`}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-admin-surface text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-900"
               >
@@ -175,7 +176,7 @@ export function AdminResourceList({
           permissions.create ? (
             <AdminCan permission={permissions.create}>
               <Button asChild variant="default">
-                <Link href={`${base}/new`} className="inline-flex items-center gap-2">
+                <Link href={toHref(`${base}/new`)} className="inline-flex items-center gap-2">
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   {labels?.new ?? i18n.shell.resourceNew}
                 </Link>
@@ -249,6 +250,9 @@ export function AdminResourceForm({
   onError?: (cause: unknown) => void;
 }) {
   const i18n = useAdminMessages();
+  // A locale-enabled host encodes the content locale in its URLs, so a bare href would drop
+  // it on these links while every other link in the shell kept it.
+  const toHref = useAdminHref();
   const permissions = definition.permissions ?? {};
   const isNew = id === undefined;
   // Keyed by the id it was read for, so a different record is loading again rather than
@@ -262,10 +266,13 @@ export function AdminResourceForm({
   const [attempted, setAttempted] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
-  // A resource that declares no create or update permission is ungated, matching the list,
-  // where an undeclared permission means no control rather than a hidden one.
+  // An undeclared permission means the action is not offered, which is what the list already
+  // did. The two used to mean opposite things, so a resource with no declared create
+  // permission showed no New control and still had a working form at the new route.
   const requiredPermission = isNew ? permissions.create : permissions.update;
-  const granted = useAdminPermission(requiredPermission);
+  const declared = requiredPermission !== undefined;
+  const held = useAdminPermission(requiredPermission);
+  const granted = declared && held === "allowed";
   // Checked before the read, so a denied visitor never has the record in the response.
   const mayRead = useAdminPermission(permissions.read);
 
@@ -306,11 +313,9 @@ export function AdminResourceForm({
   }, [
     definition.resource,
     i18n.shell.resourceLoadError,
-    i18n.shell.resourceNotFound,
     id,
     isNew,
     labels?.loadError,
-    labels?.notFound,
     mayRead,
     onError,
     persistence,
@@ -322,7 +327,7 @@ export function AdminResourceForm({
     // Checked here as well as on the button, because a form can be submitted without it.
     // Only a settled refusal blocks. While it is still checking, saying "no access" would
     // be a guess, and an early Enter on a focused field would be the common way to hit it.
-    if (granted === "denied" || granted === "error") {
+    if (!declared || held === "denied" || held === "error") {
       setMessage(i18n.shell.permissionDenied);
       return;
     }
@@ -395,9 +400,9 @@ export function AdminResourceForm({
         title={isNew ? (labels?.new ?? i18n.shell.resourceNew) : definition.singularLabel ?? definition.label}
         action={
           backHref ? (
-            <a href={backHref} className="text-sm font-medium text-admin-brand-text underline underline-offset-4">
+            <Link href={toHref(backHref)} className="text-sm font-medium text-admin-brand-text underline underline-offset-4">
               {labels?.cancel ?? i18n.shell.resourceCancel}
-            </a>
+            </Link>
           ) : null
         }
       />
@@ -457,7 +462,7 @@ export function AdminResourceForm({
       </AdminFieldGrid>
 
       <AdminFormActions>
-        {granted === "allowed" ? (
+        {granted ? (
           <Button type="submit" disabled={pending} aria-busy={pending || undefined}>
             {pending ? (labels?.saving ?? i18n.shell.resourceSaving) : (labels?.save ?? i18n.shell.resourceSave)}
           </Button>
