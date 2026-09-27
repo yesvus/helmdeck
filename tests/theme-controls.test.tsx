@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
 import { ShellThemeProvider, useShellTheme } from "../fixtures/components/shell-theme-provider";
 import ThemePage from "../fixtures/app/theme/page";
+import { themeBootScript } from "../fixtures/components/theme-boot";
 
 afterEach(() => {
   cleanup();
@@ -17,6 +18,59 @@ afterEach(() => {
 function renderControls() {
   return render(<ShellThemeProvider><ThemeControls /></ShellThemeProvider>);
 }
+
+describe("theme boot script", () => {
+  function runBoot() {
+    // eslint-disable-next-line no-new-func
+    new Function(themeBootScript)();
+  }
+
+  afterEach(() => {
+    document.documentElement.removeAttribute("data-admin-theme");
+    vi.restoreAllMocks();
+  });
+
+  it("applies the stored preference before hydration", () => {
+    window.localStorage.setItem("helmdeck-demo-theme", "dark");
+    runBoot();
+
+    expect(document.documentElement.dataset.adminTheme).toBe("dark");
+  });
+
+  // A complete-enough stub: the provider subscribes to the media query, so a bare { matches }
+  // makes subscribe throw and takes an unrelated test down with it.
+  function stubDarkSystem() {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+      media: "",
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    } as unknown as MediaQueryList);
+  }
+
+  it("falls back to the system preference when nothing is stored", () => {
+    stubDarkSystem();
+    runBoot();
+
+    expect(document.documentElement.dataset.adminTheme).toBe("dark");
+  });
+
+  it("still themes when localStorage throws, which is the case a single try used to skip", () => {
+    stubDarkSystem();
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage disabled");
+    });
+    runBoot();
+
+    // A restricted or private context has no storage. Wrapping the storage read and the
+    // matchMedia fallback in one try meant this left the page unthemed until the provider mounted.
+    expect(document.documentElement.dataset.adminTheme).toBe("dark");
+  });
+});
 
 describe("fixture theme controls", () => {
   it("retains dark mode after remounting the theme editor", async () => {

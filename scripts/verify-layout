@@ -180,5 +180,42 @@ ok("the overflow check sees horizontal overflow", m.detectsHorizontalOverflow, "
 process.exit(failed);
 NODE
 
+# Theme resolution, on the landing page specifically. It sits outside the shell layout, which is
+# where the provider used to live, so it silently kept the light default no matter what the shell
+# had selected or what the operating system reported.
+verify_theme() {
+  playwright-cli -s="$SESSION" set-color-scheme "$1" >/dev/null
+  playwright-cli -s="$SESSION" eval "JSON.stringify({attr: document.documentElement.dataset.adminTheme ?? 'none', body: getComputedStyle(document.body).backgroundColor})" 2>/dev/null \
+    | sed -n '2p' \
+    | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{process.stdout.write(JSON.parse(s))})'
+}
+
+echo "  theme on the landing page"
+if ! LANDING=$(playwright-cli -s="$SESSION" goto "http://localhost:$PORT/" 2>&1); then
+  echo "  FAIL  could not open the landing page" >&2
+  echo "$LANDING" | head -5 >&2
+  exit 1
+fi
+DARK=$(verify_theme dark)
+LIGHT=$(verify_theme light)
+
+LANDING_DARK="$DARK" LANDING_LIGHT="$LIGHT" node <<'NODE' || FAILED=1
+const dark = JSON.parse(process.env.LANDING_DARK || "{}");
+const light = JSON.parse(process.env.LANDING_LIGHT || "{}");
+let failed = 0;
+const ok = (name, actual, expected) => {
+  if (String(actual) === String(expected)) console.log(`  ok    ${name} (${actual})`);
+  else { console.error(`  FAIL  ${name}: expected ${expected}, measured ${actual}`); failed = 1; }
+};
+if (!dark.attr || !light.attr) { console.error("  FAIL  could not read the theme attribute"); process.exit(1); }
+ok("a dark system resolves to dark", dark.attr, "dark");
+ok("a light system resolves to light", light.attr, "light");
+// The whole point: the two must differ. Comparing them catches a page that ignores the attribute
+// even when the attribute happens to be right.
+ok("the landing page actually repaints", dark.body !== light.body, true);
+console.log(`        dark ${dark.body} vs light ${light.body}`);
+process.exit(failed);
+NODE
+
 [ "$FAILED" = 0 ] || exit 1
 echo "  all layout checks passed"

@@ -10,6 +10,8 @@
   --color-admin-skeleton: var(--admin-skeleton);
   --radius-admin-card: var(--admin-card-radius);
   --radius-admin-control: var(--admin-control-radius);
+  --color-admin-inverted-surface: var(--admin-inverted-surface);
+  --color-admin-inverted-text: var(--admin-inverted-text);
   --color-admin-overlay: var(--admin-overlay);
   --color-admin-media-backdrop: var(--admin-media-backdrop);
   --color-admin-brand-text: var(--admin-brand-text);
@@ -83,6 +85,11 @@
   --admin-surface-subtle: #fafaf9;
   --admin-card-radius: 0.875rem;
   --admin-control-radius: 0.75rem;
+  /* A surface that reads as the opposite of the page: dark on a light page, light on a dark
+     one. Expressed as a pair so callers never have to reach for a text token as a
+     background, which inverts to white-on-white in dark mode. */
+  --admin-inverted-surface: #1c1917;
+  --admin-inverted-text: #fafaf9;
   /* Decorative only: card edges, section rules, dividers. None of these identify a
      control, so WCAG 1.4.11 does not apply and this stays light. Raising it to 3:1
      would need #959392, which is indistinguishable from --admin-border-strong and would
@@ -130,6 +137,11 @@
   --admin-surface-subtle: #0c0a09;
   --admin-card-radius: 0.875rem;
   --admin-control-radius: 0.75rem;
+  /* A surface that reads as the opposite of the page: dark on a light page, light on a dark
+     one. Expressed as a pair so callers never have to reach for a text token as a
+     background, which inverts to white-on-white in dark mode. */
+  --admin-inverted-surface: #fafaf9;
+  --admin-inverted-text: #1c1917;
   --admin-border: #44403c;
   --admin-border-strong: #78716c;
   --admin-skeleton: #44403c;

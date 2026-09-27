@@ -13,8 +13,7 @@ type ShellTheme = {
 
 const ShellThemeContext = createContext<ShellTheme | null>(null);
 
-const storageKey = "helmdeck-demo-theme";
-const darkQuery = "(prefers-color-scheme: dark)";
+import { darkSchemeQuery, shellThemeStorageKey } from "./theme-boot";
 
 type ShellThemeSnapshot = { theme: ShellThemePreference; systemTheme: "light" | "dark" };
 
@@ -32,7 +31,7 @@ let snapshot = serverSnapshot;
 
 function readStoredTheme(): string | null {
   try {
-    return window.localStorage.getItem(storageKey);
+    return window.localStorage.getItem(shellThemeStorageKey);
   } catch {
     // Storage can be unavailable in private or restricted contexts.
     return null;
@@ -45,7 +44,7 @@ function readSnapshot(): ShellThemeSnapshot {
     saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
   // Not cached at module scope on purpose: a cached MediaQueryList would go stale when a
   // host or a test swaps window.matchMedia, which the theme tests rely on.
-  const systemTheme: "light" | "dark" = window.matchMedia(darkQuery).matches ? "dark" : "light";
+  const systemTheme: "light" | "dark" = window.matchMedia(darkSchemeQuery).matches ? "dark" : "light";
   // useSyncExternalStore requires a stable reference between calls.
   if (snapshot.theme === theme && snapshot.systemTheme === systemTheme) return snapshot;
   snapshot = { theme, systemTheme };
@@ -64,11 +63,11 @@ function subscribe(listener: () => void) {
   listeners.add(listener);
   // Resolved per subscription rather than cached at module scope, so a host or a test that
   // swaps window.matchMedia is honored.
-  const media = window.matchMedia(darkQuery);
+  const media = window.matchMedia(darkSchemeQuery);
   const handleMediaChange = () => notify();
   const handleStorage = (event: StorageEvent) => {
     // A null key means the whole store was cleared, which also drops the preference.
-    if (event.key === storageKey || event.key === null) notify();
+    if (event.key === shellThemeStorageKey || event.key === null) notify();
   };
   media.addEventListener("change", handleMediaChange);
   window.addEventListener("storage", handleStorage);
@@ -94,7 +93,7 @@ export function ShellThemeProvider({ children }: { children: ReactNode }) {
 
   const setTheme = useCallback((value: ShellThemePreference) => {
     try {
-      window.localStorage.setItem(storageKey, value);
+      window.localStorage.setItem(shellThemeStorageKey, value);
     } catch {
       // A failed write must not abort the handler, or the subscribers never re-render
       // and the control keeps the old selection. The preference simply will not persist.
