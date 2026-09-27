@@ -42,7 +42,7 @@ describe("AdminModalContent", () => {
     expect(dialog.firstElementChild).toHaveClass("border-b", "bg-admin-surface-subtle");
     expect(screen.getByTestId("modal-body")).toHaveClass("min-h-0", "flex-1", "overflow-y-auto");
     expect(screen.getByTestId("modal-footer")).toHaveClass("shrink-0", "flex-col-reverse", "sm:flex-row", "border-t", "bg-admin-surface-subtle");
-    expect(dialog).toHaveClass("max-h-[min(90dvh,56rem)]");
+    expect(dialog).toHaveClass("max-h-[min(56rem,100dvh_-_4rem)]");
   });
 
   it("prevents Escape, outside click, and close-button dismissal while pending", async () => {
@@ -93,15 +93,16 @@ describe("AdminModalContent", () => {
   it("lets a custom max width replace the default dialog width", async () => {
     render(
       <AdminModal defaultOpen>
-        <AdminModalContent className="w-[calc(100%_-_2rem)] max-w-[88rem] sm:max-w-[88rem]" aria-label="Wide dialog" />
+        <AdminModalContent className="w-[70rem] max-w-[88rem] sm:max-w-[88rem]" aria-label="Wide dialog" />
       </AdminModal>,
     );
     const dialog = await screen.findByRole("dialog", { name: "Wide dialog" });
 
     expect(dialog).toHaveClass("max-w-[88rem]", "sm:max-w-[88rem]");
-    expect(dialog.className).not.toMatch(/(?:^|\s)w-full(?:\s|$)/);
-    expect(dialog.className).not.toContain("sm:max-w-md");
-    expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
+    // A distinct width, so an absence check can tell the consumer's own class from the default's.
+    expect(dialog.className).not.toMatch(/(?:^|\s)w-\[calc\(/);
+    expect(dialog.className).not.toContain("sm:max-w-lg");
+    expect(dialog.className).not.toMatch(/(?:^|\s)max-w-\[calc\(/);
   });
 
   it("hands width ownership to the consumer when sizing utilities are breakpoint-scoped", async () => {
@@ -115,9 +116,8 @@ describe("AdminModalContent", () => {
     expect(dialog).toHaveClass("sm:w-96", "lg:max-w-4xl");
     // The base cap used to ship alongside "sm:w-96", and with no merging behind them the winner was
     // whichever Tailwind ordered last, so a consumer could not reliably widen the dialog.
-    expect(dialog.className).not.toMatch(/(?:^|\s)w-full(?:\s|$)/);
-    expect(dialog.className).not.toContain("sm:max-w-md");
-    expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
+    expect(dialog.className).not.toMatch(/(?:^|\s)w-\[calc\(/);
+    expect(dialog.className).not.toContain("sm:max-w-lg");
   });
 
   it.each([
@@ -134,11 +134,12 @@ describe("AdminModalContent", () => {
     const dialog = await screen.findByRole("dialog", { name: "Variant width dialog" });
 
     // The default width cap is surrendered even though only "w-" was supplied: a max-width smaller
-    // than the requested width wins by clamping, so keeping "sm:max-w-md" would cap "lg:w-[60rem]"
-    // at 28rem. The viewport bound stays, because it only engages past the viewport width.
-    expect(dialog.className).not.toMatch(/(?:^|\s)w-full(?:\s|$)/);
-    expect(dialog.className).not.toContain("sm:max-w-md");
-    expect(dialog).toHaveClass("max-w-[calc(100%-2rem)]");
+    // than the requested width wins by clamping, so keeping "sm:max-w-lg" would cap "lg:w-[60rem]"
+    // at 32rem. The gutter goes with it, since the consumer named a width outright.
+    expect(dialog.className).not.toMatch(/(?:^|\s)w-\[calc\(/);
+    expect(dialog.className).not.toContain("sm:max-w-lg");
+    // With the gutter gone, nothing stopped a fixed rem width from exceeding the viewport.
+    expect(dialog).toHaveClass("max-w-[calc(100%_-_2rem)]");
   });
 
   it.each(["2xl:max-w-4xl", "min-[900px]:max-w-4xl", "dark:max-w-4xl"])(
@@ -151,8 +152,7 @@ describe("AdminModalContent", () => {
       );
       const dialog = await screen.findByRole("dialog", { name: "Variant max dialog" });
 
-      expect(dialog.className).not.toContain("sm:max-w-md");
-      expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
+      expect(dialog.className).not.toContain("sm:max-w-lg");
     },
   );
 
@@ -227,11 +227,12 @@ describe("AdminModalContent", () => {
       );
       const dialog = await screen.findByRole("dialog", { name: "Max only dialog" });
 
-      // A max-w is not a width. Dropping "w-full" here left the dialog at its intrinsic content
+      // A max-w is not a width. Dropping the gutter here left the dialog at its intrinsic content
       // width wherever the consumer's own breakpoint did not apply.
-      expect(dialog).toHaveClass("w-full");
-      expect(dialog.className).not.toContain("sm:max-w-md");
-      expect(dialog.className).not.toContain("max-w-[calc(100%-2rem)]");
+      expect(dialog).toHaveClass("w-[calc(100%_-_2rem)]");
+      expect(dialog.className).not.toContain("sm:max-w-lg");
+      // They brought their own max-w, so adding the viewport bound would compete with it.
+      expect(dialog.className).not.toMatch(/(?:^|\s)max-w-\[calc\(/);
     },
   );
 
@@ -243,7 +244,27 @@ describe("AdminModalContent", () => {
     );
     const dialog = await screen.findByRole("dialog", { name: "Default dialog" });
 
-    expect(dialog).toHaveClass("w-full", "max-w-[calc(100%-2rem)]", "sm:max-w-md");
+    expect(dialog).toHaveClass("w-[calc(100%_-_2rem)]", "sm:max-w-lg");
+    // The cap is the smaller value at every width above sm, so an "sm:w-..." gutter would never
+    // decide the rendered width. It shipped for one release and was dead.
+    expect(dialog.className).not.toContain("sm:w-[calc(");
+    // Nothing to bound here: the gutter already is the bound.
+    expect(dialog.className).not.toMatch(/(?:^|\s)max-w-\[calc\(/);
+  });
+
+  it("has gutter detectors that can actually match", () => {
+    // A "not.toMatch" whose pattern cannot match any real class passes forever and proves nothing.
+    // An earlier version of this file required "%" straight after "calc(", which no emitted class
+    // has, so three assertions were inert. Pin that both detectors fire, and that the leading
+    // boundary is what separates a gutter from a max-width.
+    const gutter = /(?:^|\s)w-\[calc\(/;
+    const bound = /(?:^|\s)max-w-\[calc\(/;
+
+    expect("fixed z-50 w-[calc(100%_-_2rem)] sm:max-w-lg").toMatch(gutter);
+    expect("fixed z-50 max-w-[calc(100%_-_2rem)]").toMatch(bound);
+    expect("fixed z-50 max-w-[calc(100%_-_2rem)]").not.toMatch(gutter);
+    expect("fixed z-50 w-[calc(100%_-_2rem)]").not.toMatch(bound);
+    expect("fixed z-50 w-[70rem]").not.toMatch(gutter);
   });
 
   it("keeps the body as the only scroll container so the header and footer stay pinned", async () => {
