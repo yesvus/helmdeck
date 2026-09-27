@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
+import type { AdminMediaItem, AdminMediaUploadOptions } from "../src/adapters";
 import { AdminMediaUpload } from "../src/media/upload";
 
 describe("AdminMediaUpload", () => {
@@ -30,10 +31,10 @@ describe("AdminMediaUpload", () => {
   it("locks upload actions while pending and announces success", async () => {
     const user = userEvent.setup();
     let reportProgress!: (progress: number) => void;
-    let finish!: (item: { name: string; path: string; publicUrl: string; source: "uploaded"; kind: "image" }) => void;
-    const upload = vi.fn((_file, options) => {
+    let finish!: (item: AdminMediaItem) => void;
+    const upload = vi.fn((_file: File, options?: AdminMediaUploadOptions): Promise<AdminMediaItem> => {
       reportProgress = options?.onProgress ?? (() => {});
-      return new Promise((resolve) => { finish = resolve; });
+      return new Promise<AdminMediaItem>((resolve) => { finish = resolve; });
     });
     const onUploaded = vi.fn();
     render(<AdminI18nProvider locale="en"><AdminMediaUpload adapter={{ list: vi.fn(), upload }} onUploaded={onUploaded} /></AdminI18nProvider>);

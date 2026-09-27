@@ -45,7 +45,7 @@ export function AdminTable<T>({
   const allSelected = rows.length > 0 && rows.every((row) => selection?.selectedKeys.has(getKey(row)));
   const someSelected = rows.some((row) => selection?.selectedKeys.has(getKey(row)));
   return (
-    <div className={cn("overflow-x-auto rounded-xl border border-zinc-200 bg-admin-surface", className)}>
+    <div className={cn("overflow-x-auto rounded-admin-card border border-zinc-200 bg-admin-surface", className)}>
       <table className="w-full min-w-[36rem] border-collapse text-sm">
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>

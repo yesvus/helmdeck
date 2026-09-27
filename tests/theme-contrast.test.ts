@@ -63,7 +63,7 @@ function parseHex(value: string): [number, number, number] | null {
   const hex = value.trim().toLowerCase();
   if (!/^#[0-9a-f]{3}$|^#[0-9a-f]{6}$/.test(hex)) return null;
   const full = hex.length === 4 ? [...hex.slice(1)].map((c) => c + c).join("") : hex.slice(1);
-  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+  return [parseInt(full.slice(0, 2), 16), parseInt(full.slice(2, 4), 16), parseInt(full.slice(4, 6), 16)];
 }
 
 const NAMED: Record<string, [number, number, number]> = {
@@ -265,7 +265,7 @@ function sourceFiles(dir: string): string[] {
 /** Raw text of a className/class attribute, so string and cn() forms are both covered. */
 function classAttrText(el: ts.JsxOpeningElement | ts.JsxSelfClosingElement): string {
   const attrs = el.attributes.properties.filter(ts.isJsxAttribute);
-  const attr = attrs.find((a) => a.name.text === "className" || a.name.text === "class");
+  const attr = attrs.find((a) => ts.isIdentifier(a.name) && (a.name.text === "className" || a.name.text === "class"));
   if (!attr || !attr.initializer) return "";
   if (ts.isStringLiteral(attr.initializer)) return attr.initializer.text;
   return attr.initializer.getText();

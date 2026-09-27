@@ -60,7 +60,7 @@ export function AdminFormSection({
     <details
       open={isOpen}
       onToggle={(event) => setIsOpen(event.currentTarget.open)}
-      className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-4"
+      className="rounded-admin-card border border-zinc-200 bg-zinc-50 px-4 py-4"
     >
       <summary className="cursor-pointer list-none">
         <span className="flex items-start justify-between gap-4">

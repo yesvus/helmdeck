@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { Info } from "lucide-react";
 import { AdminContextualHelp } from "../src/primitives/contextual-help";
 import { AdminField, AdminFormSection } from "../src/primitives/field";
 import { AdminFormCard, AdminSectionCard, AdminStatCard } from "../src/primitives/layout";
@@ -115,8 +116,8 @@ describe("AdminContextualHelp", () => {
       <>
         <AdminField label="A long field label that can wrap" hint="Field help"><AdminInput /></AdminField>
         <AdminFormSection title="Section heading" description="Section help">Content</AdminFormSection>
-        <AdminSectionCard icon={() => null} title="Card heading" description="Card help">Content</AdminSectionCard>
-        <AdminStatCard icon={() => null} label="Stat label" value="42" detail="Stat help" />
+        <AdminSectionCard icon={Info} title="Card heading" description="Card help">Content</AdminSectionCard>
+        <AdminStatCard icon={Info} label="Stat label" value="42" detail="Stat help" />
       </>,
     );
 

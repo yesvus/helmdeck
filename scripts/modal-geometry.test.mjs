@@ -5,6 +5,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { chromium } from "playwright";
 
 const server = spawn("pnpm", ["exec", "next", "start", "fixtures", "--port", "3217"], {
+  detached: true,
   stdio: "ignore",
   env: { ...process.env, CI: "1" },
 });
@@ -162,5 +163,11 @@ try {
   process.stdout.write(`${JSON.stringify({ centered, fieldLayout, media, mediaControls, custom })}\n`);
 } finally {
   await browser?.close();
-  server.kill("SIGTERM");
+  if (server.pid) {
+    try {
+      process.kill(-server.pid, "SIGTERM");
+    } catch {
+      server.kill("SIGTERM");
+    }
+  }
 }

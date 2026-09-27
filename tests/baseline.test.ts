@@ -349,7 +349,7 @@ describe("createMemoryPersistenceAdapter", () => {
 
   it("deletes a record and is a no-op for one that is not there", async () => {
     const db = createMemoryPersistenceAdapter();
-    const created = await db.create("posts", { title: "A" });
+    const created = await db.create<{ id: string; title: string }>("posts", { title: "A" });
 
     await db.delete("posts", created.id);
     expect(await db.read("posts", created.id)).toBeNull();
@@ -395,7 +395,7 @@ describe("createMemoryPersistenceAdapter", () => {
   it("gives each created record a distinct id", async () => {
     const db = createMemoryPersistenceAdapter();
     const ids = new Set<string>();
-    for (let i = 0; i < 5; i += 1) ids.add((await db.create("posts", { i })).id);
+    for (let i = 0; i < 5; i += 1) ids.add((await db.create<{ id: string }>("posts", { i })).id);
     expect(ids.size).toBe(5);
   });
 

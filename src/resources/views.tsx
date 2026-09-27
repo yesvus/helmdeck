@@ -140,13 +140,14 @@ export function AdminResourceList({
         <span className="flex items-center justify-end gap-2">
           {permissions.update !== undefined && permissions.update.length > 0 ? (
             <AdminCan permission={permissions.update} resourceId={row.id} fallback={null}>
-              <Link
-                href={toHref(`${base}/${encodeURIComponent(row.id)}`)}
-                aria-label={`${labels?.edit ?? i18n.shell.resourceEdit}: ${row.id}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-admin-surface text-zinc-600 transition hover:bg-zinc-50 hover:text-zinc-900"
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-              </Link>
+              <Button asChild variant="outline" size="icon" className="h-8 w-8">
+                <Link
+                  href={toHref(`${base}/${encodeURIComponent(row.id)}`)}
+                  aria-label={`${labels?.edit ?? i18n.shell.resourceEdit}: ${row.id}`}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
             </AdminCan>
           ) : null}
           {permissions.delete !== undefined && permissions.delete.length > 0 ? (
@@ -477,7 +478,7 @@ export function AdminResourceForm({
                   name={field.name}
                   type="checkbox"
                   defaultChecked={current === true}
-                  className="h-4 w-4 rounded border-zinc-300"
+                  className="h-4 w-4 rounded border-zinc-300 accent-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                 />
               ) : (
                 <AdminInput
