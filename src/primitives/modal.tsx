@@ -13,6 +13,22 @@ export const AdminModalClose = DialogPrimitive.Close;
 export const AdminModalTitle = DialogPrimitive.Title;
 export const AdminModalDescription = DialogPrimitive.Description;
 
+// Tailwind variants carry digits ("2xl:"), brackets, and pseudo-classes ("[&:hover]:",
+// "min-[900px]:"), so splitting on the last colon is wrong and matching "[a-z]+:" silently
+// ignores every breakpoint from 2xl up. Take the segment after the final colon that sits
+// outside any brackets, which resolves all of those forms.
+function utilityName(className: string): string {
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < className.length; index += 1) {
+    const character = className[index];
+    if (character === "[" || character === "(") depth += 1;
+    else if (character === "]" || character === ")") depth -= 1;
+    else if (character === ":" && depth === 0) start = index + 1;
+  }
+  return className.slice(start);
+}
+
 export function AdminModalContent({
   className,
   children,
@@ -26,21 +42,39 @@ export function AdminModalContent({
   preventClose?: boolean;
 }) {
   const i18n = useAdminMessages();
-  const placementClasses = className?.split(/\s+/).map((name) => name.replace(/^!/, "")) ?? [];
-  const hasBaseCustomMaxWidth = placementClasses.some((name) => /^!?max-w-/.test(name));
-  const hasBaseCustomWidth = placementClasses.some((name) => /^!?w-/.test(name));
-  const hasHorizontalPlacement = placementClasses.some((name) =>
-    /^(?:-?(?:left|right|start|end|inset-x|inset-inline|inset)-)/.test(name),
+  const utilities = className?.split(/\s+/).map((name) => utilityName(name).replace(/^!/, "")) ?? [];
+  // Three separate questions, because a max-w utility is not a width: dropping w-full for a
+  // max-w-only consumer would leave the dialog at its intrinsic width wherever the consumer's
+  // breakpoint does not apply. The viewport bound is kept unless a max-w is supplied, since it only
+  // engages when a consumer asks for more than the viewport offers, the case it exists for.
+  const hasWidthUtility = utilities.some((name) => /^w-/.test(name));
+  const hasMaxWidthUtility = utilities.some((name) => /^max-w-/.test(name));
+  // The opinionated default width surrenders to either, at any breakpoint. Emitting it alongside a
+  // consumer utility left both in the class list, and with no merging behind them the winner was
+  // whichever Tailwind happened to order last, so a consumer could not reliably widen the dialog.
+  // "sm:max-w-md" had to go for a plain "lg:w-[60rem]" too: a max-width smaller than the requested
+  // width wins by clamping, not by losing the cascade.
+  const hasAnyWidthUtility = hasWidthUtility || hasMaxWidthUtility;
+  // A bare "inset-" places on both axes, but "inset-x-" only the horizontal and "inset-y-" only the
+  // vertical. Without the exclusions each one suppressed the opposite axis's centring anchor too.
+  const hasHorizontalPlacement = utilities.some((name) =>
+    /^-?(?:left|right|start|end|inset-x|inset-inline|inset(?!-(?:y|block)))-/.test(name),
   );
-  const hasVerticalPlacement = placementClasses.some((name) => /^(?:-?(?:top|bottom|inset-y|inset)-)/.test(name));
+  const hasVerticalPlacement = utilities.some((name) =>
+    /^-?(?:top|bottom|inset-y|inset-block|inset(?!-(?:x|inline)))-/.test(name),
+  );
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-admin-overlay/60 backdrop-blur-sm data-[state=open]:animate-[admin-fade-in_150ms_ease-out]" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed z-50 flex max-h-[min(90dvh,56rem)] flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-300 bg-admin-surface p-6 shadow-2xl data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
-          !hasBaseCustomWidth && "w-full",
-          !hasBaseCustomMaxWidth && "max-w-[calc(100%-2rem)] sm:max-w-md",
+          // Clips rather than scrolls: AdminModalBody is the only scroll container, so the header and
+          // footer stay pinned. Content scrolling here as well gave a tall dialog two live
+          // scrollbars at once, and the inner one sat inside the body's right padding.
+          "fixed z-50 flex max-h-[min(90dvh,56rem)] flex-col gap-4 overflow-hidden overscroll-contain rounded-2xl border border-zinc-300 bg-admin-surface p-6 shadow-2xl data-[state=open]:animate-[admin-pop-in_150ms_ease-out_forwards]",
+          !hasWidthUtility && "w-full",
+          !hasMaxWidthUtility && "max-w-[calc(100%-2rem)]",
+          !hasAnyWidthUtility && "sm:max-w-md",
           !hasHorizontalPlacement && "left-1/2 -translate-x-1/2",
           !hasVerticalPlacement && "top-1/2 -translate-y-1/2",
           className,

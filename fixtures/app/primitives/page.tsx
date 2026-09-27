@@ -13,6 +13,7 @@ import {
   AdminFormSection,
   AdminInput,
   AdminModal,
+  AdminModalBody,
   AdminModalClose,
   AdminModalContent,
   AdminModalDescription,
@@ -202,11 +203,13 @@ export default function PrimitivesPage() {
               <AdminModalTitle>{text.editDetails}</AdminModalTitle>
               <AdminModalDescription>{text.modalBody}</AdminModalDescription>
             </AdminModalHeader>
-            <div className="space-y-3">
-              <AdminField label={text.titleField}>
-                <AdminInput defaultValue={text.heroSlide} />
-              </AdminField>
-            </div>
+            <AdminModalBody>
+              <div className="space-y-3">
+                <AdminField label={text.titleField}>
+                  <AdminInput defaultValue={text.heroSlide} />
+                </AdminField>
+              </div>
+            </AdminModalBody>
             <AdminModalFooter>
               <AdminModalClose asChild>
                 <Button variant="secondary">{text.cancel}</Button>
