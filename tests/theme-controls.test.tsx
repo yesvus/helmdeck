@@ -112,7 +112,7 @@ describe("fixture theme controls", () => {
     matches = false;
     act(() => {
       (window.matchMedia("(prefers-color-scheme: dark)") as unknown as {
-        addEventListener: (t: string, l: () => void) => void;
+        addEventListener: { mock: { calls: Array<[string, () => void]> } };
       }).addEventListener.mock.calls[0]?.[1]?.();
     });
     await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
@@ -172,7 +172,8 @@ describe("fixture theme controls", () => {
     } finally {
       // A failed assertion above would otherwise leave a live root subscribed to the
       // module-level listener set, still writing to the document for the rest of the suite.
-      if (root) await act(async () => root.unmount());
+      const activeRoot = root;
+      if (activeRoot) await act(async () => activeRoot.unmount());
       container.remove();
     }
   });

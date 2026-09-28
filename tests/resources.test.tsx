@@ -13,7 +13,7 @@ import {
   defineAdminResource,
 } from "../src/resources/index";
 import { createMemoryPersistenceAdapter } from "../src/baseline";
-import type { AdminPersistenceAdapter } from "../src/adapters/index";
+import type { AdminPermissionsAdapter, AdminPersistenceAdapter } from "../src/adapters/index";
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/posts",
@@ -57,7 +57,7 @@ const posts = defineAdminResource({
   },
 });
 
-function allowAll() {
+function allowAll(): AdminPermissionsAdapter {
   return { can: vi.fn(async () => true) };
 }
 
@@ -67,7 +67,7 @@ async function confirmDelete(name: string) {
   fireEvent.click(await screen.findByRole("button", { name: /^Delete$/ }));
 }
 
-function tree(element: React.ReactElement, adapter = allowAll()) {
+function tree(element: React.ReactElement, adapter: AdminPermissionsAdapter = allowAll()) {
   return (
     <AdminI18nProvider locale="en">
       <AdminPermissionsProvider adapter={adapter}>{element}</AdminPermissionsProvider>
@@ -75,7 +75,7 @@ function tree(element: React.ReactElement, adapter = allowAll()) {
   );
 }
 
-function wrap(element: React.ReactElement, adapter = allowAll()) {
+function wrap(element: React.ReactElement, adapter: AdminPermissionsAdapter = allowAll()) {
   return render(tree(element, adapter));
 }
 
@@ -236,10 +236,10 @@ describe("AdminResourceList", () => {
     // records would have seen an edit control on every row.
     // create() assigns its own id, so the rows are written directly.
     const rows = [{ id: "mine", title: "Mine" }, { id: "theirs", title: "Theirs" }];
-    const db: AdminPersistenceAdapter = { ...createMemoryPersistenceAdapter(), query: async () => rows };
+    const db: AdminPersistenceAdapter = { ...createMemoryPersistenceAdapter(), query: (async () => rows) as unknown as AdminPersistenceAdapter["query"] };
     // Read is granted: the read check passes no id, so denying it here would empty the list
     // and make every row assertion below pass for the wrong reason.
-    const perRecord = {
+    const perRecord: AdminPermissionsAdapter = {
       can: vi.fn(async (permission: string, context?: { resourceId?: string }) => {
         if (permission === "posts.read") return true;
         return permission === "posts.update" ? context?.resourceId === "mine" : true;
@@ -261,10 +261,10 @@ describe("AdminResourceList", () => {
     let failNext = false;
     const flaky: AdminPersistenceAdapter = {
       ...base,
-      query: vi.fn(async (resource: string) => {
+      query: (vi.fn(async (resource: string) => {
         if (failNext) throw new Error("database down");
         return base.query(resource);
-      }),
+      })) as unknown as AdminPersistenceAdapter["query"],
     };
     const { rerender } = wrap(<AdminResourceList definition={posts} persistence={flaky} />);
     expect(await screen.findByText("Earlier")).toBeInTheDocument();
@@ -283,13 +283,13 @@ describe("AdminResourceList", () => {
     const base = createMemoryPersistenceAdapter();
     const flaky: AdminPersistenceAdapter = {
       ...base,
-      query: vi.fn(async (resource: string) => {
+      query: (vi.fn(async (resource: string) => {
         if (failNext) {
           failNext = false;
           throw new Error("database down");
         }
         return base.query(resource);
-      }),
+      })) as unknown as AdminPersistenceAdapter["query"],
     };
     const { rerender } = wrap(<AdminResourceList definition={posts} persistence={flaky} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
@@ -297,7 +297,10 @@ describe("AdminResourceList", () => {
     // A retry is a new adapter, which is what changes the effect's dependencies. Calling the
     // old one directly would resolve nothing and re-render nothing.
     await base.create("posts", { title: "Recovered" });
-    const recovered: AdminPersistenceAdapter = { ...base, query: vi.fn((r: string) => base.query(r)) };
+    const recovered: AdminPersistenceAdapter = {
+      ...base,
+      query: (vi.fn((r: string) => base.query(r))) as unknown as AdminPersistenceAdapter["query"],
+    };
     rerender(tree(<AdminResourceList definition={posts} persistence={recovered} />));
 
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
@@ -369,7 +372,7 @@ describe("AdminResourceList", () => {
     expect(await screen.findByRole("link", { name: "New" })).toHaveAttribute("href", "posts/new");
 
     cleanup();
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.create") };
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.create") };
     wrap(<AdminResourceList definition={posts} persistence={db} />, denied);
     await waitFor(() => expect(screen.queryByRole("link", { name: "New" })).not.toBeInTheDocument());
   });
@@ -405,7 +408,7 @@ describe("AdminResourceList", () => {
   it("offers the delete control only while the delete permission is held", async () => {
     const db = createMemoryPersistenceAdapter();
     await db.create("posts", { title: "First" });
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.delete") };
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.delete") };
 
     wrap(<AdminResourceList definition={posts} persistence={db} />, denied);
 
@@ -419,7 +422,7 @@ describe("AdminResourceList", () => {
   it("offers the edit control only while the update permission is held", async () => {
     const db = createMemoryPersistenceAdapter();
     await db.create("posts", { title: "First" });
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.update") };
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.update") };
 
     wrap(<AdminResourceList definition={posts} persistence={db} />, denied);
 
@@ -434,7 +437,7 @@ describe("AdminResourceList", () => {
     const base = createMemoryPersistenceAdapter();
     await base.create("posts", { title: "One" });
     await base.create("posts", { title: "Two" });
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.update") };
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.update") };
 
     wrap(<AdminResourceList definition={posts} persistence={base} />, denied);
 
@@ -487,8 +490,8 @@ describe("AdminResourceList", () => {
     // the records in the response even though nothing was drawn.
     const base = createMemoryPersistenceAdapter();
     await base.create("posts", { title: "Secret" });
-    const query = vi.fn((resource: string) => base.query(resource));
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
+    const query = vi.fn((resource: string) => base.query(resource)) as unknown as AdminPersistenceAdapter["query"];
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
 
     wrap(<AdminResourceList definition={posts} persistence={{ ...base, query }} />, denied);
 
@@ -528,7 +531,7 @@ describe("AdminResourceList", () => {
     const db = createMemoryPersistenceAdapter();
     const awkward: AdminPersistenceAdapter = {
       ...db,
-      query: async () => [{ id: "a/b?c#d", title: "Awkward" }],
+      query: (async () => [{ id: "a/b?c#d", title: "Awkward" }]) as unknown as AdminPersistenceAdapter["query"],
     };
     wrap(<AdminResourceList definition={posts} persistence={awkward} />);
 
@@ -641,7 +644,10 @@ describe("AdminResourceForm", () => {
     // effect does not call read until the read permission has resolved.
     let release: (value: unknown) => void = () => {};
     const pending = new Promise((resolve) => { release = resolve; });
-    const slow: AdminPersistenceAdapter = { ...createMemoryPersistenceAdapter(), read: vi.fn(() => pending) };
+    const slow: AdminPersistenceAdapter = {
+      ...createMemoryPersistenceAdapter(),
+      read: (vi.fn(() => pending)) as unknown as AdminPersistenceAdapter["read"],
+    };
     wrap(<AdminResourceForm definition={posts} persistence={slow} id="p1" />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading...");
@@ -691,9 +697,9 @@ describe("AdminResourceForm", () => {
     const other = defineAdminResource({ ...posts, resource: "pages" });
     const withBoth: AdminPersistenceAdapter = {
       ...db,
-      read: vi.fn(async (resource: string) =>
+      read: (vi.fn(async (resource: string) =>
         resource === "posts" ? { id: "shared", title: "A post" } : { id: "shared", title: "A page" },
-      ),
+      )) as unknown as AdminPersistenceAdapter["read"],
     };
     const { rerender } = wrap(
       <AdminResourceForm definition={posts} persistence={withBoth} id="shared" />,
@@ -737,13 +743,13 @@ describe("AdminResourceForm", () => {
     let failNext = true;
     const flaky: AdminPersistenceAdapter = {
       ...base,
-      update: vi.fn(async (resource: string, id: string, value: unknown) => {
+      update: (vi.fn(async (resource: string, id: string, value: unknown) => {
         if (failNext) {
           failNext = false;
           throw new Error("write rejected");
         }
         return base.update(resource, id, value);
-      }),
+      })) as unknown as AdminPersistenceAdapter["update"],
     };
     const { rerender } = wrap(<AdminResourceForm definition={posts} persistence={flaky} id={existing.id} />);
     await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("Before"));
@@ -778,7 +784,7 @@ describe("AdminResourceForm", () => {
     const db = createMemoryPersistenceAdapter();
     const existing = await db.create<{ id: string }>("posts", { title: "Before" });
     // Read is granted, so the form renders; only the write is refused.
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.update") };
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.update") };
     wrap(<AdminResourceForm definition={posts} persistence={db} id={existing.id} />, denied);
     (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
     // No button to click, so the submit is driven directly.
@@ -794,7 +800,7 @@ describe("AdminResourceForm", () => {
 
   it("offers no save control when the write permission is not held", async () => {
     const db = createMemoryPersistenceAdapter();
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.create") };
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.create") };
     wrap(<AdminResourceForm definition={posts} persistence={db} />, denied);
 
     await screen.findByLabelText("Title");
@@ -829,7 +835,7 @@ describe("AdminResourceForm", () => {
     // Creating needs create permission and reads nothing, so a read refusal must not lock a
     // visitor out of a form they are allowed to fill in.
     const db = createMemoryPersistenceAdapter();
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
 
     wrap(<AdminResourceForm definition={posts} persistence={db} />, denied);
 
@@ -842,9 +848,9 @@ describe("AdminResourceForm", () => {
     const base = createMemoryPersistenceAdapter();
     const existing = await base.create<{ id: string }>("posts", { title: "Secret" });
     const read = vi.fn((resource: string, id: string) => base.read(resource, id));
-    const denied = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
+    const denied: AdminPermissionsAdapter = { can: vi.fn(async (permission: string) => permission !== "posts.read") };
 
-    wrap(<AdminResourceForm definition={posts} persistence={{ ...base, read }} id={existing.id} />, denied);
+    wrap(<AdminResourceForm definition={posts} persistence={{ ...base, read: read as unknown as AdminPersistenceAdapter["read"] }} id={existing.id} />, denied);
 
     expect(await screen.findByText("You do not have access to this.")).toBeInTheDocument();
     expect(read).not.toHaveBeenCalled();
@@ -860,7 +866,7 @@ describe("AdminResourceForm", () => {
     const db = createMemoryPersistenceAdapter();
     let allow: (value: boolean) => void = () => {};
     const pending = new Promise<boolean>((resolve) => { allow = resolve; });
-    const slow = { can: vi.fn(() => pending) };
+    const slow: AdminPermissionsAdapter = { can: vi.fn(() => pending) };
     wrap(<AdminResourceForm definition={posts} persistence={db} />, slow);
 
     const title = await screen.findByLabelText("Title");

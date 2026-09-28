@@ -9,7 +9,7 @@ import type { AdminShellContextValue } from "../src/shell/context";
 
 vi.mock("next/navigation.js", () => ({ usePathname: () => "/shell/products/new" }));
 
-const shellValue = { currentPageTitle: "Catalog", nav: [] } as AdminShellContextValue;
+const shellValue = { currentPageTitle: "Catalog", nav: [] } as unknown as AdminShellContextValue;
 const nav = [{
   label: "Workspace",
   items: [
@@ -89,8 +89,8 @@ describe("persistent shell page context", () => {
       label: "Workspace",
       icon: "folder" as const,
       items: [
-        { label: "Products", href: "/shell/products", icon: "product" },
-        { label: "New product", href: "/shell/products/new", icon: "article" },
+        { label: "Products", href: "/shell/products", icon: "product" as const },
+        { label: "New product", href: "/shell/products/new", icon: "article" as const },
       ],
     }];
     const { container } = render(<AdminShell nav={groupedNav}><div>Page content</div></AdminShell>);

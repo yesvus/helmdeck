@@ -64,8 +64,8 @@ export function AdminPagination({
         </li>
         {pageWindow(page, pageCount).map((entry, index) =>
           entry === "ellipsis" ? (
-            <li key={`ellipsis-${index}`} aria-hidden className="flex h-8 w-9 items-center justify-center text-zinc-400">
-              <MoreHorizontal className="h-4 w-4" />
+            <li key={`ellipsis-${index}`} className="flex h-8 w-9 items-center justify-center text-zinc-400">
+              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
               <span className="sr-only">{merged.more}</span>
             </li>
           ) : (

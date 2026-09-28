@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AdminManagedForm } from "../src/primitives/managed-form";
+import { ADMIN_FORM_ACTION_IDLE_STATE, AdminManagedForm } from "../src/primitives/managed-form";
 import { AdminUrlFeedback } from "../src/primitives/url-feedback";
 
 const navigation = vi.hoisted(() => ({
@@ -102,7 +102,7 @@ describe("components that read search params", () => {
   it("names the component and the fix for AdminManagedForm", () => {
     withoutSearchParams();
 
-    const action = async () => ({ status: "idle" as const });
+    const action = async () => ADMIN_FORM_ACTION_IDLE_STATE;
 
     expect(() => render(
       <AdminManagedForm action={action}>
@@ -113,7 +113,7 @@ describe("components that read search params", () => {
 
   it("renders AdminManagedForm with a boundary", () => {
     render(
-      <AdminManagedForm action={async () => ({ status: "idle" as const })}>
+      <AdminManagedForm action={async () => ADMIN_FORM_ACTION_IDLE_STATE}>
         <button type="submit">Save</button>
       </AdminManagedForm>,
     );

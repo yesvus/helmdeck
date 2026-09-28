@@ -3,7 +3,7 @@ import type { HTMLAttributes } from "react";
 import { cn } from "../cn.js";
 
 export function AdminSkeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("animate-pulse rounded-md bg-zinc-200/80", className)} {...props} />;
+  return <div className={cn("animate-pulse rounded-md bg-admin-skeleton", className)} {...props} />;
 }
 
 export function AdminContentSkeleton() {
@@ -11,7 +11,7 @@ export function AdminContentSkeleton() {
     <div className="space-y-6">
       <div>
         <AdminSkeleton className="mb-2 h-3 w-24" />
-        <AdminSkeleton className="mb-2 h-7 w-48 bg-admin-skeleton" />
+        <AdminSkeleton className="mb-2 h-7 w-48" />
         <AdminSkeleton className="h-4 w-80 bg-zinc-100" />
       </div>
 
