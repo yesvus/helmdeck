@@ -26,13 +26,32 @@ Open <http://localhost:3000>. `/` redirects to `/admin`.
 
 The host defines its own resource names, schemas, routes, authorization policy, storage, locale policy, and cache strategy. Interface copy comes from Helmdeck's English dictionary; identity and persistence behavior remain host-owned.
 
-The `link:../..` dependency is a repository-local development shortcut that resolves the built package through its public exports. To check the packed consumer artifact, build the root package, run `pnpm pack --pack-destination /tmp/opencode` from the repository root, then run this from the example directory:
+The `link:../..` dependency is a repository-local development shortcut that resolves the built package through its public exports. It resolves the working tree, so it cannot tell you whether a *published* release is consumable.
+
+To check a release as a host would, take the version from the repository root and install the published artifact, verifying the checksum the way the root README tells consumers to:
 
 ```sh
-pnpm add /tmp/opencode/yesvus-helmdeck-0.1.0-alpha.1.tgz
+VERSION=$(cat ../../VERSION)                       # e.g. v0.4.0
+BASE=https://github.com/yesvus/helmdeck/releases/download/$VERSION
+cd "$(mktemp -d)"
+curl -sSLO "$BASE/yesvus-helmdeck-${VERSION#v}.tgz"
+curl -sSLO "$BASE/yesvus-helmdeck-${VERSION#v}.tgz.sha256"
+sha256sum -c "yesvus-helmdeck-${VERSION#v}.tgz.sha256"
+cd - >/dev/null
+pnpm add "$BASE/yesvus-helmdeck-${VERSION#v}.tgz"
 pnpm typecheck
 pnpm build
 ```
+
+Confirm it resolved the release rather than the link before trusting the result:
+
+```sh
+node -p "require('./node_modules/@yesvus/helmdeck/package.json').version"
+```
+
+Then restore the development shortcut with `git checkout -- package.json pnpm-lock.yaml`.
+
+For a pre-release check that has not been published, `pnpm pack --pack-destination` from the repository root produces an equivalent tarball locally.
 
 ## Checks
 
