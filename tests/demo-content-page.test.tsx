@@ -240,9 +240,9 @@ describe("the content list", () => {
 });
 
 describe("the post form", () => {
-  it("edits a title and a body, and a second render of the page reads both back", async () => {
+  it("edits a title and a body, and a reload of the page shows both again", async () => {
     const user = userEvent.setup();
-    await detailPage("pst_3");
+    const first = await detailPage("pst_3");
 
     const title = await screen.findByLabelText("Title");
     expect(title).toHaveValue("Draft: returns policy");
@@ -254,17 +254,26 @@ describe("the post form", () => {
     await user.type(body, "Sixty days, return shipping paid.");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    // The store, not the field: the form still holds what was typed either way, so only a read proves
-    // the write landed.
+    // The store, not the field: the form holds what was typed either way, so a read of the form before
+    // the reload would prove nothing about the write.
     await waitFor(async () => {
       const stored = await store.read<{ title: string; body: string }>("posts", "pst_3");
       expect(stored).toMatchObject({ title: "Returns policy", body: "Sixty days, return shipping paid." });
     });
+    first.unmount();
+
+    // A fresh mount, which is what a reload is. The form reads the post again through the action, so
+    // what the fields hold now came from the store rather than from the previous render.
+    await detailPage("pst_3");
+    await waitFor(() => {
+      expect(screen.getByLabelText("Title")).toHaveValue("Returns policy");
+      expect(screen.getByLabelText("Body")).toHaveValue("Sixty days, return shipping paid.");
+    });
   });
 
-  it("moves a post between draft and published, and the change is in the store", async () => {
+  it("moves a post between draft and published, and a reload of the page shows the new status", async () => {
     const user = userEvent.setup();
-    await detailPage("pst_3");
+    const first = await detailPage("pst_3");
 
     const status = await screen.findByLabelText("Status");
     expect(status).toHaveValue("draft");
@@ -274,6 +283,12 @@ describe("the post form", () => {
 
     await waitFor(async () => {
       expect(await store.read<{ status: string }>("posts", "pst_3")).toMatchObject({ status: "published" });
+    });
+    first.unmount();
+
+    await detailPage("pst_3");
+    await waitFor(() => {
+      expect(screen.getByLabelText("Status")).toHaveValue("published");
     });
   });
 
