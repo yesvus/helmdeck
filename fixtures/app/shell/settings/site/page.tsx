@@ -70,7 +70,7 @@ export default async function SiteSettingsPage({
                 <input
                   id={id}
                   name={field.column}
-                  type={field.column === "accent" ? "text" : "text"}
+                  type="text"
                   defaultValue={settings[field.column]}
                   aria-invalid={invalid || undefined}
                   aria-describedby={`${id}-hint`}
@@ -82,7 +82,7 @@ export default async function SiteSettingsPage({
                   id={`${id}-hint`}
                   className={`text-xs ${invalid ? "text-red-600" : "text-zinc-500"}`}
                 >
-                  {invalid ? field.hint : field.label === "Accent" ? `${field.hint} Stored as entered.` : field.hint}
+                  {field.hint}
                 </p>
               </div>
             );
