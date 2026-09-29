@@ -200,6 +200,29 @@ export const auth = createSessionAuthAdapter({
 
 It is **server-side**, so pass it to a server action and hand `AdminAuthProvider` a thin client-side adapter that calls that, or supply the `cookie` option with your own store. Using it in a browser without one fails with a message saying exactly that, rather than resolving to nothing and looking like a signed-out visitor.
 
+### Password recovery
+
+`AdminLoginScreen` collects credentials and reports what came back. What happens to an address someone cannot sign in with is the host's, and so is the whole of it: identity verification, rate limiting, the token, the channel, and the new password. The demo's half takes its transport from the host rather than owning one, so the two functions that matter are yours:
+
+```ts
+const recovery = createDemoRecovery({
+  transport: {
+    issueToken: ({ email, expiresAt }) => myTokens.issue({ for: email, expiresAt }),
+    send: ({ email, token }) => myMailer.sendResetLink({ to: email, token }),
+  },
+});
+```
+
+With no `transport` the demo refuses and says it is not configured, rather than answering as though a link were on its way. It ships in that state. Its accounts are seeded, its password is printed on the login page, and there is nothing for a visitor to have forgotten, so a link this process could not deliver would be a credential with nothing to do except be replayed. Point `HELMDECK_RECOVERY_WEBHOOK` at an endpoint you operate to turn it on, and recovery posts `{ email, token, expiresAt }` to that endpoint and keeps nothing.
+
+**A request answers the same either way.** An address with no account is given the confirmation an address with one gets, down to the cost of the hash behind it. A reset form that reports "no such address" is the enumeration oracle a login form would have had, under a new name.
+
+What is written down while a link is outstanding is a scrypt digest of the token under a salt minted per request, so a copy of the store is a list of accounts that have asked rather than a list of links that work. A record is spent on use, dropped when it is read after it lapsed, and replaced when the same account asks again, so the newest request is the only one that works.
+
+`redeem()` returns the account a token was worth and stops there. Updating that account's password belongs to whoever owns the accounts, and in the fixture the accounts are shared, so the published password is what they keep.
+
+**Hand-rolled instead:** skip the adapter and call your own handler from a server action. Nothing here is required by the sign-in screen, and existing sign-in behavior is unchanged when no recovery is configured.
+
 ### Permissions and resources
 
 `AdminPermissionsProvider` resolves and remembers answers. `useAdminPermission(permission)` reports one permission's state, `useAdminCan` is the boolean form, `AdminCan` renders its children only when a permission is held, and `useAdminPermittedNav` filters nav items that carry one.
