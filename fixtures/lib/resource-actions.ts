@@ -78,11 +78,23 @@ export async function readResourceAction(resource: string, id: string): Promise<
  * not a substitute: it asks whether a name is a column of the table, and `id`, `created_at` and
  * `updated_at` all are, so a request could have set them and the write would have succeeded.
  */
+/**
+ * Whether a resource has column definitions to filter a write against.
+ *
+ * Not every exposed resource is a table browser's: `site_settings` is a single settings row written
+ * by the site's own module, and it declares no columns anywhere. Filtering an undeclared resource
+ * would refuse it, which is why this is a question about the resource rather than a rule applied to
+ * all of them. Such a resource is still behind the same session, the same allowlist and the same
+ * permission rule; what it is not behind is a list of fields, because it never had one.
+ */
+function isFormDefined(resource: string): boolean {
+  return adminResources.some((candidate) => candidate.resource === resource);
+}
+
 function declaredValue(resource: string, value: unknown): Record<string, unknown> {
-  const definition = adminResources.find((candidate) => candidate.resource === resource);
-  if (!definition) {
-    throw new Error(`No resource definition named ${resource}`);
-  }
+  if (!isFormDefined(resource)) return (value ?? {}) as Record<string, unknown>;
+
+  const definition = adminResources.find((candidate) => candidate.resource === resource)!;
   const incoming = (value ?? {}) as Record<string, unknown>;
   const form = new FormData();
   for (const [key, entry] of Object.entries(incoming)) {

@@ -35,6 +35,8 @@ export type SqlClient = {
 const tables = new Set([
   "users",
   "posts",
+  "post_revisions",
+  "site_settings",
   "products",
   "orders",
   "dashboard_placements",
