@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: MIT
+
+/**
+ * Arranging placements into a responsive grid.
+ *
+ * The size classes are literal Tailwind utilities rather than computed ones, so the JIT sees them at
+ * build time and the grid renders in a server component. A dynamic `col-span-${n}` would compile to
+ * nothing and fail silently, which is the failure this file is arranged to make impossible.
+ *
+ * No positioning library is involved on purpose. Drag-resize and pixel layout solve a problem this
+ * product does not have, and they cost the two things this repository treats as non-negotiable: the
+ * grid stays server-renderable, and sizing stays reachable from the keyboard. Reordering already comes
+ * from the collection engine and dnd-kit.
+ */
+
+import { cn } from "../cn.js";
+import { useAdminMessages } from "../i18n.js";
+import { AdminWidget } from "../widgets/render.js";
+import type { AdminWidgetSize, AdminWidgetState } from "../widgets/types.js";
+import {
+  adminDashboardValidate,
+  type AdminDashboardPlacement,
+  type AdminDashboardRegistry,
+} from "./model.js";
+
+/**
+ * One owner per CSS property, per column count. The breakpoints are the grid's own, and a size may
+ * only widen it at the breakpoint where the grid has that many columns, so `xl` spanning four is
+ * applied at `lg` where four columns exist rather than at a width where two do.
+ */
+const sizeClasses: Record<AdminWidgetSize, string> = {
+  sm: "md:col-span-1",
+  md: "md:col-span-2",
+  lg: "lg:col-span-3",
+  xl: "lg:col-span-4",
+};
+
+export const dashboardGridClassName = "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4";
+
+export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
+  registry,
+  placements,
+  states,
+  onRetry,
+  className,
+}: {
+  registry: TRegistry;
+  placements: readonly AdminDashboardPlacement[];
+  /** Each widget's state, keyed by placement id, resolved by the host or by the data contract. */
+  states: Readonly<Record<string, AdminWidgetState<never>>>;
+  onRetry?: (placement: AdminDashboardPlacement) => void;
+  className?: string;
+}) {
+  const messages = useAdminMessages();
+  const problems = adminDashboardValidate(registry, placements);
+
+  if (placements.length === 0) {
+    return (
+      <div className={cn(dashboardGridClassName, className)}>
+        <p className="rounded-admin-card border border-dashed border-admin-border bg-admin-surface p-8 text-center text-sm text-zinc-500">
+          {messages.dashboard.empty}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn(dashboardGridClassName, className)}>
+      {placements.map((placement) => {
+        const definition = registry.get(placement.widget);
+        const state = states[placement.id];
+
+        // A tile the registry no longer knows, or a size it does not support, is reported in place.
+        // Dropping it would leave a hole that reads as a layout bug, and taking the page down would
+        // mean one stale row loses the dashboard that still works.
+        if (!definition) {
+          return (
+            <div
+              key={placement.id}
+              data-placement={placement.id}
+              className="rounded-admin-card border border-dashed border-admin-danger-border bg-admin-danger-surface p-5"
+            >
+              <p className="text-sm font-semibold text-admin-danger-text">
+                {messages.dashboard.missingWidget(placement.widget)}
+              </p>
+              {problems.get(placement.id)?.map((problem) => (
+                <p key={problem} className="mt-1 text-xs text-admin-danger-text">
+                  {problem}
+                </p>
+              ))}
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={placement.id}
+            data-placement={placement.id}
+            data-widget={placement.widget}
+            className={cn(sizeClasses[placement.size], "min-w-0")}
+          >
+            <AdminWidget
+              definition={definition as AdminWidgetDefinitionLike}
+              state={state ?? { status: "loading" }}
+              onRetry={onRetry ? () => onRetry(placement) : undefined}
+              className="h-full"
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type AdminWidgetDefinitionLike = Parameters<typeof AdminWidget>[0]["definition"];

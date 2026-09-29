@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 export * from "./adapters/index.js";
 export * from "./collections/editor.js";
+export * from "./dashboard/model.js";
+export * from "./dashboard/layout.js";
 export * from "./widgets/types.js";
 export * from "./widgets/registry.js";
 export * from "./widgets/render.js";
