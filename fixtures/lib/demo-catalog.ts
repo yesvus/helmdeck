@@ -48,6 +48,8 @@ export type CatalogEntry = {
   hostNote: string | null;
   /** What the module really holds, read off the value: a component, an arity, a list's length. */
   signature: string | null;
+  /** The value itself, for a constant or a list, so there is something to read rather than a name. */
+  valueText: string | null;
   value: unknown;
   /** False when the export is in the namespace but has no record in the table, which the test fails on. */
   described: boolean;
@@ -1082,6 +1084,15 @@ function signatureOf(value: unknown): string | null {
   return `${typeof value}: ${String(value).slice(0, 40)}`;
 }
 
+function valueTextOf(value: unknown): string | null {
+  if (typeof value === "function") return null;
+  if (typeof value === "string") return JSON.stringify(value);
+  if (Array.isArray(value) || (value !== null && typeof value === "object")) {
+    return JSON.stringify(value, null, 1);
+  }
+  return String(value);
+}
+
 function describe(entryPoint: CatalogEntryPoint, name: string, value: unknown): CatalogEntry {
   const kind = kindOf(name);
   const meta = CATALOG_META[name];
@@ -1091,10 +1102,11 @@ function describe(entryPoint: CatalogEntryPoint, name: string, value: unknown): 
     kind,
     category: meta?.category ?? null,
     summary: meta?.summary ?? "No description yet.",
-    keywords: [name.toLowerCase(), meta?.keywords ?? "", kind].join(" ").toLowerCase(),
+    keywords: [name.toLowerCase(), meta?.summary ?? "", meta?.keywords ?? "", kind].join(" ").toLowerCase(),
     renderable: kind === "component" && meta?.renderable === true,
     hostNote: kind === "component" ? (meta?.hostNote ?? null) : null,
     signature: kind === "component" ? null : signatureOf(value),
+    valueText: kind === "component" ? null : valueTextOf(value),
     value,
     described: meta !== undefined,
   };
