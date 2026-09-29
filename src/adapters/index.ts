@@ -30,8 +30,12 @@ export type {
   AdminMediaUsage,
 } from "./media.js";
 export type { AdminSession } from "./session.js";
-// The query's runtime half is not re-exported: the shape is a host's to implement, and the only
-// place a query is read from a browser is the seam, which reads it here.
+// The builder and the parser are exported because a host implements the query, and implementing it by
+// hand is where the guessing this contract exists to close comes back: a hand-built object typed as
+// `AdminResourceQuery` compiles whether or not its operator is real. `parseAdminResourceQuery` is the
+// answer to "is this the query I think it is", and `adminResourceQuery` builds one that is.
+export { ADMIN_RESOURCE_MAX_LIMIT, adminResourceQuery, parseAdminResourceQuery } from "./query.js";
+export type { AdminResourceQueryBuilder } from "./query.js";
 export type {
   AdminResourceFilter,
   AdminResourceFilterOperator,

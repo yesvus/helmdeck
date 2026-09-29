@@ -1297,6 +1297,24 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "The two surfaces per colour mode a brand text colour has to stay readable on, mirrored from the token layer so the two cannot drift.",
     keywords: "surfaces light dark background readable",
   },
+  ADMIN_RESOURCE_MAX_LIMIT: {
+    category: "Resources",
+    summary:
+      "The largest window a query may ask for, so a host implementing the contract has a ceiling to enforce rather than invent.",
+    keywords: "limit max window page size ceiling cap",
+  },
+  adminResourceQuery: {
+    category: "Resources",
+    summary:
+      "Builds a query that is valid by construction, so a host writing the query half of the contract does not assemble one by hand and hope.",
+    keywords: "build query builder search filter sort window",
+  },
+  parseAdminResourceQuery: {
+    category: "Resources",
+    summary:
+      "Reads an unknown value as a query or refuses it, which is what a host needs to answer whether a value really is one before it reaches a store.",
+    keywords: "parse validate query refuse unknown shape",
+  },
   ADMIN_BRAND_VARIABLES: {
     category: "Theme and colour",
     summary: "The five custom properties a host accent fills in, which is the whole of the brand surface.",

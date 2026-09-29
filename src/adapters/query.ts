@@ -270,7 +270,7 @@ export function parseAdminResourceQuery(value: unknown): AdminResourceQuery {
   return query;
 }
 
-type AdminResourceQueryBuilder = {
+export type AdminResourceQueryBuilder = {
   search: (term: string) => AdminResourceQueryBuilder;
   where: (
     field: string,
