@@ -103,4 +103,59 @@ describe("a store nothing has written to", () => {
     expect(await persistence.adapter.query("sessions")).toEqual([]);
     expect(await persistence.adapter.query("users")).toHaveLength(demoAccounts.length);
   });
+
+  it("seeds through the adapter, so a store call that seeds cannot re-enter the store", async () => {
+    // A review claimed the prepared store could recurse: it seeds before every call, and the seed
+    // might reach the store back. It cannot, because the seed only ever calls the persistence adapter
+    // and the credential store only ever calls the adapter too, so nothing they do can reach each
+    // other. That is worth pinning rather than asserting in prose, because the failure would be a
+    // stack overflow on the first sign-in rather than a clean failed test.
+    //
+    // The instrument is the adapter, not the store object: a wrapper on the returned store misses a
+    // re-entry that happens inside `prepared`, because that closure holds the inner store rather than
+    // the object handed back. Every store call has to reach the adapter, so depth there sees them all.
+    const { demoPersistence } = await import("../fixtures/lib/demo-persistence");
+    const { seedDemo } = await import("../fixtures/lib/seed");
+    const { demoCredentialStore } = await import("../fixtures/lib/demo-session");
+
+    const adapter = demoPersistence().adapter;
+    const entered: string[] = [];
+    // The adapter's members take different second arguments, so the wrapper takes the loose form and
+    // hands it straight back rather than pretending one signature fits all five.
+    const record = (resource: string, run: () => Promise<unknown>): Promise<unknown> => {
+      entered.push(resource);
+      return run();
+    };
+    const read = adapter.read.bind(adapter);
+    adapter.read = ((resource: string, id: string) =>
+      record(resource, () => read(resource, id))) as typeof adapter.read;
+    const query = adapter.query.bind(adapter);
+    adapter.query = ((resource: string, query?: Record<string, unknown>) =>
+      record(resource, () => query2(resource, query))) as typeof adapter.query;
+    function query2(resource: string, criteria?: Record<string, unknown>) {
+      return query(resource, criteria);
+    }
+    const create = adapter.create.bind(adapter);
+    adapter.create = ((resource: string, value: unknown) =>
+      record(resource, () => create(resource, value))) as typeof adapter.create;
+    const update = adapter.update.bind(adapter);
+    adapter.update = ((resource: string, id: string, value: unknown) =>
+      record(resource, () => update(resource, id, value))) as typeof adapter.update;
+    const remove = adapter.delete.bind(adapter);
+    adapter.delete = ((resource: string, id: string) =>
+      record(resource, () => remove(resource, id))) as typeof adapter.delete;
+
+    // Seeding on its own. It writes accounts, so users and posts are expected here.
+    await seedDemo(adapter, DEMO_PASSWORD);
+    expect(entered, "the seed reached the sessions table, which only the store reads").not.toContain(
+      "sessions",
+    );
+
+    // The order that would run away: a store call, which seeds, which must not call back into a store
+    // while it is already inside one.
+    entered.length = 0;
+    await demoCredentialStore().findUserByEmail(owner.email);
+    expect(entered, "a cold sign-in read only what it asked for").not.toContain("sessions");
+    expect(entered).toContain("users");
+  });
 });
