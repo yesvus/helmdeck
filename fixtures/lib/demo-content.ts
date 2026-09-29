@@ -169,8 +169,24 @@ export async function createContentPost(values: unknown): Promise<ContentPost> {
   return toPost(created as StoredRow);
 }
 
+/**
+ * An edit, written as the whole record rather than as the fields that changed.
+ *
+ * The two stores do not agree about a partial write: SQL updates the columns it is given, while the
+ * in-memory adapter replaces the record and keeps only what the caller passed. Sending the three
+ * editable columns every time is what makes an edit of a title leave a body alone on both, rather
+ * than emptying it on one and not the other.
+ */
 export async function updateContentPost(id: string, values: unknown): Promise<ContentPost> {
-  const updated = await updateResourceAction(CONTENT_RESOURCE, id, draftOf(values));
+  const existing = await readContentPost(id);
+  if (!existing) throw new Error(`No post with id ${id}`);
+
+  const draft = draftOf(values);
+  const updated = await updateResourceAction(CONTENT_RESOURCE, id, {
+    title: draft.title ?? existing.title,
+    body: draft.body ?? existing.body,
+    status: draft.status ?? existing.status,
+  });
   return toPost(updated as StoredRow);
 }
 
