@@ -82,7 +82,10 @@ async function access(operation: Operation): Promise<AdminSession> {
  */
 function textOf(value: unknown): string {
   if (typeof value === "string") return value;
-  if (value === null || value === undefined) return "";
+  // An absent key is an empty column, but a null is not: `title` is NOT NULL, so the only way one
+  // arrives here as null is the driver having parsed the four letters, and writing back an empty
+  // heading would quietly swallow a section's name.
+  if (value === undefined) return "";
   return String(value);
 }
 
