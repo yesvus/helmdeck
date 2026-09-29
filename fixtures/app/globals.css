@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../../src/theme/tokens.css";
+@import "../../src/theme/dashboard.css";
 
 @source "../../src";
 @source "../";

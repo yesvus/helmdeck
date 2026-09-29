@@ -1,0 +1,52 @@
+/* SPDX-License-Identifier: MIT */
+
+/*
+ * The dashboard grid.
+ *
+ * This ships as CSS rather than as Tailwind utilities, and that is a deliberate reversal. The grid
+ * originally used literal `lg:col-span-3` classes, which works only when Tailwind scans the
+ * library's own source. The fixture declares `@source "../../src"` to make that true, so the demo
+ * looked correct while a host consuming the published package, where the library sits in node_modules
+ * and is not scanned, would have silently received no span rules at all. A widget's size would appear
+ * to be ignored.
+ *
+ * A library cannot depend on a host configuring its content sources, so the layout it owns is CSS the
+ * library ships. Only the page-level classes around a dashboard stay with the host.
+ */
+
+.admin-dashboard {
+  display: grid;
+  gap: var(--admin-dashboard-gap, 1rem);
+  grid-template-columns: 1fr;
+}
+
+.admin-dashboard > * {
+  /* One owner for the column span. Below the two-column breakpoint every tile is full width, so the
+     utility that would widen it at this width is deliberately not applied here. */
+  grid-column: span 1;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .admin-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-dashboard > .admin-dashboard--md {
+    grid-column: span 2;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-dashboard {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .admin-dashboard > .admin-dashboard--lg {
+    grid-column: span 3;
+  }
+
+  .admin-dashboard > .admin-dashboard--xl {
+    grid-column: span 4;
+  }
+}
