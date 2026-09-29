@@ -313,6 +313,22 @@ describe("createMemoryPersistenceAdapter", () => {
     expect(await db.read<{ title: string }>("posts", created.id)).toEqual({ id: created.id, title: "Hello" });
   });
 
+  it("keeps an id the caller supplies, so a seeded row stays where the seed expects it", async () => {
+    const db = createMemoryPersistenceAdapter();
+    const created = await db.create<{ id: string; title: string }>("posts", { id: "post_1", title: "Hello" });
+
+    expect(created.id).toBe("post_1");
+    expect(await db.read("posts", "post_1")).toEqual({ id: "post_1", title: "Hello" });
+  });
+
+  it("refuses a second record under an id that is already in use", async () => {
+    const db = createMemoryPersistenceAdapter();
+    await db.create("posts", { id: "post_1", title: "Hello" });
+
+    await expect(db.create("posts", { id: "post_1", title: "Again" })).rejects.toThrow(/post_1/);
+    expect(await db.query("posts")).toHaveLength(1);
+  });
+
   it("returns null for a record that is not there", async () => {
     const db = createMemoryPersistenceAdapter();
     expect(await db.read("posts", "nope")).toBeNull();
