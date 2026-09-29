@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createClient } from "@libsql/client";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { signInAction } from "../fixtures/app/login/actions";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { ensureDemoSeeded } from "../fixtures/lib/ensure-seeded";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";
 import { demoCan } from "../fixtures/lib/demo-rules";
+import { seedDemo } from "../fixtures/lib/seed";
 import { seedOrders } from "../fixtures/lib/seed-data";
+import { verifyPassword } from "../fixtures/lib/demo-users";
+import { createTursoPersistenceAdapter, resetTursoAdapterCache } from "../fixtures/lib/turso-persistence";
 import { checkPermissionAction } from "../fixtures/lib/permission-actions";
 import {
   createResourceAction,
@@ -271,6 +278,47 @@ describe("the role a session acts as", () => {
 
     await expect(queryResourceAction("products")).rejects.toThrow(guard.RedirectSignal);
     expect(await store.read("sessions", id)).toBeNull();
+  });
+
+  it("fills in the password hashes a migration cannot know, on a database migrated from empty", async () => {
+    // `0003_roles.sql` inserts both accounts with an empty `password_hash`, because a migration has no
+    // hash to put in it and a hash in a migration is a hash in the repository. That only works if the
+    // seed then finds the rows it just created and fills them in rather than skipping them as already
+    // present, which is not visible from the migration's diff and was the reason this was checked.
+    const dir = mkdtempSync(join(tmpdir(), "helmdeck-fresh-"));
+    const url = `file:${join(dir, "demo.db")}`;
+    const client = createClient({ url });
+    try {
+      for (const name of readdirSync(join(process.cwd(), "fixtures/lib/migrations")).sort()) {
+        // executeMultiple, not execute: a migration file is a script, and execute runs the first
+        // statement of it, which is the PRAGMA and nothing else.
+        await client.executeMultiple(
+          readFileSync(join(process.cwd(), "fixtures/lib/migrations", name), "utf8"),
+        );
+      }
+      resetTursoAdapterCache();
+      const fresh = createTursoPersistenceAdapter(client);
+
+      const afterMigration = await fresh.query<{ id: string; password_hash: string }>("users");
+      expect(afterMigration.map((row) => row.id).sort()).toEqual(["usr_editor", "usr_owner"]);
+      expect(afterMigration.every((row) => row.password_hash === "")).toBe(true);
+
+      await seedDemo(fresh as never, DEMO_PASSWORD);
+
+      const afterSeed = await fresh.query<{ id: string; role: string; password_hash: string }>("users");
+      expect(afterSeed).toHaveLength(2);
+      for (const row of afterSeed) {
+        expect(row.password_hash, `${row.id} hash`).not.toBe("");
+        // A hash in a stored column is not what login checks, so this is the only thing that would
+        // notice the column going stale, which is why it is asserted rather than assumed.
+        expect(await verifyPassword(DEMO_PASSWORD, row.password_hash)).toBe(true);
+      }
+      expect(afterSeed.find((row) => row.id === "usr_owner")?.role).toBe("admin");
+      expect(afterSeed.find((row) => row.id === "usr_editor")?.role).toBe("editor");
+    } finally {
+      client.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("answers the views exactly what it serves the actions", async () => {
