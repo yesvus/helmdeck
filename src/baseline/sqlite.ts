@@ -140,8 +140,16 @@ function rankOf(value: AdminResourceFilterValue): number {
  *
  * The class is compared before the value, because that is what `ORDER BY` does: a text value is
  * above a number however the two would compare as text, and a comparison that ranked them
- * differently would put a row on a page the ordering would not have chosen. A stored null has
- * nothing to compare with but a null, which the class alone says.
+ * differently would put a row on a page the ordering would not have chosen.
+ *
+ * A null is the lowest class, and a filter's value can be one. There is then no value to compare
+ * and no operand to bind, because SQL has no value that compares against nothing: the class alone
+ * decides, and the operator still says which way. So `gt(null)` is every record that is not null
+ * or absent, `gte(null)` is every record, `lt(null)` is none, and `lte(null)` is the null and the
+ * absent. That is the ranking read to its end, where a null is the smallest thing a record can
+ * hold, and it is the same answer the in-memory comparator gives because it ranks first and
+ * compares second as well. The operator is never dropped: a range filter against a null is a real
+ * question, and the four operators have four different answers to it.
  */
 function comparisonFor(
   field: string,
@@ -151,13 +159,19 @@ function comparisonFor(
   const path = pathForField(field);
   const rank = rankOf(value);
   const klass = classOf(path);
+  // The class is an integer, so the operator reads on it directly. `gte` on rank 0 is `class >= 0`,
+  // which every record answers, and that is the correct answer rather than a shortcut past it.
   if (rank === 0) {
-    return { sql: `${klass.sql} = 0`, args: klass.args };
+    return { sql: `(${klass.sql}) ${operator} 0`, args: klass.args };
   }
+  // A value of a different class is decided by the class alone, and which way it falls depends on
+  // which way the operator reads. A `lt` against a number has to find the classes below it, which
+  // are the nulls; testing `class > rank` there would answer a `gt` instead and return the text.
+  const across = operator === "<" || operator === "<=" ? "<" : ">";
   // A boolean arrives from json_extract as 1 or 0, so both stores compare it as a number.
   const column = rank === 1 ? "json_extract(data, ?)" : "CAST(json_extract(data, ?) AS TEXT)";
   return {
-    sql: `(${klass.sql} > ${rank} OR (${klass.sql} = ${rank} AND ${column} ${operator} ?))`,
+    sql: `(${klass.sql} ${across} ${rank} OR (${klass.sql} = ${rank} AND ${column} ${operator} ?))`,
     args: [...klass.args, ...klass.args, path, value],
   };
 }
