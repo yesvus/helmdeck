@@ -35,13 +35,18 @@ export type AdminWidgetDefinition<TData> = {
   /**
    * How the engine recognizes emptiness. Only the widget knows what its own data means, so this is
    * not inferred from length or a count field.
+   *
+   * Declared as methods rather than properties so their parameters are checked bivariantly. That is
+   * what lets one registry hold widgets whose data types differ: under contravariant properties a
+   * `render` taking a concrete data type is not assignable to one taking an erased type, so a host's
+   * ordinary list of typed widgets would be rejected. Hosts still write these as plain properties.
    */
-  isEmpty?: (data: TData) => boolean;
-  render: (data: TData) => ReactNode;
+  isEmpty?(data: TData): boolean;
+  render(data: TData): ReactNode;
   /** Overrides the engine's default for each state. A widget that omits one still renders. */
-  renderLoading?: () => ReactNode;
-  renderEmpty?: () => ReactNode;
-  renderError?: (error: Error, onRetry: () => void) => ReactNode;
+  renderLoading?(): ReactNode;
+  renderEmpty?(): ReactNode;
+  renderError?(error: Error, onRetry: () => void): ReactNode;
 };
 
 /** A widget's presence on a dashboard, before any data is attached. */
