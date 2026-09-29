@@ -763,6 +763,32 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     hostNote:
       "An error a server action or route throws to refuse a request. There is nothing to draw here: catch it, or turn it into the response a visitor sees.",
   },
+  createAdminSessionGuard: {
+    category: "Auth and permissions",
+    summary:
+      "Resolves the host's session on the server and refuses without one, so a route, a page or a server action protects itself in one call rather than repeating the read.",
+    keywords: "guard require session server redirect protect unauthenticated",
+  },
+  readAdminSession: {
+    category: "Auth and permissions",
+    summary:
+      "The same read without the refusal, answering null when nobody is signed in, so a route handler can return 401 rather than catch an exception.",
+    keywords: "session read null 401 unauthorized optional guard",
+  },
+  adminLoginHref: {
+    category: "Auth and permissions",
+    summary:
+      "Builds the sign-in link with a validated destination, so a guard redirects somewhere the sign-in page will actually honour.",
+    keywords: "login signin href url next redirect destination",
+  },
+  AdminSessionRequiredError: {
+    category: "Auth and permissions",
+    summary:
+      "Thrown when a guard's handler returns instead of throwing, so the work behind the guard is unreachable whether the host redirects or replies.",
+    keywords: "error no session required refuse unauthenticated handler",
+    hostNote:
+      "An error a server action or route throws to refuse a request, and the fallback when a host's refusal handler returns rather than throwing. There is nothing to draw here: catch it, or turn it into the response a visitor sees.",
+  },
   AdminPermissionDeniedError: {
     category: "Auth and permissions",
     summary:

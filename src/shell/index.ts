@@ -35,7 +35,20 @@ export { useAdminPermittedNav } from "./permitted-nav.js";
 export type { AdminSearchEntry } from "./admin-search.js";
 export { AdminAuthProvider, AdminRequireSession, useAdminSession } from "./auth.js";
 export type { AdminAuthContextValue, AdminSessionStatus } from "./auth.js";
-export { adminReturnTo, useAdminReturnTo } from "./auth.js";
+export { useAdminReturnTo } from "./auth.js";
+export {
+  AdminSessionRequiredError,
+  adminLoginHref,
+  adminReturnTo,
+  createAdminSessionGuard,
+  readAdminSession,
+} from "./session-guard.js";
+export type {
+  AdminSessionDecision,
+  AdminSessionGuard,
+  AdminSessionReason,
+  AdminSessionRefusal,
+} from "./session-guard.js";
 export { AdminShell } from "./admin-shell.js";
 export { cn } from "../cn.js";
 export { useAdminShell } from "./context.js";
