@@ -44,6 +44,46 @@ function storageUrl(url: string): string {
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(url) || url.startsWith("file:") ? url : `file:${url}`;
 }
 
+type Predicate = { sql: string; args: unknown[] };
+
+/**
+ * Builds one exact-match condition, checking the stored JSON's type as well as its value.
+ *
+ * Comparing `json_extract` alone gets three cases wrong, each in a way that silently returns the
+ * wrong rows rather than failing. SQLite reports a stored `null` and an absent path as the same SQL
+ * NULL, and `anything = NULL` matches nothing, so a record storing `null` could not be found at all.
+ * SQLite turns a stored `true` into `1`, so a filter for `1` would match it. And a stored `"5"` would
+ * otherwise be answerable by a filter for the number `5`.
+ *
+ * `json_type` names what is stored, so each predicate states the type it expects. That is the same
+ * thing the in-memory adapter gets for free from `===`, which compares a boolean and a number as
+ * different rather than as the same integer.
+ */
+function predicateFor(key: string, value: unknown): Predicate {
+  const path = pathFor(key);
+
+  if (value === null) {
+    return { sql: "json_type(data, ?) = 'null'", args: [path] };
+  }
+  if (typeof value === "boolean") {
+    return { sql: "json_type(data, ?) = ?", args: [path, value ? "true" : "false"] };
+  }
+  if (typeof value === "number" || typeof value === "string") {
+    const expected = typeof value === "number" ? "('integer', 'real')" : "('text')";
+    return {
+      sql: `json_type(data, ?) IN ${expected} AND json_extract(data, ?) = ?`,
+      args: [path, path, value],
+    };
+  }
+
+  const shape = Array.isArray(value) ? "array" : typeof value;
+  throw new Error(
+    `A filter on "${key}" must be a string, number, boolean or null, because a filter compares one ` +
+      `stored value at a time. An ${shape} is stored as a JSON document, and SQLite can only compare ` +
+      `documents as text, which matches on key order rather than on the document.`,
+  );
+}
+
 type SqlResult = {
   rows: unknown[][];
   columns?: string[];
@@ -133,11 +173,10 @@ export function createSqlitePersistenceAdapter(options: SqlitePersistenceOptions
           await db.execute({ sql: `SELECT data FROM ${table} WHERE resource = ?`, args: [resource] }),
         );
       }
-      const where = filters.map(() => "json_extract(data, ?) = ?").join(" AND ");
+      const predicates = filters.map(([key, value]) => predicateFor(key, value));
+      const where = predicates.map((predicate) => predicate.sql).join(" AND ");
       const args: unknown[] = [resource];
-      for (const [key, value] of filters) {
-        args.push(pathFor(key), value as never);
-      }
+      for (const predicate of predicates) args.push(...predicate.args);
       return toRecords<T>(
         await db.execute({ sql: `SELECT data FROM ${table} WHERE resource = ? AND ${where}`, args }),
       );

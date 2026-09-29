@@ -220,6 +220,8 @@ A path with no scheme is a local file, so `file:./helmdeck.db` and `./helmdeck.d
 
 Records are stored as JSON documents keyed by resource and id, which is why no schema is needed: any resource works on the first call, and an id you supply is the id that is stored, so seeded rows keep pointing at each other.
 
+Filters are exact matches on a stored value, so a filter is a string, a number, a boolean or `null`. Each predicate states the JSON type it expects, which is what keeps a filter for `1` from being answered by a record storing `true`, and lets `null` find a record storing `null` rather than matching nothing at all. A filter carrying an object or an array is refused with an error rather than compared as text, because text comparison matches on key order and would quietly return the wrong rows.
+
 This is the adapter to start on. A filter runs through `json_extract`, which SQLite cannot index the way it can a column, so once a resource is large enough that the scan shows, put it behind a mapped schema and the same `AdminPersistenceAdapter`.
 
 ## Host integration contracts

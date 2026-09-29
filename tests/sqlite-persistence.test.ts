@@ -60,6 +60,40 @@ describe("createSqlitePersistenceAdapter", () => {
     expect(await db.query("posts", { title: "Z" })).toEqual([]);
   });
 
+  it("finds a record storing null without also claiming one that never had the field", async () => {
+    const db = adapter();
+    await db.create("posts", { title: "A", subtitle: null });
+    await db.create("posts", { title: "B" });
+
+    expect(await db.query("posts", { subtitle: null })).toHaveLength(1);
+    expect((await db.query<{ title: string }>("posts", { subtitle: null }))[0]?.title).toBe("A");
+  });
+
+  it("does not answer a filter for 1 with a record storing true", async () => {
+    const db = adapter();
+    await db.create("posts", { flag: true });
+    await db.create("posts", { flag: 1 });
+
+    expect(await db.query("posts", { flag: 1 })).toHaveLength(1);
+    expect(await db.query("posts", { flag: true })).toHaveLength(1);
+  });
+
+  it("does not answer a filter for the text 5 with the number 5", async () => {
+    const db = adapter();
+    await db.create("posts", { code: "5" });
+    await db.create("posts", { code: 5 });
+
+    expect(await db.query("posts", { code: "5" })).toHaveLength(1);
+    expect(await db.query("posts", { code: 5 })).toHaveLength(1);
+  });
+
+  it("refuses a filter it cannot compare exactly, rather than returning the wrong rows", async () => {
+    const db = adapter();
+
+    await expect(db.query("posts", { tags: ["a", "b"] })).rejects.toThrow(/string, number, boolean/);
+    await expect(db.query("posts", { meta: { a: 1 } })).rejects.toThrow(/stored as a JSON document/);
+  });
+
   it("ignores a filter that was never set, instead of returning nothing", async () => {
     const db = adapter();
     await db.create("posts", { title: "A" });
