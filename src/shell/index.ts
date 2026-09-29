@@ -42,7 +42,6 @@ export {
   adminReturnTo,
   createAdminSessionGuard,
   readAdminSession,
-  DEFAULT_ADMIN_LOGIN_HREF,
 } from "./session-guard.js";
 export type {
   AdminSessionDecision,

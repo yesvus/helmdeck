@@ -235,6 +235,42 @@ The guard records where the visitor was headed in a `next` parameter. `adminRetu
 
 **Hand-rolled instead:** implement `AdminAuthAdapter` yourself and pass it. `AdminAuthProvider` has no opinion about where sessions live.
 
+### Refusing a request on the server
+
+`AdminRequireSession` decides what is drawn, which is not the same as refusing. A page it guards has already been sent to whoever asked for it, so the check that turns a request away belongs where a redirect is a response: a server component, a route handler or a server action. The module those three import carries no `"use client"`, so all of them can reach it.
+
+Write the guard once, where the session is resolved, and call it at the top of a route:
+
+```ts
+// lib/session.ts
+export const requireAdminSession = createAdminSessionGuard({
+  session: currentSession,
+  onUnauthenticated: ({ loginHref }) => redirect(loginHref),
+});
+```
+
+```ts
+// app/billing/page.tsx, a server component
+const session = await requireAdminSession({ returnTo: "/admin/billing" });
+
+// app/billing/actions.ts, "use server"
+export async function chargeCard() {
+  await requireAdminSession({ returnTo: "/admin/billing" });
+}
+
+// app/billing/route.ts, where the refusal is a 401 rather than a redirect
+const session = await readAdminSession({ session: currentSession });
+if (!session) return Response.json({ error: "unauthorized" }, { status: 401 });
+```
+
+`createAdminSessionGuard` returns the session or refuses, and `onUnauthenticated` is where the refusal is yours: a page throws a redirect, a handler throws a 401, and either may return instead, which still refuses with `AdminSessionRequiredError` so the work behind the guard is unreachable either way. The package imports no navigation module, so it does not choose the framework for you. `readAdminSession` is the same read without the refusal, for a handler that answers 401 rather than redirecting, and both go through one resolver, so a page, a handler and an action cannot disagree about who is signed in.
+
+The session comes from **your** resolver and never from a cookie the package reads, so a token in a header, a row keyed by a device or a mobile session store is a session like any other. A read that throws is refused rather than reported as absent, and `onError` is where you log it.
+
+`returnTo` is validated with the same rules as the login page's `next`, so a destination that leaves the origin is dropped to `/` before it reaches a redirect. The refusal carries the finished `loginHref` for exactly that reason: a host that assembled one from an unvalidated value would send a visitor to another origin.
+
+**Hand-rolled instead:** call your resolver and refuse yourself, but validate `next` with `adminReturnTo()`, which this module exports. It is the same function the guard applies, and it is importable from a server module precisely because the destination rules do not live beside the browser's search-params hook.
+
 ### A baseline auth adapter
 
 `createSessionAuthAdapter` signs the session id with HMAC-SHA256 over the Web Crypto API and puts it in an HTTP-only cookie. It owns the cookie's integrity; you own credential verification, user lookup, and session storage.

@@ -63,6 +63,9 @@ const DOCUMENTED_FUNCTIONS = [
   "createAdminPermissionCheck",
   "createAdminPermissionGuard",
   "createAdminResourceActions",
+  "createAdminSessionGuard",
+  "readAdminSession",
+  "AdminSessionRequiredError",
   "evaluateAdminPermission",
 ];
 

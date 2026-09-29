@@ -7,7 +7,7 @@ import { AdminI18nProvider } from "../src/i18n";
 import { AdminAuthProvider, AdminRequireSession } from "../src/shell/auth";
 import { adminReturnTo as adminReturnToFromAuth } from "../src/shell/auth";
 import { adminReturnTo as adminReturnToFromTheGuardModule } from "../src/shell/session-guard";
-import type { AdminAuthAdapter, AdminSession } from "../src/adapters/index";
+import type { AdminAuthAdapter, AdminLoginResult, AdminSession } from "../src/adapters/index";
 import {
   AdminSessionRequiredError,
   createAdminPermissionGuard,
@@ -57,7 +57,7 @@ function host(initial: AdminSession | null = null) {
   });
   const adapter: AdminAuthAdapter = {
     getSession: vi.fn(async () => resolver()),
-    login: vi.fn(async () => ({ ok: true, session: SESSION })),
+    login: vi.fn(async () => ({ ok: true, session: SESSION }) as AdminLoginResult),
     logout: vi.fn(async () => {}),
   };
   return {
@@ -126,19 +126,28 @@ describe("a guard that returns the session or refuses", () => {
   it("tells the host whether a visitor or an outage caused the refusal", async () => {
     const boom = new Error("session store unreachable");
     const onError = vi.fn();
-    const app = createAdminSessionGuard({
-      session: () => {
-        throw boom;
-      },
-      onUnauthenticated: () => {},
-      onError,
-    });
+    const reasons: string[] = [];
+    const watch = (session: () => AdminSession | null) =>
+      createAdminSessionGuard({
+        session,
+        onUnauthenticated: (refusal) => {
+          reasons.push(refusal.reason);
+        },
+        onError,
+      });
 
-    // A broken read is not an absent session, so a host can answer 401 and a 500 differently
-    // rather than bouncing a signed-in visitor to sign-in on every transient failure.
-    await expect(app()).rejects.toThrow(AdminSessionRequiredError);
+    await expect(watch(() => null)()).rejects.toThrow(AdminSessionRequiredError);
+    await expect(
+      watch(() => {
+        throw boom;
+      })(),
+    ).rejects.toThrow(AdminSessionRequiredError);
+
+    // A visitor and an outage are different answers, and a host that cannot tell them apart
+    // sends a signed-in visitor to sign-in every time the store blips. A broken read is not an
+    // absent session.
+    expect(reasons).toEqual(["no-session", "session-failed"]);
     expect(onError).toHaveBeenCalledExactlyOnceWith(boom);
-    await expect(readAdminSession({ session: () => null, onError })).resolves.toBeNull();
   });
 
   it("keeps a query and a fragment the host already put on the sign-in URL", async () => {
@@ -315,7 +324,7 @@ describe("the read is the host's", () => {
   it("resolves a session that is not a cookie, through the resolver it was given", async () => {
     // A header token, a device row, a mobile store: whatever the host calls a session, the guard
     // answers with it unchanged and never reaches for storage of its own.
-    const fromHeader: AdminSession = { email: "ada@example.test", role: "admin", device: "pixel-9" };
+    const fromHeader: AdminSession = { email: "ada@example.test", name: "Ada", role: "admin" };
     const resolver = vi.fn(() => fromHeader);
 
     await expect(readAdminSession({ session: resolver })).resolves.toBe(fromHeader);
