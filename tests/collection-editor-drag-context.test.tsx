@@ -110,14 +110,13 @@ describe("the editor's drag context", () => {
     expect(handle).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("announces nothing at all without a context, and dnd-kit's own instructions with one", () => {
-    // The reason the pair above is worth having: the handle keeps its role, its label and its
-    // focusability either way, so nothing a person can look at tells the two apart. The announcement
-    // is the one thing that differs, and it is the thing a screen reader reads when the handle takes
-    // focus, so it is asserted by resolving it rather than by checking the attribute is present.
+  it("describes nothing without a context, and dnd-kit's own instructions with one", () => {
+    // The handle keeps its role, its label and its focusability either way, so nothing a person can
+    // look at tells the two apart, and the announcement is the only thing that differs. It is the
+    // thing a screen reader reads when the handle takes focus, so it is resolved rather than merely
+    // checked for presence: an attribute pointing at nothing announces nothing.
     const bare = render(<BareEditor initial={twoEntries()} />);
-    // Absent or empty, depending on whether a context has ever been mounted in this document: either
-    // way the handle describes nothing, which is the whole difference.
+    // Absent or empty, depending on whether a context has ever been mounted in this document.
     expect(firstHandle().getAttribute("aria-describedby") ?? "").toBe("");
     bare.unmount();
 
