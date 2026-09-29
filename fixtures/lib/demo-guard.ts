@@ -60,6 +60,9 @@ export const demoPermissionCheck = createAdminPermissionCheck({
   session: () => currentDemoSession(),
 });
 
+/** Where a visitor lands when an action refuses them for want of a session: the shell every action serves. */
+const ACTIONS_RETURN_TO = "/shell";
+
 /**
  * The same decision, for the server path, where it either returns the session or refuses.
  *
@@ -71,7 +74,7 @@ export const demoPermissionCheck = createAdminPermissionCheck({
 export const requireDemoPermission = createAdminPermissionGuard({
   rule: demoCan,
   session: () => currentDemoSession(),
-  onUnauthenticated: () => redirect(`${LOGIN_PATH}?next=${encodeURIComponent("/shell")}`),
+  onUnauthenticated: () => redirect(`${LOGIN_PATH}?next=${encodeURIComponent(ACTIONS_RETURN_TO)}`),
 });
 
 /**

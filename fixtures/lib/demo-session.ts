@@ -9,14 +9,10 @@
  * a sign-in that is hand-written per host is a sign-in that is hand-wrong per host.
  *
  * The rows are the demo's own tables through the package's store over the demo's own persistence
- * adapter, so a sign-in is the same code whether or not a database is configured. Turso when the
+ * adapter, so a sign-in is the same code whether or not a database is configured: Turso when the
  * environment supplies it and memory otherwise, which is what keeps a fresh clone and a CI run
- * working.
- *
- * The role a session acts as is read from the user row its session row points at, so it is a stored
- * value rather than something a request can name. Nothing in the cookie carries a role, which is what
- * keeps a signed cookie from being a claim: it names a session, the session names a user, and the
- * user decides.
+ * working. The role a session acts as is read from the user row its session row points at, so it is a
+ * stored value rather than something a request can name.
  *
  * The package's adapter rather than an auth library, because an auth library covers the same ground
  * and brings its schema with it: its own user, account and session tables, its own migrations
@@ -50,8 +46,8 @@ export const SESSION_COOKIE = "helmdeck_session";
  * next request from a different instance, every signature would fail, and every visitor would read
  * as signed out.
  */
-function sessionSecret(env: NodeJS.ProcessEnv = process.env): string {
-  return env.HELMDECK_SESSION_SECRET?.trim() || "helmdeck-demo-signs-its-own-cookies";
+function sessionSecret(): string {
+  return process.env.HELMDECK_SESSION_SECRET?.trim() || "helmdeck-demo-signs-its-own-cookies";
 }
 
 export type DemoAuthOptions = {

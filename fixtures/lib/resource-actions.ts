@@ -23,16 +23,15 @@ import { requireDemoPermission } from "./demo-guard";
  *
  * **A resource name arrives from the browser, so it is never trusted.** Anything here could be
  * invoked directly with any argument, by a signed-in visitor or by anyone who can post to the
- * action, which makes this the boundary where a resource name becomes a capability. So the five
- * calls are the package's, built once here over the guard the permission rule is asked through:
- * every call refuses on the server before touching the store, so a denial is a refusal of the
- * request rather than a button that was never drawn. `users` and `sessions` are deliberately
- * absent from the exposed set, so password hashes and session rows are not reachable through a table
- * browser that happens to exist for products, and the name is refused before the session is even
- * resolved, because a name outside the set is not a permission question.
+ * action, which makes this the boundary where a resource name becomes a capability. The five calls
+ * are the package's, built once over the guard the demo's rule is asked through, so every call
+ * refuses on the server before touching the store and the exposed set is a closed set of names rather
+ * than a check each action remembered to make. `users` and `sessions` are deliberately absent from
+ * it, so password hashes and session rows are not reachable through a table browser that happens to
+ * exist for products, and a name outside the set is refused before the session is resolved at all.
  *
- * The session behind the guard is resolved from the cookie's signed session id and the role on the
- * user row that id points at, so nothing here can be talked into a different role.
+ * What is left to the host is the write's shape: the fields a definition declares, filtered on the
+ * server. The package decides who may write; the shape of what they may write is the host's.
  */
 
 /**
@@ -80,9 +79,11 @@ function declaredValue(resource: string, value: unknown): Record<string, unknown
 function declaredWrites(adapter: AdminPersistenceAdapter): AdminPersistenceAdapter {
   return {
     ...adapter,
-    create: (resource, value) => adapter.create(resource, declaredValue(resource, value)),
-    update: (resource, id, value) => adapter.update(resource, id, declaredValue(resource, value)),
-  } as AdminPersistenceAdapter;
+    create: <T>(resource: string, value: unknown) =>
+      adapter.create<T>(resource, declaredValue(resource, value)),
+    update: <T>(resource: string, id: string, value: unknown) =>
+      adapter.update<T>(resource, id, declaredValue(resource, value)),
+  };
 }
 
 const store = createAdminResourceActions({
