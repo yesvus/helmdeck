@@ -128,7 +128,7 @@ const feed = adminActivityWidget<{ id: string; action: string; actor: string; at
   message: (row) => `${row.actor} ${row.action}`,
   actor: (row) => row.actor,
   at: (row) => row.at,
-  tone: (row) => (row.action === "deleted" ? "danger" : "neutral"),
+  tone: (row) => (row.action.startsWith("deleted") ? "danger" : "neutral"),
   getKey: (row) => row.id,
   now: () => new Date("2026-09-30T12:00:00Z"),
 });
@@ -182,9 +182,12 @@ describe("a registered widget renders through the registry", () => {
   });
 
   it("reports a placement naming a widget this registry does not hold, rather than rendering nothing", () => {
-    // A different registry, not the same one: a dashboard persisted by one build has to be
-    // renderable by the next, so the miss is a real case rather than a contrived one.
-    const other = createAdminWidgetRegistry({ somethingElse: revenue });
+    // A registry that genuinely lacks the widget, built from one that has a different id. A
+    // dashboard persisted by one build has to be renderable by the next, so the miss is a real case
+    // rather than a contrived one.
+    const other = createAdminWidgetRegistry({
+      somethingElse: adminStatWidget<Count>({ id: "somethingElse", title: "Other", value: (d) => d.total }),
+    });
     const { container } = render(
       <AdminDashboardLayout
         registry={other}
@@ -754,8 +757,11 @@ describe("the activity widget's states, driven through the load", () => {
     const gate = deferred<typeof events>();
     render(<DrivenTile definition={feed} load={() => gate.promise} />);
 
-    expect(document.querySelector("[data-widget-skeleton='rows']")).not.toBeNull();
-    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    // The feed's own placeholder, one line per event, so the tile reserves the height the feed is
+    // about to take rather than jumping when the first event lands.
+    const skeleton = document.querySelector("[data-widget-skeleton='rows']")!;
+    expect(skeleton.children.length).toBe(4);
+    expect(screen.queryByText(/published Home/)).not.toBeInTheDocument();
 
     await act(async () => gate.resolve(events));
   });
@@ -825,8 +831,9 @@ describe("what the activity widget decides", () => {
     await act(async () => gate.resolve(events));
 
     // The tone is a dot, not the message's colour, so it never fights what the message already says.
-    expect(document.querySelector("[data-activity-tone='danger']")).not.toBeNull();
-    expect(document.querySelector("[data-activity-tone='neutral']")).not.toBeNull();
+    // The delete is the one the host's own rule marks dangerous, and the other two are unmarked.
+    expect(document.querySelectorAll("[data-activity-tone='danger']")).toHaveLength(1);
+    expect(document.querySelectorAll("[data-activity-tone='neutral']")).toHaveLength(2);
   });
 
   it("uses a host's own age vocabulary, so the feed is in the host's language", async () => {
