@@ -18,6 +18,10 @@ import {
 import { defaultCollectionMessages, type AdminCollectionMessages } from "../collections/messages.js";
 import { defaultWidgetMessages, type AdminWidgetMessages } from "../widgets/messages.js";
 import { defaultDashboardMessages, type AdminDashboardMessages } from "../dashboard/messages.js";
+import {
+  defaultAdminResourceListQueryLabels,
+  type AdminResourceListQueryLabels,
+} from "../resources/list-labels.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -52,6 +56,7 @@ export type AdminMessages = {
   collection: AdminCollectionMessages;
   widget: AdminWidgetMessages;
   dashboard: AdminDashboardMessages;
+  resourceList: AdminResourceListQueryLabels;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -73,6 +78,7 @@ export const englishAdminMessages: AdminMessages = {
   collection: defaultCollectionMessages,
   widget: defaultWidgetMessages,
   dashboard: defaultDashboardMessages,
+  resourceList: defaultAdminResourceListQueryLabels,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -220,6 +226,16 @@ export const turkishAdminMessages: AdminMessages = {
   dashboard: {
     empty: "Bu panoda henüz bileşen yok.",
     missingWidget: (widget) => `Bu pano, bu sürümde bulunmayan "${widget}" bileşenine başvuruyor.`,
+  },
+  resourceList: {
+    search: "Ara",
+    searchPlaceholder: "Bu listede ara",
+    all: "Tümü",
+    ascending: "artan",
+    descending: "azalan",
+    resultCount: (from, to, total) => `${total} kayıttan ${from}-${to} arası gösteriliyor`,
+    noMatches: "Aradığınızla eşleşen kayıt yok.",
+    noMatchesBody: "Farklı bir terim ya da temizlenmiş bir filtre bulabilir.",
   },
   widget: {
     emptyTitle: "Gösterilecek veri yok",
