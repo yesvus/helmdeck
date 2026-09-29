@@ -16,6 +16,13 @@ const UNRELEASED_HEADING = /^## Unreleased$/m;
 // README is never rewritten. The capture keeps owner, repository, and asset naming owned by
 // the README, so only the version moves.
 const installUrlPattern = /(pnpm add https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/releases\/download\/v[^/\s]+\/[^/\s]+\.tgz)/g;
+
+// The registry specifier, carried by the same invariant. The release rewriter keeps the
+// documented install command from lagging a release, and that guarantee is only worth
+// anything if it covers the command the README actually leads with. Without this,
+// `pnpm add @yesvus/helmdeck@0.4.0` would still say 0.4.0 after a 0.5.0 release and the
+// check would pass on a stale line.
+const registrySpecPattern = /(pnpm add @[^@\s]+\/[^@\s]+@v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?))/g;
 // Splits a release asset into its stable prefix and its trailing version, so the prefix
 // stays owned by the README while the version is replaced.
 const assetPattern = /\/([^/\s]+)-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\.tgz$/;
@@ -24,6 +31,15 @@ const semverPattern = new RegExp(
   `^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(${semverIdentifier}(?:\\.${semverIdentifier})*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`,
 );
 const tagPattern = new RegExp(`^v${semverPattern.source.slice(1, -1)}$`);
+
+// Exported so the README gate has a unit test rather than only the end-to-end check. An
+// inline predicate inside a function that reads VERSION and README from disk is verifiable
+// only by editing the working tree, and a guard that has to do that reports nothing useful.
+export function staleRegistryCommands(readme, version) {
+  return [...readme.matchAll(registrySpecPattern)]
+    .filter(([, , specVersion]) => specVersion !== version)
+    .map(([, specifier]) => specifier);
+}
 const bumpTypes = new Set(["alpha", "beta", "stable", "patch", "minor", "major"]);
 
 function fail(message) {
@@ -76,6 +92,15 @@ function assertReadmeInSync(version) {
         + `Found: ${command}\nRun: pnpm version:bump <type>`);
     }
   }
+
+  // Checked separately from the tarball, so a README that drops the registry line fails
+  // with its own message rather than passing on the tarball alone. They are independent
+  // commands and a host may install from either, so a stale one is a wrong instruction
+  // whether the other is right.
+  for (const specifier of staleRegistryCommands(readme, version)) {
+    fail(`README registry install command does not point at ${version}.\n`
+      + `Found: ${specifier}\nRun: pnpm version:bump <type>`);
+  }
 }
 
 function installCommands(readme) {
@@ -86,7 +111,13 @@ function installCommands(readme) {
 // version. The tag and the artifact filename are rewritten independently, because a
 // half-updated URL points at a release asset that does not exist.
 export function rewriteInstallUrls(readme, version) {
-  return readme.replace(installUrlPattern, (match, command) => {
+  // Only the version moves, never the package name: the name is a property of the
+  // registry rather than of this release, so a bump cannot rewrite a scoped name.
+  const withRegistry = readme.replace(
+    registrySpecPattern,
+    (match, command, current) => match.replace(`@${current}`, `@${version}`),
+  );
+  return withRegistry.replace(installUrlPattern, (match, command) => {
     const current = versionInUrl(command);
     const rewritten = current
       ? command.replace(/\/download\/v[^/]+\//, `/download/v${version}/`).replace(assetPattern, `/$1-${version}.tgz`)

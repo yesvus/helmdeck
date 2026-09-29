@@ -14,10 +14,23 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 ## Install
 
 ```bash
+pnpm add @yesvus/helmdeck@0.4.0
+```
+
+The registry is the install path. A release publishes the same tarball to GitHub releases
+and to npm, with provenance, from one workflow run.
+
+A release artifact is also attached to each GitHub release, for hosts that cannot reach a
+registry:
+
+```bash
 pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.4.0/yesvus-helmdeck-0.4.0.tgz
 ```
 
-Release artifacts are distributed through GitHub releases. npm publication is postponed indefinitely.
+Prefer the registry. Installing a release tarball by URL makes pnpm cache a
+`release-assets.githubusercontent.com` redirect signed with a short-lived JWT, and when that
+signature expires `--frozen-lockfile` fails on a build that changed nothing. A host that must
+use the tarball should vendor it and verify the SHA-256 checksum published with the release.
 
 ## Releases
 
@@ -25,9 +38,34 @@ Release artifacts are distributed through GitHub releases. npm publication is po
 
 A release rewrites the install command in the same commit as the version bump, so the documented URL never lags a release. Run `pnpm version:check` to verify version metadata locally; it fails when the three disagree. Use `pnpm version:next <bump>` to preview a transition without changing files. Notable changes for every version are recorded in [CHANGELOG.md](./CHANGELOG.md). Write pending notes under `## Unreleased`: the release stamps that heading with the version it is cutting, in the same commit as `VERSION`, `package.json` and the install command above, so the changelog cannot announce a release the rest of the repository does not agree has happened. A release with no `## Unreleased` section fails rather than cutting one silently.
 
+### Publishing to npm
+
+The release workflow publishes to npm in the same run that cuts the GitHub release, so the
+two cannot describe different builds. Prereleases go out under the `next` dist-tag and
+releases under `latest`, which keeps `pnpm add @yesvus/helmdeck` resolving to the newest
+stable rather than to an alpha someone asked for once.
+
+Publishing needs a credential. Either:
+
+- **Trusted publishing (recommended).** Configure the package on npmjs.com to trust this
+  GitHub Actions workflow. Then no long-lived token exists, and `id-token: write` is the
+  whole requirement.
+- **An automation token.** Create a repository secret named `NPM_TOKEN` on an npm automation
+  token. The publish step fails with a clear message when it is absent rather than skipping
+  silently, because a release that cut a tag and a GitHub release but published nothing would
+  otherwise look successful.
+
+The step is idempotent: if the version is already on the registry it exits cleanly. npm
+versions are immutable, and the release workflow is re-runnable, so a re-run has to be a
+no-op rather than a failure after the tag is already pushed.
+
+CI checks on every pull request that `pnpm pack` produces a tarball npm accepts, as a dry
+run with no credentials. That is what catches a scope or naming mistake before a tag exists,
+when it costs nothing.
+
 ### Pinning, upgrades, and rollback
 
-Install an immutable release artifact by exact version and URL. Do not pin consumers to a moving branch, `latest`, or the floating `v0` tag. Verify the downloaded tarball against the SHA-256 checksum attached to its GitHub release, then commit the updated dependency and lockfile together. Deploy the same lockfile artifact through environments.
+Install an exact version. Do not pin consumers to a moving branch or a floating tag. Commit the updated dependency and lockfile together, and deploy the same lockfile artifact through environments. On the tarball path, verify the download against the SHA-256 checksum attached to the GitHub release; the registry path carries integrity in the lockfile.
 
 To upgrade, review the [release notes](./CHANGELOG.md) and the compatibility notes below, update the exact tarball URL, refresh the lockfile, and run the host's typecheck, tests, and production build before deployment. Roll back by restoring the previous exact artifact URL and lockfile from version control, then redeploy. Helmdeck does not modify its installed code or migrate host data.
 

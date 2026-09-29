@@ -3,8 +3,38 @@
 All notable changes to Helmdeck are recorded here. Versions follow the `VERSION` file, which is
 canonical and must match `package.json` and the install command in the README.
 
-Artifacts are distributed as GitHub release tarballs. npm publication is postponed indefinitely, so
-upgrading means replacing the exact tarball URL and refreshing the lockfile.
+Artifacts are distributed to npm and, for hosts that cannot reach a registry, as GitHub release
+tarballs. Upgrading means bumping the exact version and refreshing the lockfile.
+
+## Unreleased
+
+### Added
+
+- **Published to npm.** A release now publishes the same tarball to the registry, with npm
+  provenance minted from the workflow's OIDC identity, in the same run that cuts the GitHub
+  release, so the two cannot describe different builds. Prereleases go out under `next` and
+  releases under `latest`, so `pnpm add @yesvus/helmdeck` keeps resolving to the newest stable.
+  The publish step is idempotent, because a re-run must not fail on a version npm already has.
+  Requires either trusted publishing for this package or an `NPM_TOKEN` repository secret.
+
+### Changed
+
+- **The registry is the documented install path.** `pnpm add @yesvus/helmdeck@<version>` leads the
+  README; the release tarball stays documented for hosts that cannot reach a registry. Installing
+  a release tarball by URL makes pnpm cache a `release-assets.githubusercontent.com` redirect signed
+  with a short-lived JWT, and when that signature expires `--frozen-lockfile` fails on a build
+  that changed nothing. Hosts already vendoring a tarball are unaffected.
+
+- **The documented install command is version-checked in both forms.** The release rewriter keeps
+  the README's install command from lagging a release; it now handles the registry specifier as
+  well as the tarball URL. Previously only the tarball was rewritten, so when the registry command
+  became the one the README led with, a release would have left a stale version in it and
+  `pnpm version:check` would have passed.
+
+- CI checks on every pull request that `pnpm pack` produces a tarball npm accepts, as a dry run
+  with no credentials. A scope or naming mistake surfaces there rather than after a tag exists.
+
+No exported name was removed and no adapter contract changed.
 
 ## 0.4.0
 

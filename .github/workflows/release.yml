@@ -23,6 +23,11 @@ on:
 
 permissions:
   contents: write
+  # Provenance. npm mints the attestation from this workflow's OIDC identity, which is
+  # what makes it worth having: the published tarball is then verifiably the one this
+  # commit built, rather than a long-lived publish token being the only thing between a
+  # compromised runner and a public package.
+  id-token: write
 
 concurrency:
   group: helmdeck-release
@@ -44,6 +49,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+          # Writes an .npmrc that reads NODE_AUTH_TOKEN, scoped to the registry. The
+          # token is supplied on the publish step itself, so a run that never publishes
+          # is not holding a publish credential.
+          registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - name: Validate current version
         run: pnpm version:check
@@ -165,3 +174,44 @@ jobs:
           else
             gh release create "$TAG" "$ASSET" "$CHECKSUM" --verify-tag --generate-notes --title "$TAG"
           fi
+      - name: Publish to npm
+        if: ${{ inputs.dry_run != true }}
+        env:
+          # The publish credential. See README, "Publishing to npm", for how to create one
+          # and for the trusted-publishing alternative that needs no token at all.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          ASSET: ${{ steps.artifact.outputs.asset }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+
+          # Idempotent, because this workflow is re-runnable: the GitHub release step
+          # already re-uploads when the release exists. npm versions are immutable, so a
+          # re-run that tried to publish the same version would fail the whole release
+          # after the tag and the GitHub release were already pushed. Skipping instead
+          # makes a re-run a no-op rather than a red build.
+          if npm view "@yesvus/helmdeck@$version" version >/dev/null 2>&1; then
+            echo "@yesvus/helmdeck@$version is already published, skipping"
+            exit 0
+          fi
+
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "NPM_TOKEN is not set, so @yesvus/helmdeck@$version was not published." >&2
+            echo "Create the secret, or configure trusted publishing for this package." >&2
+            exit 1
+          fi
+
+          # A prerelease goes out under `next` so `npm install @yesvus/helmdeck` keeps
+          # resolving to the newest stable. Publishing an alpha as `latest` would hand
+          # every host an unstable build because someone asked for one.
+          if [[ "$version" == *-* ]]; then
+            dist_tag="next"
+          else
+            dist_tag="latest"
+          fi
+
+          # The same tarball the GitHub release carries, so the two can never describe
+          # different builds. Provenance comes from this workflow's OIDC identity, which
+          # is why permissions grants id-token: write.
+          npm publish "$ASSET" --access public --provenance --tag "$dist_tag"

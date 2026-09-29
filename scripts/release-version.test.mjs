@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { nextTag, rewriteChangelogHeading, rewriteInstallUrls } from "./release-version.mjs";
+import {
+  nextTag,
+  rewriteChangelogHeading,
+  rewriteInstallUrls,
+  staleRegistryCommands,
+} from "./release-version.mjs";
 
 test("increments an alpha prerelease", () => {
   assert.equal(nextTag("v0.1.0-alpha.1", "alpha"), "v0.1.0-alpha.2");
@@ -51,6 +56,84 @@ test("promotes a prerelease install command to the stable version", () => {
   assert.equal(
     rewriteInstallUrls(`pnpm add ${url}`, "0.4.0"),
     "pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.4.0/yesvus-helmdeck-0.4.0.tgz",
+  );
+});
+
+test("rewrites the registry install command to the new release", () => {
+  // The invariant the release rewriter exists to hold is that the documented install command
+  // never lags. When the registry command became the one the README leads with, the tarball
+  // rewrite alone left it stale: `pnpm add @yesvus/helmdeck@0.4.0` would still read 0.4.0
+  // after a 0.5.0 release, and nothing would fail.
+  assert.equal(
+    rewriteInstallUrls("pnpm add @yesvus/helmdeck@0.4.0", "0.5.0"),
+    "pnpm add @yesvus/helmdeck@0.5.0",
+  );
+});
+
+test("rewrites both install commands in one pass", () => {
+  const readme = [
+    "pnpm add @yesvus/helmdeck@0.4.0",
+    "pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.4.0/yesvus-helmdeck-0.4.0.tgz",
+  ].join("\n");
+
+  assert.equal(
+    rewriteInstallUrls(readme, "0.4.1"),
+    [
+      "pnpm add @yesvus/helmdeck@0.4.1",
+      "pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.4.1/yesvus-helmdeck-0.4.1.tgz",
+    ].join("\n"),
+  );
+});
+
+test("promotes a registry prerelease to the stable version", () => {
+  assert.equal(
+    rewriteInstallUrls("pnpm add @yesvus/helmdeck@0.4.0-beta.2", "0.4.0"),
+    "pnpm add @yesvus/helmdeck@0.4.0",
+  );
+});
+
+test("never rewrites the package name, only the version", () => {
+  // The name is a property of the registry, not of this release. A rewriter that could change
+  // it would be able to turn a correct scoped name into a wrong one with a version bump.
+  assert.equal(
+    rewriteInstallUrls("pnpm add @someone-else/their-package@1.0.0", "2.0.0"),
+    "pnpm add @someone-else/their-package@2.0.0",
+  );
+});
+
+test("leaves a registry command with no version alone", () => {
+  // `pnpm add @scope/name` is a valid instruction meaning "latest". Rewriting it would
+  // invent a version, and inventing one is worse than leaving a range unpinned.
+  const line = "pnpm add @yesvus/helmdeck";
+  assert.equal(rewriteInstallUrls(line, "9.9.9"), line);
+});
+
+test("reports a registry install command left at the previous version", () => {
+  // This is the whole reason the registry form is version-checked. Without it the documented
+  // command silently lags, and a host that follows the README installs a two-release-old
+  // build. The gate was originally inline in a function that reads the repository from disk,
+  // so the only way to exercise it was to edit the working tree, and the mutation guard for
+  // "the check stops verifying this" reported zero failures and proved nothing.
+  assert.deepEqual(
+    staleRegistryCommands("pnpm add @yesvus/helmdeck@0.4.0", "0.5.0"),
+    ["pnpm add @yesvus/helmdeck@0.4.0"],
+  );
+  assert.deepEqual(
+    staleRegistryCommands("pnpm add @yesvus/helmdeck@0.5.0", "0.5.0"),
+    [],
+  );
+});
+
+test("a registry command with no version is never reported as stale", () => {
+  // `pnpm add @scope/name` means "latest" and is a legitimate instruction. Reporting it would
+  // fail every release on a line that is not wrong, which trains a reader to ignore the gate.
+  assert.deepEqual(staleRegistryCommands("pnpm add @yesvus/helmdeck", "9.9.9"), []);
+});
+
+test("reports a stale prerelease registry command against the stable it promotes to", () => {
+  assert.deepEqual(
+    staleRegistryCommands("pnpm add @yesvus/helmdeck@0.4.0-beta.2", "0.4.0"),
+    ["pnpm add @yesvus/helmdeck@0.4.0-beta.2"],
   );
 });
 
