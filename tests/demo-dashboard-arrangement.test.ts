@@ -2,6 +2,7 @@
 import { createElement } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { revalidatePath } from "next/cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { adminDashboardValidate } from "@yesvus/helmdeck";
 import { signInAction } from "../fixtures/app/login/actions";
@@ -206,6 +207,7 @@ beforeEach(async () => {
   request.session = undefined;
   saves.calls.length = 0;
   saves.refusal = null;
+  vi.mocked(revalidatePath).mockClear();
   widgets.revenue.mockResolvedValue({ cents: 25500, orders: 4 });
   widgets.catalog.mockResolvedValue({ products: 5, units: 110 });
   widgets.reorder.mockResolvedValue([{ name: "Walnut monitor riser", sku: "RISR-001", stock: 0 }]);
@@ -283,6 +285,9 @@ describe("an arrangement a person changed", () => {
     expect((await storedRows()).map((row) => row.position)).toEqual([0, 1, 2, 3]);
     expect((await storedRows()).find((row) => row.id === "row_revenue")?.size).toBe("lg");
     expect((await storedRows()).find((row) => row.id === "row_reorder")?.size).toBe("md");
+    // The route that renders it is revalidated, so a cached page is not the answer a reload gives.
+    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/dashboard");
+    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/dashboard/arrange");
 
     // The reload: a fresh read, and the page over it.
     const reloaded = await loadArrangement();
@@ -302,6 +307,55 @@ describe("an arrangement a person changed", () => {
     ]);
     expect(tileFor("revenue").className).toContain("lg:col-span-3");
     expect(tileFor("reorder").className).toContain("md:col-span-2");
+  });
+
+  it("never writes a position another row of the dashboard still holds", async () => {
+    // The table is unique on `(dashboard, position)`, which is why positions are written in two
+    // passes, and the in-memory store enforces no constraint, so the writes are replayed against the
+    // one the schema declares: every row of the dashboard holds a position until it is deleted or
+    // moved somewhere else.
+    const held = new Map<number, string>((await storedRows()).map((row) => [row.position, row.id]));
+    const collisions: string[] = [];
+    const take = (id: string, position: unknown, operation: string) => {
+      const at = Number(position);
+      if (!Number.isInteger(at)) return;
+      const owner = held.get(at);
+      if (owner !== undefined && owner !== id) collisions.push(`${operation} ${id} onto ${at} held by ${owner}`);
+      for (const [position, owner] of [...held]) if (owner === id) held.delete(position);
+      held.set(at, id);
+    };
+
+    vi.spyOn(store, "update").mockImplementation(async (_resource, id, value) => {
+      take(String(id), (value as Row).position, "update");
+      return { id, ...(value as object) } as never;
+    });
+    vi.spyOn(store, "create").mockImplementation(async (_resource, value) => {
+      const row = value as Row;
+      take(row.id, row.position, "create");
+      return row as never;
+    });
+    const remove = vi.spyOn(store, "delete").mockImplementation(async (_resource, id) => {
+      for (const [position, owner] of [...held]) if (owner === id) held.delete(position);
+    });
+    const create = vi.spyOn(store, "create").mockImplementation(async (_resource, value) => {
+      const row = value as Row;
+      take(row.id, row.position, "create");
+      return row as never;
+    });
+
+    // A rotation of the three rows: nothing is added and nothing is removed, so every write is a
+    // placement moving onto a position one of the other two still holds until it has moved off it.
+    await save(DASHBOARD, [
+      { id: "row_revenue", widget: "revenue", size: "lg" },
+      { id: "row_average", widget: "averageOrder", size: "sm" },
+      { id: "row_catalog", widget: "catalog", size: "sm" },
+    ]);
+
+    expect(create.mock.calls).toHaveLength(0);
+    expect(remove.mock.calls).toHaveLength(0);
+    expect(collisions).toEqual([]);
+    expect([...held.keys()].sort((left, right) => left - right)).toEqual([0, 1, 2]);
+    expect([...held.values()].sort()).toEqual(["row_average", "row_catalog", "row_revenue"]);
   });
 
   it("passes the whole arrangement, resized, to the save", async () => {
@@ -431,6 +485,43 @@ describe("what a session may do to the arrangement", () => {
 });
 
 describe("an arrangement this build cannot render", () => {
+  it("refuses a placement id that belongs to another dashboard", async () => {
+    // A row of another dashboard is reachable by id, and an id arrives from the browser. Accepting it
+    // would move that row onto this dashboard and give one dashboard's tile to another.
+    await store.create("dashboard_placements", {
+      id: "row_other",
+      dashboard: "marketing",
+      widget: "revenue",
+      size: "sm",
+      position: 0,
+    });
+
+    await expect(save(DASHBOARD, [{ id: "row_other", widget: "revenue", size: "xl" }])).rejects.toThrow(
+      /belongs to another dashboard/,
+    );
+    expect(await store.read("dashboard_placements", "row_other")).toMatchObject({
+      dashboard: "marketing",
+      size: "sm",
+      position: 0,
+    });
+  });
+
+  it("refuses a placement with no identity, or two sharing one", async () => {
+    // A placement the server names for itself could not be reordered by the editor holding it, and
+    // the next save would insert a second row for the same tile. Two entries sharing one id is the
+    // same failure from the other end: the second overwrites the first.
+    await expect(save(DASHBOARD, [{ id: "", widget: "revenue", size: "sm" }])).rejects.toThrow(
+      /needs an id, a widget and a size/,
+    );
+    await expect(
+      save(DASHBOARD, [
+        { id: "row_catalog", widget: "catalog", size: "sm" },
+        { id: "row_catalog", widget: "revenue", size: "lg" },
+      ]),
+    ).rejects.toThrow(/share the id row_catalog/);
+    expect((await storedRows()).map((row) => row.id)).toEqual(["row_catalog", "row_revenue", "row_average"]);
+  });
+
   it("refuses to save a placement naming a widget this build does not register", async () => {
     await expect(
       save(DASHBOARD, [
