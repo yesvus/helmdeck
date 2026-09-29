@@ -27,6 +27,16 @@ export const sampleNav: AdminNavGroup[] = [
       },
       { href: "/shell/media", label: "Media library", shortLabel: "Media", icon: "media", mobilePrimary: true },
       { href: "/shell/orders", label: "Orders", shortLabel: "Orders", icon: "file", roles: ["admin"] },
+      {
+        // The collection engine and its editor, driving rows that are really stored. Without an entry
+        // here the editor is reachable only by typing its URL, which is the same failure the engine
+        // dashboard entry above was added to fix.
+        href: "/shell/pages",
+        label: "Landing page",
+        shortLabel: "Landing",
+        icon: "sparkles",
+        keywords: ["sections", "arrangement", "collection", "reorder"],
+      },
     ],
   },
   {
