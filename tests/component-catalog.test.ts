@@ -35,8 +35,9 @@ describe("the component catalogue", () => {
   });
 
   it("never repeats a name, and never leaves one out", () => {
-    expect([...catalogNames].length).toBe(componentCatalog.length);
-    expect([...shippedNames].length).toBe(rootNames.length + baselineNames.length);
+    // The entry list rather than a set of it: a duplicate is an extra element, which a set would
+    // have swallowed, and the two entry points could each export a name the other also exports.
+    expect(componentCatalog.map((entry) => entry.name).sort()).toEqual([...shippedNames].sort());
   });
 
   it("describes every export, so the page cannot show a name with nothing under it", () => {
