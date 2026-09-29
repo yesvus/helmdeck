@@ -131,6 +131,33 @@ export function adminCollectionShift<T>(
 }
 
 /**
+ * Reorders by identity, which is what a drag reports, rather than by index.
+ *
+ * A drag that ends against a list the host has since changed must not delete anything. An id that is
+ * not a current entry is ignored, and an entry the id list does not mention keeps its place at the
+ * end in its original relative order, so a stale or partial list degrades to a partial move instead
+ * of to data loss.
+ */
+export function adminCollectionReorder<T>(
+  entries: readonly AdminCollectionEntry<T>[],
+  orderedIds: readonly string[],
+): AdminCollectionEntry<T>[] {
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const ordered: AdminCollectionEntry<T>[] = [];
+  const placed = new Set<string>();
+  for (const id of orderedIds) {
+    const entry = byId.get(id);
+    if (!entry || placed.has(id)) continue;
+    placed.add(id);
+    ordered.push(entry);
+  }
+  for (const entry of entries) {
+    if (!placed.has(entry.id)) ordered.push(entry);
+  }
+  return ordered;
+}
+
+/**
  * Reads a submitted form into entries, dropping any key the definition does not declare.
  *
  * An undeclared key is dropped rather than merged, so a field the host removed from the definition

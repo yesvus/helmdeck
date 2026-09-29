@@ -10,6 +10,7 @@ import {
   adminCollectionMove,
   adminCollectionNextId,
   adminCollectionRemoveAt,
+  adminCollectionReorder,
   adminCollectionShift,
   adminCollectionValidate,
   adminCollectionValues,
@@ -112,6 +113,37 @@ describe("collection operations", () => {
     adminCollectionAdd(list, { kind: "hero", title: "c" });
 
     expect(adminCollectionIds(list)).toEqual(before);
+  });
+
+  it("reorders by identity so a drag reports ids rather than positions", () => {
+    const list = entries("a", "b", "c");
+
+    expect(adminCollectionReorder(list, [list[2].id, list[0].id, list[1].id]).map((e) => e.title)).toEqual([
+      "c",
+      "a",
+      "b",
+    ]);
+  });
+
+  it("keeps every entry when the id list is short, rather than deleting the rest", () => {
+    // A drag that ends against a list the host has since changed must degrade to a partial move.
+    const list = entries("a", "b", "c");
+    const next = adminCollectionReorder(list, [list[2].id, list[0].id]);
+
+    expect(next).toHaveLength(3);
+    expect(next.map((e) => e.title)).toEqual(["c", "a", "b"]);
+  });
+
+  it("ignores an id that is not a current entry", () => {
+    const list = entries("a", "b");
+
+    expect(adminCollectionReorder(list, ["gone", list[1].id]).map((e) => e.title)).toEqual(["b", "a"]);
+  });
+
+  it("ignores a repeated id rather than duplicating an entry", () => {
+    const list = entries("a", "b");
+
+    expect(adminCollectionReorder(list, [list[0].id, list[0].id, list[1].id])).toHaveLength(2);
   });
 
   it("ignores a reorder that would move an entry out of range", () => {
