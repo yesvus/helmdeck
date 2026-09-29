@@ -15,6 +15,7 @@ const permissions = demoPermissionsAdapter();
 
 type ShellSettings = {
   accent: string;
+  siteName: string;
 };
 
 const SettingsContext = createContext<ShellSettings | null>(null);
@@ -46,23 +47,26 @@ function ThemeSelector() {
 /**
  * The shell's client half: presentation, theme, and a sign-out that actually ends the session.
  *
- * The accent is fixed rather than switchable. It was a local state a visitor could change, which made
- * the demo look configurable where it was not, and accent editing is a settings surface milestone
- * rather than something a shell layout should carry.
+ * The accent arrives as a prop from the layout, which read it from the store. It was a constant here
+ * once, which is what made the settings page's colour picker a control that changed nothing; the
+ * value is now the same one the settings page writes, so the brand here and the form there cannot
+ * disagree.
  */
 export function ShellClient({
   nav,
   session,
+  accent,
+  siteName,
   children,
 }: {
   nav: AdminNavGroup[];
   session: AdminSession;
+  accent: string;
+  siteName: string;
   children: ReactNode;
 }) {
-  const accent = "#b45309";
-
   return (
-    <SettingsContext.Provider value={{ accent }}>
+    <SettingsContext.Provider value={{ accent, siteName }}>
       <AdminPermissionsProvider adapter={permissions}>
         <AdminShell
         nav={nav}
@@ -81,9 +85,9 @@ export function ShellClient({
           </Link>
         }
         brand={{
-          label: "Northstar Supply",
+          label: siteName,
           accent,
-          logo: <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">N</span>,
+          logo: <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">{siteName.slice(0, 1).toUpperCase()}</span>,
         }}
       >
         {children}

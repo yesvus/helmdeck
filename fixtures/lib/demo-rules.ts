@@ -22,8 +22,12 @@ import type { AdminPermission, AdminSession } from "@yesvus/helmdeck";
  * ordered things a person arranges, which is also what a landing page is, so reusing it looked
  * reasonable. It is not: `0001_initial.sql` declares it as the engine dashboard's arrangement. One
  * surface writing the other's rows is a coupling that only shows up once something reads them.
+ *
+ * `site_settings` is the demo's own site configuration, read and written by the settings page
+ * through the same actions. It is here rather than reached by a private path so the settings screen
+ * answers the same question as a product form and cannot drift from it.
  */
-const EXPOSED = new Set(["products", "orders", "landing_sections"]);
+const EXPOSED = new Set(["products", "orders", "landing_sections", "site_settings"]);
 
 export function exposedResource(resource: string): boolean {
   return EXPOSED.has(resource);
