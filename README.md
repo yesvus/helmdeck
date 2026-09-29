@@ -220,6 +220,28 @@ const posts = defineAdminResource({
 
 `AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input.
 
+**Your write boundary must do the same, and the views are not what does it.** `adminResourceValues` is what the generated forms call, in the browser. A hand-edited request does not go through a form, so a server action that hands its argument straight to the adapter stores whatever it was sent. The demo's actions run the incoming value through `adminResourceValues` on the server before the write, which is what makes the claim true of the boundary rather than only of the form:
+
+```ts
+function declaredValue(resource: string, value: unknown): Record<string, unknown> {
+  const definition = adminResources.find((candidate) => candidate.resource === resource);
+  if (!definition) throw new Error(`No resource definition named ${resource}`);
+  const incoming = (value ?? {}) as Record<string, unknown>;
+  const form = new FormData();
+  for (const [key, entry] of Object.entries(incoming)) {
+    form.append(key, entry === null || entry === undefined ? "" : String(entry));
+  }
+  return adminResourceValues(definition, form);
+}
+
+export async function createResourceAction(resource: string, value: unknown): Promise<unknown> {
+  await requirePermission(resource, "create");
+  return adapter.create(resource, declaredValue(resource, value));
+}
+```
+
+That also means the server names the record: `id` is a field only if the definition declares it, so a caller cannot choose one and write over a row that already exists. The persistence layer's column check is not a substitute. It asks whether a name is a column of the table, and `id`, `created_at` and `updated_at` all are.
+
 **Hand-rolled instead:** implement `AdminPermissionsAdapter` and `AdminPersistenceAdapter` yourself. Nothing in the views requires the memory adapter; it is one implementation for fixtures and tests.
 
 ### The memory adapter

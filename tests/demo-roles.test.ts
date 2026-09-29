@@ -183,7 +183,14 @@ describe("what the server actions serve", () => {
       price_cents: 1200,
       stock: 2,
     })) as { id: string };
-    expect(created.id).toBe("prd_editor");
+    // The adapter still honours a supplied id, and the seed depends on it. The action boundary does
+    // not, and that is a policy rather than a limitation: `id` is the record's identity rather than
+    // one of its fields, so a browser that could choose it could name a record that already exists.
+    // This assertion used to expect "prd_editor" and was changed deliberately, not to make a change
+    // pass but because the contract is the other way round and the test was the wrong side of it.
+    expect(created.id).not.toBe("prd_editor");
+    expect(typeof created.id).toBe("string");
+    expect(created.id.length).toBeGreaterThan(0);
 
     await updateResourceAction("products", created.id, { price_cents: 1500 });
     expect(await readResourceAction("products", created.id)).toMatchObject({ price_cents: 1500 });

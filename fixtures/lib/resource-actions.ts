@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 "use server";
 
-import type { AdminPermission } from "@yesvus/helmdeck";
+import { adminResourceValues, type AdminPermission } from "@yesvus/helmdeck";
+import { adminResources } from "./admin-resources";
 import { demoCan, exposedResource } from "./demo-rules";
 import { demoPersistence } from "./demo-persistence";
 import { ensureDemoSeeded } from "./ensure-seeded";
@@ -64,9 +65,35 @@ export async function readResourceAction(resource: string, id: string): Promise<
   return demoPersistence().adapter.read(resource, id);
 }
 
+/**
+ * The declared fields of a record, and nothing else, read on the server.
+ *
+ * `adminResourceValues` is what the generated forms call in the browser, and it reads only the fields
+ * a definition declares. Calling it here means the two halves cannot disagree about a record's
+ * shape: the same function that decides what a form sends decides what a write stores.
+ *
+ * Without this, the README's claim that a field removed from the definition cannot be smuggled back
+ * in through a hand-edited request was true only of the form and false of the boundary, because the
+ * action handed its `value` straight to the adapter. The column check in the persistence layer is
+ * not a substitute: it asks whether a name is a column of the table, and `id`, `created_at` and
+ * `updated_at` all are, so a request could have set them and the write would have succeeded.
+ */
+function declaredValue(resource: string, value: unknown): Record<string, unknown> {
+  const definition = adminResources.find((candidate) => candidate.resource === resource);
+  if (!definition) {
+    throw new Error(`No resource definition named ${resource}`);
+  }
+  const incoming = (value ?? {}) as Record<string, unknown>;
+  const form = new FormData();
+  for (const [key, entry] of Object.entries(incoming)) {
+    form.append(key, entry === null || entry === undefined ? "" : String(entry));
+  }
+  return adminResourceValues(definition, form);
+}
+
 export async function createResourceAction(resource: string, value: unknown): Promise<unknown> {
   await withPermission(resourceOrRefuse(resource), "create");
-  return demoPersistence().adapter.create(resource, value);
+  return demoPersistence().adapter.create(resource, declaredValue(resource, value));
 }
 
 export async function updateResourceAction(
@@ -75,7 +102,7 @@ export async function updateResourceAction(
   value: unknown,
 ): Promise<unknown> {
   await withPermission(resourceOrRefuse(resource), "update");
-  return demoPersistence().adapter.update(resource, id, value);
+  return demoPersistence().adapter.update(resource, id, declaredValue(resource, value));
 }
 
 export async function deleteResourceAction(resource: string, id: string): Promise<void> {
