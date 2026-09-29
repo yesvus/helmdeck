@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { StrictMode } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { adminWidgetLoadAll, useAdminWidgetData, type AdminWidgetLoader } from "../src/widgets/data";
@@ -213,6 +214,35 @@ describe("useAdminWidgetData", () => {
 
     await act(async () => ok.resolve({ total: 4 }));
     expect(screen.getByText("total: 4")).toBeInTheDocument();
+  });
+
+  it("does not surface an abort of the current request, which StrictMode causes on every mount", async () => {
+    // StrictMode mounts, cleans up and remounts, so the first effect's request is aborted while it is
+    // still the newest one. The sequence check cannot catch that, only the abort guard can, and
+    // without it every StrictMode consumer would see a spurious error on mount.
+    const signals: AbortSignal[] = [];
+    const gates = [deferred<Row>(), deferred<Row>()];
+    let call = 0;
+    render(
+      <StrictMode>
+        <Probe
+          load={(signal) => {
+            signals.push(signal);
+            return gates[call++].promise;
+          }}
+        />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(signals.length).toBeGreaterThanOrEqual(2));
+    expect(signals[0].aborted).toBe(true);
+
+    // The aborted first request rejects the way a real loader would, while still the newest.
+    await act(async () => gates[0].reject(new DOMException("aborted", "AbortError")));
+    expect(screen.queryByText(/status: error/)).not.toBeInTheDocument();
+
+    await act(async () => gates[1].resolve({ total: 6 }));
+    expect(screen.getByText("total: 6")).toBeInTheDocument();
   });
 
   it("does not load when disabled", async () => {
