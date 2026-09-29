@@ -8,3 +8,5 @@ export { createAuditAdapter, createCacheAdapter, createMemoryPersistenceAdapter 
 export type { MemoryRecord } from "./baseline/memory.js";
 export { createSessionAuthAdapter } from "./baseline/session.js";
 export type { AdminSessionCookieIO } from "./baseline/session.js";
+export { createSqlitePersistenceAdapter } from "./baseline/sqlite.js";
+export type { SqlitePersistenceOptions } from "./baseline/sqlite.js";

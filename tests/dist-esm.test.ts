@@ -93,6 +93,7 @@ describe("published package under Node ESM", () => {
           "createCacheAdapter",
           "createMemoryPersistenceAdapter",
           "createSessionAuthAdapter",
+          "createSqlitePersistenceAdapter",
         ].join(","),
       );
     }, 60_000);
