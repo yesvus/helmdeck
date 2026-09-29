@@ -30,6 +30,17 @@ export type {
   AdminMediaUsage,
 } from "./media.js";
 export type { AdminSession } from "./session.js";
+// The query's runtime half is not re-exported: the shape is a host's to implement, and the only
+// place a query is read from a browser is the seam, which reads it here.
+export type {
+  AdminResourceFilter,
+  AdminResourceFilterOperator,
+  AdminResourceFilterValue,
+  AdminResourcePage,
+  AdminResourceQuery,
+  AdminResourceSort,
+  AdminResourceWindow,
+} from "./query.js";
 export type {
   AdminAuditAdapter,
   AdminAuditEvent,

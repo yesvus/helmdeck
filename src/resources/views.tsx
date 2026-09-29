@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link.js";
-import { Pencil, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
 import { Button } from "../primitives/button.js";
 import { AdminDestructiveAction } from "../primitives/destructive-action.js";
+import { AdminPagination } from "../primitives/pagination.js";
+import { AdminSelect } from "../primitives/select.js";
 import { AdminTable, type AdminTableColumn } from "../primitives/table.js";
 import { AdminEmptyState } from "../primitives/empty-state.js";
 import { AdminField, AdminFieldGrid, AdminFormActions } from "../primitives/field.js";
@@ -14,6 +16,11 @@ import { AdminPageHeader } from "../shell/admin-page-header.js";
 import { AdminCan, useAdminPermission } from "../shell/permissions.js";
 import { useAdminHref, useAdminMessages } from "../i18n.js";
 import { cn } from "../cn.js";
+import {
+  ADMIN_RESOURCE_MAX_LIMIT,
+  adminResourceQuery,
+  type AdminResourceSort,
+} from "../adapters/query.js";
 import type { AdminPersistenceAdapter } from "../adapters/index.js";
 import {
   absentRequired,
@@ -21,19 +28,58 @@ import {
   adminResourceRecordId,
   adminResourceValues,
   type AdminResourceDefinition,
+  type AdminResourceFilterDefinition,
   type AdminResourceRecord,
 } from "./registry.js";
+import { defaultAdminResourceListQueryLabels } from "./list-labels.js";
+
+/** Rows a list asks for per page. Enough to read, few enough that a wide table still fits. */
+const PAGE_SIZE = 40;
+
+/** Long enough that a term is not a query per keystroke, short enough to feel immediate. */
+const SEARCH_SETTLE_MS = 250;
+
+type ListControls = {
+  /** The term in the search box, which reaches the adapter as it is typed. */
+  search: string;
+  /** Each filter control's value, by field. */
+  filters: Record<string, string>;
+  sort: AdminResourceSort[];
+  page: number;
+};
+
+const NO_CONTROLS: ListControls = { search: "", filters: {}, sort: [], page: 1 };
+
+/**
+ * A value that stops changing before it is used, so a typed term is one query rather than one per
+ * keystroke. One direction only, so a value that has been superseded is never applied late.
+ */
+function useSettled<T>(value: T): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    if (Object.is(settled, value)) return;
+    const timer = setTimeout(() => setSettled(value), SEARCH_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [settled, value]);
+  return settled;
+}
 
 /**
  * A list view generated from a resource definition, so a CMS host does not hand-write a table
  * per resource. Reads go through the persistence adapter; the create, edit and delete controls
  * are wrapped in the resource's own permissions, so a definition that declares them gets them
  * enforced without the host wiring a guard per button.
+ *
+ * An adapter that answers `queryPage` has said it understands search, sorting, filtering and
+ * paging, and the list asks it for each of those. An adapter that does not is asked for the rows
+ * and nothing else, and gets the same list it always did, because a control that cannot work is
+ * not drawn.
  */
 export function AdminResourceList({
   definition,
   persistence,
   detailBaseHref,
+  pageSize = PAGE_SIZE,
   labels,
   onError,
 }: {
@@ -41,6 +87,8 @@ export function AdminResourceList({
   persistence: AdminPersistenceAdapter;
   /** Where the detail route for a record lives. Defaults to the resource's own path. */
   detailBaseHref?: string;
+  /** Rows per page, asked of an adapter that answers a window. */
+  pageSize?: number;
   labels?: {
     empty?: string;
     new?: string;
@@ -48,14 +96,47 @@ export function AdminResourceList({
     remove?: string;
     loadError?: string;
     deleteFailed?: string;
+    search?: string;
+    searchPlaceholder?: string;
+    all?: string;
+    ascending?: string;
+    descending?: string;
+    resultCount?: (from: number, to: number, total: number) => string;
+    noMatches?: string;
   };
   onError?: (cause: unknown) => void;
 }) {
   const i18n = useAdminMessages();
   const toHref = useAdminHref();
+  const copy = { ...defaultAdminResourceListQueryLabels, ...labels };
+  // The adapter's own shape is the only evidence there is that it can answer a query. A host
+  // that did not implement the paged form is not asked about search, rather than being asked
+  // and having its rows returned unsearched under a search box that looks like it worked.
+  const paged = typeof persistence.queryPage === "function";
+  // Clamped rather than refused: this is a host's own prop, and a bad one belongs in the host's
+  // build rather than in the list a visitor is looking at.
+  const size = Math.max(1, Math.min(Math.trunc(pageSize) || PAGE_SIZE, ADMIN_RESOURCE_MAX_LIMIT));
   // Keyed by the resource they came from, so a different resource cannot show these.
-  const [loaded, setLoaded] = useState<{ resource: string; rows: AdminResourceRecord[] } | null>(null);
+  const [loaded, setLoaded] = useState<{
+    resource: string;
+    rows: AdminResourceRecord[];
+    /** Null when the adapter answered rows without saying how many there are. */
+    total: number | null;
+  } | null>(null);
   const rows = loaded?.resource === definition.resource ? loaded.rows : null;
+  const total = loaded?.resource === definition.resource ? loaded.total : null;
+  // The same keying as the rows, so a new resource's list starts from nothing chosen rather than
+  // from the previous one's search box.
+  const [controls, setControls] = useState<ListControls & { resource: string }>({
+    resource: definition.resource,
+    ...NO_CONTROLS,
+  });
+  const active = controls.resource === definition.resource ? controls : NO_CONTROLS;
+  const search = useSettled(active.search);
+  const chosen = useSettled(active.filters);
+  // Bumped to ask again, which a delete is: the count it reported is one row out of date, and a
+  // page that just lost its last row has to come back from the store to know there is no next.
+  const [reload, setReload] = useState(0);
   const [message, setMessage] = useState("");
   const base = detailBaseHref ?? adminResourcePath(definition);
   const permissions = definition.permissions ?? {};
@@ -64,32 +145,70 @@ export function AdminResourceList({
   // list is a collection: this is the question the server's `query` asks, and the form asks the
   // per-record one.
   const mayRead = useAdminPermission(permissions.read);
+  const filterDefinitions = definition.filters ?? [];
+
+  /**
+   * What the list is asking for, as the caller expressed it. The rows that come back are the
+   * answer: nothing here orders, narrows or slices them, because a view that filtered its own
+   * rows would report a count the store never gave it.
+   */
+  const query = useMemo(() => {
+    if (!paged) return undefined;
+    const builder = adminResourceQuery();
+    if (search.length > 0) builder.search(search);
+    for (const filter of filterDefinitions) {
+      const value = chosen[filter.field];
+      if (value === undefined || value === "") continue;
+      const compared = filter.parse ? filter.parse(value) : value;
+      if (compared === undefined) continue;
+      builder.where(filter.field, filter.operator ?? (filter.options ? "eq" : "contains"), compared);
+    }
+    for (const ordering of active.sort) builder.sort(ordering.field, ordering.direction);
+    builder.window((active.page - 1) * size, size);
+    return builder.build();
+  }, [active.page, active.sort, chosen, filterDefinitions, paged, search, size]);
 
   // Resolved in a callback rather than by awaiting inside the effect body, because a setState
   // in that body is a cascading render.
   useEffect(() => {
     if (mayRead !== "allowed") return;
-    let active = true;
-    void persistence.query<AdminResourceRecord>(definition.resource).then(
-      (found) => {
-        if (!active) return;
+    let live = true;
+    const answer = paged && query !== undefined
+      ? persistence
+          .queryPage?.<AdminResourceRecord>(definition.resource, query)
+          .then((page) => ({ rows: page.rows, total: page.total }))
+      : persistence.query<AdminResourceRecord>(definition.resource).then((found) => ({
+          rows: found,
+          total: null,
+        }));
+    void answer?.then(
+      (page) => {
+        if (!live) return;
+        const usable = page.rows
+          .map((row) => {
+            try {
+              return { ...row, id: adminResourceRecordId(row) };
+            } catch {
+              // A record with no usable id cannot be addressed, so it cannot be listed either.
+              return null;
+            }
+          })
+          .filter((row): row is AdminResourceRecord => row !== null);
+        // A window that no longer reaches a record, which is what deleting the last row of the
+        // last page leaves behind. Asked for from the page there is, because an empty table is a
+        // claim about the whole resource and this is only a claim about this window of it.
+        if (page.total !== null && usable.length === 0 && page.total > 0) {
+          const last = Math.max(1, Math.ceil(page.total / size));
+          if (active.page > last) {
+            updateControls((current) => ({ ...current, page: last }));
+            return;
+          }
+        }
         setMessage("");
-        setLoaded({
-          resource: definition.resource,
-          rows: found
-            .map((row) => {
-              try {
-                return { ...row, id: adminResourceRecordId(row) };
-              } catch {
-                // A record with no usable id cannot be addressed, so it cannot be listed either.
-                return null;
-              }
-            })
-            .filter((row): row is AdminResourceRecord => row !== null),
-        });
+        setLoaded({ resource: definition.resource, rows: usable, total: page.total });
       },
       (cause: unknown) => {
-        if (!active) return;
+        if (!live) return;
         setMessage(labels?.loadError ?? i18n.shell.resourceLoadError);
         // Dropped as well as reported. Leaving the previous rows under an error message shows
         // records the list can no longer vouch for, next to a claim that loading failed.
@@ -100,9 +219,25 @@ export function AdminResourceList({
       },
     );
     return () => {
-      active = false;
+      live = false;
     };
-  }, [definition.resource, i18n.shell.resourceLoadError, labels?.loadError, mayRead, onError, persistence]);
+  }, [
+    active.page,
+    definition.resource,
+    i18n.shell.resourceLoadError,
+    labels?.loadError,
+    mayRead,
+    onError,
+    paged,
+    persistence,
+    query,
+    reload,
+    size,
+  ]);
+
+  function updateControls(update: (current: ListControls) => ListControls) {
+    setControls({ resource: definition.resource, ...update(active) });
+  }
 
   async function remove(id: string) {
     try {
@@ -113,10 +248,27 @@ export function AdminResourceList({
           ? { ...current, rows: current.rows.filter((row) => row.id !== id) }
           : current,
       );
+      setReload((count) => count + 1);
     } catch (cause) {
       setMessage(labels?.deleteFailed ?? i18n.shell.resourceDeleteFailed);
       onError?.(cause);
     }
+  }
+
+  // One column at a time, cycling ascending, descending and back to the store's own order. A
+  // longer ordering is something the contract carries and a host can send, not something this
+  // control invents on the visitor's behalf.
+  function toggleSort(field: string) {
+    updateControls((current) => {
+      const ordering = current.sort[0];
+      const next =
+        ordering?.field !== field
+          ? [{ field, direction: "asc" as const }]
+          : ordering.direction === "asc"
+            ? [{ field, direction: "desc" as const }]
+            : [];
+      return { ...current, sort: next, page: 1 };
+    });
   }
 
   // A non-empty name, not merely a present one: an empty string is a permission nothing can
@@ -127,7 +279,33 @@ export function AdminResourceList({
   const columns: AdminTableColumn<AdminResourceRecord>[] = [
     ...definition.columns.map((column) => ({
       key: column.key,
-      header: column.header,
+      // A header is a ReactNode, so the sort control is a button inside one and the table
+      // primitive needs nothing added to it for this.
+      header:
+        column.sortable === true ? (
+          <button
+            type="button"
+            onClick={() => toggleSort(column.key)}
+            aria-pressed={active.sort[0]?.field === column.key}
+            className="inline-flex items-center gap-1 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-zinc-100"
+          >
+            {column.header}
+            {active.sort[0]?.field === column.key ? (
+              <>
+                {active.sort[0].direction === "asc" ? (
+                  <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span className="sr-only">
+                  {active.sort[0].direction === "asc" ? copy.ascending : copy.descending}
+                </span>
+              </>
+            ) : null}
+          </button>
+        ) : (
+          column.header
+        ),
       align: column.align,
       width: column.width,
       cell: (row: AdminResourceRecord) =>
@@ -173,6 +351,53 @@ export function AdminResourceList({
       : []),
   ];
 
+  const pageCount = total === null ? 1 : Math.max(1, Math.ceil(total / size));
+  // Whether anything narrowed the list, which is the difference between "there is nothing here"
+  // and "there is nothing here that matches", and the two are different claims.
+  const narrowed = search.length > 0 || Object.values(active.filters).some((value) => value !== "");
+
+  function filterControl(filter: AdminResourceFilterDefinition, controlId: string) {
+    const value = active.filters[filter.field] ?? "";
+    const shared = {
+      id: controlId,
+      name: filter.field,
+      value,
+      onChange: (event: { target: { value: string } }) =>
+        updateControls((current) => ({
+          ...current,
+          filters: { ...current.filters, [filter.field]: event.target.value },
+          page: 1,
+        })),
+    };
+    return filter.options ? (
+      <>
+        <label htmlFor={controlId} className="sr-only">
+          {filter.label}
+        </label>
+        <AdminSelect {...shared} className="h-9 w-full min-w-40">
+          <option value="">{copy.all}</option>
+          {filter.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </AdminSelect>
+      </>
+    ) : (
+      <>
+        <label htmlFor={controlId} className="sr-only">
+          {filter.label}
+        </label>
+        <AdminInput
+          {...shared}
+          type="search"
+          placeholder={filter.label}
+          className="h-9 w-full min-w-40"
+        />
+      </>
+    );
+  }
+
   if (mayRead === "denied" || mayRead === "error") {
     return (
       <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -205,11 +430,46 @@ export function AdminResourceList({
         </p>
       ) : null}
 
+      {paged ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full min-w-48 sm:w-64">
+            <label htmlFor={`${definition.resource}-search`} className="sr-only">
+              {copy.search}
+            </label>
+            <AdminInput
+              id={`${definition.resource}-search`}
+              name="search"
+              type="search"
+              value={active.search}
+              placeholder={copy.searchPlaceholder}
+              onChange={(event) =>
+                updateControls((current) => ({ ...current, search: event.target.value, page: 1 }))
+              }
+              className="h-9"
+            />
+          </div>
+          {filterDefinitions.map((filter) => (
+            <div key={filter.field} className="w-full min-w-40 sm:w-auto">
+              {filterControl(filter, `${definition.resource}-filter-${filter.field}`)}
+            </div>
+          ))}
+          {total !== null && rows !== null && rows.length > 0 ? (
+            <p className="ml-auto text-sm text-zinc-600 dark:text-zinc-400" role="status">
+              {copy.resultCount((active.page - 1) * size + 1, (active.page - 1) * size + rows.length, total)}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {rows === null ? null : rows.length === 0 ? (
-        <AdminEmptyState
-          title={labels?.empty ?? i18n.shell.resourceEmpty}
-          body={i18n.shell.resourceEmptyBody}
-        />
+        narrowed ? (
+          <AdminEmptyState title={copy.noMatches} body={copy.noMatchesBody} />
+        ) : (
+          <AdminEmptyState
+            title={labels?.empty ?? i18n.shell.resourceEmpty}
+            body={i18n.shell.resourceEmptyBody}
+          />
+        )
       ) : (
         <AdminTable
           columns={columns}
@@ -218,6 +478,16 @@ export function AdminResourceList({
           caption={definition.label}
         />
       )}
+
+      {paged ? (
+        <div className="flex justify-center">
+          <AdminPagination
+            page={Math.min(active.page, pageCount)}
+            pageCount={pageCount}
+            onPageChange={(page) => updateControls((current) => ({ ...current, page }))}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
