@@ -186,7 +186,16 @@ NODE
       const tiles = [...document.querySelectorAll("[data-placement]")];
       if (!tiles.length) return "error=no-tiles";
       const out = [];
-      out.push("columns=" + getComputedStyle(tiles[0].parentElement).gridTemplateColumns.split(" ").length);
+      // The grid is the nearest grid ancestor, not simply the parent of the first tile. That
+      // was only correct while tiles were direct children, and when a wrapper was introduced the
+      // check quietly measured that wrapper and reported one column instead of saying what broke.
+      let grid = tiles[0].parentElement;
+      while (grid && getComputedStyle(grid).display !== "grid") grid = grid.parentElement;
+      if (!grid) return "error=no-grid-ancestor";
+      out.push("columns=" + getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+      // A tile nested one level down is not a grid item, so its span would be ignored. Reported
+      // explicitly rather than left to show up as a confusing column count.
+      out.push("directChildren=" + (tiles[0].parentElement === grid));
       for (const tile of tiles) out.push(tile.getAttribute("data-widget") + ":" + getComputedStyle(tile).gridColumn);
       // Grid places tiles into rows, so more tiles than fit on one row means more than one top edge.
       // An absolute-positioning regression would stack every tile on the same one.
@@ -228,6 +237,7 @@ NODE
   // actually in force differs between the two viewports, and a broken breakpoint would leave both
   // measurements agreeing while every span assertion still passed.
   ok("grid has the expected number of columns", m.columns, process.env.WANT_COLUMNS);
+  ok("tiles are direct children of the grid, so their spans apply", m.directChildren, "true");
   ok("revenue tile takes its declared span", spanOf("revenue"), process.env.WANT_REVENUE);
   ok("signups tile takes its declared span", spanOf("signups"), process.env.WANT_SIGNUPS);
   // Only asserted where it discriminates. With a single column the grid guarantees one row per tile,
