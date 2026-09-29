@@ -7,6 +7,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - Responsive shell with navigation, command search, breadcrumbs, profile actions, mobile navigation, and login presentation.
 - Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, and status primitives.
 - Data-heavy primitives including tables, pagination, modals, toasts, skeletons, sortable lists, and destructive confirmations.
+- Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
 - Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
 - A static bilingual fixture app for the hosted demo.
@@ -490,6 +491,128 @@ export function AdminLocaleProvider({ children }: { children: React.ReactNode })
 - `toHref` is how the host states its own URL shape. The shell applies it to sidebar and mobile navigation, breadcrumbs, the brand link, and the profile link, so content locale survives navigation. Omit it and every href is left untouched.
 
 Getters may return promises; the provider resolves them after first paint. The fixture at `/locale` runs a Turkish interface with an English content locale.
+
+## Charts
+
+Charts are drawn by this package, with no charting dependency. `AdminTimeSeriesChart` plots one or
+more series over an ordered set of categories, as bars or as lines, and `AdminRankChart` ranks named
+things against a labelled axis. `AdminChartFrame` is the card they live in, and it carries the four
+states a load can be in.
+
+Bring your own data. These components take points and draw them, so what appears on screen is
+whatever the host's own query returned, and the only thing the package decides is how to draw it.
+
+### States
+
+`AdminChartFrame` takes the status straight from a load, so there is one answer to what a chart looks
+like rather than one per page. The names are the load hook's own: `loading`, `empty`, `error`, and
+`ready`.
+
+```tsx
+"use client";
+
+import { AdminChartFrame, AdminTimeSeriesChart, adminChartFormatters } from "@yesvus/helmdeck";
+import { BarChart3 } from "lucide-react";
+import { useAdminWidgetData } from "@yesvus/helmdeck";
+
+const definition = {
+  id: "revenueByDay",
+  title: "Revenue by day",
+  sizes: ["lg"] as const,
+  // Emptiness is a fact about the data, so it is declared rather than inferred from a length.
+  isEmpty: (data: { days: Array<{ value: number }> }) => data.days.every((day) => day.value === 0),
+  render: () => null,
+};
+
+export function RevenueChart({ load }: { load: () => Promise<{ days: Array<{ key: string; label: string; value: number }> }> }) {
+  const { state, refetch } = useAdminWidgetData({ definition, load });
+
+  return (
+    <AdminChartFrame
+      icon={BarChart3}
+      title="Revenue by day"
+      status={state.status}
+      error={state.status === "error" ? state.error : undefined}
+      onRetry={refetch}
+    >
+      {state.status === "ready" ? (
+        <AdminTimeSeriesChart
+          ariaLabel="Revenue by day"
+          categories={state.data.days}
+          series={[{ key: "revenue", label: "Revenue", values: state.data.days.map((day) => day.value) }]}
+          formatters={adminChartFormatters("money")}
+          integerTicks
+        />
+      ) : null}
+    </AdminChartFrame>
+  );
+}
+```
+
+- `loading` draws a placeholder in the shape the content is about to take, announced to assistive technology.
+- `error` shows the failure's own message and, when `onRetry` is given, a retry that is that load's own `refetch`.
+- `empty` is reached because the data said so, through the definition's `isEmpty`. Nothing else in the component can produce it.
+
+### Money stays an integer
+
+Every amount crosses the boundary as a whole number of cents. Sum, compare and scale that integer, and
+divide by 100 in the formatter, which is the only place it happens:
+
+```ts
+import { adminChartDayKey, adminChartDayRange, adminChartFillDays, adminFormatCents } from "@yesvus/helmdeck";
+
+const cents = orders.reduce((total, order) => total + order.total_cents, 0); // integer throughout
+const days = adminChartFillDays(
+  adminChartDayRange(30, new Date()),
+  revenueByDay(orders), // keyed by adminChartDayKey(order.created_at)
+  (key) => key,
+);
+
+adminFormatCents(cents); // "$1,290.00"
+```
+
+A total assembled by adding formatted strings reads correctly on screen and disagrees with the ledger
+as soon as rounding is involved, so `adminFormatCents` and `adminFormatCentsCompact` are the only
+places the division happens. `adminChartFormatters("money")` gives the pair for a chart: every digit
+for a tooltip, shortened for an axis.
+
+### Every day in the range, including the zeros
+
+`adminChartDayRange(days, end)` returns the day keys ending on the day containing `end`, and
+`adminChartFillDays` emits a point for each of them whether or not a row exists. A store holds no
+row for a day nothing happened, so a chart built from the rows alone draws a straight line across the
+gap and the reader concludes it is a trend. A range with no rows at all comes back as a full run of
+zeros, which is how the empty state is reached by the data rather than by a host writing it.
+
+`adminChartDayKey` reads the UTC day out of both shapes a store produces: SQLite's
+`datetime('now')` and an ISO timestamp. A value that is not a timestamp is refused rather than filed
+under a guessed day.
+
+### The axis is a scale
+
+`adminChartTicks(max, count, integer)` rounds the axis top up to the next 1, 2, 2.5, 5 or 10 times a
+power of ten, so the tallest mark is never taller than the axis it is drawn against and a reader can
+name the peak. Pass `integer` for a domain that counts things or holds cents, where a tick at 2.5 is a
+number nobody can act on.
+
+`adminChartAxis` adds the mapping from a value to a position, and pins a value outside the domain to
+an edge rather than drawing it off the plot. `adminChartLabelIndices` picks which category labels to
+print, keeping the first and the last; thirty daily labels collide, and dropping them silently makes
+a reader assume the gaps are missing data.
+
+### Reading a chart without a mouse
+
+- `AdminTimeSeriesChart` takes an `ariaLabel` that names the period and the total, and renders a table of every plotted value for a screen reader. The table is built from the same points the marks are drawn from, so it cannot disagree with them.
+- `AdminRankChart` prints each value beside its bar, so the bar can be checked against the axis, and takes a `valueLabel` so a bare number is not left to be interpreted.
+- Hovering a time-series column shows the date and every series' value, and a column with no data is still hoverable.
+
+### Bringing your own colors
+
+Series take their colors from the theme's tokens, so they follow a tenant's accent and its dark mode
+without a chart knowing either. The default palette is a list of complete class names, because
+Tailwind generates a utility only when it can read the whole class in the source, so a composed
+`fill-${color}` produces nothing. The second series is the muted grey on purpose: a comparison series
+quieter than the one it is compared against reads as context. Override it with `seriesClasses`.
 
 ## Media adapters
 
