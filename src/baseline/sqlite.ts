@@ -222,7 +222,18 @@ function predicateForFilter(filter: AdminResourceFilter): Predicate {
     }
     case "contains": {
       const text = textAt(path);
-      return { sql: `instr(lower(${text.sql}), lower(?)) > 0`, args: [...text.args, String(filter.value)] };
+      const value = filter.value as AdminResourceFilterValue;
+      // A number is spelled by the store rather than by JavaScript, because the two disagree:
+      // `String(1e21)` is `1e+21` where this cast writes `1.0e+21`, and a term written in one
+      // spelling finds nothing in a haystack written in the other. Reading the bound number back
+      // out of a JSON document is what makes the needle the same text the haystack is, without
+      // spelling a number twice in two places. A boolean and a null keep their own spelling,
+      // which is a word rather than a cast, and which the haystack above spells the same way.
+      const spelled = typeof value === "number" ? "CAST(json_extract(?, '$') AS TEXT)" : "?";
+      return {
+        sql: `instr(lower(${text.sql}), lower(${spelled})) > 0`,
+        args: [...text.args, typeof value === "number" ? JSON.stringify(value) : String(value)],
+      };
     }
     case "isNull":
       return { sql: "json_type(data, ?) = 'null'", args: [path] };

@@ -33,11 +33,61 @@ function asNumber(value: unknown): number {
   return typeof value === "boolean" ? (value ? 1 : 0) : Number(value);
 }
 
+/**
+ * A number written the way a database writes it, which is fifteen significant digits rather than
+ * every digit the value happens to hold.
+ *
+ * A search reads a stored value as text, and the only text a number has is how the store spells
+ * it. `String(0.1 + 0.2)` is `0.30000000000000004` and SQLite's `CAST` of the same value is `0.3`,
+ * so a search for the first would find the record here and not there. This is that cast, written
+ * out: fifteen significant digits, trailing zeros dropped, a decimal point kept on a value that is
+ * not a whole number, and an exponent outside `-4` through `14` the way `%g` writes one.
+ */
+function asDecimal(value: number): string {
+  if (Number.isInteger(value) && Math.abs(value) <= 9223372036854775807) return String(value);
+  const [mantissa, exponentText] = Math.abs(value).toExponential(14).split("e");
+  const exponent = Number(exponentText);
+  const digits = mantissa.replace(".", "").replace(/0+$/, "") || "0";
+  if (exponent < -4 || exponent >= 15) {
+    const fraction = mantissa.slice(mantissa.indexOf(".") + 1).replace(/0+$/, "") || "0";
+    return `${value < 0 ? "-" : ""}${digits[0]}.${fraction}e${exponent < 0 ? "-" : "+"}${String(
+      Math.abs(exponent),
+    ).padStart(2, "0")}`;
+  }
+  const body =
+    exponent < 0
+      ? `0.${"0".repeat(-exponent - 1)}${digits}`
+      : `${(digits.slice(0, exponent + 1) || "0").padEnd(exponent + 1, "0")}${
+          digits.length > exponent + 1 ? `.${digits.slice(exponent + 1)}` : ".0"
+        }`;
+  return value < 0 ? `-${body}` : body;
+}
+
 /** Text a comparison reads, with a document spelled as its own JSON, which is how a store casts it. */
 function asText(value: unknown): string {
   if (typeof value === "string") return value;
+  if (typeof value === "number") return asDecimal(value);
   if (typeof value === "object" && value !== null) return JSON.stringify(value);
   return String(value);
+}
+
+/**
+ * Text compared by code point, which is what a database does when it compares UTF-8 bytes.
+ *
+ * `<` on a string compares UTF-16 code units, and a character above the basic plane is a pair of
+ * surrogates starting at U+D800, below every character from U+E000 up. So `"𐀀"` sorts before
+ * `"�"` here and after it in the database. Iterating code points and comparing those is the
+ * ordering both engines already agree on everywhere below U+E000.
+ */
+function compareText(left: string, right: string): number {
+  const leftPoints = Array.from(left);
+  const rightPoints = Array.from(right);
+  const shared = Math.min(leftPoints.length, rightPoints.length);
+  for (let index = 0; index < shared; index += 1) {
+    const compared = leftPoints[index].codePointAt(0)! - rightPoints[index].codePointAt(0)!;
+    if (compared !== 0) return compared;
+  }
+  return leftPoints.length - rightPoints.length;
 }
 
 function compareValues(left: unknown, right: unknown): number {
@@ -45,29 +95,39 @@ function compareValues(left: unknown, right: unknown): number {
   if (ranks !== 0) return ranks;
   if (ranks === 0 && rankOf(left) === 0) return 0;
   if (rankOf(left) === 1) return asNumber(left) - asNumber(right);
-  const leftText = asText(left);
-  const rightText = asText(right);
-  return leftText < rightText ? -1 : leftText > rightText ? 1 : 0;
+  return compareText(asText(left), asText(right));
 }
 
 /** A value the search reads, or nothing for one it does not read: a null and a document. */
 function searchable(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "object") return null;
-  return String(value);
+  return asText(value);
+}
+
+/**
+ * Case folded the way a database folds it, which is the ASCII letters and nothing else.
+ *
+ * `toLowerCase` would fold `É` to `é` and `İ` to two characters, and SQLite's `lower` leaves both
+ * alone, so a term that finds a record through this adapter would not find it through the other.
+ * Folding less than the language allows is the price of the two answering alike, and the case that
+ * costs is a term typed in a script whose case a store cannot fold at all.
+ */
+function folded(value: string): string {
+  return value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
 }
 
 function matchesSearch(record: MemoryRecord, term: string): boolean {
-  const needle = term.toLowerCase();
+  const needle = folded(term);
   return Object.values(record).some((value) => {
     const text = searchable(value);
-    return text !== null && text.toLowerCase().includes(needle);
+    return text !== null && folded(text).includes(needle);
   });
 }
 
 function containsTerm(value: unknown, term: string): boolean {
   if (value === null || value === undefined) return false;
-  return asText(value).toLowerCase().includes(term.toLowerCase());
+  return folded(asText(value)).includes(folded(term));
 }
 
 /**
@@ -104,7 +164,7 @@ function matches(record: MemoryRecord, filter: AdminResourceFilter): boolean {
     case "in":
       return (filter.value as unknown[]).some((entry) => value === entry);
     case "contains":
-      return containsTerm(value, filter.value as string);
+      return containsTerm(value, asText(filter.value));
     case "isNull":
       return value === null;
     case "notNull":
