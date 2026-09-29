@@ -5,6 +5,8 @@ import {
   adminResourceValues,
   createAdminResourceActions,
   type AdminPersistenceAdapter,
+  type AdminResourcePage,
+  type AdminResourceQuery,
 } from "@yesvus/helmdeck";
 import { adminResources } from "./admin-resources";
 import { exposedResource } from "./demo-rules";
@@ -23,7 +25,7 @@ import { requireDemoPermission } from "./demo-guard";
  *
  * **A resource name arrives from the browser, so it is never trusted.** Anything here could be
  * invoked directly with any argument, by a signed-in visitor or by anyone who can post to the
- * action, which makes this the boundary where a resource name becomes a capability. The five calls
+ * action, which makes this the boundary where a resource name becomes a capability. The calls here
  * are the package's, built once over the guard the demo's rule is asked through, so every call
  * refuses on the server before touching the store and the exposed set is a closed set of names rather
  * than a check each action remembered to make. `users` and `sessions` are deliberately absent from
@@ -100,6 +102,30 @@ export async function queryResourceAction(
   query?: Record<string, unknown>,
 ): Promise<unknown[]> {
   return store.query(resource, query);
+}
+
+/**
+ * The paged form of the query, over the same guard and the same allowlist.
+ *
+ * A query arrives from the browser as a value a caller chose, so it goes to the store through the
+ * package's parser, which is what refuses a part that is not part of a query. A caller who guesses
+ * at a `limit` gets a refusal rather than the empty list the older form answers a guess with.
+ *
+ * The store decides whether this exists at all, and the browser is only told about it when it does.
+ * Reaching here with a store that cannot page means the two halves of the demo disagree about what
+ * the demo's store can do, which is worth saying rather than answering with rows.
+ */
+export async function queryPageAction(
+  resource: string,
+  query?: AdminResourceQuery,
+): Promise<AdminResourcePage<unknown>> {
+  const paged = store.queryPage;
+  if (paged === undefined) {
+    throw new Error(
+      `The demo's ${demoPersistence().kind} store cannot answer a paged query for ${resource}`,
+    );
+  }
+  return paged<unknown>(resource, query);
 }
 
 export async function readResourceAction(resource: string, id: string): Promise<unknown | null> {

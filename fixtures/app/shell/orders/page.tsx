@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
-"use client";
 
-import { AdminResourceList } from "@yesvus/helmdeck";
+import { DemoResourceList } from "../../../components/demo-resource-list";
 import { ordersResource } from "../../../lib/admin-resources";
-import { clientPersistence } from "../../../lib/client-persistence";
+import { demoPersistence } from "../../../lib/demo-persistence";
 
 /**
  * Orders, generated from the resource definition.
@@ -11,13 +10,16 @@ import { clientPersistence } from "../../../lib/client-persistence";
  * The previous page filtered a hardcoded array by a status select whose options were written by
  * hand next to the rows they filtered. The columns and their formatting live with the definition
  * now, so adding a field is one edit rather than a table, a filter and a detail view kept in step.
+ *
+ * A server component for the reason the products page is one: whether the demo's store can page is
+ * the demo's store's own answer, and it is the store the list asks.
  */
 export default function OrdersPage() {
   return (
-    <AdminResourceList
+    <DemoResourceList
       definition={ordersResource}
-      persistence={clientPersistence}
       detailBaseHref="/shell/orders"
+      paged={typeof demoPersistence().adapter.queryPage === "function"}
     />
   );
 }

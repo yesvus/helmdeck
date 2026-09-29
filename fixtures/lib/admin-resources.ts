@@ -41,11 +41,21 @@ export const productsResource = defineAdminResource({
     delete: "products.delete",
   },
   columns: [
-    { key: "name", header: "Name" },
-    { key: "sku", header: "SKU" },
-    { key: "price_cents", header: "Price", align: "right", format: (value) => formatCents(value) },
-    { key: "stock", header: "Stock", align: "right", format: (value) => formatStock(value) },
+    { key: "name", header: "Name", sortable: true },
+    { key: "sku", header: "SKU", sortable: true },
+    { key: "price_cents", header: "Price", align: "right", sortable: true, format: (value) => formatCents(value) },
+    { key: "stock", header: "Stock", align: "right", sortable: true, format: (value) => formatStock(value) },
   ],
+  /**
+   * One filter, on a field rather than across the record, which is what a search box cannot be.
+   *
+   * The demo's products carry no closed set of values worth choosing from, so this is a term typed
+   * into a box and compared with `contains` against one field, which is the form the definition
+   * takes when it declares no options. The list sends the comparison to the adapter and draws
+   * whatever comes back, so a term no product carries is an answer from the store rather than a
+   * locally emptied table.
+   */
+  filters: [{ field: "sku", label: "SKU contains", operator: "contains" }],
   fields: [
     { name: "name", label: "Name", required: true },
     { name: "sku", label: "SKU", required: true },
