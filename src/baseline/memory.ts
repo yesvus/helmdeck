@@ -44,7 +44,7 @@ function asNumber(value: unknown): number {
  * not a whole number, and an exponent outside `-4` through `14` the way `%g` writes one.
  */
 function asDecimal(value: number): string {
-  if (Number.isInteger(value) && Math.abs(value) <= 9223372036854775807) return String(value);
+  if (Number.isInteger(value) && Math.abs(value) <= 2 ** 63 - 1) return String(value);
   const [mantissa, exponentText] = Math.abs(value).toExponential(14).split("e");
   const exponent = Number(exponentText);
   const digits = mantissa.replace(".", "").replace(/0+$/, "") || "0";
