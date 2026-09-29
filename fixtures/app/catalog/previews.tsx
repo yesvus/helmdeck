@@ -89,12 +89,18 @@ import {
   Button,
   Tooltip,
   TooltipProvider,
+  adminActivityWidget,
   adminChartDayRange,
   adminChartFillDays,
   adminChartFormatters,
+  adminChartWidget,
   adminDashboardAddPlacement,
   adminDashboardCopy,
   adminDashboardProblems,
+  adminListWidget,
+  adminRankWidget,
+  adminStatWidget,
+  adminTableWidget,
   adminWidgetState,
   createAdminWidgetRegistry,
   defineAdminWidget,
@@ -109,6 +115,7 @@ import {
   type AdminDensity,
   type AdminNavGroup,
   type AdminTableColumn,
+  type AdminWidgetDefinition,
   type AdminWidgetLoader,
   type AdminWidgetState,
 } from "@yesvus/helmdeck";
@@ -297,6 +304,138 @@ const STATES: Record<string, AdminWidgetState<unknown>> = Object.fromEntries(
 );
 
 const missingPlacement = { id: "catalog-archive", widget: "archivedWidget", size: "sm" as const };
+
+/**
+ * The six tiles, declared the way a host declares them and rendered through the panel.
+ *
+ * The data is the same store the rest of the previews read, so the tiles show figures a reader can
+ * check against the charts and tables beside them rather than numbers invented for a card. The
+ * clock and the window are fixed for the same reason `CHART_END` is: a preview that re-reads the
+ * current time shows different ages on every visit, and a card is meant to look the same twice.
+ */
+const PREVIEW_NOW = new Date("2026-09-30T09:00:00.000Z");
+const ago = (ms: number) => new Date(PREVIEW_NOW.getTime() - ms);
+
+/**
+ * One age per product, one per branch of the feed's own thresholds.
+ *
+ * The branches are minutes, hours, days and past a week, plus under a minute, and a card showing
+ * four of the five is a card whose fifth branch nothing here can see.
+ */
+const AGES: Record<string, number> = {
+  kettle: 20_000,
+  espresso: 3 * 60_000,
+  grinder: 5 * 3_600_000,
+  tamper: 2 * 86_400_000,
+  filter: 9 * 86_400_000,
+};
+
+const TILE_ROWS = [
+  { id: "espresso", name: "Espresso machine", status: "Published", cents: 12900, stock: 58 },
+  { id: "grinder", name: "Grinder", status: "Draft", cents: 8900, stock: 31 },
+  { id: "tamper", name: "Tamper", status: "Published", cents: 2400, stock: 12 },
+  { id: "filter", name: "Water filter", status: "Archived", cents: 1800, stock: 0 },
+  { id: "kettle", name: "Pour-over kettle", status: "Published", cents: 5600, stock: 7 },
+];
+
+const SHIPPED_TILES = [
+  adminStatWidget({
+    id: "previewStat",
+    title: "Revenue, 30 days",
+    unit: "money",
+    value: (data: typeof TILE_ROWS) => data.reduce((total, row) => total + row.cents, 0),
+    previous: (data: typeof TILE_ROWS) => data.reduce((total, row) => total + row.cents, 0) * 0.72,
+    comparison: "vs the 30 days before",
+    detail: () => "Paid orders only",
+  }),
+  adminStatWidget({
+    id: "previewStatFalling",
+    title: "Refunds, 30 days",
+    unit: "money",
+    value: () => 3200,
+    previous: () => 2100,
+    // The same rise as the tile above, and the opposite colour: this is the case a host gets wrong
+    // by leaving `invertTrend` off, and a card that shows one of each says so better than a note.
+    invertTrend: true,
+    detail: () => "A rise here is bad news",
+  }),
+  adminTableWidget({
+    id: "previewTable",
+    title: "Products by revenue",
+    rows: (data: typeof TILE_ROWS) => data,
+    columns: [
+      { key: "name", header: "Product", value: (row: (typeof TILE_ROWS)[number]) => row.name },
+      { key: "cents", header: "Revenue", value: (row: (typeof TILE_ROWS)[number]) => row.cents },
+    ],
+    unit: "money",
+    cap: { max: 3 },
+  }),
+  adminListWidget({
+    id: "previewList",
+    title: "Lowest in stock",
+    rows: (data: typeof TILE_ROWS) => [...data].sort((a, b) => a.stock - b.stock),
+    label: (row: (typeof TILE_ROWS)[number]) => row.name,
+    value: (row: (typeof TILE_ROWS)[number]) => row.stock,
+    note: (row: (typeof TILE_ROWS)[number]) => row.status,
+    getKey: (row) => row.id,
+  }),
+  adminChartWidget({
+    id: "previewChart",
+    title: "Revenue by day",
+    categories: () => REVENUE_DAYS,
+    series: () => REVENUE_SERIES,
+    unit: "money",
+    height: 160,
+  }),
+  adminRankWidget({
+    id: "previewRank",
+    title: "Units in stock by product",
+    items: () => STOCK,
+    unit: "count",
+    valueLabel: "units",
+  }),
+  adminActivityWidget({
+    id: "previewActivity",
+    title: "What changed",
+    rows: (data: typeof TILE_ROWS) => data,
+    message: (row: (typeof TILE_ROWS)[number]) => `${row.status} ${row.name}`,
+    actor: () => "ada@example.com",
+    // Four different ages, so the card shows more than one of the thresholds the feed owns rather
+    // than five rows all saying the same thing.
+    at: (row: (typeof TILE_ROWS)[number]) => ago(AGES[row.id as keyof typeof AGES] ?? 4 * 60_000),
+    now: () => PREVIEW_NOW,
+    tone: (row: (typeof TILE_ROWS)[number]) => (row.status === "Draft" ? "warning" : "success"),
+    getKey: (row) => row.id,
+  }),
+] as const;
+
+/** A tile in its own surface, since a preview card is a card and a bare definition is not one. */
+function ShippedTile({ index }: { index: number }) {
+  const definition = SHIPPED_TILES[index] as AdminWidgetDefinition<typeof TILE_ROWS>;
+  return (
+    <AdminWidgetPanel
+      definition={definition}
+      state={adminWidgetState(definition, TILE_ROWS)}
+      messages={{ widget: englishAdminMessages.widget }}
+    />
+  );
+}
+
+/**
+ * The stat card shows the tile twice, because one instance of it cannot show the decision.
+ *
+ * A stat's judgement is the colour, and a single tile with a rise says only that a rise is green,
+ * which is half the claim. The pair is the claim: the same movement, the opposite tone, because one
+ * declared `invertTrend` and the other did not.
+ */
+function ShippedStatTiles() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <ShippedTile index={0} />
+      <ShippedTile index={1} />
+    </div>
+  );
+}
 
 /**
  * One density step, scoped to its own element rather than to the document, so three of them can be
@@ -742,6 +881,13 @@ export const catalogPreviews: Record<string, ComponentType> = {
       <AdminLoginScreen brandLabel="Helmdeck" message="Sign in to continue." onSubmit={() => undefined} />
     </Contained>
   ),
+
+  adminStatWidget: ShippedStatTiles,
+  adminTableWidget: () => <ShippedTile index={2} />,
+  adminListWidget: () => <ShippedTile index={3} />,
+  adminChartWidget: () => <ShippedTile index={4} />,
+  adminRankWidget: () => <ShippedTile index={5} />,
+  adminActivityWidget: () => <ShippedTile index={6} />,
 
   AdminWidget: () => (
     <AdminWidget
