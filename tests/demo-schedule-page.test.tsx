@@ -6,6 +6,7 @@ import { AdminI18nProvider } from "@yesvus/helmdeck";
 import { signInAction } from "../fixtures/app/login/actions";
 import SchedulePage from "../fixtures/app/shell/schedule/page";
 import { ScheduleRow } from "../fixtures/app/shell/schedule/schedule-form";
+import { hashPassword } from "../fixtures/lib/demo-users";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";
 import { ensureDemoSeeded } from "../fixtures/lib/ensure-seeded";
@@ -124,6 +125,26 @@ async function signIn(account: { email: string }) {
   expect(result.ok).toBe(true);
 }
 
+/** One hash for the file, because scrypt is deliberately slow and the password is the same one. */
+let published: Promise<string> | null = null;
+const publishedHash = () => (published ??= hashPassword(DEMO_PASSWORD));
+
+/**
+ * Changes an account's role and nothing else about it.
+ *
+ * An update replaces the record rather than merging into it, so a single-column write leaves the
+ * account with no address and no hash. The symptom is not a wrong answer but a redirect to sign-in,
+ * because the session the row should resolve to resolves to nothing at all.
+ */
+async function setRole(account: { id: string; email: string; role: string }, role: unknown) {
+  await store.update("users", account.id, {
+    id: account.id,
+    email: account.email,
+    role,
+    password_hash: await publishedHash(),
+  });
+}
+
 async function clearRows(resource: string, matches: (id: string) => boolean) {
   for (const row of await store.query<{ id: string }>(resource)) {
     if (matches(row.id)) await store.delete(resource, row.id);
@@ -157,12 +178,9 @@ afterEach(async () => {
   if (restoreClock) setDemoClock(restoreClock);
   restoreClock = undefined;
   for (const account of demoAccounts) {
-    await store.update("users", account.id, {
-      ...(await store.read<{ password_hash?: string }>("users", account.id)),
-      id: account.id,
-      email: account.email,
-      role: account.role,
-    });
+    // The whole row, and the hash from the password rather than from the row being repaired, which
+    // by then holds whatever the last partial write left in it.
+    await setRole(account, account.role);
   }
 });
 
@@ -253,7 +271,7 @@ describe("the schedule page", () => {
     async () => {
       await signIn(editor);
       await store.create("post_schedules", schedule());
-      await store.update("users", editor.id, { role: "contributor" });
+      await setRole(editor, "contributor");
 
       await expect(
         onTheServer(() => SchedulePage({ searchParams: Promise.resolve({}) })),

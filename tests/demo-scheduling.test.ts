@@ -9,6 +9,7 @@ import {
   runDuePublishesAction,
   schedulePostAction,
 } from "../fixtures/app/shell/schedule/actions";
+import { hashPassword } from "../fixtures/lib/demo-users";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { demoCan } from "../fixtures/lib/demo-rules";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";
@@ -164,13 +165,36 @@ async function refused(action: () => Promise<unknown>, expected: RegExp): Promis
 async function restoreAccounts() {
   for (const account of demoAccounts) {
     await store.update("users", account.id, {
-      ...(await store.read<{ password_hash?: string }>("users", account.id)),
       id: account.id,
       email: account.email,
       role: account.role,
+      password_hash: await publishedHash(),
     });
   }
 }
+
+/**
+ * Changes an account's role and nothing else about it.
+ *
+ * The whole row has to be written, because an update replaces the record rather than merging into it.
+ * A single-column write used to be invisible: sign-in read the accounts out of an array, so losing the
+ * address and the hash cost nothing. It does now, and the symptom is not a wrong answer but a redirect
+ * to the sign-in page, because the session the row should resolve to resolves to nothing at all. The
+ * restore above reads the account fixture for the same reason rather than reading back the row it is
+ * repairing, which by then holds whatever the last partial write left in it.
+ */
+async function setRole(account: { id: string; email: string; role: string }, role: unknown) {
+  await store.update("users", account.id, {
+    id: account.id,
+    email: account.email,
+    role,
+    password_hash: await publishedHash(),
+  });
+}
+
+/** One hash for the file, because scrypt is deliberately slow and the password is the same one. */
+let published: Promise<string> | null = null;
+const publishedHash = () => (published ??= hashPassword(DEMO_PASSWORD));
 
 async function statusOf(postId: string = POST): Promise<string> {
   return ((await store.read<{ status: string }>("posts", postId)) as { status: string }).status;
@@ -535,7 +559,7 @@ describe("what the role is worth over the schedule", () => {
     await signIn(editor);
     await submit(() => schedulePostAction(form({ post_id: POST, publish_at: HOUR })));
     const [entry] = await listPostSchedules({ email: editor.email, role: "editor" });
-    await store.update("users", editor.id, { role: null });
+    await setRole(editor, null);
 
     await refused(
       () => schedulePostAction(form({ post_id: POST, publish_at: "2026-10-01T12:00" })),
@@ -561,7 +585,7 @@ describe("what the role is worth over the schedule", () => {
     await submit(() => schedulePostAction(form({ post_id: POST, publish_at: HOUR })));
     // Through the action, so the session is the one the stored row resolves to and not one this test
     // wrote down. A hand-made session with a role in it would prove only that the rule works.
-    await store.update("users", editor.id, { role: "contributor" });
+    await setRole(editor, "contributor");
 
     await expect(listPostSchedulesAction()).rejects.toThrow(/may not read posts/);
     await expect(listSchedulablePostsAction()).rejects.toThrow(/may not read posts/);
@@ -590,7 +614,7 @@ describe("what the role is worth over the schedule", () => {
     await signIn(editor);
     await submit(() => schedulePostAction(form({ post_id: POST, publish_at: HOUR })));
     setDemoClock(at("2026-10-01T14:00:00.000Z"));
-    await store.update("users", editor.id, { role: "writer" });
+    await setRole(editor, "writer");
 
     await refused(() => runDuePublishesAction(), /may not update posts/);
     expect(await statusOf()).toBe("draft");
@@ -604,7 +628,7 @@ describe("what the role is worth over the schedule", () => {
     await signIn(editor);
     await submit(() => schedulePostAction(form({ post_id: POST, publish_at: HOUR })));
     await signIn(owner);
-    await store.update("users", editor.id, { role: "contributor" });
+    await setRole(editor, "contributor");
 
     const run = await publishDuePosts(new Date("2026-10-01T10:00:00.000Z"));
 
