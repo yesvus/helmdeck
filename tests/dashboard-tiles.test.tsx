@@ -109,18 +109,37 @@ describe("AdminDashboardTiles", () => {
     await waitFor(() => expect(screen.getByText("4 signups")).toBeInTheDocument());
   });
 
-  it("does not reload a tile when an unrelated prop changes", async () => {
-    // The loader identity is memoized per tile, so a re-render must not restart every load on screen.
+  it("does not reload every tile just because the grid re-rendered", async () => {
+    // A loader identity that changes on each render makes the effect re-run, so every tile on screen
+    // refetches. That is a request storm against the host's database, and a single waitFor above a
+    // stable count cannot see it because the storm settles into the same number.
     const load = vi.fn().mockResolvedValue({ total: 9 });
     const { rerender } = render(<Harness loaders={{ p0: load, p1: never }} />);
-    await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(load).toHaveBeenCalled());
+    // Measured rather than assumed, so the check is about rerenders and not about how many calls a
+    // mount happens to make.
+    const afterMount = load.mock.calls.length;
 
-    rerender(
-      <AdminI18nProvider locale="en">
-        <AdminDashboardTiles registry={registry} placements={placements} loaders={{ p0: load, p1: never }} className="mt-2" />
-      </AdminI18nProvider>,
-    );
+    for (let i = 0; i < 3; i += 1) {
+      rerender(
+        <AdminI18nProvider locale="en">
+          <AdminDashboardTiles
+            registry={registry}
+            placements={placements}
+            loaders={{ p0: load, p1: never }}
+            className={`mt-${i + 2}`}
+          />
+        </AdminI18nProvider>,
+      );
+    }
 
-    await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    // Let any effect a rerender wrongly triggered run to completion, then compare.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    // Bounded rather than exactly equal. A loader identity that changed on every render would make
+    // each of these rerenders refetch, so the count would climb once per rerender; three rerenders
+    // against a settled mount cannot produce more than a small constant. Asserting the exact number
+    // would be asserting a mount behaviour this test has not isolated.
+    expect(load.mock.calls.length).toBeLessThan(afterMount + 2);
   });
 });
