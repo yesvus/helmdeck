@@ -99,10 +99,11 @@ export function useAdminWidgetData<TData>({
 
   useEffect(() => {
     if (!enabled || !load) {
-      // A load that was in flight when the widget was disabled must not land afterwards. The request
-      // is invalidated rather than aborted, because the result is simply no longer wanted and the
-      // signal belongs to whoever asked for the data.
+      // A load that was in flight when the widget was disabled must not land afterwards, and must
+      // stop consuming the host's connection rather than running on into a result nobody wants.
       latestRequest.current += 1;
+      controller.current?.abort();
+      controller.current = null;
       // Deferred with the load below, for the same reason: this branch runs during the effect, and a
       // synchronous setState here would cascade a render for a widget that is only being switched off.
       void Promise.resolve().then(() => {

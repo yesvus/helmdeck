@@ -250,9 +250,17 @@ describe("useAdminWidgetData", () => {
     // Disabling is a decision to stop caring, so an answer that arrives afterwards must not be
     // committed. Without the invalidation the pending request is still the newest and lands anyway.
     const gate = deferred<Row>();
+    const signals: AbortSignal[] = [];
     function Toggle() {
       const [on, setOn] = useState(true);
-      const { state } = useAdminWidgetData({ definition: counter, load: () => gate.promise, enabled: on });
+      const { state } = useAdminWidgetData({
+        definition: counter,
+        load: (signal) => {
+          signals.push(signal);
+          return gate.promise;
+        },
+        enabled: on,
+      });
       return (
         <div>
           <button type="button" onClick={() => setOn(false)}>
@@ -272,6 +280,8 @@ describe("useAdminWidgetData", () => {
     await act(async () => gate.resolve({ total: 11 }));
 
     expect(screen.queryByText("total: 11")).not.toBeInTheDocument();
+    // Aborted rather than only invalidated, so it stops consuming the host's connection.
+    expect(signals[0].aborted).toBe(true);
   });
 
   it("does not load when disabled", async () => {
