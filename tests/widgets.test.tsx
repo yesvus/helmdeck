@@ -124,12 +124,30 @@ describe("createAdminWidgetRegistry", () => {
   });
 
   it("refuses a widget registered under a key other than its own id", () => {
-    // Keying by id makes the duplicate case a compile error, and a literal collapses it at runtime,
-    // so the guard that can actually be reached is a registry answering under one id while the
-    // widget declares another.
+    // A registry that lists a widget under one key and answers another is the defect worth stopping
+    // for, and the keyed form is the only one where the two can disagree.
     expect(() => createAdminWidgetRegistry({ wrongKey: counter })).toThrow(
       /registered as "wrongKey" declares the id "counter"/,
     );
+  });
+
+  it("accepts a list of differently-typed widgets, which is how a host holds its plugins", () => {
+    // The keyed form cannot express this: `AdminWidgetDefinition<never>` is a contravariant
+    // constraint, so an array mixing widgets whose data types differ is not assignable to it. A host
+    // assembling widgets in a list is ordinary, and rejecting it pushes them to cast.
+    const registry = createAdminWidgetRegistry([counter, other]);
+
+    expect(registry.list().map((w) => w.id)).toEqual(["counter", "revenue"]);
+    expect(registry.validate({ widget: "counter", size: "lg" })).toEqual([]);
+  });
+
+  it("refuses two widgets sharing an id in a list, which would make a saved dashboard ambiguous", () => {
+    expect(() => createAdminWidgetRegistry([counter, counter])).toThrow(/both registered/);
+  });
+
+  it("accepts an empty registry in both forms", () => {
+    expect(createAdminWidgetRegistry().list()).toEqual([]);
+    expect(createAdminWidgetRegistry([]).list()).toEqual([]);
   });
 
   it("finds a widget by id and reports an unknown one as absent", () => {
@@ -139,15 +157,12 @@ describe("createAdminWidgetRegistry", () => {
     expect(registry.has("revenue")).toBe(false);
   });
 
-  it("returns nothing for an id the types allow but the registry does not have", () => {
-    // A dashboard persisted by an earlier release can name a widget this build no longer registers,
-    // and the editor looks every id up. Bypassing the id type here is the point: the runtime contract
-    // has to hold for a key the compiler thought was fine.
-    const registry = createAdminWidgetRegistry({ counter }) as unknown as {
-      get: (id: string) => unknown;
-    };
-
-    expect(registry.get("revenue")).toBeUndefined();
+  it("returns nothing for an id the list form cannot rule out at compile time", () => {
+    // A dashboard persisted by an earlier release can name a widget this build no longer registers.
+    // The keyed form stops that question being asked, so the list form is where the runtime miss has
+    // to be answerable rather than thrown, since the editor looks every persisted id up.
+    expect(createAdminWidgetRegistry([counter]).get("revenue")).toBeUndefined();
+    expect(createAdminWidgetRegistry([]).get("revenue")).toBeUndefined();
   });
 
   it("reports an unregistered widget instead of dropping it from a saved dashboard", () => {
