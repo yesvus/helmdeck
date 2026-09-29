@@ -22,6 +22,7 @@ export const CATALOG_CATEGORIES = [
   "Layout",
   "Shell and navigation",
   "Auth and permissions",
+  "Credentials and sessions",
   "Dashboard and widgets",
   "Collections",
   "Media",
@@ -625,6 +626,95 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Where to send a session that just signed in, read from the request's query string.",
     keywords: "return next redirect",
   },
+  evaluateAdminPermission: {
+    category: "Auth and permissions",
+    summary:
+      "Asks the host's rule whether a session may perform a permission, and fails closed: no rule, no session and a rule that throws all deny.",
+    keywords: "evaluate decide rule allow deny fails closed",
+  },
+  createAdminPermissionCheck: {
+    category: "Auth and permissions",
+    summary:
+      "The check a view asks through, resolving the session per request and answering with the same rule a server action enforces.",
+    keywords: "check can adapter session request server",
+  },
+  createAdminPermissionGuard: {
+    category: "Auth and permissions",
+    summary:
+      "Hands back the session or throws, so a route, a page or an action refuses before the effect it protects runs.",
+    keywords: "guard require throw redirect protect action",
+  },
+  AdminUnauthenticatedError: {
+    category: "Auth and permissions",
+    summary:
+      "Thrown when the request carries no session, which the guard keeps distinct from a session that may not do this.",
+    keywords: "unauthenticated no session error signin refuse",
+    hostNote:
+      "An error a server action or route throws to refuse a request. There is nothing to draw here: catch it, or turn it into the response a visitor sees.",
+  },
+  AdminPermissionDeniedError: {
+    category: "Auth and permissions",
+    summary:
+      "Thrown when the rule refuses, carrying the reason the browser is never told, so a denial is diagnosable rather than only a no.",
+    keywords: "denied forbidden error reason refuse",
+    hostNote:
+      "An error a server action throws to refuse a request, with the decision attached. There is nothing to draw here: catch it, or turn it into a forbidden response.",
+  },
+
+  CREDENTIAL_USERS_SCHEMA: {
+    category: "Credentials and sessions",
+    summary:
+      "The users table as SQL to run once, with the address and role constraints in the database rather than only in the adapter.",
+    keywords: "users table sql schema create password",
+  },
+  CREDENTIAL_SESSIONS_SCHEMA: {
+    category: "Credentials and sessions",
+    summary:
+      "The sessions table as SQL, with expiry as a column so a session can be ended early rather than only left to lapse.",
+    keywords: "sessions table sql schema expiry create",
+  },
+  hashPassword: {
+    category: "Credentials and sessions",
+    summary:
+      "Derives a password into scrypt$salt$key, with the parameters travelling inside the value so they can be raised later without a migration.",
+    keywords: "hash scrypt salt password derive",
+  },
+  verifyPassword: {
+    category: "Credentials and sessions",
+    summary:
+      "Compares a password against a stored hash in constant time, and refuses a value this package did not write.",
+    keywords: "verify compare scrypt timing safe check",
+  },
+  normalizeEmail: {
+    category: "Credentials and sessions",
+    summary:
+      "The form an address is stored and looked up in, so a pasted or capitalised address still finds the row it belongs to.",
+    keywords: "email normalize trim lower case lookup",
+  },
+  generateSessionSecret: {
+    category: "Credentials and sessions",
+    summary:
+      "Mints the signing secret a session adapter needs, for a host to run once at install and keep in its environment.",
+    keywords: "secret generate random sign hmac",
+  },
+  authenticate: {
+    category: "Credentials and sessions",
+    summary:
+      "Decides who the credentials belong to, or refuses without saying which half was wrong, so a public login form is not an enumeration oracle.",
+    keywords: "authenticate login signin credentials decoy",
+  },
+  createPersistenceCredentialStore: {
+    category: "Credentials and sessions",
+    summary:
+      "The credential store over a persistence adapter the host already has, with the table and column names as options rather than a schema of ours.",
+    keywords: "store persistence users sessions adapter columns",
+  },
+  createCredentialAuthAdapter: {
+    category: "Credentials and sessions",
+    summary:
+      "The auth adapter over a user store and a session row, so a sign-out ends the row and not just this browser's copy of the cookie.",
+    keywords: "auth adapter session cookie login logout revoke",
+  },
 
   AdminDashboardLayout: {
     category: "Dashboard and widgets",
@@ -951,6 +1041,20 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The required fields a record is missing, which is what an import should refuse on.",
     keywords: "required missing validation import",
   },
+  createAdminResourceActions: {
+    category: "Resources",
+    summary:
+      "The five resource calls a client makes, each refusing through a guard before the store is reached, so a name from the browser is never a capability on its own.",
+    keywords: "actions server guard persistence boundary capability",
+  },
+  AdminResourceNotExposedError: {
+    category: "Resources",
+    summary:
+      "Thrown when a request names a resource this admin does not expose, whatever the session behind it may do.",
+    keywords: "not exposed error resource refuse unknown",
+    hostNote:
+      "An error the resource actions throw before the store is reached. There is nothing to draw here: catch it, or turn it into a not-found response.",
+  },
 
   AdminI18nProvider: {
     category: "Internationalisation",
@@ -1038,6 +1142,108 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Theme and colour",
     summary: "Turns a brand accent into the inline custom properties the themed surfaces read.",
     keywords: "branding accent custom properties theme",
+  },
+  contrastRatio: {
+    category: "Theme and colour",
+    summary:
+      "The WCAG ratio between two hex colours, and null when either cannot be read, so an unreadable value fails a decision instead of scoring zero on it.",
+    keywords: "contrast wcag ratio luminance accessibility",
+  },
+  ADMIN_TEXT_CONTRAST: {
+    category: "Theme and colour",
+    summary: "The 4.5:1 the theme holds every text pair to, which is WCAG 1.4.3 for normal text.",
+    keywords: "contrast threshold wcag accessibility 4.5",
+  },
+  ADMIN_SURFACES: {
+    category: "Theme and colour",
+    summary:
+      "The two surfaces per colour mode a brand text colour has to stay readable on, mirrored from the token layer so the two cannot drift.",
+    keywords: "surfaces light dark background readable",
+  },
+  ADMIN_BRAND_VARIABLES: {
+    category: "Theme and colour",
+    summary: "The five custom properties a host accent fills in, which is the whole of the brand surface.",
+    keywords: "brand variables properties names tokens",
+  },
+  adminBrandVariables: {
+    category: "Theme and colour",
+    summary:
+      "The brand token values a host accent produces, or null when no label colour clears 4.5:1 on it, because the default palette is then the better answer.",
+    keywords: "brand variables accent contrast reject refuse",
+  },
+  describeAccentRejection: {
+    category: "Theme and colour",
+    summary:
+      "Why an accent was refused and the best ratio either label colour reached on it, so the message can advise rather than only decline.",
+    keywords: "reject refuse reason ratio explain accent",
+  },
+  ADMIN_DENSITIES: {
+    category: "Theme and colour",
+    summary: "The three density steps a host picks between, ordered tightest to loosest so a select reads in order.",
+    keywords: "density compact comfortable spacious steps",
+  },
+  ADMIN_DENSITY_SCALE: {
+    category: "Theme and colour",
+    summary:
+      "The multiplier behind each density, unitless because the token feeds a calc, with comfortable left at 1 so an admin changes nothing by default.",
+    keywords: "density scale multiplier spacing calc",
+  },
+  ADMIN_DENSITY_VARIABLE: {
+    category: "Theme and colour",
+    summary:
+      "The custom property the token layer and the Tailwind spacing remap both read, so one write moves the whole package.",
+    keywords: "density variable custom property css spacing",
+  },
+  DEFAULT_ADMIN_DENSITY: {
+    category: "Theme and colour",
+    summary: "The density that renders what the package rendered before density was a setting at all.",
+    keywords: "default density comfortable fallback",
+  },
+  adminDensityScale: {
+    category: "Theme and colour",
+    summary: "The multiplier for one density name, which is what the settings layer writes onto the document.",
+    keywords: "density scale multiplier value lookup",
+  },
+  isAdminDensity: {
+    category: "Theme and colour",
+    summary: "Whether a value that arrived from a form is one of the three density names, rather than near one.",
+    keywords: "density guard validate check form",
+  },
+  ADMIN_THEME_SETTING_KEYS: {
+    category: "Theme and colour",
+    summary:
+      "The only two keys a host's settings object may carry, so a column nobody meant to add is reported rather than silently ignored.",
+    keywords: "settings keys allow shape stray",
+  },
+  DEFAULT_ADMIN_THEME_SETTINGS: {
+    category: "Theme and colour",
+    summary:
+      "What a host gets by setting nothing: the default density, and a null accent, which keeps the contrast-checked palette in tokens.css standing.",
+    keywords: "default settings accent palette tokens fallback",
+  },
+  resolveAdminThemeSettings: {
+    category: "Theme and colour",
+    summary:
+      "Validates a host's settings and reports what it could not use, replacing each with the default so one bad row cannot leave an admin with no theme.",
+    keywords: "resolve validate settings problems default",
+  },
+  adminThemeSettingsStyle: {
+    category: "Theme and colour",
+    summary:
+      "The custom properties a host's settings produce, with a refused accent contributing nothing at all rather than overriding a palette that works.",
+    keywords: "style properties css settings inline",
+  },
+  useAdminThemeSettings: {
+    category: "Theme and colour",
+    summary: "The settings as they were applied, and the problems that came out of them, defaulting outside a provider.",
+    keywords: "settings applied problems hook density accent",
+  },
+  AdminThemeSettingsProvider: {
+    category: "Theme and colour",
+    summary:
+      "Puts a host's density and accent on the document as custom properties, and removes them again on the way out, so the whole package follows one setting.",
+    keywords: "provider settings density accent document apply",
+    renderable: true,
   },
 
   createSessionAuthAdapter: {
