@@ -43,6 +43,10 @@ export async function verifyPassword(password: string, stored: string): Promise<
   if (scheme !== "scrypt" || !saltPart || !keyPart) return false;
 
   const expected = Buffer.from(keyPart, "base64");
+  // A base64 string that decodes to nothing yields a zero-length key, and scrypt rejects a length of
+  // zero by throwing, which would take the login page down instead of failing the login.
+  if (expected.length === 0) return false;
+
   const actual = await scrypt(password, Buffer.from(saltPart, "base64"), expected.length);
   // Lengths differ only if the stored hash is malformed, and timingSafeEqual throws on a mismatch.
   if (actual.length !== expected.length) return false;
@@ -63,6 +67,7 @@ export async function authenticate(
 ): Promise<DemoUser | null> {
   const user = users.find((candidate) => candidate.email === email.toLowerCase().trim());
   if (!user) {
+    // Parsed and hashed so the cost matches a real verification; see the note above.
     await verifyPassword(password, await hashPassword("no such user"));
     return null;
   }

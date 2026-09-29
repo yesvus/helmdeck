@@ -230,7 +230,12 @@ NODE
   ok("grid has the expected number of columns", m.columns, process.env.WANT_COLUMNS);
   ok("revenue tile takes its declared span", spanOf("revenue"), process.env.WANT_REVENUE);
   ok("signups tile takes its declared span", spanOf("signups"), process.env.WANT_SIGNUPS);
-  ok("tiles flow into the expected number of rows", m.distinctTops, process.env.WANT_ROWS);
+  // Only asserted where it discriminates. With a single column the grid guarantees one row per tile,
+  // so the count matches however broken the layout is, and asserting it there would read as coverage
+  // while testing nothing.
+  if (process.env.WANT_ROWS !== "skip") {
+    ok("tiles flow into the expected number of rows", m.distinctTops, process.env.WANT_ROWS);
+  }
   process.exit(failed);
 NODE
   }
@@ -255,7 +260,7 @@ verify_theme() {
   playwright-cli -s="$SESSION" resize 1280 900 >/dev/null
   verify_grid "1280x900" 4 "span 3" "span 1" 2 || FAILED=1
   playwright-cli -s="$SESSION" resize 600 900 >/dev/null
-  verify_grid "600x900" 1 "auto" "auto" 4 || FAILED=1
+  verify_grid "600x900" 1 "auto" "auto" skip || FAILED=1
 
   echo "  theme on the landing page"
 if ! LANDING=$(playwright-cli -s="$SESSION" goto "http://localhost:$PORT/" 2>&1); then

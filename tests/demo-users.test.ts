@@ -44,6 +44,12 @@ describe("verifyPassword", () => {
     expect(await verifyPassword(PASSWORD, "plaintext")).toBe(false);
     expect(await verifyPassword(PASSWORD, "")).toBe(false);
   });
+
+  it("rejects a stored hash whose key decodes to nothing", async () => {
+    // "!" is not base64, so it decodes to a zero-length key, and deriving one of length zero is the
+    // kind of input that throws rather than returning a wrong answer.
+    expect(await verifyPassword(PASSWORD, "scrypt$c2FsdA==$!")).toBe(false);
+  });
 });
 
 describe("authenticate", () => {
