@@ -2,7 +2,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { adminChartDayRange, adminChartFormatters } from "../src/charts";
+import { adminChartAxis, adminChartDayRange, adminChartFormatters } from "../src/charts";
 import AnalyticsPage from "../fixtures/app/shell/analytics/page";
 import { rankByStock, revenueByDay, sumCents, type AnalyticsOrderRow } from "../fixtures/app/shell/analytics/shape";
 
@@ -33,6 +33,14 @@ vi.mock("../fixtures/app/shell/analytics/data", () => ({
 
 const money = adminChartFormatters("money");
 const counts = adminChartFormatters("count");
+
+/**
+ * The cents on the revenue axis, for a peak of 74000 across the mocked range.
+ *
+ * Named once so the labels asserted in the test and the values asserted for the axis are the same
+ * five numbers, rather than two lists that have to be kept in step by hand.
+ */
+const AXIS_CENTS = [0, 20000, 40000, 60000, 80000];
 
 /** The engine's own emptiness rules, restated here only to predict what the page will show. */
 const revenueChart = () => screen.getByRole("img", { name: /Revenue by day over/ });
@@ -132,12 +140,25 @@ describe("the analytics page draws what the store holds", () => {
     render(<AnalyticsPage />);
     const svg = await waitFor(() => revenueChart());
 
+    // The axis values, in cents, that the peak of 74000 implies: five gridlines at an even step of
+    // 20000, the top one round and strictly above the data. Asserted on the values, not on the text
+    // they print as, because the values are the property and the text is one runtime's rendering of
+    // them.
+    expect(adminChartAxis(74000, { ticks: 4, integer: true }).ticks).toEqual(AXIS_CENTS);
+
     const labels = [...svg.querySelectorAll("text")].map((node) => node.textContent);
-    // The peak is 74000 cents, and the top gridline is a round number above it at 80000 cents. The
-    // axis formatter shortens, so that prints as $800 rather than $800.00.
+    // The exact sequence, still pinned, but derived from the formatter the chart itself draws with
+    // rather than written out. `Intl` renders a whole compact currency value as "$800" on some
+    // runtimes and "$800.0" on others, so a literal here passed on one machine and failed on another
+    // while saying nothing about the chart. This says the axis prints the formatter's own rendering
+    // of the five values above, in order, which is the property that actually matters and which
+    // holds on every runtime.
     const moneyLabels = labels.filter((label) => label?.startsWith("$"));
-    expect(moneyLabels).toEqual(["$0", "$200", "$400", "$600", "$800"]);
-    // The peak is 74% of the axis, so it is strictly inside the plot.
+    expect(moneyLabels).toEqual(AXIS_CENTS.map((cents) => money.tick(cents)));
+    expect(moneyLabels).toHaveLength(5);
+
+    // Even steps, from zero, and the peak strictly inside: a rescaled axis would put the tallest
+    // mark flush with the top gridline and the axis would be decoration rather than a scale.
     const tallest = Math.max(
       ...[...svg.querySelectorAll("[data-chart-mark]")].map((mark) =>
         Number(mark.getAttribute("height")),
@@ -147,9 +168,6 @@ describe("the analytics page draws what the store holds", () => {
     const plotHeight = boxHeight - 36;
     expect(tallest).toBeGreaterThan(0);
     expect(tallest).toBeLessThan(plotHeight);
-    // The peak bar is drawn at 74000/80000 of the plot, so it stops short of the top gridline
-    // rather than touching it. A chart that rescaled to fit would put the tallest mark flush with
-    // the top, and the axis would then be a decoration rather than a scale.
     expect(tallest / plotHeight).toBeCloseTo(74000 / 80000, 3);
   });
 

@@ -98,8 +98,24 @@ describe("money is formatted from integer cents", () => {
   });
 
   it("shortens an axis tick without shortening the total it labels", () => {
+    // 12840 dollars shortens to a value with a real fraction, which every runtime renders the same
+    // way, so this literal is safe. A whole value is not: see the test below.
     expect(adminFormatCentsCompact(1284000)).toBe("$12.8K");
     expect(adminFormatCents(1284000)).toBe("$12,840.00");
+  });
+
+  it("shortens a whole amount without depending on how a runtime renders its fraction", () => {
+    // The trap this records: compact currency with a maximum of one fraction digit prints a trailing
+    // ".0" for a whole value on some runtimes and nothing on others, at the same ICU version. It was
+    // measured as "$800" on Node 26 and "$800.0" on Node 22. So the property is that the same integer
+    // shortens and stays recognisably the same amount, and the exact string is deliberately not
+    // pinned: a test that pins it fails on half the machines and proves nothing about the chart.
+    const compact = adminFormatCentsCompact(80000);
+    // Whichever of the two renderings this runtime produces, it names eight hundred.
+    expect(["$800", "$800.0"]).toContain(compact);
+    expect(compact.length).toBeLessThan(adminFormatCents(80000).length);
+    // The unshortened form is exact on every runtime, because it pins the fraction digits itself.
+    expect(adminFormatCents(80000)).toBe("$800.00");
   });
 
   it("counts things that are not money", () => {
