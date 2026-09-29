@@ -40,6 +40,7 @@ const tables = new Set([
   "dashboard_placements",
   "landing_sections",
   "sessions",
+  "site_settings",
 ]);
 
 function tableFor(resource: string): string {
