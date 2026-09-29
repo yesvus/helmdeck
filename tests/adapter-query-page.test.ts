@@ -444,12 +444,83 @@ describe("the four parts of a query at once", () => {
 });
 
 describe("the two stores answering the same question", () => {
+  /**
+   * A field per shape a stored value can take, so a comparison has something of every class to
+   * answer about.
+   *
+   * `mixed` holds a null, a number, a text and a boolean across the five rows and is absent from
+   * the fifth, which is the whole ranking in one field: a range filter against any value has to
+   * cross every class, and a range filter against a null has to find the rows that are below
+   * everything. `weight` is a real that the two engines spell differently, and `uni` holds letters
+   * above the basic plane, which a string comparison and a database order differently.
+   */
   const records: Row[] = [
-    { id: "r1", status: "live", views: 10, title: "Alpha", published: true, note: null, meta: { slug: "one" } },
-    { id: "r2", status: "draft", views: 20, title: "beta", published: false, note: "second", meta: { slug: "two" } },
-    { id: "r3", status: "live", views: 30, title: "Gamma", published: true, note: "third", meta: { slug: "one" } },
-    { id: "r4", status: "archived", views: 40, title: "delta", published: false, meta: { slug: "three" } },
-    { id: "r5", status: "live", views: 50, title: "Epsilon", published: true, note: null, meta: { slug: "one" } },
+    {
+      id: "r1",
+      status: "live",
+      views: 10,
+      title: "Alpha",
+      published: true,
+      note: null,
+      meta: { slug: "one" },
+      mixed: null,
+      weight: 0.1 + 0.2,
+      uni: "ÉCOLE",
+      doc: { slug: "one" },
+      tags: ["red", "small"],
+    },
+    {
+      id: "r2",
+      status: "draft",
+      views: 20,
+      title: "beta",
+      published: false,
+      note: "second",
+      meta: { slug: "two" },
+      mixed: 5,
+      weight: 1e21,
+      uni: "école",
+      doc: [1, 2, 3],
+      tags: [],
+    },
+    {
+      id: "r3",
+      status: "live",
+      views: 30,
+      title: "Gamma",
+      published: true,
+      note: "third",
+      meta: { slug: "one" },
+      mixed: "text",
+      weight: 1e-7,
+      uni: "�",
+      doc: null,
+      tags: "red",
+    },
+    {
+      id: "r4",
+      status: "archived",
+      views: 40,
+      title: "delta",
+      published: false,
+      meta: { slug: "three" },
+      weight: 1 / 3,
+      uni: "\u{10000}",
+    },
+    {
+      id: "r5",
+      status: "live",
+      views: 50,
+      title: "Epsilon",
+      published: true,
+      note: null,
+      meta: { slug: "one" },
+      mixed: true,
+      weight: -3.5,
+      uni: "plain",
+      doc: "a document's own text",
+      tags: ["red"],
+    },
   ];
 
   const queries: Array<[string, Parameters<PagingStore["queryPage"]>[1]]> = [
@@ -457,20 +528,79 @@ describe("the two stores answering the same question", () => {
     ["a term", { search: "alpha" }],
     ["a term in a nested value's own resource", { search: "second" }],
     ["a term nothing holds", { search: "no such thing" }],
+    ["a term spelled as a number is stored", { search: "1e+21" }],
+    ["a term spelled as a number is stored the other way", { search: "1.0e+21" }],
+    ["a term folded from a letter above ASCII", { search: "école" }],
+    ["a term in a boolean", { search: "true" }],
+    ["a term in a document", { search: "slug" }],
+    ["a term in a list", { search: "red" }],
     ["equality", { filter: [{ field: "status", operator: "eq", value: "live" }] }],
     ["inequality, including the rows with no such field", { filter: [{ field: "note", operator: "ne", value: null }] }],
     ["greater than", { filter: [{ field: "views", operator: "gt", value: 20 }] }],
     ["greater than or equal", { filter: [{ field: "views", operator: "gte", value: 30 }] }],
     ["less than", { filter: [{ field: "views", operator: "lt", value: 30 }] }],
     ["less than or equal", { filter: [{ field: "views", operator: "lte", value: 20 }] }],
+
+    // Every range operator against a null, which is where the four operators have four different
+    // answers. The bug this file missed was a range filter against a null, so each one is named
+    // here: `gt(null)` is the rows that hold something, `gte(null)` is all of them, `lt(null)` is
+    // none, and `lte(null)` is the null and the absent.
+    ["greater than a null", { filter: [{ field: "mixed", operator: "gt", value: null }] }],
+    ["greater than or equal to a null", { filter: [{ field: "mixed", operator: "gte", value: null }] }],
+    ["less than a null", { filter: [{ field: "mixed", operator: "lt", value: null }] }],
+    ["less than or equal to a null", { filter: [{ field: "mixed", operator: "lte", value: null }] }],
+
+    // A range across the classes, which is the other half of the same fix: a `less than` a number
+    // has to find the nulls, which sit below every number, and a `greater than` a word has to stop
+    // below the words rather than answer with the numbers.
+    ["greater than a number, over every class", { filter: [{ field: "mixed", operator: "gt", value: 0 }] }],
+    ["greater than or equal to a number, over every class", { filter: [{ field: "mixed", operator: "gte", value: 0 }] }],
+    ["less than a number, over every class", { filter: [{ field: "mixed", operator: "lt", value: 0 }] }],
+    ["less than or equal to a number, over every class", { filter: [{ field: "mixed", operator: "lte", value: 0 }] }],
+    ["greater than a word, over every class", { filter: [{ field: "mixed", operator: "gt", value: "a" }] }],
+    ["less than a word, over every class", { filter: [{ field: "mixed", operator: "lt", value: "a" }] }],
+    ["greater than a boolean", { filter: [{ field: "mixed", operator: "gt", value: true }] }],
+    ["less than a boolean", { filter: [{ field: "mixed", operator: "lt", value: false }] }],
+
+    // A range against a value the field does not hold, where a database reads an absent path as
+    // nothing and so ranks it with the nulls.
+    ["a range against a field no record has", { filter: [{ field: "absent", operator: "gt", value: 0 }] }],
+    ["a range against a field no record has, at or below nothing", { filter: [{ field: "absent", operator: "lte", value: null }] }],
+
     ["a list to match", { filter: [{ field: "status", operator: "in", value: ["draft", "archived"] }] }],
     ["a list including null", { filter: [{ field: "note", operator: "in", value: [null, "third"] }] }],
+    ["a list of numbers and words", { filter: [{ field: "mixed", operator: "in", value: [5, "text"] }] }],
+    ["a list holding a boolean", { filter: [{ field: "mixed", operator: "in", value: [true] }] }],
+    ["a list of values no record holds", { filter: [{ field: "mixed", operator: "in", value: ["nope", 999] }] }],
+
     ["a term inside a value", { filter: [{ field: "title", operator: "contains", value: "TA" }] }],
     ["a term inside a boolean", { filter: [{ field: "published", operator: "contains", value: "true" }] }],
+
+    // A term inside a value that is not text. The contract allows any scalar as a `contains`
+    // value, so each spelling is a question a host can ask and the two stores have to answer it
+    // the same way, rather than one of them failing on the value it was handed.
+    ["a term inside a number", { filter: [{ field: "views", operator: "contains", value: 5 }] }],
+    ["a term inside a number given as text", { filter: [{ field: "views", operator: "contains", value: "5" }] }],
+    ["a term inside a number the two engines spell differently", { filter: [{ field: "weight", operator: "contains", value: 0.1 + 0.2 }] }],
+    ["a term inside a number in exponent form", { filter: [{ field: "weight", operator: "contains", value: 1e21 }] }],
+    ["a term inside a boolean given as a boolean", { filter: [{ field: "published", operator: "contains", value: false }] }],
+    ["a term inside a null", { filter: [{ field: "note", operator: "contains", value: null }] }],
+    ["a term inside a document", { filter: [{ field: "doc", operator: "contains", value: "slug" }] }],
+    ["a term inside a list", { filter: [{ field: "tags", operator: "contains", value: "red" }] }],
+    ["a term inside a field no record has", { filter: [{ field: "absent", operator: "contains", value: "5" }] }],
+
     ["null", { filter: [{ field: "note", operator: "isNull" }] }],
     ["not null", { filter: [{ field: "note", operator: "notNull" }] }],
+    ["a null over a field holding every class", { filter: [{ field: "mixed", operator: "isNull" }] }],
+    ["not null over a field holding every class", { filter: [{ field: "mixed", operator: "notNull" }] }],
     ["a field some records do not have", { filter: [{ field: "note", operator: "notNull" }] }],
+    ["not null on a field no record has", { filter: [{ field: "absent", operator: "notNull" }] }],
     ["a nested field", { filter: [{ field: "meta.slug", operator: "eq", value: "one" }] }],
+    ["a nested field that is null", { filter: [{ field: "meta.slug", operator: "isNull" }] }],
+    ["a nested range", { filter: [{ field: "meta.slug", operator: "gt", value: "one" }] }],
+    ["equality against a boolean", { filter: [{ field: "mixed", operator: "eq", value: true }] }],
+    ["inequality against a boolean", { filter: [{ field: "mixed", operator: "ne", value: true }] }],
+    ["equality against a document", { filter: [{ field: "doc", operator: "eq", value: "a document's own text" }] }],
     ["two comparisons at once", {
       filter: [
         { field: "status", operator: "eq", value: "live" },
@@ -481,6 +611,11 @@ describe("the two stores answering the same question", () => {
     ["an ordering descending", { sort: [{ field: "views", direction: "desc" }] }],
     ["an ordering on text", { sort: [{ field: "title", direction: "asc" }] }],
     ["an ordering on a field some records lack", { sort: [{ field: "note", direction: "asc" }] }],
+    ["an ordering over every class", { sort: [{ field: "mixed", direction: "asc" }] }],
+    ["an ordering over every class, reversed", { sort: [{ field: "mixed", direction: "desc" }] }],
+    ["an ordering on letters above the basic plane", { sort: [{ field: "uni", direction: "asc" }] }],
+    ["an ordering on a document", { sort: [{ field: "doc", direction: "asc" }] }],
+    ["an ordering on a list", { sort: [{ field: "tags", direction: "asc" }] }],
     ["two orderings", {
       sort: [
         { field: "status", direction: "asc" },

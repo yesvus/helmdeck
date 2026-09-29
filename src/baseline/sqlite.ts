@@ -142,14 +142,17 @@ function rankOf(value: AdminResourceFilterValue): number {
  * above a number however the two would compare as text, and a comparison that ranked them
  * differently would put a row on a page the ordering would not have chosen.
  *
- * A null is the lowest class, and a filter's value can be one. There is then no value to compare
- * and no operand to bind, because SQL has no value that compares against nothing: the class alone
- * decides, and the operator still says which way. So `gt(null)` is every record that is not null
- * or absent, `gte(null)` is every record, `lt(null)` is none, and `lte(null)` is the null and the
- * absent. That is the ranking read to its end, where a null is the smallest thing a record can
- * hold, and it is the same answer the in-memory comparator gives because it ranks first and
- * compares second as well. The operator is never dropped: a range filter against a null is a real
- * question, and the four operators have four different answers to it.
+ * **A null is the lowest class, and a filter's value can be one.** That is where a three-valued
+ * language and a two-valued one part company, so it is worth the whole rule in one place: there
+ * is no value to compare and no operand to bind, because nothing compares against nothing, and the
+ * class alone decides. The operator still says which way, so `gt(null)` is every record that is
+ * not null or absent, `gte(null)` is every record, `lt(null)` is none, and `lte(null)` is the null
+ * and the absent. Read as a ranking rather than as a special case, that is simply where a null
+ * sits: below every number and every word, so everything is above it and nothing is below it.
+ *
+ * The next operator added here must read the same way. A range filter whose value is a null is a
+ * real question with four different answers, so the operator is applied to the class rather than
+ * dropped, and no branch may answer one operator's question with another's.
  */
 function comparisonFor(
   field: string,
