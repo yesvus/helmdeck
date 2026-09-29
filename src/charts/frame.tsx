@@ -20,7 +20,14 @@ import { AdminSectionCard } from "../primitives/layout.js";
 import { AdminSkeleton } from "../primitives/skeleton.js";
 import { Button } from "../primitives/button.js";
 
-export type AdminChartStatus = "loading" | "error" | "ready";
+/**
+ * The same four states a widget load produces, under the same names.
+ *
+ * Reusing the vocabulary rather than a chart-shaped one is what keeps a host from writing a second
+ * emptiness rule: the load hook already asked the widget's own `isEmpty` and answered, so a chart
+ * that took an `isEmpty` prop of its own would be handed a decision that has been made.
+ */
+export type AdminChartStatus = "loading" | "empty" | "error" | "ready";
 
 export type AdminChartFrameLabels = {
   loading: string;
@@ -61,7 +68,6 @@ export function AdminChartFrame({
   status,
   error,
   onRetry,
-  isEmpty = false,
   labels = defaultAdminChartFrameLabels,
   height = 240,
   children,
@@ -72,7 +78,6 @@ export function AdminChartFrame({
   status: AdminChartStatus;
   error?: Error;
   onRetry?: () => void;
-  isEmpty?: boolean;
   labels?: Partial<AdminChartFrameLabels>;
   height?: number;
   children: React.ReactNode;
@@ -94,11 +99,11 @@ export function AdminChartFrame({
         </div>
       ) : null}
 
-      {status === "ready" && isEmpty ? (
+      {status === "empty" ? (
         <AdminEmptyState title={merged.emptyTitle} body={merged.emptyBody} />
       ) : null}
 
-      {status === "ready" && !isEmpty ? children : null}
+      {status === "ready" ? children : null}
     </AdminSectionCard>
   );
 }
