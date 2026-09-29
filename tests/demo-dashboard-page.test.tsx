@@ -2,16 +2,19 @@
 import { render, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AdminI18nProvider } from "../src/i18n";
-import DashboardPage from "../fixtures/app/dashboard/page";
+import { AdminI18nProvider, adminDashboardAddPlacement, type AdminDashboard } from "@yesvus/helmdeck";
+import DashboardView from "../fixtures/app/dashboard/view";
+import { dashboardRegistry } from "../fixtures/app/dashboard/registry";
 
 /**
  * The dashboard's server actions, stood in for.
  *
- * The page and the engine's tile are the real ones, so what is under test here is the page: that a
- * widget's data reaches the screen, and that a slow widget and a failing one are states the grid
- * renders rather than states a fixture claims. The slow action hands back a promise the test settles
- * by hand, which is what makes the ordering decided rather than raced.
+ * The view and the engine's tile are the real ones, so what is under test here is the grid over a
+ * resolved arrangement: that a widget's data reaches the screen, and that a slow widget and a failing
+ * one are states the grid renders rather than states a fixture claims. The arrangement is passed in
+ * because the page now reads it from the store, which `demo-dashboard-arrangement.test.ts` covers from
+ * the row up. The slow action hands back a promise the test settles by hand, which is what makes the
+ * ordering decided rather than raced.
  */
 const backend = vi.hoisted(() => ({
   signups: vi.fn(),
@@ -45,10 +48,29 @@ function stateOf(widget: string): string | null {
   return tile(widget).getAttribute("data-widget-state");
 }
 
+/**
+ * The six tiles the demo registers, at the size each one declares it supports.
+ *
+ * Read through `adminDashboardAddPlacement` rather than written out, so a tile lands at a size its own
+ * widget agrees to and cannot be placed at one it does not. It is a test's arrangement rather than the
+ * demo's: the demo's comes from the placements table.
+ */
+const ARRANGEMENT: AdminDashboard = [
+  "revenue",
+  "signups",
+  "catalog",
+  "reorder",
+  "reviewQueue",
+  "averageOrder",
+].reduce<AdminDashboard>(
+  (current, widget) => adminDashboardAddPlacement(current, dashboardRegistry, widget),
+  { name: "overview", placements: [] },
+);
+
 function renderPage() {
   return render(
     <AdminI18nProvider locale="en">
-      <DashboardPage />
+      <DashboardView dashboard={ARRANGEMENT} />
     </AdminI18nProvider>,
   );
 }
