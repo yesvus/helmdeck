@@ -36,19 +36,30 @@ const caller = vi.hoisted(() => ({ session: undefined as AdminSession | undefine
  *
  * The real guard resolves a signed session from an HTTP-only cookie, and the session adapter refuses
  * to read one at all from a browser-shaped environment, which is what jsdom is. So the guard answers
- * with the caller a test names, and nothing below it is touched: the rule's answer, the actions and
- * the store are all the demo's own. The guard's own behaviour, including the refusal when there is no
- * session, is asserted in `demo-roles.test.ts`.
+ * with the caller a test names, and nothing below it is touched: the rule, the actions and the store
+ * are all the demo's own. The guard's own behaviour, including the refusal when there is no session,
+ * is asserted in `demo-roles.test.ts`.
+ *
+ * The permission guard is the package's, built here over the demo's own rule with that session in
+ * place of the cookie's, rather than a stand-in that answers yes. What is under test in this file is
+ * what a person sees, and a guard that always allowed would render a delete control an action then
+ * refuses, which is the disagreement the rest of the demo is built to make impossible.
  */
 vi.mock("../fixtures/lib/demo-guard", async () => {
   const actual = await vi.importActual<typeof import("../fixtures/lib/demo-guard")>(
     "../fixtures/lib/demo-guard",
   );
+  const { createAdminPermissionGuard } = await import("@yesvus/helmdeck");
+  const { demoCan } = await import("../fixtures/lib/demo-rules");
   return {
     ...actual,
     requireDemoSession: vi.fn(async () => {
       if (!caller.session) throw new Error("no session");
       return caller.session;
+    }),
+    requireDemoPermission: createAdminPermissionGuard({
+      rule: demoCan,
+      session: () => caller.session ?? null,
     }),
   };
 });

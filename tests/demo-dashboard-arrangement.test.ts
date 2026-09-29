@@ -472,8 +472,11 @@ describe("what a session may do to the arrangement", () => {
 
     expect(((await store.query("orders")) as { id: string }[]).map((row) => row.id).sort()).toEqual(before);
     // And arranging a widget is not a second way into them: the same action the tiles call refuses an
-    // editor the orders, so a tile the person puts on the dashboard still cannot read the money.
-    await expect(asServer(() => queryResourceAction("orders"))).rejects.toThrow(/may not read orders/);
+    // editor the orders, so a tile the person puts on the dashboard still cannot read the money. The
+    // refusal names the permission the rule was asked, which is the package's own wording now.
+    await expect(asServer(() => queryResourceAction("orders"))).rejects.toThrow(
+      "This session may not orders.read",
+    );
   });
 
   it("sends an anonymous caller to the login page rather than answering", async () => {

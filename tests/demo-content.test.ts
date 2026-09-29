@@ -4,6 +4,8 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@libsql/client";
+import { hashPassword } from "@yesvus/helmdeck/baseline";
+import { AdminPermissionDeniedError } from "@yesvus/helmdeck";
 import { signInAction } from "../fixtures/app/login/actions";
 import { CONTENT_STATUSES, isContentStatus } from "../fixtures/app/shell/content/content-status";
 import { contentPosts } from "../fixtures/app/shell/content/content-registry";
@@ -74,6 +76,27 @@ async function signIn(account: { email: string }) {
   return request.session;
 }
 
+/**
+ * The account row, with the role it holds.
+ *
+ * The whole row, not just the role: an update replaces the record rather than merging into it, and the
+ * accounts are what a sign-in now reads, so a role-only write would leave a row with no address and
+ * no hash, which is answered exactly as an address nobody has. These tests change the role and
+ * nothing else about the account.
+ */
+async function setRole(account: { id: string; email: string; role: string }, role: unknown) {
+  await store.update("users", account.id, {
+    id: account.id,
+    email: account.email,
+    role,
+    password_hash: await publishedHash(),
+  });
+}
+
+/** One hash for the file, because scrypt is deliberately slow and the password is the same one. */
+let published: Promise<string> | null = null;
+const publishedHash = () => (published ??= hashPassword(DEMO_PASSWORD));
+
 beforeEach(async () => {
   vi.stubGlobal("window", undefined);
   request.session = undefined;
@@ -82,7 +105,7 @@ beforeEach(async () => {
     await store.delete("sessions", row.id);
   }
   for (const account of demoAccounts) {
-    await store.update("users", account.id, { role: account.role });
+    await setRole(account, account.role);
   }
   // Exactly the seeded rows, and nothing else. A test that changes a post has changed it for the
   // file, and one that created one would leave it behind for a later count to trip over, so the store
@@ -296,7 +319,10 @@ describe("the roles, at the action rather than at the button", () => {
 
     expect(await readContentPosts()).toHaveLength(seedPosts.length);
 
-    await expect(deleteContentPost("pst_1")).rejects.toThrow(/may not delete posts/);
+    // The package's guard refuses, and names the permission it was asked rather than the operation in
+    // a sentence of its own: the same fact, in the wording the host's rule is written in.
+    await expect(deleteContentPost("pst_1")).rejects.toThrow(AdminPermissionDeniedError);
+    await expect(deleteContentPost("pst_1")).rejects.toThrow("This session may not posts.delete");
     // Refused before the write, so the post is intact rather than deleted with an error shown.
     expect(await readContentPost("pst_1")).not.toBeNull();
   });

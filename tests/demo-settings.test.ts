@@ -4,6 +4,7 @@ import { createClient } from "@libsql/client";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { hashPassword } from "@yesvus/helmdeck/baseline";
 import { signInAction } from "../fixtures/app/login/actions";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { ensureDemoSeeded } from "../fixtures/lib/ensure-seeded";
@@ -110,6 +111,27 @@ async function restoreSettings() {
   await store.create("site_settings", { id: SETTINGS_ROW_ID, ...DEFAULT_SETTINGS });
 }
 
+/**
+ * The account row, with the role it holds.
+ *
+ * The whole row, not just the role: an update replaces the record rather than merging into it, and the
+ * accounts are what a sign-in now reads, so a role-only write would leave a row with no address and
+ * no hash, which is answered exactly as an address nobody has. These tests change the role and
+ * nothing else about the account.
+ */
+async function setRole(account: { id: string; email: string; role: string }, role: unknown) {
+  await store.update("users", account.id, {
+    id: account.id,
+    email: account.email,
+    role,
+    password_hash: await publishedHash(),
+  });
+}
+
+/** One hash for the file, because scrypt is deliberately slow and the password is the same one. */
+let published: Promise<string> | null = null;
+const publishedHash = () => (published ??= hashPassword(DEMO_PASSWORD));
+
 beforeEach(async () => {
   vi.stubGlobal("window", undefined);
   request.session = undefined;
@@ -118,10 +140,11 @@ beforeEach(async () => {
     await store.delete("sessions", row.id);
   }
   // The whole row, not just the role: an update replaces the record rather than merging into it, so
-  // a role-only reset would blank the email and leave a session that resolves to no account.
+  // a role-only reset would blank the email and leave a session that resolves to no account. The
+  // address and the hash are written from the seed rather than from whatever the row holds, because a
+  // test that changed a role replaced the row and the next test needs an account again.
   for (const account of demoAccounts) {
-    const stored = await store.read<Record<string, unknown>>("users", account.id);
-    await store.update("users", account.id, { ...(stored ?? {}), role: account.role });
+    await setRole(account, account.role);
   }
   await restoreSettings();
 });
@@ -212,7 +235,7 @@ describe("what a session may do to the settings", () => {
     expect(await save(changed)).toBe(`${SETTINGS_PATH}?saved=1`);
     expect(await readSiteSettingsAction()).toMatchObject(changed);
 
-    await store.update("users", editor.id, { role: "admin" });
+    await setRole(editor, "admin");
     expect(await readSiteSettingsAction()).toMatchObject(changed);
   });
 
@@ -229,9 +252,15 @@ describe("what a session may do to the settings", () => {
 
   it("refuses a session whose stored role is one the rule does not define", async () => {
     await signIn(editor);
-    await store.update("users", editor.id, { role: "superuser" });
+    await setRole(editor, "superuser");
 
-    await expect(readSiteSettingsAction()).rejects.toThrow(/may not read site_settings/);
+    // The read goes through the resource actions, so the refusal is the package's guard naming the
+    // permission it was asked. The write is refused a step earlier, by the settings module's own check
+    // on the same rule, and says so in its own words: two refusals of one question, and the one that
+    // runs first is the host's.
+    await expect(readSiteSettingsAction()).rejects.toThrow(
+      "This session may not site_settings.read",
+    );
     await expect(writeSiteSettingsAction(form(changed))).rejects.toThrow(
       /may not update site_settings/,
     );

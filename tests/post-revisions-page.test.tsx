@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "@yesvus/helmdeck";
+import { hashPassword } from "@yesvus/helmdeck/baseline";
 import { signInAction } from "../fixtures/app/login/actions";
 import PostRevisionsPage from "../fixtures/app/shell/revisions/[id]/page";
 import { PostHistory } from "../fixtures/app/shell/revisions/post-history";
@@ -153,9 +154,30 @@ beforeEach(async () => {
   await seed();
 });
 
+/**
+ * The account row, with the role it holds.
+ *
+ * The whole row, not just the role: an update replaces the record rather than merging into it, and the
+ * accounts are what a sign-in now reads, so a role-only write would leave a row with no address and
+ * no hash, which is answered exactly as an address nobody has. These tests change the role and
+ * nothing else about the account.
+ */
+async function setRole(account: { id: string; email: string; role: string }, role: unknown) {
+  await store.update("users", account.id, {
+    id: account.id,
+    email: account.email,
+    role,
+    password_hash: await publishedHash(),
+  });
+}
+
+/** One hash for the file, because scrypt is deliberately slow and the password is the same one. */
+let published: Promise<string> | null = null;
+const publishedHash = () => (published ??= hashPassword(DEMO_PASSWORD));
+
 afterEach(async () => {
   for (const account of demoAccounts) {
-    await store.update("users", account.id, { role: account.role });
+    await setRole(account, account.role);
   }
 });
 
@@ -304,7 +326,7 @@ describe("the history page", () => {
       // grant rather than a partial one, so there is no history to read either, and the page says
       // there is nothing here instead of rendering something the actions would refuse.
       await signIn(editor);
-      await store.update("users", editor.id, { role: "contributor" });
+      await setRole(editor, "contributor");
 
       await expect(
         onTheServer(() => PostRevisionsPage({ params: Promise.resolve({ id: POST }) })),
