@@ -54,15 +54,20 @@ const NO_FILTERS: AdminResourceFilterDefinition[] = [];
 /**
  * A value that stops changing before it is used, so a typed term is one query rather than one per
  * keystroke. One direction only, so a value that has been superseded is never applied late.
+ *
+ * `key` is what the value belongs to. A different list is not a keystroke in this one, so its
+ * value is taken at once rather than a quarter of a second later, which is the window in which a
+ * term chosen for one resource would have been asked of the next.
  */
-function useSettled<T>(value: T): T {
-  const [settled, setSettled] = useState(value);
+function useSettled<T>(value: T, key: string): T {
+  const [settled, setSettled] = useState({ key, value });
+  if (settled.key !== key) setSettled({ key, value });
   useEffect(() => {
-    if (Object.is(settled, value)) return;
-    const timer = setTimeout(() => setSettled(value), SEARCH_SETTLE_MS);
+    if (settled.key === key && Object.is(settled.value, value)) return;
+    const timer = setTimeout(() => setSettled({ key, value }), SEARCH_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [settled, value]);
-  return settled;
+  }, [key, settled, value]);
+  return settled.value;
 }
 
 /**
@@ -133,8 +138,8 @@ export function AdminResourceList({
     ...NO_CONTROLS,
   });
   const active = controls.resource === definition.resource ? controls : NO_CONTROLS;
-  const search = useSettled(active.search);
-  const chosen = useSettled(active.filters);
+  const search = useSettled(active.search, definition.resource);
+  const chosen = useSettled(active.filters, definition.resource);
   // Bumped to ask again, which a delete is: the count it reported is one row out of date, and a
   // page that just lost its last row has to come back from the store to know there is no next.
   const [reload, setReload] = useState(0);

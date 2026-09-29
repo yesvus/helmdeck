@@ -524,6 +524,27 @@ describe("paging", () => {
 });
 
 describe("a host whose adapter does not answer the query", () => {
+  it("is still an adapter, without a cast", async () => {
+    // The compatibility claim, checked by naming the type rather than by a comment. This is the
+    // shape in every adapter written before the query contract, and a narrowing of the interface
+    // would stop this compiling rather than stop it working.
+    const legacy = {
+      read: async <T,>(): Promise<T | null> => null,
+      query: async <T,>(): Promise<T[]> => [],
+      create: async <T,>(): Promise<T> => {
+        throw new Error("the list does not write");
+      },
+      update: async <T,>(): Promise<T> => {
+        throw new Error("the list does not write");
+      },
+      delete: async (): Promise<void> => undefined,
+    };
+    const asAdapter: AdminPersistenceAdapter = legacy;
+
+    expect(asAdapter.queryPage).toBeUndefined();
+    expect(await asAdapter.query("posts")).toEqual([]);
+  });
+
   it("renders the rows it was given, and asks for them with no query at all", async () => {
     // The memory adapter, unchanged: a one-argument query that reads every key it is given as a
     // field to match exactly. This is the shape in every adapter and every test in the repository.
@@ -570,6 +591,27 @@ describe("a host whose adapter does not answer the query", () => {
     wrap(<AdminResourceList definition={posts} persistence={createMemoryPersistenceAdapter()} />);
 
     expect(await screen.findByText("Nothing here yet.")).toBeInTheDocument();
+  });
+  it("starts the next resource from nothing chosen", async () => {
+    // A term chosen for one resource is a term the other resource was never asked about, and the
+    // count of the first one says nothing about the second.
+    const store = awareStore([
+      { id: "1", title: "Alpha", status: "live" },
+      { id: "2", title: "Page about Alpha", status: "live" },
+    ]);
+    const pages = defineAdminResource({ ...posts, resource: "pages", label: "Pages" });
+
+    const { rerender } = wrap(<AdminResourceList definition={posts} persistence={store.adapter} />);
+    await screen.findByText("Alpha");
+    fireEvent.change(screen.getByLabelText("Search"), { target: { value: "alpha" } });
+    await waitFor(() => expect(store.last()?.search).toBe("alpha"));
+
+    rerender(tree(<AdminResourceList definition={pages} persistence={store.adapter} />));
+
+    await waitFor(() => expect(screen.getByLabelText("Search")).toHaveValue(""));
+    const asked = store.asked[store.asked.length - 1];
+    expect(asked.resource).toBe("pages");
+    expect(asked.query?.search).toBeUndefined();
   });
 });
 
