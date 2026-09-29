@@ -94,6 +94,12 @@ export default function CatalogPage() {
           beside them. {catalogSummary.total} in all: {catalogSummary.renderable} of them render
           below, and the rest say what a host has to hand them first.
         </p>
+        {catalogSummary.described < catalogSummary.total ? (
+          <p className="rounded-admin-control border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {catalogSummary.total - catalogSummary.described} exports have no description yet, so they are
+            not listed. A test fails until every export has one.
+          </p>
+        ) : null}
       </header>
 
       <div className="space-y-3 rounded-admin-card border border-admin-border bg-admin-surface p-4">

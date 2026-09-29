@@ -41,7 +41,8 @@ export type CatalogEntry = {
   kind: CatalogKind;
   category: CatalogCategory | null;
   summary: string;
-  keywords: string;
+  /** Everything a search matches against: the name, the description, the keywords and the kind. */
+  searchText: string;
   /** Whether the page can render this component. The preview registry is keyed by export name. */
   renderable: boolean;
   /** Why a component has nothing to show. Null when it has a preview, or when it is not a component. */
@@ -1102,7 +1103,7 @@ function describe(entryPoint: CatalogEntryPoint, name: string, value: unknown): 
     kind,
     category: meta?.category ?? null,
     summary: meta?.summary ?? "No description yet.",
-    keywords: [name.toLowerCase(), meta?.summary ?? "", meta?.keywords ?? "", kind].join(" ").toLowerCase(),
+    searchText: [name, meta?.summary ?? "", meta?.keywords ?? "", kind].join(" ").toLowerCase(),
     renderable: kind === "component" && meta?.renderable === true,
     hostNote: kind === "component" ? (meta?.hostNote ?? null) : null,
     signature: kind === "component" ? null : signatureOf(value),
@@ -1137,6 +1138,6 @@ export function searchCatalog(entries: CatalogEntry[], { query, category }: Cata
   const terms = (query ?? "").trim().toLowerCase().split(/\s+/).filter(Boolean);
   return entries.filter((entry) => {
     if (category && entry.category !== category) return false;
-    return terms.every((term) => entry.keywords.includes(term));
+    return terms.every((term) => entry.searchText.includes(term));
   });
 }
