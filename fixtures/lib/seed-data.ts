@@ -73,10 +73,54 @@ export const seedPlacements = [
   { id: "plc_notes", dashboard: "overview", widget: "notes", size: "sm", position: 3 },
 ] as const;
 
+/**
+ * The landing page as a visitor first meets it, as rows rather than as widget ids.
+ *
+ * Headings are written here because a section's title is a column a person edits, and the demo's
+ * claim is that an edit survives a reload: a page that arrives already named is a page whose naming
+ * can be seen to work. The width is inside the document because that is where the table keeps the
+ * fields it has no column for.
+ */
+export const seedLandingSections = [
+  {
+    id: "sec_hero",
+    page: "landing",
+    kind: "hero",
+    title: "A sofa that arrives before you have chosen one",
+    position: 0,
+    content: JSON.stringify({ size: "xl" }),
+  },
+  {
+    id: "sec_features",
+    page: "landing",
+    kind: "features",
+    title: "Flat-pack, assembled in the room it will live in",
+    position: 1,
+    content: JSON.stringify({ size: "lg" }),
+  },
+  {
+    id: "sec_pricing",
+    page: "landing",
+    kind: "pricing",
+    title: "Everything under 900, with delivery included",
+    position: 2,
+    content: JSON.stringify({ size: "md" }),
+  },
+  {
+    id: "sec_faq",
+    page: "landing",
+    kind: "faq",
+    title: "Returns for 60 days, no questions asked",
+    position: 3,
+    content: JSON.stringify({ size: "sm" }),
+  },
+] as const;
+
 export const seedEverything = {
   users: seedUsers,
   posts: seedPosts,
   products: seedProducts,
   orders: seedOrders,
   dashboard_placements: seedPlacements,
+  landing_sections: seedLandingSections,
 };

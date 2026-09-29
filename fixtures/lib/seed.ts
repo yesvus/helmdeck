@@ -5,7 +5,8 @@
  *
  * Idempotent by id: seeding twice leaves the same rows rather than duplicating a workspace, which
  * matters because a deploy runs migrations and seeding, and a demo that doubled its orders on every
- * deploy would stop being credible within a week.
+ * deploy would stop being credible within a week. The landing page is the one group that is not
+ * rewritten, because somebody's arrangement is a thing to keep rather than a record to refresh.
  *
  * A row whose constraints the seed itself violates is a failure, not a warning. The seed is checked
  * against the same database the demo reads, so a typo in a SKU surfaces here rather than as a demo
@@ -53,6 +54,24 @@ export async function seedDemo(
     } else {
       await adapter.create("users", { ...user, password_hash: hash });
       result.created.users = (result.created.users ?? 0) + 1;
+    }
+  }
+
+  /**
+   * The landing page is seeded only while it is empty, which is the opposite rule to the groups above.
+   *
+   * Idempotent by id means "if I know this record, write it again from the seed", which is what a
+   * catalogue of products wants and what an arrangement must not have: the demo's whole claim is that
+   * an edit survives a reload, and a seed that put the sections back would make that untrue on any
+   * deployment where the next request is a different process. An empty page is seeded, an arranged one
+   * is left alone, and a person who deletes every section gets an empty page rather than the seed.
+   */
+  const landing = await adapter.query<{ page: string }>("landing_sections");
+  for (const page of new Set(seedEverything.landing_sections.map((row) => row.page))) {
+    if (landing.some((row) => row.page === page)) continue;
+    for (const row of seedEverything.landing_sections.filter((section) => section.page === page)) {
+      await adapter.create("landing_sections", row);
+      result.created.landing_sections = (result.created.landing_sections ?? 0) + 1;
     }
   }
 

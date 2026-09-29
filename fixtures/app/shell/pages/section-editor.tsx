@@ -6,19 +6,25 @@ import {
   AdminCollectionEditor,
   AdminDashboardLayout,
   AdminField,
+  AdminInput,
   AdminSelect,
   AdminSortableDndContext,
   AdminSortableToast,
   adminCollectionReorder,
   adminWidgetSizes,
   useAdminSortableList,
-  type AdminDashboardPlacement,
   type AdminWidgetSize,
 } from "@yesvus/helmdeck";
-import { landingSectionCopy, landingSections, landingWidgets } from "./landing-registry";
+import {
+  landingSectionCopy,
+  landingSectionName,
+  landingSections,
+  landingWidgets,
+  type LandingSection,
+} from "./landing-registry";
 import { saveLandingSections } from "../../../lib/demo-collections";
 
-const placementId = (placement: AdminDashboardPlacement) => placement.id;
+const sectionId = (section: LandingSection) => section.id;
 
 /**
  * The landing page, arranged with the engine's collection editor and stored as rows.
@@ -34,12 +40,12 @@ const placementId = (placement: AdminDashboardPlacement) => placement.id;
  * are inert. That context is a shipped primitive, so composing it here is the same wiring the editor
  * does internally, placed where the persistence already is.
  */
-export function LandingPageEditor({ initial }: { initial: AdminDashboardPlacement[] }) {
+export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
   const [entries, setEntries] = useState(initial);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const persist = useCallback(async (next: AdminDashboardPlacement[]) => {
+  const persist = useCallback(async (next: LandingSection[]) => {
     setSaveState("saving");
     setSaveError(null);
     try {
@@ -52,18 +58,18 @@ export function LandingPageEditor({ initial }: { initial: AdminDashboardPlacemen
   }, []);
 
   const change = useCallback(
-    (next: AdminDashboardPlacement[]) => {
+    (next: LandingSection[]) => {
       setEntries(next);
       void persist(next);
     },
     [persist],
   );
 
-  // Rebuilds whenever the arrangement changes, so a drag that lands after a field edit reorders the
+  // Rebuilt whenever the arrangement changes, so a drag that lands after a field edit reorders the
   // list as it is now rather than the copy the drag started from.
-  const sortable = useAdminSortableList<AdminDashboardPlacement>({
+  const sortable = useAdminSortableList<LandingSection>({
     items: entries,
-    getId: placementId,
+    getId: sectionId,
     onReorder: async (orderedIds) => {
       // Ordered by identity rather than by index, so a list that changed under the drag degrades to a
       // partial move instead of dropping a section.
@@ -77,14 +83,17 @@ export function LandingPageEditor({ initial }: { initial: AdminDashboardPlacemen
       Object.fromEntries(
         entries.map((entry) => [
           entry.id,
-          { status: "ready" as const, data: { copy: landingSectionCopy(entry.widget) } },
+          {
+            status: "ready" as const,
+            data: { heading: entry.title || landingSectionName(entry.widget), copy: landingSectionCopy(entry.widget) },
+          },
         ]),
       ),
     [entries],
   );
 
   const patch = useCallback(
-    (id: string, changes: Partial<Omit<AdminDashboardPlacement, "id">>) => {
+    (id: string, changes: Partial<Omit<LandingSection, "id">>) => {
       change(entries.map((entry) => (entry.id === id ? { ...entry, ...changes } : entry)));
     },
     [change, entries],
@@ -126,7 +135,7 @@ export function LandingPageEditor({ initial }: { initial: AdminDashboardPlacemen
           emptyBody="Add the first section to build the page."
           renderSummary={(entry) =>
             entry.widget
-              ? `${landingWidgets.resolve(entry.widget)?.title ?? entry.widget} · ${entry.size}`
+              ? `${entry.title || landingSectionName(entry.widget)} · ${entry.size}`
               : "Choose a section"
           }
           renderFields={(entry) => (
@@ -167,6 +176,14 @@ export function LandingPageEditor({ initial }: { initial: AdminDashboardPlacemen
                   ))}
                 </AdminSelect>
               </AdminField>
+
+              <AdminField label="Heading" className="sm:col-span-2">
+                <AdminInput
+                  value={entry.title}
+                  onChange={(event) => patch(entry.id, { title: event.target.value })}
+                  placeholder={entry.widget ? landingSectionName(entry.widget) : "Name this section"}
+                />
+              </AdminField>
             </div>
           )}
         />
@@ -180,14 +197,6 @@ export function LandingPageEditor({ initial }: { initial: AdminDashboardPlacemen
           registry={landingWidgets}
           placements={entries}
           states={states}
-          messages={{
-            widget: {
-              emptyTitle: "Nothing here",
-              emptyBody: "This section has no content.",
-              errorTitle: "This section could not load",
-              retry: "Try again",
-            },
-          }}
         />
       </section>
     </div>
