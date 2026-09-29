@@ -49,6 +49,7 @@ type ListControls = {
 };
 
 const NO_CONTROLS: ListControls = { search: "", filters: {}, sort: [], page: 1 };
+const NO_FILTERS: AdminResourceFilterDefinition[] = [];
 
 /**
  * A value that stops changing before it is used, so a typed term is one query rather than one per
@@ -145,7 +146,7 @@ export function AdminResourceList({
   // list is a collection: this is the question the server's `query` asks, and the form asks the
   // per-record one.
   const mayRead = useAdminPermission(permissions.read);
-  const filterDefinitions = definition.filters ?? [];
+  const filterDefinitions = definition.filters ?? NO_FILTERS;
 
   /**
    * What the list is asking for, as the caller expressed it. The rows that come back are the
@@ -200,7 +201,9 @@ export function AdminResourceList({
         if (page.total !== null && usable.length === 0 && page.total > 0) {
           const last = Math.max(1, Math.ceil(page.total / size));
           if (active.page > last) {
-            updateControls((current) => ({ ...current, page: last }));
+            setControls((current) =>
+              current.resource === definition.resource ? { ...current, page: last } : current,
+            );
             return;
           }
         }
