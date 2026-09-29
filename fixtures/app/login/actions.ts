@@ -13,6 +13,7 @@
 import { revalidatePath } from "next/cache";
 import type { AdminLoginCredentials } from "@yesvus/helmdeck";
 import { currentDemoSession, demoAuth, endEverySession, hasRole } from "../../lib/demo-session";
+import { demoRecovery } from "../../lib/demo-auth-recovery";
 import { DEFAULT_AFTER_LOGIN, readReturnTo } from "../../lib/demo-guard";
 
 /**
@@ -37,6 +38,23 @@ export async function signOutAction(): Promise<{ ok: boolean; message: string; e
   await demoAuth().logout();
   revalidatePath("/", "layout");
   return { ok: true, message: "Signed out, and the session on the server ended with it." };
+}
+
+/**
+ * Asks for a password-reset link, and says the same thing whichever address was asked about.
+ *
+ * The whole answer is the transport's, in `demoRecovery`, because that is where a sender is decided
+ * and where the enumeration question is answered. A deployment with no sender returns the refusal,
+ * which is what this one does until an operator points `HELMDECK_RECOVERY_WEBHOOK` at an endpoint:
+ * the demo's accounts are seeded and its password is printed on the login page, so there is nothing
+ * here for a visitor to have forgotten, and a link this process could not deliver is a credential
+ * with no purpose but to be replayed.
+ */
+export async function requestPasswordRecoveryAction(
+  email: string,
+): Promise<{ ok: boolean; message: string }> {
+  const outcome = await demoRecovery().request(email);
+  return { ok: outcome.ok, message: outcome.message };
 }
 
 /**
