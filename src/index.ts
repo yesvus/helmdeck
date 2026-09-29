@@ -5,6 +5,7 @@ export * from "./dashboard/model.js";
 export * from "./dashboard/layout.js";
 export * from "./widgets/types.js";
 export * from "./widgets/registry.js";
+export * from "./widgets/data.js";
 export * from "./widgets/body.js";
 export * from "./widgets/panel.js";
 export * from "./widgets/render.js";
