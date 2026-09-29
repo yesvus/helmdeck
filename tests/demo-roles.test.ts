@@ -12,7 +12,7 @@ import { demoCan } from "../fixtures/lib/demo-rules";
 import { seedDemo } from "../fixtures/lib/seed";
 import { seedOrders } from "../fixtures/lib/seed-data";
 import { verifyPassword } from "../fixtures/lib/demo-users";
-import { createTursoPersistenceAdapter, resetTursoAdapterCache } from "../fixtures/lib/turso-persistence";
+import { createTursoPersistenceAdapter, resetTursoAdapterCache, type SqlClient } from "../fixtures/lib/turso-persistence";
 import { checkPermissionAction } from "../fixtures/lib/permission-actions";
 import {
   createResourceAction,
@@ -297,7 +297,10 @@ describe("the role a session acts as", () => {
         );
       }
       resetTursoAdapterCache();
-      const fresh = createTursoPersistenceAdapter(client);
+      // The same bridge demo-persistence.ts uses for the real driver: `SqlClient` is a narrow
+      // structural type and the driver's `execute` is overloaded, so the two do not line up without
+      // a cast even though the runtime shape is what the adapter asks for.
+      const fresh = createTursoPersistenceAdapter(client as unknown as SqlClient);
 
       const afterMigration = await fresh.query<{ id: string; password_hash: string }>("users");
       expect(afterMigration.map((row) => row.id).sort()).toEqual(["usr_editor", "usr_owner"]);
