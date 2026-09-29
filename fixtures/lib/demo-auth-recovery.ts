@@ -167,6 +167,23 @@ export function createDemoRecovery(options: DemoRecoveryOptions = {}): DemoRecov
     }
   }
 
+  /**
+   * Telling the host its transport failed, without letting the host's own failure become the answer.
+   *
+   * A hook that throws is indistinguishable, from outside, from a request that reached an account and
+   * a transport that worked: the request for a known address fails where the request for an unknown
+   * one succeeds, which is an account oracle built out of an error handler. Swallowing it costs the
+   * host a stack trace, which is the right trade for a path whose entire job is to look the same
+   * twice.
+   */
+  function reportDeliveryError(opts: DemoRecoveryOptions, cause: unknown): void {
+    try {
+      opts.onDeliveryError?.(cause);
+    } catch {
+      // Deliberately empty: a throwing hook must not change the outcome.
+    }
+  }
+
   return {
     configured: transport !== undefined,
 
@@ -177,25 +194,37 @@ export function createDemoRecovery(options: DemoRecoveryOptions = {}): DemoRecov
       const account = demoAccounts.find((candidate) => candidate.email === addressed);
       const expiresAt = new Date(now() + RECOVERY_TOKEN_TTL_SECONDS * 1000);
 
-      const token = await transport.issueToken({ email: addressed, expiresAt });
-      if (account) {
-        // Minting first, so a host whose issuer fails is answered the same way for both.
+      // Everything from here to the return is incapable of throwing, and incapable of answering
+      // differently. A request that reaches a known account runs work an unknown one does not, so any
+      // failure escaping this block is an oracle: the same call, the same answer, whatever the host's
+      // issuer, transport or error hook happens to do.
+      try {
+        const token = await transport.issueToken({ email: addressed, expiresAt });
+
+        if (!account) {
+          // The expensive part of an issuance, paid for an address with no account, and the record it
+          // would have written thrown away: nothing that cannot be delivered leaves this process.
+          await digestOf(token, randomBytes(SALT_BYTES));
+          return { ok: true, status: "accepted", message: RECOVERY_CONFIRMATION };
+        }
+
+        // Delivery first, and the record only once delivery has worked. Storing before sending leaves a
+        // usable record for a token nobody received, and worse, retires the one the person already
+        // holds, so a host with a broken transport silently invalidates recovery for everyone on it.
+        await transport.send({ email: addressed, token, expiresAt });
+
         const salt = randomBytes(SALT_BYTES);
         forget(account.id);
-        records.set(newId(), { accountId: account.id, salt, digest: await digestOf(token, salt), expiresAt: expiresAt.getTime() });
-      } else {
-        // The expensive part of an issuance, paid for an address with no account, and the record it
-        // would have written thrown away: nothing that cannot be delivered leaves this process.
-        await digestOf(token, randomBytes(SALT_BYTES));
+        records.set(newId(), {
+          accountId: account.id,
+          salt,
+          digest: await digestOf(token, salt),
+          expiresAt: expiresAt.getTime(),
+        });
+      } catch (cause) {
+        reportDeliveryError(options, cause);
       }
 
-      if (account) {
-        try {
-          await transport.send({ email: addressed, token, expiresAt });
-        } catch (cause) {
-          options.onDeliveryError?.(cause);
-        }
-      }
       return { ok: true, status: "accepted", message: RECOVERY_CONFIRMATION };
     },
 
