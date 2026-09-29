@@ -468,6 +468,7 @@ describe("the two stores answering the same question", () => {
       uni: "ÉCOLE",
       doc: { slug: "one" },
       tags: ["red", "small"],
+      caption: null,
     },
     {
       id: "r2",
@@ -482,6 +483,7 @@ describe("the two stores answering the same question", () => {
       uni: "école",
       doc: [1, 2, 3],
       tags: [],
+      caption: "nothing but a null in the text",
     },
     {
       id: "r3",
@@ -528,8 +530,13 @@ describe("the two stores answering the same question", () => {
     ["a term", { search: "alpha" }],
     ["a term in a nested value's own resource", { search: "second" }],
     ["a term nothing holds", { search: "no such thing" }],
-    ["a term spelled as a number is stored", { search: "1e+21" }],
-    ["a term spelled as a number is stored the other way", { search: "1.0e+21" }],
+    // A term in a number is matched against the number as the store spells it, which is not always
+    // how JavaScript writes it: `1e21` is stored, read back and written out as `1.0e+21`, so a
+    // person searching for the value they typed finds nothing and a person searching for what the
+    // store holds finds the record. Both stores spell it the same way, which is the property.
+    ["a term in a number as the store spells it", { search: "1.0e+21" }],
+    ["a term in a number as JavaScript spells it", { search: "1e+21" }],
+    ["a term in a real with a rounding tail", { search: "0.3" }],
     ["a term folded from a letter above ASCII", { search: "école" }],
     ["a term in a boolean", { search: "true" }],
     ["a term in a document", { search: "slug" }],
@@ -584,7 +591,7 @@ describe("the two stores answering the same question", () => {
     ["a term inside a number the two engines spell differently", { filter: [{ field: "weight", operator: "contains", value: 0.1 + 0.2 }] }],
     ["a term inside a number in exponent form", { filter: [{ field: "weight", operator: "contains", value: 1e21 }] }],
     ["a term inside a boolean given as a boolean", { filter: [{ field: "published", operator: "contains", value: false }] }],
-    ["a term inside a null", { filter: [{ field: "note", operator: "contains", value: null }] }],
+    ["a term inside a null", { filter: [{ field: "caption", operator: "contains", value: null }] }],
     ["a term inside a document", { filter: [{ field: "doc", operator: "contains", value: "slug" }] }],
     ["a term inside a list", { filter: [{ field: "tags", operator: "contains", value: "red" }] }],
     ["a term inside a field no record has", { filter: [{ field: "absent", operator: "contains", value: "5" }] }],
@@ -655,9 +662,52 @@ describe("the two stores answering the same question", () => {
   }
 
   it("are not both empty, or a pair of stores that answer nothing would pass every case above", async () => {
-    const [[, memoryStore], [, sqliteStore]] = await seeded(records);
-    const page = await memoryStore.queryPage<Row>("products", { sort: [{ field: "views", direction: "desc" }] });
+    // Asked of every query in the set above rather than of one of them, because the failure this
+    // guards against is silent: a query that matches nothing is a pair of stores agreeing, so a
+    // case the records cannot express passes without either store being asked anything. A case
+    // that matches nothing here is a case the records cannot express, and the fix is the records.
+    //
+    // The exceptions are named rather than skipped silently, because "matches nothing" is the
+    // answer for a few of them and a vacuous pass for the rest.
+    const matchesNothing = new Set([
+      "a term nothing holds",
+      "a term in a number as JavaScript spells it",
+      "a term in a document",
+      "a range against a field no record has",
+      "not null on a field no record has",
+      "equality against a document",
+      "a nested field that is null",
+      "less than a null",
+      "a range against a field no record has, at or below nothing",
+      "a list of values no record holds",
+      "a term inside a field no record has",
+    ]);
 
+    const [[, memoryStore], [, sqliteStore]] = await seeded(records);
+
+    const asked: Array<[string, number]> = [];
+    for (const [what, query] of queries) {
+      if (matchesNothing.has(what)) continue;
+      const page = await memoryStore.queryPage<Row>("products", query);
+      asked.push([what, page.total]);
+    }
+
+    // Asserted on the totals as a collected whole rather than inside the loop, so that weakening
+    // the comparison cannot leave the guard passing. A case the records cannot express is a zero
+    // here, and the names are reported so the fix is the records rather than the expectation.
+    const expressed = asked.filter(([, total]) => total > 0).map(([what]) => what);
+    expect(
+      expressed,
+      "these queries match nothing in both stores, so the records cannot express them",
+    ).toEqual(asked.map(([what]) => what));
+
+    // Counted rather than trusted, because a loop over a set that shrank would still pass. Every
+    // query above is either asked here or named in the exceptions, and a new one cannot be added
+    // without saying whether it is meant to match.
+    expect(asked.length + matchesNothing.size).toBe(queries.length);
+    expect(matchesNothing.size).toBeLessThan(queries.length / 2);
+
+    const page = await memoryStore.queryPage<Row>("products", { sort: [{ field: "views", direction: "desc" }] });
     expect(page.total).toBe(5);
     expect(page.rows.map(byId)).toEqual(["r5", "r4", "r3", "r2", "r1"]);
     expect((await sqliteStore.queryPage<Row>("products")).rows.map(byId)).toEqual([
