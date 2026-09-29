@@ -1,62 +1,24 @@
 // SPDX-License-Identifier: MIT
+"use client";
 
-import {
-  AdminDashboardLayout,
-  adminDashboardAddPlacement,
-  adminDashboardValidate,
-  createAdminWidgetRegistry,
-  defineAdminWidget,
-  type AdminDashboard,
-} from "@yesvus/helmdeck";
+/**
+ * The demo dashboard: a declared arrangement of widgets, each loading its own data.
+ *
+ * A client component, and the reason is the data rather than the grid. `AdminDashboardLayout` is
+ * server-safe because the host resolves every widget's state and hands over a plain map; a live
+ * dashboard instead hands over a loader per tile, and a function cannot be passed from a server
+ * component into a client one. `AdminDashboardTiles` is the half that loads, so the page is on the
+ * same side as the loaders.
+ *
+ * That leaves the guard where it was rather than moving it here: the layout above is still a server
+ * component, so a request without a session is redirected before this page is rendered at all, and
+ * the fact that the page itself ships as client code never becomes the thing being protected.
+ */
 
-const registry = createAdminWidgetRegistry({
-  signups: defineAdminWidget<{ total: number; trend: number }>({
-    id: "signups",
-    title: "Signups this month",
-    sizes: ["sm", "md", "lg"],
-    isEmpty: (data) => data.total === 0,
-    render: (data) => (
-      <p className="text-2xl font-semibold text-zinc-900">
-        {data.total}
-        <span className="ml-2 text-sm font-normal text-zinc-500">
-          {data.trend >= 0 ? `+${data.trend}%` : `${data.trend}%`}
-        </span>
-      </p>
-    ),
-  }),
-  revenue: defineAdminWidget<{ total: number }>({
-    id: "revenue",
-    title: "Revenue",
-    sizes: ["lg", "xl"],
-    render: (data) => <p className="text-2xl font-semibold text-zinc-900">{data.total}</p>,
-  }),
-  orders: defineAdminWidget<{ pending: number }>({
-    id: "orders",
-    title: "Orders awaiting review",
-    sizes: ["sm", "md"],
-    render: (data) => <p className="text-2xl font-semibold text-zinc-900">{data.pending}</p>,
-  }),
-  notes: defineAdminWidget<{ count: number }>({
-    id: "notes",
-    title: "Release notes",
-    sizes: ["sm", "md", "lg", "xl"],
-    render: (data) => <p className="text-sm text-zinc-600">{data.count} published this quarter.</p>,
-  }),
-});
+import { AdminDashboardTiles, adminDashboardValidate } from "@yesvus/helmdeck";
+import { dashboardLoaders, dashboardRegistry, demoDashboard } from "./widgets";
 
-const base: AdminDashboard = { name: "overview", placements: [] };
-
-const dashboard: AdminDashboard = ["signups", "orders", "revenue", "notes"].reduce(
-  (current, widget) => adminDashboardAddPlacement(current, registry, widget),
-  base,
-);
-
-const states = {
-  [dashboard.placements[0].id]: { status: "ready" as const, data: { total: 1284, trend: 12 } },
-  [dashboard.placements[1].id]: { status: "ready" as const, data: { pending: 37 } },
-  [dashboard.placements[2].id]: { status: "ready" as const, data: { total: 48210 } },
-  [dashboard.placements[3].id]: { status: "ready" as const, data: { count: 4 } },
-};
+const placements = demoDashboard.placements;
 
 export default function DashboardPage() {
   return (
@@ -64,18 +26,23 @@ export default function DashboardPage() {
       <header className="space-y-1">
         <h1 className="text-lg font-semibold text-zinc-900">Dashboard</h1>
         <p className="text-sm text-zinc-500">
-          A declared arrangement of widgets on a responsive grid. No positioning library, so this
-          page is a server component.
+          Every tile reads the store through the same actions the product and order pages use. The
+          signups tile asks for a table this admin does not expose, and the average order value waits
+          on a slow query.
         </p>
       </header>
 
-      <AdminDashboardLayout registry={registry} placements={dashboard.placements} states={states} />
+      <AdminDashboardTiles
+        registry={dashboardRegistry}
+        placements={placements}
+        loaders={dashboardLoaders}
+      />
 
       <section className="rounded-admin-card border border-dashed border-admin-border bg-admin-surface p-5">
         <h2 className="text-sm font-semibold text-zinc-900">The arrangement validates against the registry</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          {adminDashboardValidate(registry, dashboard.placements).size} problems across{" "}
-          {dashboard.placements.length} placements.
+          {adminDashboardValidate(dashboardRegistry, placements).size} problems across{" "}
+          {placements.length} placements.
         </p>
       </section>
     </div>
