@@ -206,6 +206,24 @@ const posts = defineAdminResource({
 
 `createMemoryPersistenceAdapter` is CRUD over plain objects, which is enough for a fixture or a test with no database. It hands out copies in both directions, so a caller cannot edit stored state without going through `update`. `createAuditAdapter` and `createCacheAdapter` are thin defaults that swallow their own failures, because the change has already happened by the time either runs; both take an `onError` so the failure is still observable.
 
+### The SQLite adapter
+
+`createSqlitePersistenceAdapter` is the same CRUD over a real database, with no schema to design first. Point it at a path and it creates the table it stores in on the first call.
+
+```ts
+import { createSqlitePersistenceAdapter } from "@yesvus/helmdeck/baseline";
+
+export const persistence = createSqlitePersistenceAdapter({ url: "file:./helmdeck.db" });
+```
+
+A path with no scheme is a local file, so `file:./helmdeck.db` and `./helmdeck.db` are the same store. The same adapter takes `libsql://` with an `authToken` for a hosted database, so the local file grows into hosted storage by changing a string rather than by changing code.
+
+Records are stored as JSON documents keyed by resource and id, which is why no schema is needed: any resource works on the first call, and an id you supply is the id that is stored, so seeded rows keep pointing at each other.
+
+Filters are exact matches on a stored value, so a filter is a string, a number, a boolean or `null`. Each predicate states the JSON type it expects, which is what keeps a filter for `1` from being answered by a record storing `true`, and lets `null` find a record storing `null` rather than matching nothing at all. A filter carrying an object or an array is refused with an error rather than compared as text, because text comparison matches on key order and would quietly return the wrong rows.
+
+This is the adapter to start on. A filter runs through `json_extract`, which SQLite cannot index the way it can a column, so once a resource is large enough that the scan shows, put it behind a mapped schema and the same `AdminPersistenceAdapter`.
+
 ## Host integration contracts
 
 `AdminAuthAdapter` resolves the current session and handles login/logout. `AdminPermissionsAdapter` answers host-defined permission checks; shell navigation role filtering is presentation only and never replaces route or operation authorization. The host owns identity, session lifetime, credentials, permission names, and enforcement.

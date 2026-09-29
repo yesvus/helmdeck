@@ -39,6 +39,7 @@ const DOCUMENTED_COMPONENTS = [
 const DOCUMENTED_BASELINE = [
   "createSessionAuthAdapter",
   "createMemoryPersistenceAdapter",
+  "createSqlitePersistenceAdapter",
   "createAuditAdapter",
   "createCacheAdapter",
 ];
