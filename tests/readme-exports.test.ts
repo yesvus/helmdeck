@@ -38,10 +38,18 @@ const DOCUMENTED_COMPONENTS = [
  */
 const DOCUMENTED_BASELINE = [
   "createSessionAuthAdapter",
+  "createCredentialAuthAdapter",
+  "createPersistenceCredentialStore",
   "createMemoryPersistenceAdapter",
   "createSqlitePersistenceAdapter",
   "createAuditAdapter",
   "createCacheAdapter",
+  "generateSessionSecret",
+  "hashPassword",
+  "normalizeEmail",
+  "verifyPassword",
+  "CREDENTIAL_USERS_SCHEMA",
+  "CREDENTIAL_SESSIONS_SCHEMA",
 ];
 
 const DOCUMENTED_FUNCTIONS = [
