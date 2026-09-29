@@ -5,6 +5,7 @@ import { ChevronDown, type LucideIcon } from "lucide-react";
 import { cn } from "../cn.js";
 import { buttonVariants } from "./button.js";
 import { AdminContextualHelp } from "./contextual-help.js";
+import { adminToneClasses, type AdminTone } from "./tone.js";
 
 // One surface contract for every card-like primitive. These had drifted across three radius values
 // and two surfaces, which read as different products on one page. The background is deliberately
@@ -97,21 +98,19 @@ export function AdminSectionIntro({
   );
 }
 
-/**
- * "danger" is still accepted, because a host written against the earlier type passes it and a
- * compile error is a worse way to learn about a rename than a tone that quietly means the same thing.
- * The three tone types now agree on one word per severity; "danger" is the deprecated spelling of
- * "error" and both map to the same classes, so nothing renders differently.
- */
-export type AdminStatCardTone = "neutral" | "success" | "warning" | "error" | "danger";
+// Both are the shared union under the names their props have always published, so a host that
+// imported either keeps compiling. See tone.ts for the vocabulary and the severity alias.
+export type AdminStatCardTone = AdminTone;
 
-const adminStatCardToneClasses: Record<AdminStatCardTone, string> = {
-  neutral: "bg-admin-surface text-zinc-600",
-  success: "bg-emerald-50 text-emerald-700",
-  warning: "bg-amber-50 text-amber-700",
-  error: "bg-red-50 text-red-700",
-  danger: "bg-red-50 text-red-700",
-};
+const adminStatCardToneClasses = adminToneClasses(
+  {
+    neutral: "bg-admin-surface text-zinc-600",
+    info: "bg-sky-50 text-sky-700",
+    success: "bg-emerald-50 text-emerald-700",
+    warning: "bg-amber-50 text-amber-700",
+  },
+  "bg-red-50 text-red-700",
+);
 
 export function AdminStatCard({
   icon: Icon,
@@ -251,14 +250,21 @@ export function AdminListItemCard({
   );
 }
 
-export type AdminBannerTone = "info" | "success" | "warning" | "error";
+export type AdminBannerTone = AdminTone;
 
-const adminBannerToneClasses: Record<AdminBannerTone, string> = {
-  info: "border-zinc-200 bg-zinc-50 text-zinc-700",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-900",
-  warning: "border-amber-200 bg-amber-50 text-amber-900",
-  error: "border-red-200 bg-red-50 text-red-900",
-};
+// The banner's info tone has always been the unaccented zinc treatment, so neutral reuses it
+// rather than inventing a second unaccented look the two spellings could then disagree about.
+const adminBannerNeutralClasses = "border-zinc-200 bg-zinc-50 text-zinc-700";
+
+const adminBannerToneClasses = adminToneClasses(
+  {
+    neutral: adminBannerNeutralClasses,
+    info: adminBannerNeutralClasses,
+    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    warning: "border-amber-200 bg-amber-50 text-amber-900",
+  },
+  "border-red-200 bg-red-50 text-red-900",
+);
 
 export function AdminBanner({
   tone,
