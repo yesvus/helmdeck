@@ -68,7 +68,9 @@ export const dashboardRegistry = createAdminWidgetRegistry({
   reorder: defineAdminWidget<ReorderRow[]>({
     id: "reorder",
     title: "Products to reorder",
-    sizes: ["sm"],
+    // Half width as well as a third, because a short list of products is the case where a person
+    // reaches for the size control at all.
+    sizes: ["sm", "md"],
     isEmpty: (rows) => rows.length === 0,
     render: (rows) => (
       <ul className="space-y-1 text-sm text-zinc-700">
