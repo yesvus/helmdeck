@@ -5,9 +5,120 @@ import type {
   AdminCacheInvalidationAdapter,
   AdminPersistenceAdapter,
 } from "../adapters/index.js";
+import { parseAdminResourceQuery } from "../adapters/query.js";
+import type {
+  AdminResourceFilter,
+  AdminResourcePage,
+  AdminResourceQuery,
+  AdminResourceSort,
+} from "../adapters/query.js";
 
 /** A stored record, with the identity the persistence layer needs to address it. */
 export type MemoryRecord = { id: string; [key: string]: unknown };
+
+/**
+ * Where a stored value sits in an order: nothing first, then numbers and booleans, then text.
+ *
+ * This is SQLite's own order of storage classes, written out because the two stores shipped here
+ * have to answer the same query the same way. A record that sorted differently under the two
+ * adapters would move between pages, and a list cannot show its way out of a disagreement about
+ * which row is the fortieth.
+ */
+function rankOf(value: unknown): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === "number" || typeof value === "boolean") return 1;
+  return 2;
+}
+
+/** A boolean as the number a database stores it as, so `true` and `1` order as each other. */
+function asNumber(value: unknown): number {
+  return typeof value === "boolean" ? (value ? 1 : 0) : Number(value);
+}
+
+/** Text a comparison reads, with a document spelled as its own JSON, which is how a store casts it. */
+function asText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null) return JSON.stringify(value);
+  return String(value);
+}
+
+function compareValues(left: unknown, right: unknown): number {
+  const ranks = rankOf(left) - rankOf(right);
+  if (ranks !== 0) return ranks;
+  if (ranks === 0 && rankOf(left) === 0) return 0;
+  if (rankOf(left) === 1) return asNumber(left) - asNumber(right);
+  const leftText = asText(left);
+  const rightText = asText(right);
+  return leftText < rightText ? -1 : leftText > rightText ? 1 : 0;
+}
+
+/** A value the search reads, or nothing for one it does not read: a null and a document. */
+function searchable(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "object") return null;
+  return String(value);
+}
+
+function matchesSearch(record: MemoryRecord, term: string): boolean {
+  const needle = term.toLowerCase();
+  return Object.values(record).some((value) => {
+    const text = searchable(value);
+    return text !== null && text.toLowerCase().includes(needle);
+  });
+}
+
+function containsTerm(value: unknown, term: string): boolean {
+  if (value === null || value === undefined) return false;
+  return asText(value).toLowerCase().includes(term.toLowerCase());
+}
+
+/** `===` for equality, because the exact-match reading of the older query depends on it. */
+function matches(record: MemoryRecord, filter: AdminResourceFilter): boolean {
+  const value = record[filter.field];
+  switch (filter.operator) {
+    case "eq":
+      return value === filter.value;
+    case "ne":
+      return value !== filter.value;
+    case "gt":
+      return compareValues(value, filter.value) > 0;
+    case "gte":
+      return compareValues(value, filter.value) >= 0;
+    case "lt":
+      return compareValues(value, filter.value) < 0;
+    case "lte":
+      return compareValues(value, filter.value) <= 0;
+    case "in":
+      return (filter.value as unknown[]).some((entry) => value === entry);
+    case "contains":
+      return containsTerm(value, filter.value as string);
+    case "isNull":
+      return value === null;
+    case "notNull":
+      return value !== null && value !== undefined;
+  }
+}
+
+/**
+ * The store's own order when nothing is asked for, and the asked-for order with the id behind it.
+ *
+ * The id is the tiebreak because it is the one field every record here has, the one a list
+ * addresses its rows by, and the one field a page boundary can be stated in terms of. Without it,
+ * which row of a group tied on the sort field lands on which page is left to the engine, and two
+ * pages of one query can then repeat a row and drop another. It goes last and always ascending,
+ * so it settles ties without ever contradicting the order that was asked for.
+ */
+function orderRecords(records: MemoryRecord[], sort: AdminResourceSort[] | undefined): MemoryRecord[] {
+  if (sort === undefined || sort.length === 0) return records;
+  const keys: AdminResourceSort[] = [...sort, { field: "id", direction: "asc" }];
+  return [...records].sort((left, right) => {
+    for (const key of keys) {
+      const compared = compareValues(left[key.field], right[key.field]);
+      if (compared !== 0) return key.direction === "desc" ? -compared : compared;
+    }
+    return 0;
+  });
+}
 
 /**
  * CRUD over plain objects, held in memory. For fixtures, tests and demos, so a host can run
@@ -16,6 +127,10 @@ export type MemoryRecord = { id: string; [key: string]: unknown };
  * Every method is a copy in and a copy out. A caller mutating what it was handed would
  * otherwise be editing stored state without going through `update`, which no invalidation
  * ever sees.
+ *
+ * `query` matches a map of exact values, which is what every adapter in this repository has
+ * always meant by a query. `queryPage` is the other form: a term to look for, comparisons, an
+ * ordering and a window, with the count of what matched before the window.
  */
 export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord[]> = {}): AdminPersistenceAdapter & {
   /** Replaces the contents of a resource outright, for test setup and fixtures. */
@@ -72,6 +187,27 @@ export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord
           )
         : records;
       return matched.map(clone) as T[];
+    },
+
+    // Read through the parser first, because it is the authority on what a query is and a hand-built
+    // object typed as one compiles whether or not its operator is real.
+    async queryPage<T>(resource: string, query?: AdminResourceQuery): Promise<AdminResourcePage<T>> {
+      const asked = parseAdminResourceQuery(query);
+      const records = store.get(resource) ?? [];
+      const matched = records.filter(
+        (record) =>
+          (asked.search === undefined || matchesSearch(record, asked.search)) &&
+          (asked.filter ?? []).every((filter) => matches(record, filter)),
+      );
+      const ordered = orderRecords(matched, asked.sort);
+      // Counted before the window, which is what makes a page a page: how many records the query
+      // matched, and which slice of them this is. A count taken from the rows would be the length of
+      // the page, and a list would then offer a hundred empty pages of a store it had not counted.
+      const total = ordered.length;
+      const rows = asked.window
+        ? ordered.slice(asked.window.offset, asked.window.offset + asked.window.limit)
+        : ordered;
+      return { rows: rows.map(clone) as T[], total };
     },
 
     async create<T>(resource: string, value: unknown): Promise<T> {
