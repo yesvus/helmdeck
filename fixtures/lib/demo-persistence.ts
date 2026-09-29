@@ -16,8 +16,11 @@
 
 import { createClient } from "@libsql/client";
 import { createTursoPersistenceAdapter, type SqlClient } from "./turso-persistence";
-import { createMemoryPersistenceAdapter } from "../../src/baseline/memory";
-import type { AdminPersistenceAdapter } from "../../src/adapters/host";
+// By name, never by path into ../../src. A path import compiles library source into this build, and
+// Turbopack never turns a `.js` specifier into a `.ts` file, so the adapter's own imports stop
+// resolving the moment one of them needs a value rather than only a type.
+import { createMemoryPersistenceAdapter } from "@yesvus/helmdeck/baseline";
+import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
 
 export type DemoPersistence = {
   adapter: AdminPersistenceAdapter;
