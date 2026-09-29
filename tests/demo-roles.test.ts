@@ -21,7 +21,13 @@ import {
   readResourceAction,
   updateResourceAction,
 } from "../fixtures/lib/resource-actions";
-import type { AdminPermission, AdminSession } from "@yesvus/helmdeck";
+import {
+  evaluateAdminPermission,
+  AdminPermissionDeniedError,
+  AdminResourceNotExposedError,
+  type AdminPermission,
+  type AdminSession,
+} from "@yesvus/helmdeck";
 
 /**
  * What the role on the stored user row is worth, checked at the server action rather than at the
@@ -95,26 +101,32 @@ describe("what the rule hands each account", () => {
   const admin: AdminSession = { email: owner.email, role: "admin" };
   const asEditor: AdminSession = { email: editor.email, role: "editor" };
 
-  it("gives the administrator everything and the editor content without the deletions", () => {
+  // The rule is the demo's, the decision is the package's: these ask through the same evaluation the
+  // guard and the check run, so what is asserted here is what the server would answer rather than
+  // what a function returns on its own.
+  const decided = (session: AdminSession, permission: AdminPermission) =>
+    evaluateAdminPermission({ rule: demoCan, session, permission });
+
+  it("gives the administrator everything and the editor content without the deletions", async () => {
     // The split is the demo's: an editor works the catalogue, an administrator also decides what
     // happens to a record and sees the money. Nav already hides orders from an editor.
-    expect(demoCan(admin, "products.read")).toBe(true);
-    expect(demoCan(admin, "products.create")).toBe(true);
-    expect(demoCan(admin, "products.update")).toBe(true);
-    expect(demoCan(admin, "products.delete")).toBe(true);
-    expect(demoCan(admin, "orders.read")).toBe(true);
-    expect(demoCan(admin, "orders.delete")).toBe(true);
+    expect(await decided(admin, "products.read")).toBe(true);
+    expect(await decided(admin, "products.create")).toBe(true);
+    expect(await decided(admin, "products.update")).toBe(true);
+    expect(await decided(admin, "products.delete")).toBe(true);
+    expect(await decided(admin, "orders.read")).toBe(true);
+    expect(await decided(admin, "orders.delete")).toBe(true);
 
-    expect(demoCan(asEditor, "products.read")).toBe(true);
-    expect(demoCan(asEditor, "products.create")).toBe(true);
-    expect(demoCan(asEditor, "products.update")).toBe(true);
+    expect(await decided(asEditor, "products.read")).toBe(true);
+    expect(await decided(asEditor, "products.create")).toBe(true);
+    expect(await decided(asEditor, "products.update")).toBe(true);
     // The two differences a visitor can see: no delete on a row, and no orders at all.
-    expect(demoCan(asEditor, "products.delete")).toBe(false);
-    expect(demoCan(asEditor, "orders.read")).toBe(false);
-    expect(demoCan(asEditor, "orders.update")).toBe(false);
+    expect(await decided(asEditor, "products.delete")).toBe(false);
+    expect(await decided(asEditor, "orders.read")).toBe(false);
+    expect(await decided(asEditor, "orders.update")).toBe(false);
   });
 
-  it("refuses every permission to a session with no role, or a role it has never heard of", () => {
+  it("refuses every permission to a session with no role, or a role it has never heard of", async () => {
     // A role column nobody checked, a migration that added one, a row written by a tool that did not
     // know the rule: none of them is a grant. The permissive answer here is how a typo in a string
     // becomes an administrator.
@@ -138,28 +150,33 @@ describe("what the rule hands each account", () => {
       { email: owner.email, role: "toString" },
       { email: owner.email, role: "__proto__" },
     ] satisfies AdminSession[]) {
-      expect(permissions.map((permission) => demoCan(session, permission)), session.role).toEqual(
-        permissions.map(() => false),
-      );
+      expect(
+        await Promise.all(permissions.map((permission) => decided(session, permission))),
+        session.role,
+      ).toEqual(permissions.map(() => false));
     }
   });
 
-  it("answers about the resource before the first dot, and nothing else", () => {
-    expect(demoCan(admin, "products")).toBe(false);
-    expect(demoCan(admin, "products.read.write")).toBe(false);
-    expect(demoCan(admin, "users.read")).toBe(false);
-    expect(demoCan(asEditor, "orders.read")).toBe(false);
+  it("answers about the resource before the first dot, and nothing else", async () => {
+    expect(await decided(admin, "products" as AdminPermission)).toBe(false);
+    expect(await decided(admin, "products.read.write" as AdminPermission)).toBe(false);
+    expect(await decided(admin, "users.read")).toBe(false);
+    expect(await decided(asEditor, "orders.read")).toBe(false);
   });
 });
 
 describe("what the server actions serve", () => {
+  // A refusal here is the package's guard refusing, so the class is what says it ran on the server
+  // rather than in a view. Its message names the permission the rule was asked, which is the same
+  // fact the previous wording gave as "may not read orders": the decision is unchanged, and the
+  // refusal is the package's own type now.
   it("serves an editor its catalogue and refuses the same editor the orders", async () => {
     await signIn(editor);
 
     const products = await queryResourceAction("products");
     expect(products.length).toBeGreaterThan(0);
 
-    await expect(queryResourceAction("orders")).rejects.toThrow(/may not read orders/);
+    await expect(queryResourceAction("orders")).rejects.toThrow(AdminPermissionDeniedError);
   });
 
   it("refuses an editor the delete the administrator is given", async () => {
@@ -167,10 +184,18 @@ describe("what the server actions serve", () => {
     // from the role on the row rather than from whether a button was drawn.
     await signIn(editor);
 
-    await expect(deleteResourceAction("products", "prd_1")).rejects.toThrow(/may not delete products/);
+    await expect(deleteResourceAction("products", "prd_1")).rejects.toThrow(AdminPermissionDeniedError);
 
     // Refused before anything was written, so the record is untouched rather than half deleted.
     expect(await readResourceAction("products", "prd_1")).not.toBeNull();
+  });
+
+  it("names the permission it refused, so the refusal says which question was asked", async () => {
+    await signIn(editor);
+
+    // The permission verbatim. A message naming the operation alone would leave the resource out of
+    // the sentence, which is half of what a caller needs to know.
+    await expect(queryResourceAction("orders")).rejects.toThrow("This session may not orders.read");
   });
 
   it("still serves an editor the work it is allowed, so the rule is a split and not a wall", async () => {
@@ -213,9 +238,9 @@ describe("what the server actions serve", () => {
     await signIn(editor);
     await store.update("users", editor.id, { role: "superuser" });
 
-    await expect(queryResourceAction("products")).rejects.toThrow(/may not read products/);
+    await expect(queryResourceAction("products")).rejects.toThrow(AdminPermissionDeniedError);
     await expect(createResourceAction("products", { name: "x" })).rejects.toThrow(
-      /may not create products/,
+      AdminPermissionDeniedError,
     );
   });
 
@@ -225,16 +250,25 @@ describe("what the server actions serve", () => {
     // and is read as one rather than as a session that may do anything.
     await store.update("users", editor.id, { role: null });
 
-    await expect(queryResourceAction("products")).rejects.toThrow(/may not read products/);
+    await expect(queryResourceAction("products")).rejects.toThrow(AdminPermissionDeniedError);
   });
 
   it("refuses everyone when nobody is signed in, whatever the resource", async () => {
     request.session = undefined;
+    // Spied on before the call rather than asserted on the rows afterwards: a refusal that reached
+    // the store and then refused would leave the same rows and a different answer to whether it ran.
+    const read = vi.spyOn(store, "query");
+    const written = vi.spyOn(store, "delete");
 
     await expect(queryResourceAction("products")).rejects.toThrow(guard.RedirectSignal);
     await expect(queryResourceAction("orders")).rejects.toThrow(guard.RedirectSignal);
     await expect(deleteResourceAction("products", "prd_1")).rejects.toThrow(guard.RedirectSignal);
-    await expect(queryResourceAction("users")).rejects.toThrow(/not a resource this admin exposes/);
+    // A name outside the exposed set is refused as a name, which is a different question from the
+    // session's, and answering it does not need a session to answer about.
+    await expect(queryResourceAction("users")).rejects.toThrow(AdminResourceNotExposedError);
+
+    expect(read).not.toHaveBeenCalled();
+    expect(written).not.toHaveBeenCalled();
   });
 });
 
@@ -244,13 +278,13 @@ describe("the role a session acts as", () => {
     // with, and that session immediately reaches what the administrator reaches.
     const sealed = await signIn(editor);
 
-    await expect(queryResourceAction("orders")).rejects.toThrow(/may not read orders/);
+    await expect(queryResourceAction("orders")).rejects.toThrow(AdminPermissionDeniedError);
 
     await store.update("users", editor.id, { role: "admin" });
     expect(await queryResourceAction("orders")).toHaveLength(seedOrders.length);
 
     await store.update("users", editor.id, { role: "editor" });
-    await expect(queryResourceAction("orders")).rejects.toThrow(/may not read orders/);
+    await expect(queryResourceAction("orders")).rejects.toThrow(AdminPermissionDeniedError);
     expect(request.session).toBe(sealed);
   });
 

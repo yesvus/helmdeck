@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ordersResource, productsResource } from "../fixtures/lib/admin-resources";
 import { demoCan, exposedResource } from "../fixtures/lib/demo-rules";
 import { seedOrders, seedProducts } from "../fixtures/lib/seed-data";
-import type { AdminSession } from "../src/adapters/session";
+import { evaluateAdminPermission, type AdminSession } from "@yesvus/helmdeck";
 
 const owner: AdminSession = { email: "owner@demo.helmdeck.dev", name: "Owner", role: "admin" };
 
@@ -34,10 +34,15 @@ describe("which resources the admin exposes", () => {
   });
 });
 
-describe("demoCan", () => {
-  it("answers for a session that holds it and for one that does not", () => {
-    expect(demoCan(null, "products.read")).toBe(false);
+describe("the demo's rule", () => {
+  // The rule is asked by the package, with a session it resolved, so a caller with no session is
+  // refused before the rule is reached. That is the whole of the first case: the rule has no answer
+  // for a session that is not there, and saying so is the package's job rather than the rule's.
+  it("answers for a session that holds it, and the package refuses the caller that has none", async () => {
     expect(demoCan(owner, "products.read")).toBe(true);
+    expect(await evaluateAdminPermission({ rule: demoCan, session: null, permission: "products.read" })).toBe(
+      false,
+    );
   });
 
   it("reads the resource out of the permission, so an unexposed one is refused whatever it asks for", () => {

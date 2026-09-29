@@ -1,16 +1,22 @@
 // SPDX-License-Identifier: MIT
 
 /**
- * Route protection for the demo: no session, no page.
+ * The demo's server-side decisions: the session a route needs, and the one place a permission is
+ * decided.
  *
- * This is the half that decides. A page guarded only by a client component has already been served
- * to whoever asked for it, so the check that refuses a request runs here, where a redirect is a
- * response rather than a rendering decision, and where the visitor's browser never receives the
- * page at all.
+ * Both halves of the admin ask the rule in `demo-rules` and both do it through the package, so this
+ * module hands out what the package built rather than deciding anything itself. The check is what
+ * the views render against and the guard is what the server actions run, and they are two ends of
+ * one decision rather than two decisions.
  */
 
 import { redirect } from "next/navigation";
-import type { AdminSession } from "../../src/adapters/index";
+import {
+  createAdminPermissionCheck,
+  createAdminPermissionGuard,
+  type AdminSession,
+} from "@yesvus/helmdeck";
+import { demoCan } from "./demo-rules";
 import { currentDemoSession, type DemoAuthOptions } from "./demo-session";
 
 export const LOGIN_PATH = "/login";
@@ -25,6 +31,15 @@ export type DemoGuardOptions = DemoAuthOptions & {
   returnTo?: string;
 };
 
+/**
+ * No session, no page.
+ *
+ * This is the half that decides about a route rather than about a permission, so it is not the
+ * package's guard: a page protected by nothing else has to be refused before it is served, which is
+ * a redirect rather than a permission question. A page guarded only by a client component has
+ * already been served to whoever asked for it, so the check that refuses a request runs here, where
+ * the visitor's browser never receives the page at all.
+ */
 export async function requireDemoSession({
   returnTo = DEFAULT_AFTER_LOGIN,
   ...auth
@@ -33,6 +48,31 @@ export async function requireDemoSession({
   if (session) return session;
   redirect(`${LOGIN_PATH}?next=${encodeURIComponent(returnTo)}`);
 }
+
+/**
+ * The answer the views render against, over the session the server resolved.
+ *
+ * The browser sends a permission name and nothing else: no session, no role, no verdict of its own
+ * to hold, so there is no second place for a decision to be made.
+ */
+export const demoPermissionCheck = createAdminPermissionCheck({
+  rule: demoCan,
+  session: () => currentDemoSession(),
+});
+
+/**
+ * The same decision, for the server path, where it either returns the session or refuses.
+ *
+ * A refusal is answered here rather than in each caller: a missing session is a redirect, and a
+ * session the rule refused is an error the caller did not get to choose, so the resource actions
+ * run their effects only when this returns. The permission is named in the refusal because that is
+ * the question the rule was asked, which is more diagnosable than a message naming the operation.
+ */
+export const requireDemoPermission = createAdminPermissionGuard({
+  rule: demoCan,
+  session: () => currentDemoSession(),
+  onUnauthenticated: () => redirect(`${LOGIN_PATH}?next=${encodeURIComponent("/shell")}`),
+});
 
 /**
  * Control characters, refused because a URL parser strips them before resolving, so

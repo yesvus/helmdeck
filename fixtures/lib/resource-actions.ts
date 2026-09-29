@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT
 "use server";
 
-import { adminResourceValues, type AdminPermission } from "@yesvus/helmdeck";
+import {
+  adminResourceValues,
+  createAdminResourceActions,
+  type AdminPersistenceAdapter,
+} from "@yesvus/helmdeck";
 import { adminResources } from "./admin-resources";
-import { demoCan, exposedResource } from "./demo-rules";
+import { exposedResource } from "./demo-rules";
 import { demoPersistence } from "./demo-persistence";
 import { ensureDemoSeeded } from "./ensure-seeded";
-import { requireDemoSession } from "./demo-guard";
+import { requireDemoPermission } from "./demo-guard";
 
 /**
  * The persistence seam, answered over a server action so a client component can read the database.
@@ -19,50 +23,29 @@ import { requireDemoSession } from "./demo-guard";
  *
  * **A resource name arrives from the browser, so it is never trusted.** Anything here could be
  * invoked directly with any argument, by a signed-in visitor or by anyone who can post to the
- * action, which makes this the boundary where a resource name becomes a capability. Three checks
- * run on every call rather than in the UI: a session, a fixed set of resources this admin exposes,
- * and the same permission rule the views render against. `users` and `sessions` are deliberately
- * absent, so password hashes and session rows are not reachable through a table browser that
- * happens to exist for products.
+ * action, which makes this the boundary where a resource name becomes a capability. So the five
+ * calls are the package's, built once here over the guard the permission rule is asked through:
+ * every call refuses on the server before touching the store, so a denial is a refusal of the
+ * request rather than a button that was never drawn. `users` and `sessions` are deliberately
+ * absent from the exposed set, so password hashes and session rows are not reachable through a table
+ * browser that happens to exist for products, and the name is refused before the session is even
+ * resolved, because a name outside the set is not a permission question.
  *
- * The session is resolved from the cookie's signed session id and from the role on the user row that
- * id points at, so nothing here can be talked into a different role. What a session is allowed to do
- * is decided by `demoCan`, which is also what decides whether the buttons render. Enforcing it here
- * rather than only there is the point: hiding a button is not authorization, and a client that skips
- * the UI can still post the action.
+ * The session behind the guard is resolved from the cookie's signed session id and the role on the
+ * user row that id points at, so nothing here can be talked into a different role.
  */
-function resourceOrRefuse(resource: string): string {
-  if (!exposedResource(resource)) {
-    throw new Error(`"${resource}" is not a resource this admin exposes`);
-  }
-  return resource;
-}
 
-type Operation = "read" | "create" | "update" | "delete";
-
-async function withPermission(resource: string, operation: Operation) {
-  const session = await requireDemoSession({ returnTo: "/shell" });
-  const permission = `${resource}.${operation}` as AdminPermission;
-  if (!demoCan(session, permission)) {
-    throw new Error(`This session may not ${operation} ${resource}`);
-  }
-  // Checked before any read, so the first request of a fresh process finds records rather than an
-  // empty store. Memoised inside, so this costs nothing after the first call.
-  await ensureDemoSeeded();
-  return session;
-}
-
-export async function queryResourceAction(
-  resource: string,
-  query?: Record<string, unknown>,
-): Promise<unknown[]> {
-  await withPermission(resourceOrRefuse(resource), "read");
-  return demoPersistence().adapter.query(resource, query);
-}
-
-export async function readResourceAction(resource: string, id: string): Promise<unknown | null> {
-  await withPermission(resourceOrRefuse(resource), "read");
-  return demoPersistence().adapter.read(resource, id);
+/**
+ * Whether a resource has column definitions to filter a write against.
+ *
+ * Not every exposed resource is a table browser's: `site_settings` is a single settings row written
+ * by the site's own module, and it declares no columns anywhere. Filtering an undeclared resource
+ * would refuse it, which is why this is a question about the resource rather than a rule applied to
+ * all of them. Such a resource is still behind the same session, the same allowlist and the same
+ * permission rule; what it is not behind is a list of fields, because it never had one.
+ */
+function isFormDefined(resource: string): boolean {
+  return adminResources.some((candidate) => candidate.resource === resource);
 }
 
 /**
@@ -78,19 +61,6 @@ export async function readResourceAction(resource: string, id: string): Promise<
  * not a substitute: it asks whether a name is a column of the table, and `id`, `created_at` and
  * `updated_at` all are, so a request could have set them and the write would have succeeded.
  */
-/**
- * Whether a resource has column definitions to filter a write against.
- *
- * Not every exposed resource is a table browser's: `site_settings` is a single settings row written
- * by the site's own module, and it declares no columns anywhere. Filtering an undeclared resource
- * would refuse it, which is why this is a question about the resource rather than a rule applied to
- * all of them. Such a resource is still behind the same session, the same allowlist and the same
- * permission rule; what it is not behind is a list of fields, because it never had one.
- */
-function isFormDefined(resource: string): boolean {
-  return adminResources.some((candidate) => candidate.resource === resource);
-}
-
 function declaredValue(resource: string, value: unknown): Record<string, unknown> {
   if (!isFormDefined(resource)) return (value ?? {}) as Record<string, unknown>;
 
@@ -103,9 +73,40 @@ function declaredValue(resource: string, value: unknown): Record<string, unknown
   return adminResourceValues(definition, form);
 }
 
+/**
+ * The demo's own store behind the package's calls, so the filtering of a write happens at the
+ * boundary the browser cannot reach. The reads are passed straight through.
+ */
+function declaredWrites(adapter: AdminPersistenceAdapter): AdminPersistenceAdapter {
+  return {
+    ...adapter,
+    create: (resource, value) => adapter.create(resource, declaredValue(resource, value)),
+    update: (resource, id, value) => adapter.update(resource, id, declaredValue(resource, value)),
+  } as AdminPersistenceAdapter;
+}
+
+const store = createAdminResourceActions({
+  guard: requireDemoPermission,
+  persistence: declaredWrites(demoPersistence().adapter),
+  expose: exposedResource,
+  // After the refusal and before the effect, so the first request of a fresh process finds records
+  // rather than an empty store, and a refused request does not pay for the seed.
+  before: ensureDemoSeeded,
+});
+
+export async function queryResourceAction(
+  resource: string,
+  query?: Record<string, unknown>,
+): Promise<unknown[]> {
+  return store.query(resource, query);
+}
+
+export async function readResourceAction(resource: string, id: string): Promise<unknown | null> {
+  return store.read(resource, id);
+}
+
 export async function createResourceAction(resource: string, value: unknown): Promise<unknown> {
-  await withPermission(resourceOrRefuse(resource), "create");
-  return demoPersistence().adapter.create(resource, declaredValue(resource, value));
+  return store.create(resource, value);
 }
 
 export async function updateResourceAction(
@@ -113,11 +114,9 @@ export async function updateResourceAction(
   id: string,
   value: unknown,
 ): Promise<unknown> {
-  await withPermission(resourceOrRefuse(resource), "update");
-  return demoPersistence().adapter.update(resource, id, declaredValue(resource, value));
+  return store.update(resource, id, value);
 }
 
 export async function deleteResourceAction(resource: string, id: string): Promise<void> {
-  await withPermission(resourceOrRefuse(resource), "delete");
-  await demoPersistence().adapter.delete(resource, id);
+  await store.delete(resource, id);
 }
