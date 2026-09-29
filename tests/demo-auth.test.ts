@@ -7,7 +7,7 @@ import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";
 import { seedDemo } from "../fixtures/lib/seed";
 import { demoAuth, demoCredentialStore, SESSION_TTL_SECONDS } from "../fixtures/lib/demo-session";
-import { DEFAULT_AFTER_LOGIN, readReturnTo, requireDemoSession } from "../fixtures/lib/demo-guard";
+import { DEFAULT_AFTER_LOGIN, requireDemoSession } from "../fixtures/lib/demo-guard";
 import { endEverySessionAction, signInAction, signOutAction } from "../fixtures/app/login/actions";
 
 /**
@@ -337,34 +337,42 @@ describe("a cookie that was not issued here", () => {
 });
 
 describe("the destination a guard recorded", () => {
-  it("keeps a plain same-site path", () => {
-    expect(readReturnTo(new URLSearchParams("next=%2Fdashboard"))).toBe("/dashboard");
+  beforeEach(() => {
+    // The adapter refuses to read next/headers from anything that looks like a browser, so the
+    // action is exercised with the same absence a server action has.
+    vi.stubGlobal("window", undefined);
   });
 
-  it("refuses a path that leaves the origin, however it is written", () => {
-    // The open redirect this exists to stop: a sign-in page that hands a visitor to another origin
-    // the moment they authenticate.
+  it("keeps a nested path, so a visitor comes back to the page rather than to its segment", async () => {
+    const result = await signInAction(
+      { email: owner.email, password: DEMO_PASSWORD },
+      `next=${encodeURIComponent("/shell/settings/site")}`,
+    );
+
+    expect(result).toEqual({ ok: true, next: "/shell/settings/site" });
+  });
+
+  it("drops a destination that leaves the origin, however it is written", async () => {
+    // The open redirect the validator exists to stop: a sign-in page that hands a visitor to another
+    // origin the moment they authenticate. Each of these is a way of writing one.
     for (const hostile of [
-      "next=https%3A%2F%2Fevil.example%2Fsteal",
-      "next=%2F%2Fevil.example%2Fsteal",
-      "next=%2F%5Cevil.example",
-      "next=%2F%5C%5Cevil.example",
-      "next=%2F%0D%0A%2Fevil.example",
-      "next=%2F%252F%252Fevil.example",
-      "next=evil.example",
+      "https%3A%2F%2Fevil.example%2Fsteal",
+      "%2F%2Fevil.example%2Fsteal",
+      "%2F%5Cevil.example",
+      "%2F%5C%5Cevil.example",
+      "%2F%0D%0A%2Fevil.example",
+      "%2F%252F%252Fevil.example",
+      "evil.example",
+      "%2F%2",
+      "",
     ]) {
-      expect(readReturnTo(new URLSearchParams(hostile)), hostile).toBeNull();
+      const result = await signInAction({ email: owner.email, password: DEMO_PASSWORD }, `next=${hostile}`);
+
+      expect(result, hostile).toEqual({ ok: true, next: DEFAULT_AFTER_LOGIN });
     }
   });
 
-  it("refuses an escape that is not valid, and has no destination to offer", () => {
-    expect(readReturnTo(new URLSearchParams("next=%2F%2"))).toBeNull();
-    expect(readReturnTo(new URLSearchParams(""))).toBeNull();
-    expect(readReturnTo(null)).toBeNull();
-  });
-
   it("sends a visitor with no recorded destination to the default rather than nowhere", async () => {
-    vi.stubGlobal("window", undefined);
     const result = await signInAction({ email: owner.email, password: DEMO_PASSWORD }, null);
 
     expect(result).toEqual({ ok: true, next: DEFAULT_AFTER_LOGIN });
@@ -415,15 +423,6 @@ describe("the actions a signed-in visitor can reach", () => {
     expect(result).toEqual({ ok: true, next: "/dashboard" });
     expect(request.session).toBeTruthy();
     expect(await liveSessions()).toHaveLength(1);
-  });
-
-  it("drops a destination that leaves the origin", async () => {
-    const result = await signInAction(
-      { email: owner.email, password: DEMO_PASSWORD },
-      "next=https%3A%2F%2Fevil.example%2Fsteal",
-    );
-
-    expect(result).toEqual({ ok: true, next: "/dashboard" });
   });
 
   it("reports a wrong password without saying which half was wrong", async () => {
