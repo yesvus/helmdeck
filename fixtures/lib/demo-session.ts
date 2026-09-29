@@ -8,6 +8,11 @@
  * cookie. The demo supplies the two decisions that adapter deliberately leaves to the host: which
  * account a set of credentials belongs to, and whether a session id still means anything.
  *
+ * The role a session acts as is read from the user row its session row points at, so it is a stored
+ * value rather than something a request can name. Nothing in the cookie carries a role, which is what
+ * keeps a signed cookie from being a claim: it names a session, the session names a user, and the
+ * user decides.
+ *
  * The package's adapter rather than an auth library, because an auth library covers the same ground
  * and brings its schema with it: its own user, account and session tables, its own migrations
  * against a database that already has a schema and a `sessions` table, and its own column for the
@@ -22,12 +27,17 @@
 
 import { createSessionAuthAdapter } from "../../src/baseline/session";
 import type { AdminSessionCookieIO } from "../../src/baseline/session";
-import type { AdminAuthAdapter, AdminLoginCredentials, AdminSession } from "../../src/adapters/index";
-import type { AdminPersistenceAdapter } from "../../src/adapters/host";
+import type {
+  AdminAuthAdapter,
+  AdminLoginCredentials,
+  AdminPersistenceAdapter,
+  AdminSession,
+} from "@yesvus/helmdeck";
 import { authenticate } from "./demo-users";
 import type { DemoUser } from "./demo-users";
 import { demoUsers } from "./demo-accounts";
 import { demoPersistence } from "./demo-persistence";
+import { ensureDemoSeeded } from "./ensure-seeded";
 
 /** Two weeks, which is also the cookie's own lifetime, so the row and the cookie expire together. */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
@@ -103,29 +113,49 @@ function defaultStore(): SessionStore {
   return createSessionStore(demoPersistence().adapter);
 }
 
-function accountById(id: string): Promise<DemoUser | undefined> {
-  return demoUsers().then((users) => users.find((user) => user.id === id));
+/**
+ * The session a user id stands for: the account as stored, or null once there is no such row.
+ *
+ * The demo's accounts are rows like any other, so a role is a stored value and changing one is an
+ * update to a record rather than a change to a build. The seed is awaited because the demo also
+ * runs against a database nothing has written to yet, where a session would otherwise resolve no
+ * account at all.
+ *
+ * A column that is not a role string becomes no role rather than an empty one, which is the answer
+ * an account with nothing on it gets: the rule decides what no role may do, and that is nothing.
+ */
+async function sessionForUserId(userId: string): Promise<AdminSession | null> {
+  await ensureDemoSeeded();
+  const account = await demoPersistence().adapter.read<{ email?: unknown; role?: unknown }>(
+    "users",
+    userId,
+  );
+  if (!account) return null;
+  return {
+    email: typeof account.email === "string" ? account.email : "",
+    role: typeof account.role === "string" ? account.role : undefined,
+  };
 }
 
 /**
- * The account a row belongs to, or null once the session is over.
+ * The session a row stands for, or null once the row itself is over.
  *
  * Expiry and a withdrawn account both end the row rather than merely refusing it, because a row
  * that no longer resolves is the kind of thing a database keeps for ever. The expiry is checked
  * here on every read so a session that lapsed an hour ago is invalid the moment it is looked at.
  */
-async function accountFor(store: SessionStore, row: SessionRow | null): Promise<DemoUser | null> {
+async function accountFor(store: SessionStore, row: SessionRow | null): Promise<AdminSession | null> {
   if (!row) return null;
   if (Number(row.expires_at) * 1000 <= Date.now()) {
     await store.end(row.id);
     return null;
   }
-  const account = await accountById(row.user_id);
-  if (!account) {
+  const session = await sessionForUserId(row.user_id);
+  if (!session) {
     await store.end(row.id);
     return null;
   }
-  return account;
+  return session;
 }
 
 /**
@@ -167,8 +197,7 @@ export function demoAuth(options: DemoAuthOptions = {}): AdminAuthAdapter {
       return started;
     },
     async getUser(sessionId) {
-      const account = await accountFor(store, await store.read(sessionId));
-      return account ? { email: account.email, role: account.role } : null;
+      return accountFor(store, await store.read(sessionId));
     },
   });
 
