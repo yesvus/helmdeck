@@ -7,7 +7,7 @@ import {
   createAdminWidgetRegistry,
   defineAdminWidget,
   type AdminDashboard,
-} from "../../../src";
+} from "@yesvus/helmdeck";
 
 const registry = createAdminWidgetRegistry({
   signups: defineAdminWidget<{ total: number; trend: number }>({
