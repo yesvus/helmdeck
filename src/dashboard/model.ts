@@ -41,7 +41,7 @@ export type AdminDashboard = {
  * the engine reads through `resolve`.
  */
 export type AdminDashboardRegistry = {
-  resolve: (id: string) => AdminWidgetDefinition<never> | undefined;
+  resolve: (id: string) => AdminWidgetDefinition<unknown> | undefined;
   validate: (placement: { widget: string; size: AdminWidgetSize }) => string[];
 };
 

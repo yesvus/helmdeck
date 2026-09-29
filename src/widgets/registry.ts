@@ -64,7 +64,7 @@ export type AdminWidgetRegistry<TDefinitions extends AdminWidgetDefinitions> = {
    * The erased lookup, for engine code that handles widgets of any data type and so cannot be generic
    * in the id. `get` is what a host writes against; this is what the dashboard reads.
    */
-  resolve: (id: string) => AdminWidgetDefinition<never> | undefined;
+  resolve: (id: string) => AdminWidgetDefinition<unknown> | undefined;
   /**
    * One message per problem with a placement, or an empty array when it can be rendered. An unknown
    * widget is reported rather than skipped, because a dashboard that silently loses a tile is worse
@@ -99,7 +99,7 @@ export function createAdminWidgetRegistry(): AdminWidgetRegistry<Record<never, n
 export function createAdminWidgetRegistry(
   definitions: AdminWidgetDefinitions | AdminWidgetDefinitionList = {},
 ): AdminWidgetRegistry<AdminWidgetDefinitions> | AdminWidgetListRegistry {
-  const byId = new Map<string, AdminWidgetDefinition<never>>();
+  const byId = new Map<string, AdminWidgetDefinition<unknown>>();
 
   for (const [key, definition] of Array.isArray(definitions)
     ? definitions.map((definition) => [definition.id, definition] as const)

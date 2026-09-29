@@ -181,7 +181,7 @@ process.exit(failed);
 NODE
 
   verify_grid() {
-    local label=$1 want_revenue="$2" want_signups="$3" want_rows="$4" measured
+    local label=$1 want_columns="$2" want_revenue="$3" want_signups="$4" want_rows="$5" measured
     measured=$(playwright-cli -s="$SESSION" eval '(() => {
       const tiles = [...document.querySelectorAll("[data-placement]")];
       if (!tiles.length) return "error=no-tiles";
@@ -206,7 +206,7 @@ NODE
       return 1
     fi
     echo "  grid $label: $measured"
-    LABEL="$label" WANT_REVENUE="$want_revenue" WANT_SIGNUPS="$want_signups" WANT_ROWS="$want_rows" MEASURED="$measured" node <<'NODE'
+    LABEL="$label" WANT_COLUMNS="$want_columns" WANT_REVENUE="$want_revenue" WANT_SIGNUPS="$want_signups" WANT_ROWS="$want_rows" MEASURED="$measured" node <<'NODE'
   const m = {};
   for (const part of process.env.MEASURED.split(";")) {
     const colon = part.indexOf(":");
@@ -224,6 +224,10 @@ NODE
   if (m.error) { console.error(`    FAIL  ${m.error}`); process.exit(1); }
   // A utility that never compiled leaves the tile at "auto" or "span 1", so asserting the computed
   // value is what separates a class that compiled from one that is merely present.
+  // The column count is the check itself: the grid is only responsive if the number of columns
+  // actually in force differs between the two viewports, and a broken breakpoint would leave both
+  // measurements agreeing while every span assertion still passed.
+  ok("grid has the expected number of columns", m.columns, process.env.WANT_COLUMNS);
   ok("revenue tile takes its declared span", spanOf("revenue"), process.env.WANT_REVENUE);
   ok("signups tile takes its declared span", spanOf("signups"), process.env.WANT_SIGNUPS);
   ok("tiles flow into the expected number of rows", m.distinctTops, process.env.WANT_ROWS);
@@ -249,9 +253,9 @@ verify_theme() {
     exit 1
   fi
   playwright-cli -s="$SESSION" resize 1280 900 >/dev/null
-  verify_grid "1280x900" "span 3" "span 1" "2" || FAILED=1
+  verify_grid "1280x900" 4 "span 3" "span 1" 2 || FAILED=1
   playwright-cli -s="$SESSION" resize 600 900 >/dev/null
-  verify_grid "600x900" "auto" "auto" "4" || FAILED=1
+  verify_grid "600x900" 1 "auto" "auto" 4 || FAILED=1
 
   echo "  theme on the landing page"
 if ! LANDING=$(playwright-cli -s="$SESSION" goto "http://localhost:$PORT/" 2>&1); then

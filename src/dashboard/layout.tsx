@@ -120,8 +120,8 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
             className={cn(sizeClasses[placement.size], "min-w-0")}
           >
             <AdminWidgetPanel
-              definition={definition as AdminWidgetDefinitionLike}
-              state={(state ?? { status: "loading" }) as AdminWidgetState<never>}
+              definition={definition}
+              state={state ?? { status: "loading" }}
               messages={copy}
               onRetry={onRetry ? () => onRetry(placement) : undefined}
               className="h-full"
@@ -133,4 +133,3 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
   );
 }
 
-type AdminWidgetDefinitionLike = Parameters<typeof AdminWidgetPanel>[0]["definition"];
