@@ -69,7 +69,11 @@ export function AdminRankChart({
                 {item.label}
               </span>
               <span className={cn("h-2.5 rounded-full", trackClassName)}>
-                <span className={cn("block h-2.5 rounded-full", barClassName)} style={{ width: `${width}%` }} />
+                <span
+                  data-chart-bar={item.key}
+                  className={cn("block h-2.5 rounded-full", barClassName)}
+                  style={{ width: `${width}%` }}
+                />
               </span>
               <span className="min-w-[5.5rem] text-right text-xs font-semibold text-zinc-900">
                 {formatters.value(item.value)}

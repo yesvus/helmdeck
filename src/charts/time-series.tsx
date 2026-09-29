@@ -115,9 +115,10 @@ export function AdminTimeSeriesChart({
             </g>
           ))}
 
-          {categories.map((category, index) => {
-            const x = AXIS_GUTTER + band * index + (band - width * series.length) / 2;
-            return (
+          {variant === "bar"
+            ? categories.map((category, index) => {
+                const x = AXIS_GUTTER + band * index + (band - width * series.length) / 2;
+                return (
               <g key={category.key}>
                 {series.map((entry, seriesIndex) => {
                   const value = entry.values[index] ?? 0;
@@ -133,7 +134,9 @@ export function AdminTimeSeriesChart({
                       data-chart-mark={`${entry.key}:${category.key}`}
                       x={x + seriesIndex * width}
                       y={top}
-                      width={width}
+                      // A visible mark for a value of zero, so a gap in the data is a day that
+                      // happens to be empty rather than a column the chart forgot to draw.
+                      width={Math.max(MIN_BAR, width)}
                       height={Math.max(0, barHeight)}
                       rx={3}
                       className={cn(
@@ -145,8 +148,9 @@ export function AdminTimeSeriesChart({
                   );
                 })}
               </g>
-            );
-          })}
+                );
+              })
+            : null}
 
           {variant === "line"
             ? series.map((entry, seriesIndex) => {

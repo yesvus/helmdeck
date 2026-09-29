@@ -91,6 +91,43 @@ describe("the analytics page draws what the store holds", () => {
     expect(revenueChart().querySelectorAll("[data-chart-hit]")).toHaveLength(30);
   });
 
+  it("keeps every bar inside its own column, so two days cannot be read as one", async () => {
+    render(<AnalyticsPage />);
+    const svg = await waitFor(() => revenueChart());
+
+    // The two columns that both carry money are ten days apart. If a bar were wider than its column
+    // the marks would run together and the peak would be read as covering the days around it, which
+    // is the one mistake a bar chart makes that a reader cannot detect on their own.
+    const byDay = new Map(
+      [...svg.querySelectorAll("[data-chart-mark]")].map((mark) => [
+        mark.getAttribute("data-chart-mark")!.split(":")[1],
+        {
+          x: Number(mark.getAttribute("x")),
+          width: Number(mark.getAttribute("width")),
+        },
+      ]),
+    );
+    const keys = [...byDay.keys()];
+    const band = Number(svg.querySelector("[data-chart-hit]")?.getAttribute("width"));
+    expect(band).toBeGreaterThan(0);
+
+    for (const key of keys) {
+      const mark = byDay.get(key)!;
+      expect(mark.width).toBeLessThanOrEqual(band);
+    }
+    // Sorted by position, no bar may reach into the column after it.
+    const positions = keys
+      .map((key) => ({ key, ...byDay.get(key)! }))
+      .sort((left, right) => left.x - right.x);
+    for (let index = 1; index < positions.length; index += 1) {
+      const previous = positions[index - 1];
+      const current = positions[index];
+      expect(previous.x + previous.width, `${previous.key} runs into ${current.key}`).toBeLessThanOrEqual(
+        current.x,
+      );
+    }
+  });
+
   it("scales every bar against one axis that is above the data and round", async () => {
     render(<AnalyticsPage />);
     const svg = await waitFor(() => revenueChart());
