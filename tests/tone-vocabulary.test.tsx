@@ -74,6 +74,14 @@ const checked = new Map<string, string[]>();
 
 const ACCEPTED_TONES: AdminTone[] = ["neutral", "info", "success", "warning", "danger", "error"];
 
+/**
+ * Every test in this file that asserts on types does so by running the real compiler, which is
+ * seconds of work each. Several of them run it in a loop. They do not fit the five second default
+ * once the rest of the suite is competing for the machine, and the failure that comes out of that
+ * reads as a broken assertion rather than a slow test, and passes every time it is run alone.
+ */
+const SLOW_TYPE_CHECK = 120_000;
+
 describe("the shared tone vocabulary", () => {
   it("accepts every tone value on each of the three tone types", () => {
     // The helper is annotated AdminTone, the union the host should write against, and its result is
@@ -112,7 +120,7 @@ describe("the shared tone vocabulary", () => {
     `;
 
     expect(typeErrorsIn(source)).toEqual([]);
-  });
+  }, SLOW_TYPE_CHECK);
 
   it("accepts both severity spellings on the tone props of the components that take them", () => {
     // The types agreeing is not sufficient on its own: a host writes tone="danger" on the JSX
@@ -135,7 +143,7 @@ describe("the shared tone vocabulary", () => {
     `;
 
     expect(typeErrorsIn(source, "tone-vocabulary.host.tsx")).toEqual([]);
-  });
+  }, SLOW_TYPE_CHECK);
 
   it("rejects a tone outside the vocabulary, so the checker is not passing vacuously", () => {
     // Without this, a checker whose compiler options stopped matching the package's would report no
@@ -147,7 +155,7 @@ describe("the shared tone vocabulary", () => {
 
     expect(typeErrorsIn(source)).toHaveLength(1);
     expect(typeErrorsIn(source)[0]).toContain("critical");
-  });
+  }, SLOW_TYPE_CHECK);
 
   it("makes the three published names the same type, in both assignment directions", () => {
     // One-directional assignability would be enough for the helper case above and would still hide
@@ -173,7 +181,7 @@ describe("the shared tone vocabulary", () => {
     `;
 
     expect(typeErrorsIn(source)).toEqual([]);
-  });
+  }, SLOW_TYPE_CHECK);
 
   it("names exactly the six tones of the shared vocabulary, no more and no fewer", () => {
     // An open-ended union, or one that quietly grew a member, would satisfy every assignment above
@@ -230,7 +238,7 @@ describe("the documented tone vocabulary", () => {
     expect(lead).toContain("`danger` is the canonical spelling");
     expect(lead).toContain("`error` is still accepted");
     expect(lead).toContain("AdminBanner");
-  });
+  }, SLOW_TYPE_CHECK);
 
   it("documents every type name a host needs to type a shared helper", () => {
     const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");

@@ -204,16 +204,31 @@ export function AdminSortableDndContext({
   sensors,
   announcements,
   onDragEnd,
+  id,
   children,
 }: {
   ids: string[];
   sensors: ReturnType<typeof useSensors>;
   announcements: Announcements;
   onDragEnd: (event: DragEndEvent) => void;
+  /**
+   * Fixes the ids dnd-kit generates for its screen reader instructions.
+   *
+   * Left out, those ids come from a module-level counter, so a server process is already several
+   * along by the time the browser starts at zero. React logs the resulting `aria-describedby`
+   * mismatch and deliberately does not patch it, which leaves the handle pointing at an id that does
+   * not exist: the keyboard drag still works, because the listener is attached, and the instructions
+   * are simply absent. That is a screen reader focusing a control and being told nothing.
+   *
+   * Two contexts sharing an id on one page would share those instructions, so give each a distinct
+   * one where that can happen.
+   */
+  id?: string;
   children: ReactNode;
 }) {
   return (
     <DndContext
+      id={id}
       sensors={sensors}
       collisionDetection={closestCenter}
       accessibility={{ announcements }}

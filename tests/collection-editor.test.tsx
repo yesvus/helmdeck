@@ -162,6 +162,28 @@ describe("AdminCollectionEditor", () => {
     expect(handle.getAttribute("aria-pressed")).toBe("true");
   });
 
+  /**
+   * dnd-kit names its screen reader instruction nodes from a module-level counter unless the context
+   * is given an id. A server process is several along by the time the browser starts at zero, so React
+   * logs an `aria-describedby` mismatch and deliberately does not patch it, leaving the handle
+   * pointing at an id that does not exist. The drag still works, because the listener is attached, and
+   * a screen reader focusing the handle is told nothing.
+   *
+   * Checked by rendering twice and comparing, because a test that only read the attribute would pass
+   * with any value in it, including the counter one that is the bug.
+   */
+  it("names its screen reader instructions the same way on the server and in the browser", () => {
+    const first = render(<Editor initial={twoEntries()} onChange={vi.fn()} />);
+    const firstId = screen.getByRole("button", { name: "Edit 1" }).getAttribute("aria-describedby");
+    first.unmount();
+
+    render(<Editor initial={twoEntries()} onChange={vi.fn()} />);
+    const secondId = screen.getByRole("button", { name: "Edit 1" }).getAttribute("aria-describedby");
+
+    expect(firstId).toBeTruthy();
+    expect(secondId).toBe(firstId);
+  });
+
   it("falls back to a positional label when the host renders no summary", () => {
     render(
       <AdminI18nProvider locale="en">

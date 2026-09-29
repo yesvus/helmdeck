@@ -128,6 +128,7 @@ export function AdminCollectionEditor<T>({
     // see that, and the demo was wrapping it, which is how the engine's gap was invisible for as long
     // as the demo was the only thing exercising the editor.
     <AdminSortableDndContext
+      id={definition.name}
       ids={sortable.ids}
       sensors={sortable.sensors}
       announcements={sortable.announcements}
