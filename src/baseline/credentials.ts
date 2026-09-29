@@ -4,12 +4,12 @@
  * hash, and a session row behind the signed cookie.
  *
  * **What a host supplies, and why this shape.** Two things: somewhere to keep the rows, and the
- * secret that signs the cookie. The rows are reached through `CredentialStore`, four methods and
+ * secret that signs the cookie. The rows are reached through `CredentialStore`, six methods and
  * two plain records, because a host's schema is its own and the columns it picked are not the
  * demo's. `createPersistenceCredentialStore` fills that interface in over the
  * `AdminPersistenceAdapter` the package already ships, with the table and column names supplied as
  * options, so a host that is already on the memory or SQLite adapter adopts this with a config
- * object rather than an implementation, and a host with a real schema writes four methods.
+ * object rather than an implementation, and a host with a real schema writes six methods.
  *
  * The alternative was to take a table name and build SQL here. That would work for exactly the
  * hosts already on `AdminPersistenceAdapter` and would put this package's idea of a schema in
@@ -200,11 +200,12 @@ export function createPersistenceCredentialStore(
     if (!row) return null;
     const email = row[userColumns.email];
     const passwordHash = row[userColumns.passwordHash];
-    // A row with no address or no hash in it cannot be signed in to, and a user with no role
-    // gets no role rather than an empty one: the rule decides what no role may do, which is
-    // nothing. Refusing the row outright would end every session that points at it, which is a
-    // different and much louder answer than the one this column deserves.
+    // A row with no address or no hash in it cannot be signed in to, and saying so is the same
+    // answer as there being no such account, so a half-written row cannot be probed for.
     if (typeof email !== "string" || typeof passwordHash !== "string") return null;
+    // A column that is not a role string becomes no role rather than an empty one, which is the
+    // answer an account with nothing on it gets: the rule decides what no role may do, and that
+    // is nothing.
     const role = row[userColumns.role];
     const name = row[userColumns.name];
     return {
@@ -241,9 +242,10 @@ export function createPersistenceCredentialStore(
       if (!row) return null;
       return {
         id: String(row.id),
-        // Coerced because a text column hands a number back as a string, and `userId` is
-        // compared against an id rather than arithmetic'd.
         userId: String(row[sessionColumns.userId]),
+        // Coerced because a host whose column is TEXT gets a number back as a string. A value
+        // that is not a number at all arrives here as NaN, which the expiry check treats as
+        // lapsed rather than as a session that never ends.
         expiresAt: Number(row[sessionColumns.expiresAt]),
       };
     },
