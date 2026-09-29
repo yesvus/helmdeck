@@ -180,6 +180,75 @@ ok("the overflow check sees horizontal overflow", m.detectsHorizontalOverflow, "
 process.exit(failed);
 NODE
 
+  verify_grid() {
+    local label=$1 want_columns="$2" want_revenue="$3" want_signups="$4" want_rows="$5" measured
+    measured=$(playwright-cli -s="$SESSION" eval '(() => {
+      const tiles = [...document.querySelectorAll("[data-placement]")];
+      if (!tiles.length) return "error=no-tiles";
+      const out = [];
+      // The grid is the nearest grid ancestor, not simply the parent of the first tile. That
+      // was only correct while tiles were direct children, and when a wrapper was introduced the
+      // check quietly measured that wrapper and reported one column instead of saying what broke.
+      let grid = tiles[0].parentElement;
+      while (grid && getComputedStyle(grid).display !== "grid") grid = grid.parentElement;
+      if (!grid) return "error=no-grid-ancestor";
+      out.push("columns=" + getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+      // A tile nested one level down is not a grid item, so its span would be ignored. Reported
+      // explicitly rather than left to show up as a confusing column count.
+      out.push("directChildren=" + (tiles[0].parentElement === grid));
+      for (const tile of tiles) out.push(tile.getAttribute("data-widget") + ":" + getComputedStyle(tile).gridColumn);
+      // Grid places tiles into rows, so more tiles than fit on one row means more than one top edge.
+      // An absolute-positioning regression would stack every tile on the same one.
+      out.push("distinctTops=" + new Set(tiles.map((t) => Math.round(t.getBoundingClientRect().top))).size);
+      out.push("tiles=" + tiles.length);
+      return out.join(";");
+    })()' 2>/dev/null | sed -n '2p' | node -e '
+      let s="";
+      process.stdin.on("data",(d)=>s+=d).on("end",()=>{
+        // The CLI wraps a returned string in a quoted JSON string, so the quotes are stripped here
+        // rather than being allowed to become part of the first key and the last value.
+        s = s.trim().replace(/^"|"$/g, "");
+        process.stdout.write(s);
+      });')
+    if [ -z "$measured" ]; then
+      echo "  FAIL  $label: could not measure the dashboard grid" >&2
+      return 1
+    fi
+    echo "  grid $label: $measured"
+    LABEL="$label" WANT_COLUMNS="$want_columns" WANT_REVENUE="$want_revenue" WANT_SIGNUPS="$want_signups" WANT_ROWS="$want_rows" MEASURED="$measured" node <<'NODE'
+  const m = {};
+  for (const part of process.env.MEASURED.split(";")) {
+    const colon = part.indexOf(":");
+    const equals = part.indexOf("=");
+    if (equals !== -1 && (colon === -1 || equals < colon)) m[part.slice(0, equals)] = part.slice(equals + 1);
+    else m[part.slice(0, colon)] = part.slice(colon + 1);
+  }
+  // gridColumn computes to "span 3 / span 3"; the span being checked is the first half.
+  const spanOf = (key) => (m[key] || "").split(" / ")[0];
+  let failed = 0;
+  const ok = (name, actual, expected) => {
+    if (String(actual) === String(expected)) console.log(`    ok    ${name} (${actual})`);
+    else { console.error(`    FAIL  ${name}: expected ${expected}, measured ${actual}`); failed = 1; }
+  };
+  if (m.error) { console.error(`    FAIL  ${m.error}`); process.exit(1); }
+  // A utility that never compiled leaves the tile at "auto" or "span 1", so asserting the computed
+  // value is what separates a class that compiled from one that is merely present.
+  // The column count is the check itself: the grid is only responsive if the number of columns
+  // actually in force differs between the two viewports, and a broken breakpoint would leave both
+  // measurements agreeing while every span assertion still passed.
+  ok("grid has the expected number of columns", m.columns, process.env.WANT_COLUMNS);
+  ok("tiles are direct children of the grid, so their spans apply", m.directChildren, "true");
+  ok("revenue tile takes its declared span", spanOf("revenue"), process.env.WANT_REVENUE);
+  ok("signups tile takes its declared span", spanOf("signups"), process.env.WANT_SIGNUPS);
+  // Only asserted where it discriminates. With a single column the grid guarantees one row per tile,
+  // so the count matches however broken the layout is, and asserting it there would read as coverage
+  // while testing nothing.
+  if (process.env.WANT_ROWS !== "skip") {
+    ok("tiles flow into the expected number of rows", m.distinctTops, process.env.WANT_ROWS);
+  }
+  process.exit(failed);
+NODE
+  }
 # Theme resolution, on the landing page specifically. It sits outside the shell layout, which is
 # where the provider used to live, so it silently kept the light default no matter what the shell
 # had selected or what the operating system reported.
@@ -190,7 +259,20 @@ verify_theme() {
     | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{process.stdout.write(JSON.parse(s))})'
 }
 
-echo "  theme on the landing page"
+  # Dashboard grid, measured at both breakpoints. At 1280 the four-column grid is in force and the
+  # revenue tile spans three of them; below the md breakpoint every tile is a single column, which is
+  # the responsiveness being claimed and the part a desktop-only run would never exercise.
+  echo "  dashboard grid"
+  if ! playwright-cli -s="$SESSION" goto "http://localhost:$PORT/dashboard" >/dev/null 2>&1; then
+    echo "  FAIL  could not open the dashboard page" >&2
+    exit 1
+  fi
+  playwright-cli -s="$SESSION" resize 1280 900 >/dev/null
+  verify_grid "1280x900" 4 "span 3" "span 1" 2 || FAILED=1
+  playwright-cli -s="$SESSION" resize 600 900 >/dev/null
+  verify_grid "600x900" 1 "auto" "auto" skip || FAILED=1
+
+  echo "  theme on the landing page"
 if ! LANDING=$(playwright-cli -s="$SESSION" goto "http://localhost:$PORT/" 2>&1); then
   echo "  FAIL  could not open the landing page" >&2
   echo "$LANDING" | head -5 >&2

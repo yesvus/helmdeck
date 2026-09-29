@@ -17,6 +17,7 @@ import {
 } from "../primitives/messages.js";
 import { defaultCollectionMessages, type AdminCollectionMessages } from "../collections/messages.js";
 import { defaultWidgetMessages, type AdminWidgetMessages } from "../widgets/messages.js";
+import { defaultDashboardMessages, type AdminDashboardMessages } from "../dashboard/messages.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -50,6 +51,7 @@ export type AdminMessages = {
   sortable: AdminSortableMessages;
   collection: AdminCollectionMessages;
   widget: AdminWidgetMessages;
+  dashboard: AdminDashboardMessages;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -70,6 +72,7 @@ export const englishAdminMessages: AdminMessages = {
   sortable: defaultSortableMessages,
   collection: defaultCollectionMessages,
   widget: defaultWidgetMessages,
+  dashboard: defaultDashboardMessages,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -213,6 +216,10 @@ export const turkishAdminMessages: AdminMessages = {
       dragEnd: (id) => `${id} öğesi yeni konuma taşındı.`,
       dragCancel: (id) => `${id} taşıma işlemi iptal edildi.`,
     },
+  },
+  dashboard: {
+    empty: "Bu panoda henüz bileşen yok.",
+    missingWidget: (widget) => `Bu pano, bu sürümde bulunmayan "${widget}" bileşenine başvuruyor.`,
   },
   widget: {
     emptyTitle: "Gösterilecek veri yok",

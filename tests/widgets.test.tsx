@@ -157,6 +157,16 @@ describe("createAdminWidgetRegistry", () => {
     expect(registry.has("revenue")).toBe(false);
   });
 
+  it("resolves a widget by id through the erased lookup the engine reads", () => {
+    // The dashboard handles widgets of many data types and so cannot be generic in the id, so it
+    // reads through `resolve` rather than the typed `get`. Both must answer the same widget.
+    const keyed = createAdminWidgetRegistry({ counter });
+
+    expect(keyed.resolve("counter")).toBe(counter);
+    expect(keyed.resolve("revenue")).toBeUndefined();
+    expect(createAdminWidgetRegistry([counter]).resolve("counter")).toBe(counter);
+  });
+
   it("returns nothing for an id the list form cannot rule out at compile time", () => {
     // A dashboard persisted by an earlier release can name a widget this build no longer registers.
     // The keyed form stops that question being asked, so the list form is where the runtime miss has
