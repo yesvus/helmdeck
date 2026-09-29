@@ -28,6 +28,7 @@ import { cn } from "../cn.js";
 import { AdminEmptyState } from "../primitives/empty-state.js";
 import { AdminSkeleton } from "../primitives/skeleton.js";
 import { adminToneClasses, type AdminTone } from "../primitives/tone.js";
+import { defaultAdminShippedWidgetLabels, type AdminShippedWidgetLabels } from "./labels.js";
 import { defineAdminWidget } from "./registry.js";
 import {
   adminWidgetCappedRows,
@@ -57,8 +58,12 @@ export type AdminActivityWidgetOptions<TRow, TData = readonly TRow[]> = {
   getKey?: (row: TRow, index: number) => string | number;
   /** The clock the ages are read against. Handed in rather than read here, so a tile is testable. */
   now?: () => Date;
-  /** Replaces the whole age vocabulary, for a host whose interface language is not English. */
+  /**
+   * Replaces the age vocabulary outright, for a host that wants one function for the whole feed
+   * rather than the thresholds one at a time. `labels` is the narrower way in.
+   */
   formatAge?: (elapsedMs: number, now: Date) => string;
+  labels?: Partial<AdminShippedWidgetLabels>;
   cap?: AdminWidgetCap;
   empty?: AdminWidgetEmptyCopy;
   isEmpty?: (data: TData) => boolean;
@@ -82,10 +87,6 @@ const toneMarkerClasses = adminToneClasses(
   "bg-red-500",
 );
 
-function plural(count: number, unit: string): string {
-  return `${count} ${unit}${count === 1 ? "" : "s"} ago`;
-}
-
 /**
  * How old an event is, in words.
  *
@@ -93,21 +94,21 @@ function plural(count: number, unit: string): string {
  * coarse to say anything about an event that just happened, an hour is too coarse to say anything
  * about one that happened at lunchtime, and a day is too coarse to order yesterday's events. Past a
  * week the count stops being useful, so the day itself is printed and the reader places it.
+ *
+ * That last date is taken from `now` rather than from the current clock, so a caller reading an
+ * injected clock gets the same day as the rest of its own ages.
  */
-export function adminActivityAge(elapsedMs: number, now: Date = new Date()): string {
+export function adminActivityAge(
+  elapsedMs: number,
+  now: Date = new Date(),
+  labels: AdminShippedWidgetLabels = defaultAdminShippedWidgetLabels,
+): string {
   const elapsed = Math.max(0, elapsedMs);
-  if (elapsed < minute) return "just now";
-  if (elapsed < hour) return plural(Math.floor(elapsed / minute), "minute");
-  if (elapsed < day) return plural(Math.floor(elapsed / hour), "hour");
-  if (elapsed < week) return plural(Math.floor(elapsed / day), "day");
-  // The date rather than a count, because past a week the count is not the fact the reader wants.
-  // Taken from `now` rather than from the current clock so that a tile reading an injected clock
-  // prints the same day the rest of its ages are measured against, rather than today's.
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(now.getTime() - elapsed));
+  if (elapsed < minute) return labels.justNow;
+  if (elapsed < hour) return labels.minutesAgo(Math.floor(elapsed / minute));
+  if (elapsed < day) return labels.hoursAgo(Math.floor(elapsed / hour));
+  if (elapsed < week) return labels.daysAgo(Math.floor(elapsed / day));
+  return labels.ageDate(new Date(now.getTime() - elapsed));
 }
 
 /** The event's time as epoch milliseconds, or null for a date the value is not. */
@@ -144,7 +145,8 @@ export function adminActivityWidget<TRow, TData = readonly TRow[]>(
   const readActor = options.actor;
   const readTone = options.tone;
   const clock = options.now ?? (() => new Date());
-  const formatAge = options.formatAge ?? adminActivityAge;
+  const labels = { ...defaultAdminShippedWidgetLabels, ...options.labels };
+  const formatAge = options.formatAge ?? ((elapsed: number, now: Date) => adminActivityAge(elapsed, now, labels));
 
   return defineAdminWidget<TData>({
     id,
@@ -207,7 +209,7 @@ export function adminActivityWidget<TRow, TData = readonly TRow[]>(
                       {/* Both the age and the exact time, because the age is what a reader scans and
                           the timestamp is what they need once the age has gone stale. */}
                       <time dateTime={time === null ? undefined : new Date(time).toISOString()}>
-                        {time === null ? "at an unknown time" : formatAge(now - time, nowAt)}
+                        {time === null ? labels.unknownTime : formatAge(now - time, nowAt)}
                       </time>
                     </p>
                   </div>

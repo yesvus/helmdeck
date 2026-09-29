@@ -33,6 +33,7 @@ import {
   type AdminWidgetCap,
   type AdminWidgetEmptyCopy,
 } from "./values.js";
+import { defaultAdminShippedWidgetLabels, type AdminShippedWidgetLabels } from "./labels.js";
 import type { AdminWidgetDefinition, AdminWidgetSize } from "./types.js";
 
 export type AdminChartWidgetOptions<TData> = {
@@ -80,6 +81,8 @@ export type AdminRankWidgetOptions<TData> = {
    * under it is what keeps the cut list from reading as the whole one.
    */
   cap?: AdminWidgetCap;
+  /** The sentence under a capped ranking, for a host whose interface language is not English. */
+  labels?: Partial<AdminShippedWidgetLabels>;
   ariaLabel?: (data: TData) => string;
   empty?: AdminWidgetEmptyCopy;
   isEmpty?: (data: TData) => boolean;
@@ -191,6 +194,7 @@ export function adminRankWidget<TData>(
   const formatters = adminChartFormatters(options.unit ?? "count");
   const integerTicks = options.integerTicks ?? true;
   const cap = options.cap ?? { max: DEFAULT_RANK_ROWS };
+  const copy = { ...defaultAdminShippedWidgetLabels, ...options.labels };
 
   return defineAdminWidget<TData>({
     id,
@@ -203,7 +207,7 @@ export function adminRankWidget<TData>(
       ? { renderEmpty: () => <AdminEmptyState title={emptyCopy.title} body={emptyCopy.body} /> }
       : {}),
     render: (data) => {
-      const { rows, note } = adminWidgetCappedRows(chartArray(readItems(data)), cap);
+      const { rows, note } = adminWidgetCappedRows(chartArray(readItems(data)), cap, copy);
       return (
         <div>
           <AdminRankChart

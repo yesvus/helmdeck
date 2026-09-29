@@ -29,10 +29,18 @@
  * can build a registry of these and render it through `AdminWidgetPanel`. The exception is the chart
  * pair, which is a client module because the charts themselves are, and which therefore have to be
  * declared in a client module.
+ *
+ * The row normaliser and the option checks in `values.ts` are deliberately not exported. They are how
+ * these six stay honest about data they cannot read, and a host writing its own widget has the
+ * engine's `isEmpty` to declare with, which is the one of the two that a host's own data shape can
+ * actually decide. Exporting the rest would offer a second way to be consistent with the engine and
+ * a way to drift from it.
  */
 
 export { adminActivityAge, adminActivityWidget } from "./activity.js";
 export type { AdminActivityWidgetOptions } from "./activity.js";
+export { defaultAdminShippedWidgetLabels } from "./labels.js";
+export type { AdminShippedWidgetLabels } from "./labels.js";
 export { adminChartWidget, adminRankWidget } from "./chart-widget.js";
 export type { AdminChartWidgetOptions, AdminRankWidgetOptions } from "./chart-widget.js";
 export { adminListWidget } from "./list.js";
@@ -41,12 +49,4 @@ export { adminStatWidget } from "./stat.js";
 export type { AdminStatWidgetOptions } from "./stat.js";
 export { adminTableWidget } from "./table.js";
 export type { AdminTableWidgetColumn, AdminTableWidgetOptions } from "./table.js";
-export {
-  adminWidgetCapNote,
-  adminWidgetCappedRows,
-  adminWidgetRequired,
-  adminWidgetRequiredList,
-  adminWidgetRowKey,
-  adminWidgetRows,
-} from "./values.js";
 export type { AdminWidgetCap, AdminWidgetCappedRows, AdminWidgetEmptyCopy } from "./values.js";

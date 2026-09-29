@@ -29,6 +29,7 @@ import { adminFormatCents, adminFormatCount } from "../charts/money.js";
 import { cn } from "../cn.js";
 import { AdminEmptyState } from "../primitives/empty-state.js";
 import { AdminSkeleton } from "../primitives/skeleton.js";
+import { defaultAdminShippedWidgetLabels, type AdminShippedWidgetLabels } from "./labels.js";
 import { defineAdminWidget } from "./registry.js";
 import {
   adminWidgetCappedRows,
@@ -72,6 +73,8 @@ export type AdminTableWidgetOptions<TRow, TData = readonly TRow[]> = {
    */
   unit?: AdminChartUnit;
   cap?: AdminWidgetCap;
+  /** The sentence under a capped table, for a host whose interface language is not English. */
+  labels?: Partial<AdminShippedWidgetLabels>;
   empty?: AdminWidgetEmptyCopy;
   isEmpty?: (data: TData) => boolean;
   sizes?: readonly AdminWidgetSize[];
@@ -122,6 +125,7 @@ export function adminTableWidget<TRow, TData = readonly TRow[]>(
   const columns = adminWidgetRequiredList(id, "at least one column", options.columns, "a table with no columns has nothing to draw");
   const emptyCopy = options.empty;
   const format = numberFormatter(options.unit ?? "count");
+  const labels = { ...defaultAdminShippedWidgetLabels, ...options.labels };
 
   return defineAdminWidget<TData>({
     id,
@@ -147,6 +151,7 @@ export function adminTableWidget<TRow, TData = readonly TRow[]>(
       const { rows, note } = adminWidgetCappedRows(
         adminWidgetRows(readRows, data),
         options.cap ?? { max: DEFAULT_ROWS },
+        labels,
       );
       const alignments = columns.map((column) => column.align ?? (isNumberColumn(column, rows) ? "right" : "left"));
 

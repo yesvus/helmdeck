@@ -33,6 +33,7 @@ import { AdminSkeleton } from "../primitives/skeleton.js";
 import { adminToneClasses, type AdminTone } from "../primitives/tone.js";
 import { defineAdminWidget } from "./registry.js";
 import { adminWidgetRequired, type AdminWidgetEmptyCopy } from "./values.js";
+import { defaultAdminShippedWidgetLabels, type AdminShippedWidgetLabels } from "./labels.js";
 import type { AdminWidgetDefinition, AdminWidgetSize } from "./types.js";
 
 export type AdminStatWidgetOptions<TData> = {
@@ -61,6 +62,8 @@ export type AdminStatWidgetOptions<TData> = {
   comparison?: string;
   /** The quiet line under the figure, where a host puts what the number is counted over. */
   detail?: (data: TData) => ReactNode;
+  /** The words the trend is announced with, for a host whose interface language is not English. */
+  labels?: Partial<AdminShippedWidgetLabels>;
   empty?: AdminWidgetEmptyCopy;
   isEmpty?: (data: TData) => boolean;
   sizes?: readonly AdminWidgetSize[];
@@ -120,6 +123,7 @@ export function adminStatWidget<TData>(
     signDisplay: "always",
   });
   const readPrevious = options.previous;
+  const copy = { ...defaultAdminShippedWidgetLabels, ...options.labels };
 
   const readFigure = (data: TData): number | null => {
     const value = readValue(data);
@@ -169,7 +173,7 @@ export function adminStatWidget<TData>(
               )}
               {/* The sign alone is not a direction to a screen reader, which may read the number
                   without the arrow that carries it for everyone else. */}
-              <span className="sr-only">{trend.direction === "up" ? "Up" : "Down"}</span>
+              <span className="sr-only">{trend.direction === "up" ? copy.trendUp : copy.trendDown}</span>
               <span>{percent.format(trend.ratio)}</span>
               {options.comparison ? (
                 <span className="font-normal text-zinc-500">{options.comparison}</span>

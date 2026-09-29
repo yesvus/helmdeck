@@ -998,44 +998,14 @@ const CATALOG_META: Record<string, CatalogMeta> = {
   adminActivityAge: {
     category: "Dashboard and widgets",
     summary:
-      "How old an event is in words, with the thresholds stated once: just now under a minute, minutes under an hour, and the date itself past a week.",
+      "How old an event is in words, with the thresholds stated once: just now under a minute, minutes under an hour, and the date itself past a week. Takes the clock to read against, so a feed's ages stay in step with the tile's.",
     keywords: "age relative time thresholds just now ago",
   },
-  adminWidgetRows: {
+  defaultAdminShippedWidgetLabels: {
     category: "Dashboard and widgets",
     summary:
-      "The rows a selector found, or none at all, so a query answering a shape the host did not expect empties one tile instead of taking the dashboard down with it.",
-    keywords: "rows select read safe array shape",
-  },
-  adminWidgetCappedRows: {
-    category: "Dashboard and widgets",
-    summary:
-      "The rows a tile will draw after its cap, with the line that says how many of the total are on screen rather than leaving a partial list to pass for the whole one.",
-    keywords: "cap rows limit note truncated partial",
-  },
-  adminWidgetCapNote: {
-    category: "Dashboard and widgets",
-    summary:
-      "The sentence under a capped tile, replaced by a host that needs the count in its own language or its own order.",
-    keywords: "cap note count showing truncated sentence",
-  },
-  adminWidgetRequired: {
-    category: "Dashboard and widgets",
-    summary:
-      "Refuses a value a tile cannot be built from, naming the widget and the option, because a missing accessor is the host's mistake and not a fact about the data.",
-    keywords: "required refuse missing option throw misconfigured",
-  },
-  adminWidgetRequiredList: {
-    category: "Dashboard and widgets",
-    summary:
-      "Refuses an empty list a tile cannot be drawn from, such as a table declared with no columns at all.",
-    keywords: "required list columns empty refuse misconfigured",
-  },
-  adminWidgetRowKey: {
-    category: "Dashboard and widgets",
-    summary:
-      "A key for a row the host did not key, falling back to the row's position, which a read-only tile can survive and a selectable one cannot.",
-    keywords: "key row index fallback react list",
+      "The words the shipped tiles print themselves, as the sentences taking a count rather than as templates, so a host's language is never assembled by this package.",
+    keywords: "labels words copy i18n translate sentences counts",
   },
 
   AdminCollectionEditor: {

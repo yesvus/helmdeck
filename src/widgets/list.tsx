@@ -23,6 +23,7 @@ import { cn } from "../cn.js";
 import { AdminEmptyState } from "../primitives/empty-state.js";
 import { AdminSkeleton } from "../primitives/skeleton.js";
 import { adminToneClasses, type AdminTone } from "../primitives/tone.js";
+import { defaultAdminShippedWidgetLabels, type AdminShippedWidgetLabels } from "./labels.js";
 import { defineAdminWidget } from "./registry.js";
 import {
   adminWidgetCappedRows,
@@ -62,6 +63,8 @@ export type AdminListWidgetOptions<TRow, TData = readonly TRow[]> = {
   /** A stable key per row. The row's position is used when this is not given. */
   getKey?: (row: TRow, index: number) => string | number;
   cap?: AdminWidgetCap;
+  /** The sentence under a capped list, for a host whose interface language is not English. */
+  labels?: Partial<AdminShippedWidgetLabels>;
   empty?: AdminWidgetEmptyCopy;
   isEmpty?: (data: TData) => boolean;
   sizes?: readonly AdminWidgetSize[];
@@ -90,6 +93,7 @@ export function adminListWidget<TRow, TData = readonly TRow[]>(
   const readNote = options.note;
   const readTone = options.tone;
   const format = options.unit === "money" ? adminFormatCents : adminFormatCount;
+  const labels = { ...defaultAdminShippedWidgetLabels, ...options.labels };
 
   return defineAdminWidget<TData>({
     id,
@@ -113,6 +117,7 @@ export function adminListWidget<TRow, TData = readonly TRow[]>(
       const { rows, note } = adminWidgetCappedRows(
         adminWidgetRows(readRows, data),
         options.cap ?? { max: DEFAULT_ROWS },
+        labels,
       );
       const items: AdminListWidgetItem[] = rows.map((row, index) => {
         const value = readValue?.(row);

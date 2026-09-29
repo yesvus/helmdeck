@@ -15,6 +15,8 @@
  * option and the definition is never built.
  */
 
+import type { AdminShippedWidgetLabels } from "./labels.js";
+
 export type AdminWidgetEmptyCopy = { title: string; body: string };
 
 export type AdminWidgetCap = {
@@ -53,13 +55,20 @@ export function adminWidgetRows<TData, TRow>(
 export function adminWidgetCappedRows<TRow>(
   rows: readonly TRow[],
   cap?: AdminWidgetCap,
+  labels?: AdminShippedWidgetLabels,
 ): AdminWidgetCappedRows<TRow> {
   const total = rows.length;
   if (!cap || cap.max >= total) {
     return { rows: rows.slice(), total, note: null };
   }
   const shown = rows.slice(0, Math.max(0, cap.max));
-  return { rows: shown, total, note: (cap.note ?? adminWidgetCapNote)(shown.length, total) };
+  // The type-only import above the value one: this module is what the label defaults are built from,
+  // so importing them here as values would close a loop between the two.
+  return {
+    rows: shown,
+    total,
+    note: (cap.note ?? labels?.capNote ?? adminWidgetCapNote)(shown.length, total),
+  };
 }
 
 /** Refuses a value the tile cannot be built from, naming the widget and the option. */
