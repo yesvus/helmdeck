@@ -180,29 +180,33 @@ ok("the overflow check sees horizontal overflow", m.detectsHorizontalOverflow, "
 process.exit(failed);
 NODE
 
-  # Dashboard grid geometry. A col-span utility that never reached the stylesheet leaves the tile one
-  # column wide while its class attribute still reads correctly, which is exactly the defect class the
-  # unit tests cannot see. So the computed grid values are measured, at two viewports, because a span
-  # that only applies at the wide breakpoint is not a responsive span.
   verify_grid() {
-    local label=$1 expected_revenue="$2" measured
+    local label=$1 want_revenue="$2" want_signups="$3" want_rows="$4" measured
     measured=$(playwright-cli -s="$SESSION" eval '(() => {
       const tiles = [...document.querySelectorAll("[data-placement]")];
       if (!tiles.length) return "error=no-tiles";
       const out = [];
       out.push("columns=" + getComputedStyle(tiles[0].parentElement).gridTemplateColumns.split(" ").length);
       for (const tile of tiles) out.push(tile.getAttribute("data-widget") + ":" + getComputedStyle(tile).gridColumn);
-      // Grid places tiles into rows, so more tiles than columns means more than one top edge. An
-      // absolute-positioning regression would stack every tile on the same one.
+      // Grid places tiles into rows, so more tiles than fit on one row means more than one top edge.
+      // An absolute-positioning regression would stack every tile on the same one.
       out.push("distinctTops=" + new Set(tiles.map((t) => Math.round(t.getBoundingClientRect().top))).size);
+      out.push("tiles=" + tiles.length);
       return out.join(";");
-    })()' 2>/dev/null | sed -n '2p' | node -e 'let s="";process.stdin.on("data",(d)=>s+=d).on("end",()=>{process.stdout.write(s);});')
+    })()' 2>/dev/null | sed -n '2p' | node -e '
+      let s="";
+      process.stdin.on("data",(d)=>s+=d).on("end",()=>{
+        // The CLI wraps a returned string in a quoted JSON string, so the quotes are stripped here
+        // rather than being allowed to become part of the first key and the last value.
+        s = s.trim().replace(/^"|"$/g, "");
+        process.stdout.write(s);
+      });')
     if [ -z "$measured" ]; then
       echo "  FAIL  $label: could not measure the dashboard grid" >&2
       return 1
     fi
     echo "  grid $label: $measured"
-    LABEL="$label" EXPECTED="$expected_revenue" MEASURED="$measured" node <<'NODE'
+    LABEL="$label" WANT_REVENUE="$want_revenue" WANT_SIGNUPS="$want_signups" WANT_ROWS="$want_rows" MEASURED="$measured" node <<'NODE'
   const m = {};
   for (const part of process.env.MEASURED.split(";")) {
     const colon = part.indexOf(":");
@@ -210,23 +214,22 @@ NODE
     if (equals !== -1 && (colon === -1 || equals < colon)) m[part.slice(0, equals)] = part.slice(equals + 1);
     else m[part.slice(0, colon)] = part.slice(colon + 1);
   }
-  const label = process.env.LABEL;
+  // gridColumn computes to "span 3 / span 3"; the span being checked is the first half.
+  const spanOf = (key) => (m[key] || "").split(" / ")[0];
   let failed = 0;
   const ok = (name, actual, expected) => {
     if (String(actual) === String(expected)) console.log(`    ok    ${name} (${actual})`);
     else { console.error(`    FAIL  ${name}: expected ${expected}, measured ${actual}`); failed = 1; }
   };
   if (m.error) { console.error(`    FAIL  ${m.error}`); process.exit(1); }
-  // A utility that never compiled resolves to "auto" or "span 1", never to "span N". Asserting the
-  // computed value is what separates a class that compiled from one that is merely present.
-  ok("revenue tile takes its declared span", m.revenue, process.env.EXPECTED);
-  ok("signups tile takes its declared span", m.signups, "span 1");
-  ok("tiles are laid out in more than one row", Number(m.distinctTops) > 1, true);
+  // A utility that never compiled leaves the tile at "auto" or "span 1", so asserting the computed
+  // value is what separates a class that compiled from one that is merely present.
+  ok("revenue tile takes its declared span", spanOf("revenue"), process.env.WANT_REVENUE);
+  ok("signups tile takes its declared span", spanOf("signups"), process.env.WANT_SIGNUPS);
+  ok("tiles flow into the expected number of rows", m.distinctTops, process.env.WANT_ROWS);
   process.exit(failed);
 NODE
   }
-
-
 # Theme resolution, on the landing page specifically. It sits outside the shell layout, which is
 # where the provider used to live, so it silently kept the light default no matter what the shell
 # had selected or what the operating system reported.
@@ -246,9 +249,9 @@ verify_theme() {
     exit 1
   fi
   playwright-cli -s="$SESSION" resize 1280 900 >/dev/null
-  verify_grid "1280x900" "span 3" || FAILED=1
+  verify_grid "1280x900" "span 3" "span 1" "2" || FAILED=1
   playwright-cli -s="$SESSION" resize 600 900 >/dev/null
-  verify_grid "600x900" "span 1" || FAILED=1
+  verify_grid "600x900" "auto" "auto" "4" || FAILED=1
 
   echo "  theme on the landing page"
 if ! LANDING=$(playwright-cli -s="$SESSION" goto "http://localhost:$PORT/" 2>&1); then
