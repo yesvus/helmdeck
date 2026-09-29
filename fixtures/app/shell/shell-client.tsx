@@ -3,9 +3,15 @@
 
 import Link from "next/link.js";
 import { createContext, useContext, type ReactNode } from "react";
-import { AdminShell, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
+import { AdminShell, AdminPermissionsProvider, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
 import { useShellTheme } from "../../components/shell-theme-provider";
 import { signOutAction } from "./sign-out-action";
+import { demoPermissionsAdapter } from "../../lib/demo-permissions";
+
+// Module scope, not inside the component: the provider watches for the adapter to change and
+// invalidates every cached answer when it does, so a fresh object per render would re-run that
+// loop forever.
+const permissions = demoPermissionsAdapter();
 
 type ShellSettings = {
   accent: string;
@@ -57,7 +63,8 @@ export function ShellClient({
 
   return (
     <SettingsContext.Provider value={{ accent }}>
-      <AdminShell
+      <AdminPermissionsProvider adapter={permissions}>
+        <AdminShell
         nav={nav}
         session={session}
         homeHref="/shell"
@@ -81,6 +88,7 @@ export function ShellClient({
       >
         {children}
       </AdminShell>
+      </AdminPermissionsProvider>
     </SettingsContext.Provider>
   );
 }
