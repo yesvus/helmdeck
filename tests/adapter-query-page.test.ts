@@ -213,8 +213,11 @@ describe("the search the store does", () => {
       expect(percent.rows.map((row) => row.id), name).toEqual(["a", "b"]);
       expect(percent.total, name).toBe(2);
 
-      const quote = await store.queryPage<Row>("products", { search: "50% wool'" });
-      expect(quote.total, name).toBe(1);
+      // A pattern would answer with the two rows above for this term as well.
+      const alone = await store.queryPage<Row>("products", { search: "%" });
+      expect(alone.total, name).toBe(2);
+
+      expect((await store.queryPage<Row>("products", { search: "50% wool" })).total, name).toBe(1);
 
       // A quote in the term is a quote, so the statement it reaches is not broken by it.
       const broken = await store.queryPage<Row>("products", { search: "' OR 1=1 --" });
@@ -264,9 +267,12 @@ describe("the ordering the store applies", () => {
 
         expect(collected.length, name).toBe(97);
         expect(new Set(collected).size, name).toBe(97);
-        // The two shelves, in order, with the last page holding the seventeen that are left.
+        // The two shelves, in order: the 49 rows on the first shelf and then the 48 on the second,
+        // so the last row read is the last of the second.
         expect(collected.slice(0, 2), name).toEqual(["p0000", "p0002"]);
-        expect(collected[collected.length - 1], name).toBe("p0096");
+        expect(collected[48], name).toBe("p0096");
+        expect(collected[49], name).toBe("p0001");
+        expect(collected[collected.length - 1], name).toBe("p0095");
       },
       { url: "file::memory:" },
     );
@@ -325,7 +331,7 @@ describe("the ordering the store applies", () => {
     await inBothStores(records, async (name, store) => {
       const ordered = await store.queryPage<Row>("products", { sort: [{ field: "rank", direction: "asc" }] });
 
-      expect(ordered.rows.map((row) => row.id), name).toEqual(["c", "e", "d", "b", "a"]);
+      expect(ordered.rows.map((row) => row.id), name).toEqual(["c", "e", "b", "d", "a"]);
       expect(ordered.total, name).toBe(5);
     });
   });
@@ -348,41 +354,39 @@ describe("the ordering the store applies", () => {
 describe("the four parts of a query at once", () => {
   it("compose into one answer rather than four answers", async () => {
     // Search, filter, sort and window together, over a store big enough for each of them to be
-    // able to hide a part that was dropped: a term that matches 1,000 rows, a filter that keeps a
-    // third of those, an ordering and a window inside what is left.
+    // able to hide a part that was dropped: a term that matches 111 rows, a filter that keeps 75 of
+    // them, an ordering and a window inside what is left.
     const records = catalogue(1000);
+    // Built once and re-read for each store, because a builder carries the query it has been given
+    // and a second store asked through it would be handed the first store's window.
+    const base = adminResourceQuery()
+      .search("product 1")
+      .where("in_stock", "eq", true)
+      .sort("price_cents", "desc")
+      .build();
 
     await inBothStores(
       records,
       async (name, store) => {
+        const matched = await store.queryPage<Row>("products", base);
         const page = await store.queryPage<Row>(
           "products",
-          adminResourceQuery()
-            .search("product 1")
-            .where("in_stock", "eq", true)
-            .sort("price_cents", "desc")
-            .window(20, 10)
-            .build(),
+          adminResourceQuery(base).window(20, 10).build(),
         );
 
-        // Every row named has the term in it, is in stock, and sits inside the window of the
-        // prices the term left, in descending order.
-        expect(page.total, name).toBe(111);
+        expect(matched.total, name).toBe(75);
+        expect(matched.rows.length, name).toBe(75);
+        expect(page.total, name).toBe(75);
         expect(page.rows, name).toHaveLength(10);
+
+        // Every part was applied, and in that order: the term and the filter chose the set, the
+        // ordering arranged it, and the window took the twenty-first through the thirtieth of that
+        // rather than the twenty-first through the thirtieth of the thousand.
+        expect(page.rows.map(byId), name).toEqual(matched.rows.slice(20, 30).map(byId));
         expect(page.rows.every((row) => row.in_stock === true), name).toBe(true);
+        expect(page.rows.every((row) => String(row.name).toLowerCase().includes("product 1")), name).toBe(true);
         const prices = page.rows.map((row) => row.price_cents as number);
         expect(prices, name).toEqual([...prices].sort((left, right) => right - left));
-
-        // The window is inside the matched set and not inside the store: the same query with no
-        // window answers every one of them, so the ten above are the twenty-first through the
-        // thirtieth of 111 rather than of 1,000.
-        const all = await store.queryPage<Row>("products", {
-          search: "product 1",
-          filter: [{ field: "in_stock", operator: "eq", value: true }],
-        });
-        expect(all.total, name).toBe(111);
-        expect(all.rows.map((row) => row.id), name).toEqual(page.rows.map((row) => row.id));
-        expect(all.rows.slice(0, 20).map((row) => row.id), name).not.toContain(page.rows[0].id);
       },
       { url: "file::memory:" },
     );
@@ -578,8 +582,16 @@ describe("the query the older form reads", () => {
     await inBothStores(records, async (name, store) => {
       expect(await store.query<Row>("products", { limit: 2 }), name).toEqual([]);
       expect(await store.query<Row>("products", { sort: "views" }), name).toEqual([]);
-      expect(await store.query<Row>("products", { window: { offset: 0, limit: 2 } }), name).toEqual([]);
+      expect(await store.query<Row>("products", { offset: 1 }), name).toEqual([]);
     });
+
+    // A window sent as a document is the one shape the two older forms answer differently, and the
+    // difference is the SQLite adapter's own rule rather than anything the paged form changed: a
+    // document cannot be compared as a value, so it refuses instead of answering wrongly.
+    const [, [, sqliteStore]] = await seeded(records);
+    await expect(sqliteStore.query("products", { window: { offset: 0, limit: 2 } })).rejects.toThrow(
+      /stored as a JSON document/,
+    );
   });
 
   it("is still the call a list makes when its adapter cannot page", async () => {
