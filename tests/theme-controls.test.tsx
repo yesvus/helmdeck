@@ -21,7 +21,6 @@ function renderControls() {
 
 describe("theme boot script", () => {
   function runBoot() {
-    // eslint-disable-next-line no-new-func
     new Function(themeBootScript)();
   }
 
