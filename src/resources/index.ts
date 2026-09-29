@@ -13,3 +13,5 @@ export type {
   AdminResourceRecord,
 } from "./registry.js";
 export { AdminResourceForm, AdminResourceList } from "./views.js";
+export { AdminResourceNotExposedError, createAdminResourceActions } from "./actions.js";
+export type { AdminResourceActions, AdminResourceOperation } from "./actions.js";

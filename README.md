@@ -243,6 +243,69 @@ const posts = defineAdminResource({
 
 `AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input.
 
+### Enforcing a permission on the server
+
+Everything above runs in a browser, so it decides what is drawn. This section is the half that refuses. A hidden button is not authorization: any client can post the action directly, and the button is not in the way.
+
+Write one rule and let the package ask it on both sides.
+
+```ts
+// lib/rules.ts, asked by the views and by the actions
+export function can(session: AdminSession, permission: AdminPermission) {
+  const [resource, operation] = permission.split(".");
+  if (!EXPOSED.has(resource)) return false;
+  return OPERATIONS.get(session.role ?? "")?.has(operation) ?? false;
+}
+```
+
+```ts
+// lib/permissions.ts, no directive: both ends that ask the rule
+export const check = createAdminPermissionCheck({ rule: can, session: currentSession });
+export const requirePermission = createAdminPermissionGuard({
+  rule: can,
+  session: currentSession,
+  onUnauthenticated: () => redirect("/admin/login?next=/admin/billing"),
+  onDenied: ({ permission }) => forbidden(`This session may not ${permission}`),
+});
+
+// app/lib/permission-actions.ts
+"use server";
+export const checkPermission = async (permission: AdminPermission) => check(permission);
+```
+
+A `"use server"` file exports async functions, so a factory's result is handed to one. That wrapper is the whole of the bridge, and the client adapter is `can: checkPermission`.
+
+`check` is what the views ask, so the client half has no verdict of its own to hold. The browser sends a permission name and the record it is about; the rule is handed the session the server resolved from the cookie and the row behind it.
+
+`requirePermission` returns the session or throws, and a handler that returns instead of throwing still gets the refusal, so a redirect or a 403 is the host's to choose and the effect is unreachable either way. Call it once at the top of a route, a page, or an action rather than repeating the check in every page.
+
+`createAdminResourceActions` puts the same guard in front of a store, for the resource surface:
+
+```ts
+// lib/resource-store.ts
+export const store = createAdminResourceActions({ guard: requirePermission, persistence });
+
+// app/lib/resource-actions.ts
+"use server";
+export const queryResource = async (resource: string) => store.query(resource);
+export const readResource = async (resource: string, id: string) => store.read(resource, id);
+export const createResource = async (resource: string, value: unknown) => store.create(resource, value);
+export const updateResource = async (resource: string, id: string, value: unknown) => store.update(resource, id, value);
+export const deleteResource = async (resource: string, id: string) => store.delete(resource, id);
+```
+
+`AdminResourceList` and `AdminResourceForm` take an object of those five as their `persistence` prop, so the reads a list performs are the ones that were refused, and a delete reaches the store only after the rule allows it. A resource name arrives from the browser as a string the caller chose, so `expose` is a closed set of names and is checked before the session is resolved. `before` runs after the refusal and before the effect, for a store that has to be prepared first. Passing no guard throws at construction rather than handing back calls that decide nothing.
+
+**A decision carries the record the call names, and the view asks it the same way.** `read`, `update` and `delete` are decided for the record they are given, so a rule that withholds one record refuses that record and nothing else. `query` names no record, so it asks the collection question the list asks. Two halves asking different questions get different answers from a per-record rule, which is a button that renders and then fails, or one that does not render and succeeds anyway.
+
+Which rows a `query` returns is your own row scoping, alongside whatever else filters it. A rule asked once per returned row would be a second row filter in a place that cannot compose with the first, so a host with per-record read rules filters inside the query it hands to `persistence`, and every record a `read` or a `write` names is enforced at the boundary.
+
+**A missing rule denies.** A host that wired the views and not the server has no authorization at all, so a permission decision denies rather than allows, and the view hides what it would have shown. The view's answer is the server's either way, so hiding is not what makes it safe; it is what makes it diagnosable. A view showing everything looks exactly like a host whose roles grant nothing, and sends the person debugging it to the role rules instead of to the rule that is not there. The refusal also warns in development. The errors are `AdminUnauthenticatedError`, `AdminPermissionDeniedError`, which carries the `reason` for the refusal, and `AdminResourceNotExposedError` for a name outside the exposed set.
+
+`evaluateAdminPermission` is the decision on its own, for a host whose check is not built from a resolver.
+
+**Hand-rolled instead:** call your own function from your own route handler and your own server action. The point of this section is one rule asked twice rather than two rules, not the package's code.
+
 **Your write boundary must do the same, and the views are not what does it.** `adminResourceValues` is what the generated forms call, in the browser. A hand-edited request does not go through a form, so a server action that hands its argument straight to the adapter stores whatever it was sent. The demo's actions run the incoming value through `adminResourceValues` on the server before the write, which is what makes the claim true of the boundary rather than only of the form:
 
 ```ts
@@ -291,7 +354,7 @@ This is the adapter to start on. A filter runs through `json_extract`, which SQL
 
 ## Host integration contracts
 
-`AdminAuthAdapter` resolves the current session and handles login/logout. `AdminPermissionsAdapter` answers host-defined permission checks; shell navigation role filtering is presentation only and never replaces route or operation authorization. The host owns identity, session lifetime, credentials, permission names, and enforcement.
+`AdminAuthAdapter` resolves the current session and handles login/logout. `AdminPermissionsAdapter` answers host-defined permission checks; shell navigation role filtering is presentation only and never replaces route or operation authorization. The host owns identity, session lifetime, credentials, permission names, and the rule itself; the package supplies the two ends that ask it.
 
 `AdminPersistenceAdapter` is a generic boundary for host data reads and writes. Resource names, data types, validation schemas, transactions, and domain rules remain host-owned. `AdminMediaAdapter` owns media listing, upload, and media mutations; storage, URL signing, and retention remain host responsibilities.
 

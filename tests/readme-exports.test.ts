@@ -52,6 +52,10 @@ const DOCUMENTED_FUNCTIONS = [
   "adminReturnTo",
   "defineAdminResource",
   "adminResourceValues",
+  "createAdminPermissionCheck",
+  "createAdminPermissionGuard",
+  "createAdminResourceActions",
+  "evaluateAdminPermission",
 ];
 
 const ALL = [...DOCUMENTED_COMPONENTS, ...DOCUMENTED_FUNCTIONS, ...DOCUMENTED_BASELINE];

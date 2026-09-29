@@ -16,6 +16,21 @@ export {
   useAdminPermission,
 } from "./permissions.js";
 export type { AdminPermissionState } from "./permissions.js";
+export {
+  AdminPermissionDeniedError,
+  AdminUnauthenticatedError,
+  createAdminPermissionCheck,
+  createAdminPermissionGuard,
+  evaluateAdminPermission,
+} from "./permission-rule.js";
+export type {
+  AdminPermissionContext,
+  AdminPermissionDecision,
+  AdminPermissionGuard,
+  AdminPermissionReason,
+  AdminPermissionRule,
+  AdminSessionResolver,
+} from "./permission-rule.js";
 export { useAdminPermittedNav } from "./permitted-nav.js";
 export type { AdminSearchEntry } from "./admin-search.js";
 export { AdminAuthProvider, AdminRequireSession, useAdminSession } from "./auth.js";
