@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { AdminPermission, AdminPersistenceAdapter } from "../adapters/index.js";
+import { parseAdminResourceQuery } from "../adapters/query.js";
+import type { AdminResourcePage, AdminResourceQuery } from "../adapters/query.js";
 import type { AdminPermissionGuard } from "../shell/permission-rule.js";
 import type { AdminResourceRecord } from "./registry.js";
 
@@ -11,9 +13,18 @@ export type AdminResourceOperation = "read" | "create" | "update" | "delete";
  * Structurally an `AdminPersistenceAdapter`, so a host can hand these straight to
  * `AdminResourceList` and `AdminResourceForm` as the `persistence` those views read through, and
  * keep the enforcement in the module the client cannot reach.
+ *
+ * `queryPage` is here only when the host's adapter has it. Its absence is the whole of the
+ * compatibility story, and it has to stay absence through this seam: a set of actions that always
+ * offered a paged query would tell every generated list that a store which cannot count can count.
  */
 export type AdminResourceActions = {
+  /**
+   * Passed through as the host's adapter takes it, which is how it has always behaved. A host that
+   * wants its queries read, checked and counted asks for `queryPage`.
+   */
   query: <T = AdminResourceRecord>(resource: string, query?: Record<string, unknown>) => Promise<T[]>;
+  queryPage?: <T = AdminResourceRecord>(resource: string, query?: AdminResourceQuery) => Promise<AdminResourcePage<T>>;
   read: <T = AdminResourceRecord>(resource: string, id: string) => Promise<T | null>;
   create: <T = AdminResourceRecord>(resource: string, value: unknown) => Promise<T>;
   update: <T = AdminResourceRecord>(resource: string, id: string, value: unknown) => Promise<T>;
@@ -101,6 +112,18 @@ export function createAdminResourceActions({
     await before?.({ resource, operation, resourceId });
   }
 
+  /**
+   * The query as the store will see it, or a refusal.
+   *
+   * Read before the guard, because a query the shell cannot express is a malformed request rather
+   * than a question about a session, and this answer says nothing about the resource or the caller
+   * beyond what the caller already chose. Read before `before` too, so a store is not prepared for
+   * a request that was never going to be a question at all.
+   */
+  function ask(value: unknown): AdminResourceQuery {
+    return parseAdminResourceQuery(value);
+  }
+
   return {
     // No record is named, so this asks the collection question the list view asks. Which rows a
     // host's query returns is their own scoping, alongside whatever else filters it, and asking
@@ -133,5 +156,16 @@ export function createAdminResourceActions({
       await permit(resource, "delete", id);
       await persistence.delete(resource, id);
     },
-  };
+
+    // Only where the host's adapter has it, so a list mounted on these actions sees the same
+    // capabilities it would see mounted on the adapter itself.
+    ...(typeof persistence.queryPage === "function"
+      ? {
+        async queryPage<T>(resource: string, query?: AdminResourceQuery): Promise<AdminResourcePage<T>> {
+          const asked = ask(query);
+          await permit(resource, "read");
+          return persistence.queryPage?.<T>(resource, asked) as Promise<AdminResourcePage<T>>;
+        },
+      }
+      : {}),  };
 }

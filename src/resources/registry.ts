@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { ReactNode } from "react";
 import type { AdminPermission } from "../adapters/index.js";
+import {
+  isAdminResourceField,
+  type AdminResourceFilterOperator,
+  type AdminResourceFilterValue,
+} from "../adapters/query.js";
 
 /** One field on a resource's detail form. */
 export type AdminResourceField = {
@@ -23,6 +28,27 @@ export type AdminResourceColumn = {
   format?: (value: unknown, row: Record<string, unknown>) => ReactNode;
   align?: "left" | "right";
   width?: string;
+  /**
+   * Offers this column as the query's ordering. Declared rather than assumed, because a sort the
+   * visitor did not ask for is a store doing work nobody requested.
+   */
+  sortable?: boolean;
+};
+
+/**
+ * One filter control on a resource's list view, and the comparison its value becomes.
+ *
+ * Declared options make it a choice from a set; without them it is a term typed into a box and
+ * compared with `contains`. Either way the control's value travels as a comparison in the query
+ * and the adapter answers it: the list never narrows rows it has already been given.
+ */
+export type AdminResourceFilterDefinition = {
+  field: string;
+  label: string;
+  operator?: AdminResourceFilterOperator;
+  options?: Array<{ value: string; label: string }>;
+  /** Reads a control's value into what the adapter compares against. */
+  parse?: (value: string) => AdminResourceFilterValue | AdminResourceFilterValue[] | undefined;
 };
 
 export type AdminResourceDefinition = {
@@ -32,6 +58,11 @@ export type AdminResourceDefinition = {
   singularLabel?: string;
   columns: AdminResourceColumn[];
   fields: AdminResourceField[];
+  /**
+   * The filter controls the list offers. A definition that declares none has no filter bar, and a
+   * visitor sees no control that would narrow nothing.
+   */
+  filters?: AdminResourceFilterDefinition[];
   /** The route segment for this resource, relative to wherever the host mounts it. */
   path?: string;
   permissions?: {
@@ -63,6 +94,26 @@ export function defineAdminResource(definition: AdminResourceDefinition): AdminR
       throw new Error(`Resource ${definition.resource} declares the field ${field.name} twice`);
     }
     seenFields.add(field.name);
+  }
+
+  // Checked here rather than at the first query, because a filter whose field is not a field is
+  // a mistake in the definition, and finding it out through a refused request from a browser
+  // tells its author nothing about where the name came from.
+  const seenFilters = new Set<string>();
+  for (const filter of definition.filters ?? []) {
+    if (!isAdminResourceField(filter.field)) {
+      throw new Error(
+        `Resource ${definition.resource} filters on ${JSON.stringify(filter.field)}, which is not a field`,
+      );
+    }
+    if (seenFilters.has(filter.field)) {
+      throw new Error(`Resource ${definition.resource} filters on ${filter.field} twice`);
+    }
+    seenFilters.add(filter.field);
+    // A control with an empty list of options is a filter the visitor cannot express.
+    if (filter.options !== undefined && filter.options.length === 0) {
+      throw new Error(`Resource ${definition.resource} declares ${filter.field} with no options`);
+    }
   }
 
   return definition;
