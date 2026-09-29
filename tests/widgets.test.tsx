@@ -8,7 +8,7 @@ import {
   createAdminWidgetRegistry,
   defineAdminWidget,
 } from "../src/widgets/registry";
-import { renderAdminWidget } from "../src/widgets/render";
+import { AdminWidget } from "../src/widgets/render";
 import type { AdminWidgetDefinition } from "../src/widgets/types";
 
 type Count = { total: number };
@@ -28,7 +28,7 @@ type WidgetState =
   | { status: "ready"; data: Count };
 
 /**
- * A child component, because `renderAdminWidget` reads a hook. Written inline in the provider's JSX
+ * A child component, because `AdminWidget` reads a hook. Written inline in the provider's JSX
  * it is evaluated during the parent's render, which is outside the provider, and every assertion then
  * quietly matched the default Turkish dictionary instead of the English one it asked for.
  */
@@ -41,7 +41,7 @@ function Widget({
   state: WidgetState;
   onRetry?: () => void;
 }) {
-  return <>{renderAdminWidget({ definition, state, onRetry })}</>;
+  return <AdminWidget definition={definition} state={state} onRetry={onRetry} />;
 }
 
 function Harness({
@@ -117,37 +117,53 @@ describe("createAdminWidgetRegistry", () => {
   });
 
   it("lists widgets in registration order, which is the order an editor offers them", () => {
-    expect(createAdminWidgetRegistry([counter, other]).list().map((w) => w.id)).toEqual([
+    expect(createAdminWidgetRegistry({ counter, revenue: other }).list().map((w) => w.id)).toEqual([
       "counter",
       "revenue",
     ]);
   });
 
-  it("refuses two widgets sharing an id, which would make a saved dashboard ambiguous", () => {
-    expect(() => createAdminWidgetRegistry([counter, counter])).toThrow(/both registered/);
+  it("refuses a widget registered under a key other than its own id", () => {
+    // Keying by id makes the duplicate case a compile error, and a literal collapses it at runtime,
+    // so the guard that can actually be reached is a registry answering under one id while the
+    // widget declares another.
+    expect(() => createAdminWidgetRegistry({ wrongKey: counter })).toThrow(
+      /registered as "wrongKey" declares the id "counter"/,
+    );
   });
 
   it("finds a widget by id and reports an unknown one as absent", () => {
-    const registry = createAdminWidgetRegistry([counter]);
+    const registry = createAdminWidgetRegistry({ counter });
 
     expect(registry.get("counter")).toBe(counter);
     expect(registry.has("revenue")).toBe(false);
   });
 
+  it("returns nothing for an id the types allow but the registry does not have", () => {
+    // A dashboard persisted by an earlier release can name a widget this build no longer registers,
+    // and the editor looks every id up. Bypassing the id type here is the point: the runtime contract
+    // has to hold for a key the compiler thought was fine.
+    const registry = createAdminWidgetRegistry({ counter }) as unknown as {
+      get: (id: string) => unknown;
+    };
+
+    expect(registry.get("revenue")).toBeUndefined();
+  });
+
   it("reports an unregistered widget instead of dropping it from a saved dashboard", () => {
-    expect(createAdminWidgetRegistry([counter]).validate({ widget: "ghost", size: "sm" })).toEqual([
+    expect(createAdminWidgetRegistry({ counter }).validate({ widget: "ghost", size: "sm" })).toEqual([
       'No widget is registered as "ghost"',
     ]);
   });
 
   it("reports a size the widget does not support, and names the ones it does", () => {
-    expect(createAdminWidgetRegistry([counter]).validate({ widget: "counter", size: "xl" })).toEqual([
+    expect(createAdminWidgetRegistry({ counter }).validate({ widget: "counter", size: "xl" })).toEqual([
       'Widget "counter" does not support the size "xl". It supports sm, lg',
     ]);
   });
 
   it("accepts a placement the widget supports", () => {
-    expect(createAdminWidgetRegistry([counter]).validate({ widget: "counter", size: "lg" })).toEqual([]);
+    expect(createAdminWidgetRegistry({ counter }).validate({ widget: "counter", size: "lg" })).toEqual([]);
   });
 
   it("validates an empty registry by reporting every widget as unregistered", () => {

@@ -9,6 +9,11 @@
  * against the registry rather than trusted. Validation returns messages instead of throwing,
  * because a saved dashboard can be wrong in a way the user should see next to the offending widget
  * rather than as a blank page.
+ *
+ * It is keyed by widget id rather than a list so `get` keeps each widget's own data type. A
+ * heterogeneous registry cannot hold one erased data type: `render` is contravariant in its data, so
+ * `AdminWidgetDefinition<Count>` is not assignable to `AdminWidgetDefinition<unknown>`, and erasing
+ * it with `any` would push a cast onto every caller of `render`.
  */
 
 import {
@@ -50,40 +55,56 @@ export function adminWidgetState<TData>(
   return definition.isEmpty?.(data) ? { status: "empty" } : { status: "ready", data };
 }
 
-export type AdminWidgetRegistry = {
-  /** Every registered widget, in registration order, for an editor's add-widget picker. */
-  list: () => readonly AdminWidgetDefinition<unknown>[];
-  has: (id: string) => boolean;
-  get: (id: string) => AdminWidgetDefinition<unknown> | undefined;
-  /**
-   * One message per problem with a placement, or an empty array when it can be rendered. An unknown
-   * widget is reported rather than skipped, because a dashboard that silently loses a tile is worse
-   * than one that says which tile went missing.
-   */
-  validate: (placement: AdminWidgetPlacement) => string[];
-};
+/** The id a widget is known by, inferring a map of id to data type from the definitions given. */
+export type AdminWidgetDefinitions = Record<string, AdminWidgetDefinition<never>>;
 
-export function createAdminWidgetRegistry(
-  definitions: readonly AdminWidgetDefinition<unknown>[] = [],
-): AdminWidgetRegistry {
-  const byId = new Map<string, AdminWidgetDefinition<unknown>>();
+export type AdminWidgetRegistry<TDefinitions extends AdminWidgetDefinitions = AdminWidgetDefinitions> =
+  {
+    /** Every registered widget, in registration order, for an editor's add-widget picker. */
+    list: () => Readonly<AdminWidgetDefinition<never>[]>;
+    has: (id: string) => boolean;
+    get: <K extends keyof TDefinitions & string>(id: K) => TDefinitions[K] | undefined;
+    /**
+     * One message per problem with a placement, or an empty array when it can be rendered. An unknown
+     * widget is reported rather than skipped, because a dashboard that silently loses a tile is worse
+     * than one that says which tile went missing.
+     */
+    validate: (placement: AdminWidgetPlacement) => string[];
+  };
 
-  for (const definition of definitions) {
-    if (byId.has(definition.id)) {
-      // Two widgets sharing an id would make every persisted dashboard ambiguous, and the second
-      // would silently win depending on registration order.
-      throw new Error(`Two widgets are both registered as "${definition.id}"`);
+export function createAdminWidgetRegistry<const TDefinitions extends AdminWidgetDefinitions>(
+  definitions: TDefinitions,
+): AdminWidgetRegistry<TDefinitions>;
+export function createAdminWidgetRegistry(): AdminWidgetRegistry;
+export function createAdminWidgetRegistry<TDefinitions extends AdminWidgetDefinitions>(
+  definitions: TDefinitions = {} as TDefinitions,
+): AdminWidgetRegistry<TDefinitions> {
+  for (const [key, definition] of Object.entries(definitions)) {
+    if (key !== definition.id) {
+      // Keying by id makes the mismatch a type error as well, but a caller can still get here from
+      // plain JavaScript, and a registry that lists a widget under one id and answers another is
+      // exactly the kind of thing that should stop the process rather than the dashboard.
+      throw new Error(`Widget registered as "${key}" declares the id "${definition.id}"`);
     }
-    byId.set(definition.id, definition);
   }
 
+  // A persisted dashboard can name a widget this build no longer registers, and the compiler cannot
+  // see that, so the runtime check stays. It is written as a standalone generic so each call keeps
+  // its own id type instead of collapsing to a union the caller would have to narrow.
+  const get = <K extends keyof TDefinitions & string>(id: K): TDefinitions[K] | undefined =>
+    Object.hasOwn(definitions, id)
+      ? (definitions[id] as TDefinitions[K])
+      : undefined;
+
   return {
-    list: () => [...byId.values()],
-    has: (id) => byId.has(id),
-    get: (id) => byId.get(id),
+    list: () => Object.values(definitions),
+    has: (id) => Object.hasOwn(definitions, id),
+    get,
     validate: (placement) => {
-      const definition = byId.get(placement.widget);
-      if (!definition) return [`No widget is registered as "${placement.widget}"`];
+      if (!Object.hasOwn(definitions, placement.widget)) {
+        return [`No widget is registered as "${placement.widget}"`];
+      }
+      const definition = definitions[placement.widget as keyof TDefinitions] as AdminWidgetDefinition<never>;
       if (!definition.sizes.includes(placement.size)) {
         return [
           `Widget "${placement.widget}" does not support the size "${placement.size}". It supports ${definition.sizes.join(", ")}`,
