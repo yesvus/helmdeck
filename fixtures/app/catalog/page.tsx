@@ -106,7 +106,7 @@ export default function CatalogPage() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Name, category or what it does"
               aria-describedby="catalog-result-count"
-              className="w-full rounded-admin-control border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="w-full rounded-admin-control border border-zinc-300 bg-admin-surface px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             />
           </label>
           {filtering ? (
@@ -158,7 +158,7 @@ export default function CatalogPage() {
               setQuery("");
               setCategory(null);
             }}
-            className="mt-4 rounded-admin-control border border-zinc-300 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+            className="mt-4 rounded-admin-control border border-zinc-300 bg-admin-surface px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
           >
             Show everything
           </button>
@@ -202,12 +202,12 @@ function CategoryChip({
       aria-pressed={active}
       className={
         active
-          ? "rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white"
-          : "rounded-full border border-zinc-300 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-50"
+          ? "rounded-full bg-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-900"
+          : "rounded-full border border-admin-border px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:bg-zinc-50"
       }
     >
       {label}
-      <span className={active ? "ml-1.5 text-zinc-300" : "ml-1.5 text-zinc-400"}>{count}</span>
+      <span className={active ? "ml-1.5 text-zinc-500" : "ml-1.5 text-zinc-400"}>{count}</span>
     </button>
   );
 }
