@@ -30,11 +30,12 @@ import type { AdminSessionCookieIO, CredentialAuthAdapter, CredentialStore } fro
 import type { AdminPersistenceAdapter, AdminSession } from "@yesvus/helmdeck";
 import { demoPersistence } from "./demo-persistence";
 import { ensureDemoSeeded } from "./ensure-seeded";
+import { SESSION_COOKIE } from "./demo-sign-in";
+
+export { SESSION_COOKIE };
 
 /** Two weeks, which is also the cookie's own lifetime, so the row and the cookie expire together. */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14;
-
-export const SESSION_COOKIE = "helmdeck_session";
 
 /**
  * The signing secret, from the environment where there is one.
