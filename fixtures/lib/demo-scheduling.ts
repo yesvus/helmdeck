@@ -181,6 +181,32 @@ function requirePending(schedule: PostSchedule): void {
 }
 
 /**
+ * Every post, by id, read once.
+ *
+ * `readPost` asks the rule for each post it reads, and asking it several times over in one pass means
+ * resolving the session several times over too. One read of the collection and a lookup is the same
+ * answer for a fraction of the work, and it is the read the rule has already blessed: the list is
+ * behind the same boundary every other resource list is.
+ */
+async function postsById(): Promise<Map<string, PostSnapshot & { id: string }>> {
+  const rows = ((await adapter().query<Record<string, unknown>>(POSTS)) ?? [])
+    .filter((row) => row && text(row.id))
+    .map((row) => {
+      const id = text(row.id);
+      return [
+        id,
+        {
+          id,
+          title: text(row.title),
+          body: text(row.body),
+          status: (row.status === "published" ? "published" : "draft") as PostSnapshot["status"],
+        },
+      ] as const;
+    });
+  return new Map(rows);
+}
+
+/**
  * Every schedule, with the post each one names, waiting moments first.
  *
  * Waiting rows come first in the order they will fire, because that is the order a person reads a
@@ -188,8 +214,8 @@ function requirePending(schedule: PostSchedule): void {
  * thing that shows the tick did anything.
  */
 export async function listPostSchedules(session: AdminSession | null): Promise<ScheduledPublish[]> {
-  const actor = requirePosts(session, "read");
-  const rows = await allSchedules();
+  requirePosts(session, "read");
+  const [rows, posts] = await Promise.all([allSchedules(), postsById()]);
   const ordered = [...rows].sort((left, right) => {
     const waiting = (row: PostSchedule) => (row.state === "pending" ? 0 : 1);
     return (
@@ -200,14 +226,12 @@ export async function listPostSchedules(session: AdminSession | null): Promise<S
             Date.parse(left.schedule.settled_at ?? left.schedule.created_at))
     );
   });
-  return Promise.all(
-    ordered.map(async ({ schedule }) => ({
-      schedule,
-      // A post the schedule outlived is shown as a schedule with nothing to publish rather than as a
-      // refusal of the whole list, which is what a row in a store without cascades leaves behind.
-      post: await readPost(actor, schedule.post_id).catch(() => null),
-    })),
-  );
+  return ordered.map(({ schedule }) => ({
+    schedule,
+    // A post the schedule outlived reads as a schedule with nothing to publish rather than as a
+    // refusal of the whole list, which is what a row in a store without cascades leaves behind.
+    post: posts.get(schedule.post_id) ?? null,
+  }));
 }
 
 /**
@@ -220,20 +244,17 @@ export async function listPostSchedules(session: AdminSession | null): Promise<S
 export async function listSchedulablePosts(
   session: AdminSession | null,
 ): Promise<Array<PostSnapshot & { id: string }>> {
-  const actor = requirePosts(session, "read");
+  requirePosts(session, "read");
+  const [rows, posts] = await Promise.all([allSchedules(), postsById()]);
   const waiting = new Set(
-    (await allSchedules())
+    rows
       .map(({ schedule }) => schedule)
       .filter((schedule) => schedule.state === "pending")
       .map((schedule) => schedule.post_id),
   );
-  const ids = ((await adapter().query<{ id: unknown }>(POSTS)) ?? []).map((row) => text(row.id));
-  const candidates = await Promise.all(
-    ids
-      .filter((id) => id.length > 0 && !waiting.has(id))
-      .map((id) => readPost(actor, id).catch(() => null)),
-  );
-  return candidates.filter((post): post is PostSnapshot & { id: string } => post?.status === "draft");
+  return [...posts.values()]
+    .filter((post) => post.status === "draft" && !waiting.has(post.id))
+    .sort((left, right) => left.id.localeCompare(right.id));
 }
 
 /**

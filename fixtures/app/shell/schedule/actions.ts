@@ -6,10 +6,13 @@ import { requireDemoSession } from "../../../lib/demo-guard";
 import { demoCan } from "../../../lib/demo-rules";
 import {
   cancelSchedule,
+  listPostSchedules,
+  listSchedulablePosts,
   moveSchedule,
   publishDuePosts,
   schedulePost,
   type PostSchedule,
+  type ScheduledPublish,
 } from "../../../lib/demo-scheduling";
 
 /**
@@ -37,6 +40,24 @@ function refusal(cause: unknown): never {
 function field(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
+}
+
+/**
+ * The schedules, and the drafts that can still take one, for a session this server resolved.
+ *
+ * Exported rather than called only by the page, so the read side of this boundary is reachable the
+ * way the write side is. A rule that is only checked by a server component is a rule a test cannot
+ * call directly, and a rule that cannot be called directly is a rule that gets checked by reading a
+ * page and calling it enforced.
+ */
+export async function listPostSchedulesAction(): Promise<ScheduledPublish[]> {
+  const session = await requireDemoSession({ returnTo: RETURN_TO });
+  return listPostSchedules(session);
+}
+
+export async function listSchedulablePostsAction() {
+  const session = await requireDemoSession({ returnTo: RETURN_TO });
+  return listSchedulablePosts(session);
 }
 
 /** The moment a form posts, as a `datetime-local` field holds it: a UTC wall time with no offset. */
