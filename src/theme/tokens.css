@@ -70,6 +70,13 @@
   --admin-sidebar-width: 240px;
   --admin-sidebar-width-collapsed: 76px;
   --admin-header-height: 4.5rem;
+  /* Tailwind's single spacing multiplier, so density reaches rendered output instead of being
+     stored and ignored: every `p-*`, `m-*`, `gap-*`, `space-*` and fixed-height utility the
+     package uses resolves through this one variable. The factor 0.25rem is Tailwind's default
+     `--spacing`, and `--admin-density` is 1 unless a host asks for another step, so the
+     untouched rendering is the one Tailwind already produced. Widths, font sizes and radii
+     are deliberately not in this scale: density is about space, not type. */
+  --spacing: calc(0.25rem * var(--admin-density));
 }
 
 :root,
