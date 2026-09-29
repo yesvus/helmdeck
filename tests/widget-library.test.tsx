@@ -605,6 +605,39 @@ describe("what the table widget decides", () => {
   it("declares the wide sizes a table makes sense at", () => {
     expect(orderTable.sizes).toEqual(["lg", "xl"]);
   });
+
+  it("keys an unkeyed table by row position, so a host that gives no getKey still gets distinct keys", () => {
+    // React is what makes the fallback observable, and it does it by warning: a list whose rows all
+    // carry the same key, or none at all, is a duplicate-key list. React still draws every row, so
+    // counting them proves nothing here and the warning is the only signal that reaches the host.
+    const unkeyed = adminTableWidget<{ name: string }>({
+      id: "unkeyed",
+      title: "Products",
+      rows: (rows) => rows,
+      columns: [{ key: "name", header: "Product", value: (row) => row.name }],
+    });
+    const rows = [
+      { name: "Espresso machine" },
+      { name: "Grinder" },
+      { name: "Water filter" },
+    ];
+    const said: string[] = [];
+    const report = console.error;
+    console.error = (...args: unknown[]) => {
+      said.push(args.map(String).join(" "));
+    };
+
+    try {
+      render(<Tile definition={unkeyed} state={adminWidgetState(unkeyed, rows)} />);
+    } finally {
+      console.error = report;
+    }
+
+    expect(
+      said.filter((line) => /key/i.test(line)),
+      "the rows reached React without distinct keys",
+    ).toEqual([]);
+  });
 });
 
 describe("the list widget's states, driven through the load", () => {
@@ -1046,9 +1079,16 @@ describe("a widget given data it cannot read", () => {
 
 describe("a misconfigured widget says what is wrong", () => {
   it("names the widget and the option a stat is missing its accessor for", () => {
-    expect(() =>
-      adminStatWidget({ id: "revenue", title: "Revenue", value: undefined as never }),
-    ).toThrow(/Widget "revenue" needs a value\(\)/);
+    // Absent in all three ways the host can write it, because the check that refuses `undefined` and
+    // the check that refuses `null` are the same line of code and a test of one of them says nothing
+    // about the other. A `null` accessor reaching a tile renders `undefined` into it, which is the
+    // failure this whole section is about.
+    for (const missing of [undefined, null, ""] as const) {
+      expect(
+        () => adminStatWidget({ id: "revenue", title: "Revenue", value: missing as never }),
+        `a stat given ${JSON.stringify(missing)} as its accessor was built anyway`,
+      ).toThrow(/Widget "revenue" needs a value\(\)/);
+    }
   });
 
   it("refuses a table with no columns, which could draw nothing and say so by being blank", () => {
