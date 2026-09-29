@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
-import { CONTENT_RESOURCE } from "./content-registry";
+import { CONTENT_RESOURCE } from "./content-status";
 import {
   createContentPost,
   deleteContentPost,
