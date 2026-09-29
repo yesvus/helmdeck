@@ -40,8 +40,8 @@ export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord
     return structuredClone(value);
   }
 
-  // Skips ids already in use, so seeding or resetting with an id cannot produce a second
-  // record the CRUD helpers cannot tell apart.
+  // Skips ids already in use, so generating one cannot collide with a record seeded under an id
+  // of its own.
   function nextId(): string {
     const taken = new Set(Array.from(store.values()).flat().map((record) => record.id));
     for (;;) {
@@ -75,8 +75,21 @@ export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord
     },
 
     async create<T>(resource: string, value: unknown): Promise<T> {
-      const record = { ...clone(value as Record<string, unknown>), id: nextId() };
-      recordsFor(resource).push(record);
+      const supplied = (value as Record<string, unknown>).id;
+      // An id the caller chose is kept, so a seeded row stays addressable by the id the seed
+      // knows. Generating one instead renumbers it, and a second seed pass then cannot find the
+      // first pass's rows, so it writes them again: a store documented as idempotent grows on
+      // every run while nothing about it looks wrong from outside.
+      const id =
+        supplied === undefined || supplied === null || supplied === "" ? nextId() : String(supplied);
+
+      const records = recordsFor(resource);
+      if (records.some((record) => record.id === id)) {
+        throw new Error(`A ${resource} record with id ${id} already exists`);
+      }
+
+      const record = { ...clone(value as Record<string, unknown>), id };
+      records.push(record);
       return clone(record) as T;
     },
 
