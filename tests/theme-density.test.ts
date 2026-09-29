@@ -27,7 +27,7 @@ async function emittedCss(classNames: string[]): Promise<string> {
   const compiler = await compile(`@import "tailwindcss";\n${TOKENS}`, {
     base: `${process.cwd()}/`,
     async loadStylesheet(id, basePath) {
-      if (id !== "tailwindcss") return null;
+      if (id !== "tailwindcss") throw new Error(`unexpected stylesheet: ${id}`);
       return { base: basePath, path: TAILWIND_ENTRY, content: readFileSync(TAILWIND_ENTRY, "utf8") };
     },
   });
