@@ -601,7 +601,7 @@ That also means the server names the record: `id` is a field only if the definit
 
 ### The memory adapter
 
-`createMemoryPersistenceAdapter` is CRUD over plain objects, which is enough for a fixture or a test with no database. It hands out copies in both directions, so a caller cannot edit stored state without going through `update`. `createAuditAdapter` and `createCacheAdapter` are thin defaults that swallow their own failures, because the change has already happened by the time either runs; both take an `onError` so the failure is still observable.
+`createMemoryPersistenceAdapter` is CRUD over plain objects, which is enough for a fixture or a test with no database. It hands out copies in both directions, so a caller cannot edit stored state without going through `update`. It answers `queryPage` too, ranking and comparing stored values the way SQLite does, so the same records answer the same query the same way through either store. `createAuditAdapter` and `createCacheAdapter` are thin defaults that swallow their own failures, because the change has already happened by the time either runs; both take an `onError` so the failure is still observable.
 
 ### The SQLite adapter
 
@@ -619,7 +619,7 @@ Records are stored as JSON documents keyed by resource and id, which is why no s
 
 Filters are exact matches on a stored value, so a filter is a string, a number, a boolean or `null`. Each predicate states the JSON type it expects, which is what keeps a filter for `1` from being answered by a record storing `true`, and lets `null` find a record storing `null` rather than matching nothing at all. A filter carrying an object or an array is refused with an error rather than compared as text, because text comparison matches on key order and would quietly return the wrong rows.
 
-This adapter answers `query` and nothing else, so a list reading through it renders every record it was given, with no search, sorting, filtering, paging or count. Adding `queryPage` to it is the whole of the change: run the same filters, order and slice what `AdminResourceQuery` asks for, and report the count the filters matched before the window.
+It answers `queryPage` as well, so a list reading through it draws its search box, sort controls, filters, pager and count, and every one of them reaches the database. The count is a statement of its own rather than a length of the rows it sent, because a window that has run past the last matching record comes back with no rows at all, and a list holding nothing has to ask whether that is an empty resource or an offset beyond the end of one. `ORDER BY` settles ties on `id`, so paging through an ordering that leaves rows equal cannot repeat one and drop another. With no ordering asked for, the rows come back in the table's own insertion order, which is what the in-memory adapter returns and what makes a window over no ordering repeatable.
 
 This is the adapter to start on. A filter runs through `json_extract`, which SQLite cannot index the way it can a column, so once a resource is large enough that the scan shows, put it behind a mapped schema and the same `AdminPersistenceAdapter`.
 
