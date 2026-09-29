@@ -11,7 +11,7 @@ import { demoPersistence } from "../fixtures/lib/demo-persistence";
 import { demoCan } from "../fixtures/lib/demo-rules";
 import { seedDemo } from "../fixtures/lib/seed";
 import { seedOrders } from "../fixtures/lib/seed-data";
-import { verifyPassword } from "../fixtures/lib/demo-users";
+import { hashPassword, verifyPassword } from "@yesvus/helmdeck/baseline";
 import { createTursoPersistenceAdapter, resetTursoAdapterCache, type SqlClient } from "../fixtures/lib/turso-persistence";
 import { checkPermissionAction } from "../fixtures/lib/permission-actions";
 import {
@@ -71,6 +71,26 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const [owner, editor] = demoAccounts;
 const store = demoPersistence().adapter;
 
+/**
+ * One hash for the whole file, because scrypt is deliberately slow and the published password is the
+ * same one every account is seeded with.
+ */
+let published: Promise<string> | null = null;
+const publishedHash = () => (published ??= hashPassword(DEMO_PASSWORD));
+
+/**
+ * The role on the stored row, and nothing else about it.
+ *
+ * An update replaces the row rather than merging into it, so writing the role alone would leave an
+ * account with no address and no hash, which a sign-in answers exactly as it answers an address
+ * nobody has. The rest of the row is carried through for that reason: what these tests change is the
+ * role, and the account has to remain an account somebody can sign in to.
+ */
+async function setRole(account: { id: string }, role: unknown) {
+  const row = (await store.read("users", account.id)) as Record<string, unknown>;
+  await store.update("users", account.id, { ...row, role });
+}
+
 async function signIn(account: { email: string }) {
   const result = await signInAction({ email: account.email, password: DEMO_PASSWORD }, "");
   expect(result.ok).toBe(true);
@@ -83,13 +103,21 @@ beforeEach(async () => {
   vi.stubGlobal("window", undefined);
   request.session = undefined;
   // Seeded rather than assumed: the roles under test are rows, and a store nothing has written to
-  // would leave every test proving that a missing role may do nothing.
+  // would leave every test proving that a missing role may do nothing. The accounts are then written
+  // whole, because a test that changed a role rewrote the row and the next test needs an account
+  // again, which is the cost of the account being a row rather than a value in an array.
   await ensureDemoSeeded();
   for (const row of await store.query<{ id: string }>("sessions")) {
     await store.delete("sessions", row.id);
   }
+  const hash = await publishedHash();
   for (const account of demoAccounts) {
-    await store.update("users", account.id, { role: account.role });
+    await store.update("users", account.id, {
+      id: account.id,
+      email: account.email,
+      role: account.role,
+      password_hash: hash,
+    });
   }
 });
 
@@ -236,7 +264,7 @@ describe("what the server actions serve", () => {
 
   it("refuses a session when the role on the row is one the rule does not define", async () => {
     await signIn(editor);
-    await store.update("users", editor.id, { role: "superuser" });
+    await setRole(editor, "superuser");
 
     await expect(queryResourceAction("products")).rejects.toThrow(AdminPermissionDeniedError);
     await expect(createResourceAction("products", { name: "x" })).rejects.toThrow(
@@ -248,7 +276,7 @@ describe("what the server actions serve", () => {
     await signIn(editor);
     // A NULL or a number in a column that is supposed to hold one of two words is a missing grant,
     // and is read as one rather than as a session that may do anything.
-    await store.update("users", editor.id, { role: null });
+    await setRole(editor, null);
 
     await expect(queryResourceAction("products")).rejects.toThrow(AdminPermissionDeniedError);
   });
@@ -280,10 +308,10 @@ describe("the role a session acts as", () => {
 
     await expect(queryResourceAction("orders")).rejects.toThrow(AdminPermissionDeniedError);
 
-    await store.update("users", editor.id, { role: "admin" });
+    await setRole(editor, "admin");
     expect(await queryResourceAction("orders")).toHaveLength(seedOrders.length);
 
-    await store.update("users", editor.id, { role: "editor" });
+    await setRole(editor, "editor");
     await expect(queryResourceAction("orders")).rejects.toThrow(AdminPermissionDeniedError);
     expect(request.session).toBe(sealed);
   });
