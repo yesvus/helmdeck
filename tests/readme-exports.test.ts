@@ -90,3 +90,29 @@ describe("the getting-started documentation matches the package", () => {
     expect(ALL.length).toBeLessThan(rootNames.size + baselineNames.size);
   });
 });
+
+/**
+ * The install block has to be the configuration that actually works.
+ *
+ * Helmdeck's components are written with Tailwind utilities, which Tailwind only generates for source
+ * it scans, so a host that omits `@source` gets the design tokens and no layout at all. The
+ * independent host is the thing that is known to work, so the README is checked against it rather
+ * than against a line written out a second time and left to drift.
+ */
+describe("the documented install block", () => {
+  const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
+
+  it("points Tailwind at the installed package, as the independent host does", () => {
+    const documented = README.match(/@source\s+"([^"]+)"/)?.[1];
+    const working = read("examples/independent-host/app/globals.css").match(/@source\s+"([^"]+)"/)?.[1];
+
+    // Without this a host following the documentation gets tokens and no layout, and the demo and the
+    // example both keep working, so nothing else would notice.
+    expect(documented).toBeTruthy();
+    expect(documented).toBe(working);
+  });
+
+  it("imports the theme stylesheet, so the tokens arrive with the layout", () => {
+    expect(README).toContain('@import "@yesvus/helmdeck/theme.css";');
+  });
+});

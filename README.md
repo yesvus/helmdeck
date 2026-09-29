@@ -33,12 +33,18 @@ To upgrade, review the [release notes](./CHANGELOG.md) and the compatibility not
 
 Patch and minor releases preserve existing public APIs and adapter behavior. A breaking public API or adapter contract change requires a major-version transition and a migration note; prereleases may introduce such changes and are intended for evaluation. Release notes identify public API and adapter additions, deprecations, and breaking changes. Consumers should treat the TypeScript declarations shipped in each artifact as the contract for that version.
 
-Import the theme tokens once in the host stylesheet:
+Import the theme tokens once in the host stylesheet, and point Tailwind at the installed package:
 
 ```css
 @import "tailwindcss";
+@source "../node_modules/@yesvus/helmdeck/dist";
 @import "@yesvus/helmdeck/theme.css";
 ```
+
+The `@source` line is what makes the components lay out. Helmdeck's own components are written with
+Tailwind utilities, and Tailwind only generates a utility it finds in scanned source, so without this
+line a host gets the design tokens and none of the layout: cards with no padding, grids that do not
+grid, modals that do not centre. The path is relative to the stylesheet that declares it.
 
 ## Themes and design tokens
 
