@@ -36,13 +36,22 @@ export async function seedDemo(
   const hash = await hashPassword(password);
 
   for (const user of seedEverything.users) {
-    const record = { ...user, password_hash: hash };
     const existing = await adapter.read("users", user.id);
     if (existing) {
-      await adapter.update("users", user.id, record);
+      // The role belongs to the account, not to the seed. Authorization reads it off this row, so a
+      // seed that wrote it back on every process start would make the stored role a value that only
+      // survives until the next restart, and an operator's promotion would silently revert under
+      // them. The migration that first inserts these rows takes the same view with INSERT OR IGNORE,
+      // so the two agree on which one owns the column.
+      const stored = (existing ?? {}) as { role?: unknown };
+      await adapter.update("users", user.id, {
+        ...user,
+        password_hash: hash,
+        role: typeof stored.role === "string" ? stored.role : user.role,
+      });
       result.updated.users = (result.updated.users ?? 0) + 1;
     } else {
-      await adapter.create("users", record);
+      await adapter.create("users", { ...user, password_hash: hash });
       result.created.users = (result.created.users ?? 0) + 1;
     }
   }

@@ -92,12 +92,7 @@ export function createTursoPersistenceAdapter(client: SqlClient) {
       }
       // Parameterised, so a filter value is a value. The column names come from the caller, which is
       // why they are checked against the schema rather than trusted.
-      const columns = new Set(await columnsOf(client, table));
-      for (const [column] of entries) {
-        if (!columns.has(column)) {
-          throw new Error(`"${column}" is not a column of ${table}`);
-        }
-      }
+      await checkedColumns(client, table, entries.map(([column]) => column));
       const where = entries.map(([column]) => `${column} = ?`).join(" AND ");
       const result = await client.execute({
         sql: `SELECT * FROM ${table} WHERE ${where}`,
@@ -111,7 +106,7 @@ export function createTursoPersistenceAdapter(client: SqlClient) {
       const record = (value ?? {}) as Record<string, unknown>;
         const id = (record.id as string) ?? crypto.randomUUID();
         const body: Record<string, unknown> = { ...record, id };
-      const columns: string[] = Object.keys(body);
+      const columns = await checkedColumns(client, table, Object.keys(body));
       const sql =
         `INSERT INTO ${table} (${columns.join(", ")}) ` +
         `VALUES (${columns.map(() => "?").join(", ")})`;
@@ -133,7 +128,9 @@ export function createTursoPersistenceAdapter(client: SqlClient) {
       const table = tableFor(resource);
       const record = (value ?? {}) as Record<string, unknown>;
         const body: Record<string, unknown> = { ...record, id };
-      const columns: string[] = Object.keys(body).filter((column) => column !== "id");
+      const columns = (await checkedColumns(client, table, Object.keys(body))).filter(
+        (column) => column !== "id",
+      );
       if (columns.length === 0) {
         return (await this.read<T>(resource, id)) as T;
       }
@@ -162,6 +159,30 @@ async function columnsOf(client: SqlClient, table: string): Promise<string[]> {
   const columns = new Set(toRows<{ name: string }>(result).map((row) => row.name));
   columnCache.set(table, columns);
   return [...columns];
+}
+
+/**
+ * Every caller-supplied column name, checked against the schema, before any of it reaches SQL text.
+ *
+ * A record's values are bound as parameters, so a value is never a way into the statement. Its keys
+ * are a different kind of input: they are pasted into the `SET` and `INSERT` lists, so a key like
+ * `name = (SELECT group_concat(email, password_hash) FROM users), id` is read as an assignment and
+ * writes somebody else's columns into a cell the caller can then read back. Checking the whole set
+ * once, here, means a write path cannot forget it: the table name, the column names and the values
+ * are then all something the caller supplies as data rather than as syntax.
+ */
+async function checkedColumns(
+  client: SqlClient,
+  table: string,
+  keys: readonly string[],
+): Promise<string[]> {
+  const known = new Set(await columnsOf(client, table));
+  for (const key of keys) {
+    if (!known.has(key)) {
+      throw new Error(`"${key}" is not a column of ${table}`);
+    }
+  }
+  return [...keys];
 }
 
 /** Exposed so the demo can reset cached schema between migrations, which change it. */
