@@ -12,7 +12,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { AdminLoginCredentials } from "@yesvus/helmdeck";
-import { currentDemoSession, demoAuth, endEverySession, hasRole } from "../../lib/demo-session";
+import { demoAuth, endEverySession } from "../../lib/demo-session";
 import { demoRecovery } from "../../lib/demo-auth-recovery";
 import { DEFAULT_AFTER_LOGIN, readReturnTo } from "../../lib/demo-guard";
 
@@ -63,17 +63,18 @@ export async function requestPasswordRecoveryAction(
  * Refused for any other role, read from the session rather than from what the browser sent, so an
  * editor gets the same answer whether or not they ever found the button.
  */
+/**
+ * A thin pass-through. The session is resolved and the role is checked inside `endEverySession`,
+ * not here, because a check that lives in the caller is a check that any other caller can skip. A
+ * direct call to this action with no cookie is refused there for the same reason.
+ */
 export async function endEverySessionAction(): Promise<{ ok: boolean; message: string; ended?: number }> {
-  const session = await currentDemoSession();
-  if (!session) return { ok: false, message: "There is no session to end." };
-  if (!hasRole(session, "admin")) {
-    return { ok: false, message: "Only an administrator can end every session." };
-  }
+  const result = await endEverySession();
+  if (!result.ok) return { ok: false, message: result.message };
 
-  const ended = await endEverySession(session);
   return {
     ok: true,
-    ended,
-    message: `Ended ${ended} ${ended === 1 ? "session" : "sessions"} for ${session.email}.`,
+    ended: result.ended,
+    message: `Ended ${result.ended} ${result.ended === 1 ? "session" : "sessions"} for ${result.email}.`,
   };
 }

@@ -241,15 +241,36 @@ export function hasRole(session: AdminSession | null, role: DemoUser["role"]): b
   return session?.role === role;
 }
 
+export type EndEverySessionResult =
+  | { ok: true; ended: number; email: string }
+  | { ok: false; message: string };
+
 /**
- * Ends every session an account holds. For a signed-in administrator, whose call it is, and the
- * only one an editor is refused: the role is read from the session, which the client never sets.
+ * Ends every session the calling account holds, and only if that account is an administrator.
+ *
+ * Two things were wrong here and both are the same mistake in different clothes. The check that this
+ * is an administrator's call lived in the action, one layer above the thing it protects, so anything
+ * that called this function directly skipped it entirely. And the target was resolved from a
+ * `session` argument, so the identity the decision was made on and the identity the revocation acted
+ * on were two separate values: a caller could be authorized as themselves and name somebody else.
+ *
+ * So the session is resolved here, from the signed cookie, and the account acted on is the account
+ * that session belongs to. There is no second value to substitute. The result is a discriminated type
+ * because "you may not do that" and "there was nothing to end" are different answers, and a caller
+ * that cannot tell them apart reports a refusal as "ended 0 sessions".
  */
-export async function endEverySession(
-  session: AdminSession,
-  options: DemoAuthOptions = {},
-): Promise<number> {
+export async function endEverySession(options: DemoAuthOptions = {}): Promise<EndEverySessionResult> {
+  const session = await currentDemoSession(options);
+  if (!session) return { ok: false, message: "There is no session to end." };
+  if (!hasRole(session, "admin")) {
+    return { ok: false, message: "Only an administrator can end every session." };
+  }
+
   const account = (await demoUsers()).find((user) => user.email === session.email);
-  if (!account) return 0;
-  return (options.store ?? defaultStore()).endAll(account.id);
+  if (!account) return { ok: true, ended: 0, email: session.email };
+  const ended = await (options.store ?? defaultStore()).endAll(account.id);
+  // The account is named here, before the rows are gone. Ending every session includes the caller's
+  // own, so a caller that re-resolved the session afterwards to describe the result would find
+  // nothing and report it as a failure.
+  return { ok: true, ended, email: session.email };
 }

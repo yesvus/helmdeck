@@ -8,6 +8,7 @@ import {
   createSessionStore,
   demoAuth,
   endEverySession,
+  type EndEverySessionResult,
   SESSION_TTL_SECONDS,
   type SessionRow,
   type SessionStore,
@@ -381,22 +382,53 @@ describe("the actions a signed-in visitor can reach", () => {
 describe("ending every session an account holds", () => {
   it("reaches the other browser too", async () => {
     const store: SessionStore = createSessionStore(createMemoryPersistenceAdapter());
-    const desktop = demoAuth({ store, cookie: jar().io });
-    const laptop = demoAuth({ store, cookie: jar().io });
+    const cookie = jar();
+    const desktop = demoAuth({ store, cookie: cookie.io });
+    const laptop = demoAuth({ store, cookie: cookie.io });
     await desktop.login({ email: owner.email, password: DEMO_PASSWORD });
     await laptop.login({ email: owner.email, password: DEMO_PASSWORD });
 
-    expect(await endEverySession({ email: owner.email, role: "admin" }, { store })).toBe(2);
+    const result = await endEverySession({ store, cookie: cookie.io });
+    expect(result.ok).toBe(true);
+    expect(result).toMatchObject({ ended: 2, email: owner.email });
     expect(await desktop.getSession()).toBeNull();
     expect(await laptop.getSession()).toBeNull();
   });
 
-  it("leaves another account's sessions alone", async () => {
-    const { auth, store } = harness();
+  it("refuses an account that is not an administrator", async () => {
+    const { auth, store, cookies } = harness();
     await auth.login({ email: editor.email, password: DEMO_PASSWORD });
 
-    expect(await endEverySession({ email: owner.email, role: "admin" }, { store })).toBe(0);
+    // The session comes from the signed cookie rather than from an argument, so the only thing a
+    // caller could forge is nothing: the id is verified before the store is reached.
+    const result = await endEverySession({ store, cookie: cookies.io });
+    expect(result.ok).toBe(false);
     expect(await auth.getSession()).toEqual({ email: editor.email, role: "editor" });
+  });
+
+  it("ignores an account a caller names anyway, and ends only its own", async () => {
+    // The session adapter refuses to reach for a cookie from anything shaped like a browser, and
+    // jsdom is one. Resolving a session is server code, so it runs without one.
+    vi.stubGlobal("window", undefined);
+    const { auth, store, cookies } = harness();
+    await auth.login({ email: editor.email, password: DEMO_PASSWORD });
+
+    // The shape of the defect this replaces: a caller authorized as itself, naming somebody else.
+    // The wrapper takes no account at all, so the argument is ignored rather than honoured.
+    const withAccount = endEverySession as unknown as (
+      first: unknown,
+      second?: unknown,
+    ) => Promise<EndEverySessionResult>;
+    const result = await withAccount({ email: owner.email, role: "admin" }, { store, cookie: cookies.io });
+
+    expect(result.ok).toBe(false);
+    expect(await auth.getSession()).toEqual({ email: editor.email, role: "editor" });
+  });
+
+  it("refuses when there is no session at all", async () => {
+    const { store, cookies } = harness();
+    const result = await endEverySession({ store, cookie: cookies.io });
+    expect(result.ok).toBe(false);
   });
 });
 
