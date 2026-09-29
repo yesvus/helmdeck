@@ -181,23 +181,23 @@ describe("AdminDashboardLayout", () => {
     expect(screen.getByText("12 signups")).toBeInTheDocument();
   });
 
-  it("uses the library's own grid class rather than host Tailwind utilities", () => {
+  it("lays out on a responsive grid rather than absolute positioning", () => {
     render(<Harness registry={registry} placements={[]} states={{}} />);
 
-    // The grid is CSS the package ships. A Tailwind utility here would only render if the host
-    // scanned the library's source, which a host consuming the published package does not do, so the
-    // demo would pass while every real installation ignored widget sizes.
-    expect(dashboardGridClassName).toBe("admin-dashboard");
+    // A positioning library would position tiles with inline coordinates. Grid keeps the dashboard
+    // server-renderable, which is the reason that dependency was declined.
+    expect(dashboardGridClassName).toContain("grid-cols-1");
+    expect(dashboardGridClassName).toContain("md:grid-cols-2");
+    expect(dashboardGridClassName).toContain("lg:grid-cols-4");
   });
 
-  it("marks each tile with the size class the shipped stylesheet knows", () => {
-    // This asserts the class is present, not that it has an effect. Whether it does is measured in
-    // the browser by `verify:layout`, because a class can be correct and still have no rule behind it.
+  it("gives every size a literal class, so the width is compiled rather than guessed", () => {
+    // A computed `col-span-${n}` produces no CSS at all and fails silently at run time.
     for (const [placement, expected] of [
-      ["sm", "admin-dashboard--sm"],
-      ["md", "admin-dashboard--md"],
-      ["lg", "admin-dashboard--lg"],
-      ["xl", "admin-dashboard--xl"],
+      ["sm", "md:col-span-1"],
+      ["md", "md:col-span-2"],
+      ["lg", "lg:col-span-3"],
+      ["xl", "lg:col-span-4"],
     ] as const) {
       const { unmount } = render(
         <Harness

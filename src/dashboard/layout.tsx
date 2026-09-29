@@ -26,21 +26,18 @@ import {
 } from "./model.js";
 
 /**
- * The size modifier classes, applied to the grid's direct children.
- *
- * These are plain class names rather than Tailwind utilities, and the rules live in the stylesheet
- * the package ships. Tailwind only generates a utility it can see in scanned source, and a host
- * consuming the published package does not scan the library, so a `lg:col-span-3` here would be
- * present in the class attribute and absent from the stylesheet. See `src/theme/dashboard.css`.
+ * One owner per CSS property, per column count. The breakpoints are the grid's own, and a size may
+ * only widen it at the breakpoint where the grid has that many columns, so `xl` spanning four is
+ * applied at `lg` where four columns exist rather than at a width where two do.
  */
 const sizeClasses: Record<AdminWidgetSize, string> = {
-  sm: "admin-dashboard--sm",
-  md: "admin-dashboard--md",
-  lg: "admin-dashboard--lg",
-  xl: "admin-dashboard--xl",
+  sm: "md:col-span-1",
+  md: "md:col-span-2",
+  lg: "lg:col-span-3",
+  xl: "lg:col-span-4",
 };
 
-export const dashboardGridClassName = "admin-dashboard";
+export const dashboardGridClassName = "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4";
 
 export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
   registry,
@@ -128,7 +125,7 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
             key={placement.id}
             data-placement={placement.id}
             data-widget={placement.widget}
-            className={sizeClasses[placement.size]}
+            className={cn(sizeClasses[placement.size], "min-w-0")}
           >
             {sizeProblems.length > 0 ? (
               <p role="alert" className="mb-2 text-xs font-medium text-admin-danger-text">
