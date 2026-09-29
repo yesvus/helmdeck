@@ -183,6 +183,38 @@ describe("useAdminWidgetData", () => {
     expect(screen.getByText(/just a string/)).toBeInTheDocument();
   });
 
+  it("does not report an abort as a failure, because it is the widget giving up", async () => {
+    // A refetch aborts the request it supersedes, and a well-behaved loader rejects with an
+    // AbortError when that happens. Showing an error for it would put a failure on a widget that was
+    // merely replaced, which is worse than showing nothing.
+    const calls: Array<{ signal: AbortSignal; reject: (error: unknown) => void }> = [];
+    const ok = deferred<Row>();
+    const never = deferred<Row>();
+    let call = 0;
+    render(
+      <Probe
+        load={(signal) => {
+          const gate = call++ === 0 ? never : ok;
+          calls.push({ signal, reject: gate.reject });
+          return gate.promise;
+        }}
+      />,
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Refetch" }).click();
+    });
+    // Asserted before the rejection, so the test cannot pass without the abort actually happening.
+    expect(calls[0].signal.aborted).toBe(true);
+    // The superseded request is now aborted, so its loader rejects the way a real one would.
+    await act(async () => calls[0].reject(new DOMException("aborted", "AbortError")));
+
+    expect(screen.queryByText(/status: error/)).not.toBeInTheDocument();
+
+    await act(async () => ok.resolve({ total: 4 }));
+    expect(screen.getByText("total: 4")).toBeInTheDocument();
+  });
+
   it("does not load when disabled", async () => {
     const load = vi.fn().mockResolvedValue({ total: 1 });
     function Disabled() {
