@@ -12,15 +12,15 @@
  * with a mapped schema once a resource is large enough that the scan shows. The seam is the same
  * `AdminPersistenceAdapter` either way.
  */
-import type { AdminPersistenceAdapter } from "../adapters/index.js";
-import { parseAdminResourceQuery } from "../adapters/query.js";
-import type {
-  AdminResourceFilter,
-  AdminResourceFilterValue,
-  AdminResourcePage,
-  AdminResourceQuery,
-  AdminResourceSort,
-} from "../adapters/query.js";
+import {
+  parseAdminResourceQuery,
+  type AdminPersistenceAdapter,
+  type AdminResourceFilter,
+  type AdminResourceFilterValue,
+  type AdminResourcePage,
+  type AdminResourceQuery,
+  type AdminResourceSort,
+} from "../adapters/index.js";
 
 export type SqlitePersistenceOptions = {
   /**
