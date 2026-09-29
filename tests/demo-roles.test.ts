@@ -259,6 +259,20 @@ describe("the role a session acts as", () => {
     await expect(queryResourceAction("orders")).rejects.toThrow(guard.RedirectSignal);
   });
 
+  it("ends a session whose expiry is not a number instead of reading it as valid", async () => {
+    // `NaN <= now` is false, so the comparison on its own treats an unparseable expiry as a session
+    // that has not lapsed. Nothing this store writes produces one, which is the point: a row that did
+    // not come from here must not read as a valid session, and a session whose expiry cannot be judged
+    // is ended rather than kept.
+    const sealed = await signIn(owner);
+    const id = sealed!.split(".")[0];
+    const row = await store.read<{ id: string; expires_at: unknown }>("sessions", id);
+    await store.update("sessions", id, { ...(row as object), expires_at: "not-a-number" });
+
+    await expect(queryResourceAction("products")).rejects.toThrow(guard.RedirectSignal);
+    expect(await store.read("sessions", id)).toBeNull();
+  });
+
   it("answers the views exactly what it serves the actions", async () => {
     // The two halves must not drift: the button that is not rendered and the action that is refused
     // are the same answer to the same question, and both come from the role on the row.

@@ -146,7 +146,11 @@ async function sessionForUserId(userId: string): Promise<AdminSession | null> {
  */
 async function accountFor(store: SessionStore, row: SessionRow | null): Promise<AdminSession | null> {
   if (!row) return null;
-  if (Number(row.expires_at) * 1000 <= Date.now()) {
+  // A value that is not a number expires, rather than reading as valid. `NaN <= now` is false, so
+  // the comparison alone would treat an unparseable expiry as a session that never lapses, and the
+  // one way to get here with a value like that is a row written by something other than this store.
+  const expiresAt = Number(row.expires_at);
+  if (!Number.isFinite(expiresAt) || expiresAt * 1000 <= Date.now()) {
     await store.end(row.id);
     return null;
   }
