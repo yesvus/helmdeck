@@ -8,8 +8,15 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
-Roles are enforced, the dashboard reads the database, and a SQL injection in the demo's write paths
-is closed. No exported name was removed and no adapter contract changed.
+The package now ships working authentication and server-side authorization, both of which it
+previously documented as the host's job. A generated list can search, sort, filter and page, and a
+CMS can be built on top of it. No exported name was removed: 142 names were exported at 0.4.0 and
+238 are exported now, with none of the original 142 gone, so this is a minor transition.
+
+The two additions that change what a host has to build are the reason to read this section. Before
+them, a host that installed this package and wanted a person to sign in had to write the credential
+store, the session store, the expiry and the revocation, and had to write the refusal itself, because
+every permission decision the package made was made in a browser.
 
 ### Security
 
@@ -21,9 +28,56 @@ is closed. No exported name was removed and no adapter contract changed.
   own columns, so a record naming a field that does not exist is an error rather than a statement that
   silently means something else. Hosts that wrote records with keys their table does not have will
   now see those writes refused.
+- **The write boundary reads only the fields the definition declares.** The generated forms always
+  did, because `adminResourceValues` is what they call, but a request that does not go through a form
+  handed its value straight to the adapter. A column check is not a substitute: it asks whether a name
+  is a column of the table, and `id`, `created_at` and `updated_at` all are. A host should run its
+  incoming value through `adminResourceValues` on the server. The README shows the shape, and notes
+  that this also means the server names the record, so a caller cannot choose an id and write over a
+  row that already exists.
+- **A decision carries the record the call names.** `read`, `update` and `delete` are decided per
+  record; `query` is the collection question, and the host's own query does the row scoping. That
+  last part is a deliberate limitation rather than an oversight, and it is stated where the code is.
+- **`endAllSessions` takes no account argument.** It resolves the caller from the signed cookie and
+  acts on that account, and it refuses unless the host supplies `mayEndAllSessions`. There is no
+  capability here that a caller can point at somebody else, which is the shape the previous version
+  had: it took an email and authorized nothing, so a host's own check sat one layer above the thing
+  it protected and any other caller skipped it.
 
 ### Changed behaviour that a host may notice
 
+- **The package ships a credential store.** `createCredentialAuthAdapter`,
+  `createPersistenceCredentialStore`, `hashPassword`, `verifyPassword`, `authenticate`,
+  `normalizeEmail` and `generateSessionSecret` are new. At 0.4.0 the package shipped a signed cookie
+  with nothing behind it, and its own documentation said credential verification, user lookup and
+  session storage all stayed with the host. A host with a different identity system keeps using its
+  own; a host without one no longer has to build the part that must not be hand-rolled. The secret
+  is a design question rather than a default, and the answer and its cost are written down.
+- **Authorization can be decided on the server.** `createAdminPermissionCheck`,
+  `createAdminPermissionGuard`, `createAdminResourceActions` and `evaluateAdminPermission` are new.
+  `check` is the server action the client's `AdminPermissionsAdapter.can` calls, so the browser holds
+  no verdict of its own, and `createAdminResourceActions` returns five calls that are structurally an
+  `AdminPersistenceAdapter`, so they drop into `AdminResourceList` as its `persistence` prop. A
+  missing rule denies on the server and the view hides, so a misconfiguration looks like a refusal
+  rather than like a product that works.
+- **A session can be resolved from server code.** `createAdminSessionGuard` and `readAdminSession` are
+  new, and `adminReturnTo` moved out of the client module so a guard can validate its own
+  destination; the old path re-exports it and the two are asserted to be the same function. Before
+  this, `src/shell/auth.tsx` was a client module, so a server component, a route handler and a server
+  action each had to write the same read-and-redirect. The refusal is the host's: the package imports
+  no navigation module.
+- **`AdminRequireSession` validates a return destination with the stricter rule.** It used a bare
+  same-site-path check while the sign-in page read the same value with the layer-peeling validator, so
+  the client half could write a `next` its own reader then discarded. One rule now applies wherever a
+  destination is read, for both halves.
+- **A generated list can query the store.** `AdminPersistenceAdapter` gains an **optional**
+  `queryPage`, answering rows and a required pre-window `total`. It is optional so that an adapter
+  written against 0.4.0 satisfies the interface unchanged, and its absence is how a list knows not to
+  draw a search box, sort buttons, filters, a pager or a count that would do nothing. The existing
+  `query` member keeps its exact-field-match reading and its parameter type, deliberately: typing it as
+  a list query would stop compiling a call that works today in every host that has one, and would read
+  as valid a call that today silently matches nothing. `adminResourceQuery` and
+  `parseAdminResourceQuery` are exported so a host need not assemble a query by hand.
 - **`AdminCollectionEditor` provides its own drag context.** It previously rendered drag handles and
   called the sortable hook while providing no `DndContext`, so every handle was an inert button that
   still carried a role, a label and a tab stop. A host that wrapped the editor in
@@ -38,15 +92,31 @@ is closed. No exported name was removed and no adapter contract changed.
   three. `AdminTone` is the name to import for new code; the three existing names remain valid. This
   is additive: no previously accepted value stops compiling. `AdminToastTone` is unchanged and is
   still narrower.
-
-### Added
-
-- **`AdminTone`**, the shared severity vocabulary for the status pill, the stat card and the banner.
-- **`AdminSortableDndContext` accepts an `id`**, for stable screen reader instruction ids.
 - **`createSqlitePersistenceAdapter`** covering both a local `file:` database and hosted Turso, so a
   host gets persistence without writing an adapter. This reverses the package's previous contract,
   which said the adapter types are a seam and do not imply a backend; the seam is still there, it
   just has a default now.
+- **Theme settings are a validated contract.** `density` and `accent` are declared, defaulted and
+  validated, and a setting that would break the contrast guarantee refuses the value rather than
+  accepting it. `useAdminBranding` returns nothing for an accent it would previously have made
+  unreadable, and sets `--admin-brand-text`, which it did not before.
+
+### Added
+
+- **`src/charts/`**: `AdminTimeSeriesChart`, `AdminRankChart`, `AdminChartTable`,
+  `AdminChartFrame` and the scales, ticks and formatters behind them, with no new dependency. A chart
+  reads `--admin-brand-500`, so it follows a host's accent and dark mode.
+- **The dashboard widget engine** (`src/dashboard/`, `src/widgets/`): a placement model, a grid, a
+  tile loader that reloads per tile rather than per rerender, and a widget registry a host extends.
+- **A collection editor** (`src/collections/`) for arranging ordered records over real storage.
+- **The credential store and the server-side permission seam**, described above.
+- **A typed resource query** with a builder and a parser, described above.
+- **A server-safe session guard** and a non-redirecting sibling, described above.
+- **`AdminTone`**, the shared severity vocabulary for the status pill, the stat card and the banner.
+- **`AdminSortableDndContext` accepts an `id`**, for stable screen reader instruction ids.
+- **Theme settings**: `resolveAdminThemeSettings`, `adminThemeSettingsStyle`,
+  `AdminThemeSettingsProvider`, `useAdminThemeSettings`, `adminBrandVariables`, `adminDensityScale`
+  and `describeAccentRejection`.
 
 ### Fixed
 
@@ -54,6 +124,9 @@ is closed. No exported name was removed and no adapter contract changed.
   written inline in the caller's render reloaded on every rerender, and a settled dashboard issued
   one more load per rerender than a mounted one.
 - **`AdminCollectionEditor` handles were inert** without a host-supplied drag context, as above.
+- **A debounced search term no longer crosses resources.** A list that carried the previous
+  resource's term into the next resource's first query would filter the wrong collection for as long
+  as the timer ran.
 
 ## 0.4.0
 
