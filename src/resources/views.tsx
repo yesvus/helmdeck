@@ -280,9 +280,10 @@ export function AdminResourceList({
     ...definition.columns.map((column) => ({
       key: column.key,
       // A header is a ReactNode, so the sort control is a button inside one and the table
-      // primitive needs nothing added to it for this.
+      // primitive needs nothing added to it for this. Not drawn for an adapter that cannot order,
+      // for the same reason the search box is not: a control that cannot work is not drawn.
       header:
-        column.sortable === true ? (
+        column.sortable === true && paged ? (
           <button
             type="button"
             onClick={() => toggleSort(column.key)}
