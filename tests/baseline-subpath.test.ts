@@ -22,10 +22,14 @@ describe("the baseline subpath resolves to the source the suite tests", () => {
     const viaSource = (await import("../src/baseline")) as Record<string, unknown>;
 
     expect(typeof viaSubpath.createSessionAuthAdapter).toBe("function");
+    expect(typeof viaSubpath.createCredentialAuthAdapter).toBe("function");
+    expect(typeof viaSubpath.createPersistenceCredentialStore).toBe("function");
     expect(typeof viaSubpath.createMemoryPersistenceAdapter).toBe("function");
     expect(typeof viaSubpath.createSqlitePersistenceAdapter).toBe("function");
 
     expect(viaSubpath.createSessionAuthAdapter).toBe(viaSource.createSessionAuthAdapter);
+    expect(viaSubpath.createCredentialAuthAdapter).toBe(viaSource.createCredentialAuthAdapter);
+    expect(viaSubpath.createPersistenceCredentialStore).toBe(viaSource.createPersistenceCredentialStore);
     expect(viaSubpath.createMemoryPersistenceAdapter).toBe(viaSource.createMemoryPersistenceAdapter);
     expect(viaSubpath.createSqlitePersistenceAdapter).toBe(viaSource.createSqlitePersistenceAdapter);
   });

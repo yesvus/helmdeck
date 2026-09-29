@@ -200,6 +200,99 @@ export const auth = createSessionAuthAdapter({
 
 It is **server-side**, so pass it to a server action and hand `AdminAuthProvider` a thin client-side adapter that calls that, or supply the `cookie` option with your own store. Using it in a browser without one fails with a message saying exactly that, rather than resolving to nothing and looking like a signed-out visitor.
 
+### A working sign-in
+
+`createSessionAuthAdapter` is a signed cookie with nothing behind it. On its own, every host has to build a credential store, a session store, an expiry and a revocation before a person can sign in, which is the one part of authentication nobody should be hand-rolling. `createCredentialAuthAdapter` is that part, already built.
+
+```ts
+import { createCredentialAuthAdapter, createPersistenceCredentialStore } from "@yesvus/helmdeck/baseline";
+
+const store = createPersistenceCredentialStore(persistence);
+
+export const auth = createCredentialAuthAdapter({ secret: process.env.SESSION_SECRET, store });
+```
+
+Passwords are hashed with scrypt from Node core, one random salt per hash, stored as `scrypt$<salt>$<key>` so the cost parameters travel with the hash and can be raised later without invalidating the rows already written. A sign-in is a row behind the cookie, so clearing the cookie without deleting the row would leave a valid credential in someone's browser until it expired. The row's lifetime and the cookie's are the same number, so one lapses exactly when the other does.
+
+`hashPassword` is what you call when a row is written, `verifyPassword` is the same check on its own for a host comparing a password against a hash it already holds, and `normalizeEmail` is how an address is stored. A row stored any other way is a row the sign-in will not find.
+
+```ts
+await persistence.create("users", {
+  id: crypto.randomUUID(),
+  email: normalizeEmail(input.email),
+  password_hash: await hashPassword(input.password),
+  role: "admin",
+});
+```
+
+Four behaviours are worth knowing about, because each is the difference between a sign-in and an enumeration oracle, a sign-out that only clears one browser, and a session that never lapses:
+
+- **An address with no account is answered exactly as a wrong password**, in message and in cost. The unknown path hashes a decoy through the same function, so the work done is the work a real verification does. A form that answers the two differently reports which addresses are registered.
+- **Signing out ends the row, not just the cookie.** A cookie captured before a sign-out resolves to nothing afterwards, on any device.
+- **A forged cookie is refused before the store is asked anything**, so it cannot be used to find out which session ids exist.
+- **Expiry is checked on every read** and the row is deleted rather than left behind. An expiry that is not a number ends the session instead of reading as one that never lapses.
+
+`endAllSessions(email)` ends every session an account holds, on every device, and says how many there were. It is an administrator's own action, and the address comes from the session, which the client never sets.
+
+This is server-side and that is enforced rather than documented. `node:crypto` and `next/headers` are both things a browser does not have, so the credential path cannot be bundled for one, and a test builds it with a real bundler and calls the result rather than asserting it in a comment.
+
+**Hand-rolled instead:** write the six methods below and pass them to `createCredentialAuthAdapter`, or implement `AdminAuthAdapter` yourself and pass it to `AdminAuthProvider`. Nothing in the shell requires either.
+
+### The secret
+
+`createSessionAuthAdapter` refuses a secret shorter than sixteen characters, and `generateSessionSecret()` mints one:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Put the value in the environment, not the repository. A constant in a package is a constant in every host that forgets to configure one, and those hosts would all share it. A per-process random is the other wrong answer: a deployed app answers the next request from a different instance, every signature fails, and every visitor reads as signed out.
+
+### The store is the seam
+
+What a host supplies is a store: six methods and two plain records.
+
+```ts
+type CredentialStore = {
+  findUserByEmail(email: string): Promise<CredentialUser | null>;
+  findUserById(id: string): Promise<CredentialUser | null>;
+  createSession(userId: string, expiresAt: number): Promise<CredentialSession>;
+  readSession(id: string): Promise<CredentialSession | null>;
+  deleteSession(id: string): Promise<void>;
+  deleteSessionsForUser(userId: string): Promise<number>;
+};
+```
+
+A host already on `AdminPersistenceAdapter` gets this over the memory and SQLite adapters for nothing, and the table and column names are options because those belong to the host rather than to the demo:
+
+```ts
+const store = createPersistenceCredentialStore(persistence, {
+  users: "accounts",
+  sessions: "logins",
+  userColumns: { email: "login", passwordHash: "pw", role: "kind" },
+  sessionColumns: { userId: "account_id", expiresAt: "valid_until" },
+});
+```
+
+A host with a schema of its own, or one on something `AdminPersistenceAdapter` does not describe, writes the six methods. The alternative was to take a table name and build SQL here, which would work for exactly the hosts already on `AdminPersistenceAdapter` and would put this package's idea of a schema in front of everyone else.
+
+The role a session acts as is read from the user row the session points at, so it is a stored value rather than something a request can name. Nothing in the cookie carries a role, which is what keeps a signed cookie from being a claim: it names a session, the session names a user, and the user decides.
+
+### The schema it expects
+
+`CREDENTIAL_USERS_SCHEMA` and `CREDENTIAL_SESSIONS_SCHEMA` are the two tables, as SQL to run once. Constraints live in the database rather than only in the adapter, because an adapter can be bypassed by a hand-edited request and a constraint the database does not enforce is a comment.
+
+```sql
+CREATE TABLE sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at INTEGER NOT NULL
+);
+```
+
+The role list in the users schema is a starting point for a host with no accounts yet. A host that already has one keeps it and points the store at its own columns.
+
 ### Password recovery
 
 `AdminLoginScreen` collects credentials and reports what came back. What happens to an address someone cannot sign in with is the host's, and so is the whole of it: identity verification, rate limiting, the token, the channel, and the new password. The demo's half takes its transport from the host rather than owning one, so the two functions that matter are yours:

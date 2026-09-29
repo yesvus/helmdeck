@@ -89,11 +89,20 @@ describe("published package under Node ESM", () => {
         encoding: "utf8",
       })).toBe(
         [
+          "CREDENTIAL_SESSIONS_SCHEMA",
+          "CREDENTIAL_USERS_SCHEMA",
+          "authenticate",
           "createAuditAdapter",
           "createCacheAdapter",
+          "createCredentialAuthAdapter",
           "createMemoryPersistenceAdapter",
+          "createPersistenceCredentialStore",
           "createSessionAuthAdapter",
           "createSqlitePersistenceAdapter",
+          "generateSessionSecret",
+          "hashPassword",
+          "normalizeEmail",
+          "verifyPassword",
         ].join(","),
       );
     }, 60_000);
