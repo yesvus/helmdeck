@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Prove the demo's persistence adapter against a real database.
+#
+# Separate from the suite on purpose. The suite must pass with no database configured, so a test
+# needing Turso cannot live among them without being skipped by a missing variable and therefore
+# never run. This is invoked deliberately, with the credentials in the environment.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if [ -z "${HELMDECK_TURSO_URL:-}" ] || [ -z "${HELMDECK_TURSO_TOKEN:-}" ]; then
+  echo "  HELMDECK_TURSO_URL and HELMDECK_TURSO_TOKEN must be set to run this." >&2
+  exit 2
+fi
+
+corepack pnpm@12.7.0 exec vitest run --config vitest.live.config.ts
