@@ -51,6 +51,7 @@ describe("an accent a host chooses is checked before it reaches the page", () =>
   it("keeps the surfaces this file measures against in step with tokens.css", () => {
     // Two sources for one fact is how a checked constant quietly stops being checked, so the
     // values here are read back out of the stylesheet the package ships.
+    expect(ADMIN_TEXT_CONTRAST).toBe(4.5);
     expect(ADMIN_SURFACES.light.surface).toBe(surfaceValue("--admin-surface", "light"));
     expect(ADMIN_SURFACES.light.subtle).toBe(surfaceValue("--admin-surface-subtle", "light"));
     expect(ADMIN_SURFACES.dark.surface).toBe(surfaceValue("--admin-surface", "dark"));
@@ -81,7 +82,9 @@ describe("an accent a host chooses is checked before it reaches the page", () =>
       );
       for (const [from, onto] of pairs) {
         const ratio = contrastRatio(from, onto);
-        if (ratio === null || ratio < ADMIN_TEXT_CONTRAST) {
+        // The threshold is written out rather than imported, so lowering the constant the
+        // implementation uses cannot quietly lower the bar this sweep holds it to.
+        if (ratio === null || ratio < 4.5) {
           throw new Error(`${accent}: ${from} on ${onto} is ${ratio ?? "unresolvable"}:1`);
         }
       }
@@ -111,6 +114,14 @@ describe("an accent a host chooses is checked before it reaches the page", () =>
     expect(problems).toHaveLength(1);
     expect(problems[0]).toMatchObject({ setting: "accent", value: "#808080" });
     expect(problems[0].reason).toContain("4.5:1");
+  });
+
+  it("treats the short hex form a settings row usually carries as the colour it abbreviates", () => {
+    // A colour input and a hand-typed settings row both produce short form, and a host that
+    // stores "#f0a" has to get what "#ff00aa" gets rather than a colour nothing can parse.
+    expect(adminBrandVariables("#f0a")).toEqual(adminBrandVariables("#ff00aa"));
+    expect(resolveAdminThemeSettings({ accent: "#F0A" }).settings.accent).toBe("#ff00aa");
+    expect(resolveAdminThemeSettings({ accent: " #f0a " }).settings.accent).toBe("#ff00aa");
   });
 
   it("picks the label colour that clears the threshold, not the one a threshold names", () => {
