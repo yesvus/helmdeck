@@ -29,7 +29,7 @@ function hostTransport() {
   const transport: RecoveryTransport = {
     issueToken: () => {
       counter += 1;
-      const token = `token-${counter}`;
+      const token = `host-token-${counter}-0123456789abcdef0123456789abcdef`;
       issued.push(token);
       return token;
     },
@@ -92,7 +92,7 @@ describe("a recovery the host has configured", () => {
     expect(host.sent).toEqual([
       {
         email: owner.email,
-        token: "token-1",
+        token: "host-token-1-0123456789abcdef0123456789abcdef",
         expiresAt: new Date(Date.UTC(2026, 0, 1) + RECOVERY_TOKEN_TTL_SECONDS * 1000),
       },
     ]);
@@ -187,11 +187,17 @@ describe("what the store is holding while a token is outstanding", () => {
     expect(records[0].accountId).toBe(owner.id);
 
     // A salted digest rather than the token: a copy of the store is a list of accounts waiting, not
-    // a list of reset links that work. Checked against a chunk as well as the whole, because a value
-    // written down in pieces is a value written down.
-    const atRest = JSON.stringify(records);
+    // a list of reset links that work. Searched in the stored form and in the bytes behind it, so
+    // base64 cannot hide a value that is sitting right there. Checked against a chunk as well as the
+    // whole, because a token written down in pieces is a token written down.
+    const decoded = records
+      .flatMap((record) => [record.salt, record.digest])
+      .map((value) => Buffer.from(value, "base64").toString("utf8"));
+    const atRest = JSON.stringify(records) + decoded.join("");
+
     expect(atRest).not.toContain(issued);
-    expect(atRest).not.toContain(issued.slice(0, 8));
+    expect(atRest).not.toContain(issued.slice(0, 16));
+    expect(decoded.join("")).not.toContain(issued);
   });
 
   it("salts each request separately, so two records are not two copies of one digest", async () => {
