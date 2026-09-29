@@ -15,11 +15,13 @@
  */
 
 import { useState, type ComponentType, type ReactNode } from "react";
-import { CheckCircle2, Info, Package, Palette, Rows3 } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Info, LineChart, Package, Palette, Rows3, type LucideIcon } from "lucide-react";
 import {
   ADMIN_DENSITIES,
   AdminBanner,
   AdminBreadcrumbs,
+  AdminChartFrame,
+  AdminChartTable,
   AdminContextualHelp,
   AdminContentSkeleton,
   AdminDashboardLayout,
@@ -56,6 +58,7 @@ import {
   AdminPagination,
   AdminPendingButton,
   AdminProfileMenu,
+  AdminRankChart,
   AdminRepeaterListField,
   AdminSaveButton,
   AdminSearch,
@@ -77,6 +80,7 @@ import {
   AdminTableRowActions,
   AdminTextarea,
   AdminThemeSettingsProvider,
+  AdminTimeSeriesChart,
   AdminToastCard,
   AdminToastViewport,
   AdminUrlFeedback,
@@ -85,6 +89,9 @@ import {
   Button,
   Tooltip,
   TooltipProvider,
+  adminChartDayRange,
+  adminChartFillDays,
+  adminChartFormatters,
   adminDashboardAddPlacement,
   adminDashboardCopy,
   adminDashboardProblems,
@@ -95,6 +102,9 @@ import {
   turkishAdminMessages,
   useAdminSortableList,
   useAdminTableSelection,
+  type AdminChartPoint,
+  type AdminChartSeries,
+  type AdminChartStatus,
   type AdminDashboard,
   type AdminDensity,
   type AdminNavGroup,
@@ -136,6 +146,83 @@ const COLUMNS: AdminTableColumn<Row>[] = [
 function Contained({ children, height = "h-24" }: { children: ReactNode; height?: string }) {
   return <div className={`relative overflow-hidden rounded-lg border border-dashed border-zinc-200 ${height}`} style={{ transform: "translateZ(0)" }}>{children}</div>;
 }
+
+/** A fixed window rather than "the last seven days", so the labels a reader sees are the same ones every time. */
+const CHART_END = new Date("2026-09-29T00:00:00.000Z");
+
+/**
+ * Cents per day, with a day missing on purpose.
+ *
+ * The 25th holds no row at all, which is the case the fill exists for: a store keeps nothing for a
+ * day with no orders, and a chart built from the rows alone would draw a straight line across the
+ * weekend and call it a trend. The previews are built through `adminChartFillDays` for the same
+ * reason the analytics page is, so the card shows what the pipeline produces rather than a tidy
+ * array that skips the awkward part.
+ */
+const REVENUE_CENTS: Record<string, number> = {
+  "2026-09-23": 18420,
+  "2026-09-24": 24650,
+  "2026-09-26": 31200,
+  "2026-09-27": 28990,
+  "2026-09-28": 44150,
+  "2026-09-29": 12780,
+};
+
+/**
+ * The points the fill produced, kept as points rather than narrowed to categories.
+ *
+ * A point carries the value the series needs and a category does not, and the same array is handed
+ * to a chart as its categories, which works because a point is a category with a number on it.
+ */
+const REVENUE_DAYS: AdminChartPoint[] = adminChartFillDays(
+  adminChartDayRange(7, CHART_END),
+  new Map(Object.entries(REVENUE_CENTS)),
+  (key) => key.slice(8),
+);
+
+const money = adminChartFormatters("money");
+const counts = adminChartFormatters("count");
+
+const REVENUE_SERIES: AdminChartSeries[] = [
+  { key: "revenue", label: "Revenue", values: REVENUE_DAYS.map((day) => day.value) },
+];
+
+/** A second series of the same order of magnitude, so the line variant has two lines to read. */
+const LAST_WEEK_SERIES: AdminChartSeries[] = [
+  ...REVENUE_SERIES,
+  { key: "previous", label: "Previous week", values: [15900, 22100, 19800, 26400, 31200, 19050] },
+];
+
+const STOCK = [
+  { key: "espresso", label: "Espresso machine", value: 58 },
+  { key: "grinder", label: "Grinder", value: 31 },
+  { key: "tamper", label: "Tamper", value: 12 },
+  { key: "filter", label: "Water filter", value: 0 },
+];
+
+/**
+ * One entry per state the frame reports, so the card shows what each of the four draws.
+ *
+ * Typed rather than inferred so every entry carries the same keys: a literal array narrows to a
+ * union of four shapes, and a union with one member holding an `error` will not let the map below
+ * read that key off all of them.
+ */
+const FRAME_STATES: ReadonlyArray<{
+  status: AdminChartStatus;
+  icon: LucideIcon;
+  title: string;
+  error?: Error;
+}> = [
+  { status: "loading", icon: LineChart, title: "Revenue by day" },
+  { status: "empty", icon: LineChart, title: "Revenue by day" },
+  {
+    status: "error",
+    icon: AlertTriangle,
+    title: "Revenue by day",
+    error: new Error("The orders table did not answer."),
+  },
+  { status: "ready", icon: BarChart3, title: "Units in stock by product" },
+];
 
 /** Every dialog part is shown inside a real dialog, since none of them renders anything alone. */
 function dialogPart(render: () => ReactNode): ComponentType {
@@ -725,6 +812,113 @@ export const catalogPreviews: Record<string, ComponentType> = {
         fixed-height utility in the package reads it, which is why the same buttons sit at three
         different heights above.
       </p>
+    </div>
+  ),
+
+  AdminTimeSeriesChart: () => (
+    <div className="space-y-6">
+      <div>
+        <p className="mb-2 text-xs font-semibold text-zinc-600">Bars, one per day</p>
+        <AdminTimeSeriesChart
+          ariaLabel="Revenue by day"
+          categories={REVENUE_DAYS}
+          series={REVENUE_SERIES}
+          formatters={money}
+          integerTicks
+          height={200}
+        />
+        <p className="mt-2 text-xs leading-5 text-zinc-500">
+          The 25th is a day the store holds no order for. It is drawn as a zero beside the axis
+          rather than left out, so the gap is visible instead of interpolated over. Hover a column
+          for the exact amount.
+        </p>
+      </div>
+      <div>
+        <p className="mb-2 text-xs font-semibold text-zinc-600">Lines, two series on one axis</p>
+        <AdminTimeSeriesChart
+          ariaLabel="Revenue this week against last"
+          categories={REVENUE_DAYS}
+          series={LAST_WEEK_SERIES}
+          formatters={money}
+          integerTicks
+          variant="line"
+          height={200}
+        />
+        <p className="mt-2 text-xs leading-5 text-zinc-500">
+          Both series are scaled against the same axis and the same peak, and the legend appears
+          only once there is more than one.
+        </p>
+      </div>
+    </div>
+  ),
+
+  AdminRankChart: () => (
+    <div className="space-y-3">
+      <AdminRankChart
+        ariaLabel="Units in stock by product"
+        items={STOCK}
+        formatters={counts}
+        valueLabel="units"
+        integerTicks
+      />
+      <p className="text-xs leading-5 text-zinc-500">
+        Every bar is a fraction of one axis whose top is 60, not of its own row, and the value is
+        printed beside each bar so the two can be checked against each other. The last product is
+        out of stock and draws nothing.
+      </p>
+    </div>
+  ),
+
+  AdminChartTable: () => (
+    <div className="space-y-3">
+      <AdminTimeSeriesChart
+        ariaLabel="Revenue by day"
+        categories={REVENUE_DAYS}
+        series={REVENUE_SERIES}
+        formatters={money}
+        integerTicks
+        height={180}
+      />
+      <AdminChartTable
+        caption="Revenue by day, as a table"
+        categories={REVENUE_DAYS}
+        series={REVENUE_SERIES}
+        format={money.value}
+      />
+      <p className="text-xs leading-5 text-zinc-500">
+        The chart above already ships a copy of these seven rows, and this card places a second one,
+        so the table is in the page twice over. An SVG drawing is an image to a screen reader, which
+        is why the numbers are reachable without a mouse and why the two copies are built from the
+        same points the bars are drawn from.
+      </p>
+    </div>
+  ),
+
+  AdminChartFrame: () => (
+    <div className="space-y-3">
+      <p className="text-xs leading-5 text-zinc-500">
+        The same card in the four states the engine reports. Only the ready one draws a chart, which
+        is what stops a query that failed from arriving as a bar at zero.
+      </p>
+      {FRAME_STATES.map((state) => (
+        <AdminChartFrame
+          key={state.status}
+          icon={state.icon}
+          title={state.title}
+          status={state.status}
+          error={state.error}
+          onRetry={state.status === "error" ? () => undefined : undefined}
+          height={110}
+        >
+          <AdminRankChart
+            ariaLabel="Units in stock by product"
+            items={STOCK.slice(0, 3)}
+            formatters={counts}
+            valueLabel="units"
+            integerTicks
+          />
+        </AdminChartFrame>
+      ))}
     </div>
   ),
 };

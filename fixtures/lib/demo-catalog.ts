@@ -17,6 +17,7 @@ export const CATALOG_CATEGORIES = [
   "Actions and buttons",
   "Forms and fields",
   "Data display",
+  "Charts",
   "Overlays and feedback",
   "Sorting and reordering",
   "Layout",
@@ -257,6 +258,116 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Data display",
     summary: "The wording and page-window size the pagination uses unless the host replaces them.",
     keywords: "labels copy window",
+  },
+
+  AdminChartFrame: {
+    category: "Charts",
+    summary:
+      "The card a chart lives in, holding loading, failed, empty and ready as four different facts so a chart itself decides nothing.",
+    keywords: "frame card states loading empty error ready",
+    renderable: true,
+  },
+  AdminTimeSeriesChart: {
+    category: "Charts",
+    summary:
+      "Bars for a value per day, or lines for series read against each other, drawn as SVG on a fixed viewBox with a hover readout.",
+    keywords: "time series bar line svg hover readout",
+    renderable: true,
+  },
+  AdminRankChart: {
+    category: "Charts",
+    summary:
+      "One row per thing with its bar against a labelled axis, built from elements rather than SVG so a long name truncates instead of overlapping.",
+    keywords: "rank bar horizontal rows axis",
+    renderable: true,
+  },
+  AdminChartTable: {
+    category: "Charts",
+    summary:
+      "The values behind a chart as a real table, built from the same points the marks come from, so a screen reader can reach every number.",
+    keywords: "table screen reader accessible values fallback",
+    renderable: true,
+  },
+  adminChartTicks: {
+    category: "Charts",
+    summary:
+      "Round tick values from zero up to a top never below the data, so a gridline is a number a reader can read off and repeat.",
+    keywords: "ticks round gridline domain scale",
+  },
+  adminChartAxis: {
+    category: "Charts",
+    summary:
+      "Those ticks with the top and the fraction a value sits at in the plot, which is what a chart is actually drawn from.",
+    keywords: "axis top fraction plot scale",
+  },
+  adminChartLabelIndices: {
+    category: "Charts",
+    summary:
+      "Which category labels to print: first, middle and last, returned as the indices the hidden table is built from too.",
+    keywords: "labels indices categories tick",
+  },
+  adminFormatCents: {
+    category: "Charts",
+    summary: "Integer cents as money with every digit, for a headline, a readout or the hidden table.",
+    keywords: "money cents format full value",
+  },
+  adminFormatCentsCompact: {
+    category: "Charts",
+    summary:
+      "The same integer cents shortened, for an axis where several gridlines share the width of a card.",
+    keywords: "money cents compact axis short",
+  },
+  adminFormatCount: {
+    category: "Charts",
+    summary: "A whole number of things, for a headline or a value beside a bar.",
+    keywords: "count format number value",
+  },
+  adminFormatCountCompact: {
+    category: "Charts",
+    summary: "The same count shortened, for an axis over a count.",
+    keywords: "count compact axis short",
+  },
+  adminChartFormatters: {
+    category: "Charts",
+    summary:
+      "The pair a chart takes: every digit for a value and the short form for a tick, chosen by unit rather than declared twice.",
+    keywords: "formatters value tick unit pair",
+  },
+  adminChartDayKey: {
+    category: "Charts",
+    summary:
+      "The UTC day a timestamp falls on, read as a prefix so the answer does not depend on the server's timezone.",
+    keywords: "day key utc timestamp prefix date",
+  },
+  adminChartDayRange: {
+    category: "Charts",
+    summary:
+      "The day keys ending on a given day, stepped in UTC so a daylight-saving boundary neither skips nor repeats one.",
+    keywords: "day range dates utc window period",
+  },
+  adminChartFillDays: {
+    category: "Charts",
+    summary:
+      "One point per day including the zeros, so a day the store holds no row for reads as a gap rather than a line straight across it.",
+    keywords: "fill days zero gap points series",
+  },
+  defaultAdminChartSeriesClasses: {
+    category: "Charts",
+    summary:
+      "The fill and stroke pairs a chart colours series with, written out whole because Tailwind cannot compose a colour suffix.",
+    keywords: "palette series colours classes default",
+  },
+  adminChartSeriesClasses: {
+    category: "Charts",
+    summary:
+      "The pair for the nth series, wrapping around a palette the host may have handed in place of the default one.",
+    keywords: "series classes index lookup palette nth",
+  },
+  defaultAdminChartFrameLabels: {
+    category: "Charts",
+    summary:
+      "The five strings the frame uses when a host supplies none, where a partial override replaces only the keys it names.",
+    keywords: "labels default strings frame wording",
   },
 
   AdminBanner: {
