@@ -1,4 +1,4 @@
-import type { AdminNavGroup, AdminSession } from "@yesvus/helmdeck";
+import type { AdminNavGroup } from "@yesvus/helmdeck";
 
 export const sampleNav: AdminNavGroup[] = [
   {
@@ -48,8 +48,3 @@ export const sampleSearchEntries = [
   },
 ];
 
-export const sampleSession: AdminSession = {
-  email: "alex@northstar.example",
-  name: "Alex Morgan",
-  role: "editor",
-};

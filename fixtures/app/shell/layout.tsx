@@ -1,55 +1,22 @@
-"use client";
+// SPDX-License-Identifier: MIT
 
-import Link from "next/link.js";
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { AdminShell } from "@yesvus/helmdeck";
-import { sampleNav, sampleSession } from "../../nav";
-import { useShellTheme } from "../../components/shell-theme-provider";
+import type { ReactNode } from "react";
+import { sampleNav } from "../../nav";
+import { ShellClient } from "./shell-client";
+import { requireDemoSession } from "../../lib/demo-guard";
 
-type ShellSettings = {
-  role: string;
-  setRole: (value: string) => void;
-  accent: string;
-  setAccent: (value: string) => void;
-};
+/**
+ * The shell, on a server component, so the session it renders is the real one.
+ *
+ * It was a client component holding a hardcoded session and a role switcher, which meant the sidebar
+ * showed a person who was not signed in and signing out only cleared a local message. A framework
+ * where the shell can be signed out of without ending the session is not one that logs people in.
+ *
+ * Resolution happens here, before anything renders, because a shell that paints and then discovers it
+ * has no session is a flash of the wrong thing on every navigation.
+ */
+export default async function ShellLayout({ children }: { children: ReactNode }) {
+  const session = await requireDemoSession({ returnTo: "/shell" });
 
-const SettingsContext = createContext<ShellSettings | null>(null);
-
-export function useShellSettings() {
-  const settings = useContext(SettingsContext);
-  if (!settings) throw new Error("Shell settings are unavailable");
-  return settings;
-}
-
-function ThemeSelector() {
-  const { theme, setTheme } = useShellTheme();
-  return <label className="flex items-center gap-2 text-xs font-medium text-zinc-600">Theme<select aria-label="Theme" value={theme} onChange={(event) => setTheme(event.target.value as "light" | "dark" | "system")} className="rounded-md border border-zinc-300 bg-admin-surface px-2 py-1.5 text-sm text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"><option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option></select></label>;
-}
-
-export default function ShellLayout({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState("editor");
-  const [accent, setAccent] = useState("#b45309");
-  const [logoutMessage, setLogoutMessage] = useState("");
-
-  return (
-    <SettingsContext.Provider value={{ role, setRole, accent, setAccent }}>
-      <AdminShell
-        nav={sampleNav}
-        session={{ ...sampleSession, role }}
-        homeHref="/shell"
-        viewSiteHref="/"
-        profileHref="/shell/profile"
-        onLogout={() => setLogoutMessage("Demo sign-out confirmed. Your account session remains managed by the host application.")}
-        topbarExtra={<><ThemeSelector />{logoutMessage ? <span role="status" className="max-w-56 text-xs text-zinc-600">{logoutMessage}</span> : null}</>}
-        profileMenuExtra={<Link className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50" href="/shell/settings/site">Site settings</Link>}
-        brand={{
-          label: "Northstar Supply",
-          accent,
-          logo: <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">N</span>,
-        }}
-      >
-        {children}
-      </AdminShell>
-    </SettingsContext.Provider>
-  );
+  return <ShellClient nav={sampleNav} session={session}>{children}</ShellClient>;
 }

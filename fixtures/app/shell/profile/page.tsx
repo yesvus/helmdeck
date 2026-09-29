@@ -1,4 +1,4 @@
-import { sampleSession } from "../../../nav";
+import { currentDemoSession } from "../../../lib/demo-session";
 
 const sections = [
   { title: "Workspace", detail: "Northstar Supply · Owner: Morgan Lee", status: "Active" },
@@ -7,13 +7,14 @@ const sections = [
   { title: "Account status", detail: "Administrator access · Member since March 2022", status: "In good standing" },
 ];
 
-export default function ProfilePage() {
+export default async function ProfilePage() {
+  const session = await currentDemoSession();
   return (
     <main className="mx-auto max-w-4xl space-y-6">
       <header className="rounded-xl border border-zinc-200 bg-admin-surface p-6">
         <p className="text-sm font-medium text-brand-700">Account profile</p>
-        <p className="mt-1 text-2xl font-bold tracking-tight">{sampleSession.name}</p>
-        <p className="mt-1 text-sm text-zinc-600">{sampleSession.email} · {sampleSession.role}</p>
+        <p className="mt-1 text-2xl font-bold tracking-tight">{session?.name ?? session?.email ?? "Nobody signed in"}</p>
+        <p className="mt-1 text-sm text-zinc-600">{session?.email} · {session?.role}</p>
       </header>
       <section aria-label="Profile details" className="grid gap-4 sm:grid-cols-2">
         {sections.map((section) => (
