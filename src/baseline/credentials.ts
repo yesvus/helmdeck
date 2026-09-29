@@ -18,7 +18,8 @@
  * The role a session acts as is read from the user row the session points at, so it is a stored
  * value rather than something a request can name. Nothing in the cookie carries a role, which is
  * what keeps a signed cookie from being a claim: it names a session, the session names a user,
- * and the user decides.
+ * and the user decides. That is also what `mayEndAllSessions` is given to decide on, so a host's
+ * own rule is applied to a value the client cannot write.
  *
  * **This module is server-side.** It reaches `node:crypto` for key derivation, which no browser
  * bundle can resolve, and the session cookie is HTTP-only and read through `next/headers`. The
@@ -275,17 +276,45 @@ export type CredentialAuthOptions = {
   sameSite?: "lax" | "strict" | "none";
   secure?: boolean;
   invalidMessage?: string;
+  /**
+   * Whether the account resolved from the request may end every session it holds.
+   *
+   * A host policy, because the package has no vocabulary for roles and a rule written here would
+   * be a rule every host has to fight. The session is the one this adapter resolved from the
+   * signed cookie, so its role is the stored value rather than something a request can name.
+   *
+   * Absent means refused. A capability that is off unless a host turns it on cannot be reached by
+   * a host that has not thought about it, which is the only safe default for the one method here
+   * that destroys something.
+   */
+  mayEndAllSessions?: (session: AdminSession) => boolean | Promise<boolean>;
   onError?: (cause: unknown) => void;
 };
 
+/**
+ * The outcome of a revocation, which is either a count or a refusal.
+ *
+ * A count and a refusal are different answers, and a caller that cannot tell them apart reports
+ * "ended 0 sessions" for a request it was never allowed to make, which reads as success.
+ */
+export type CredentialRevocation =
+  | { ok: true; ended: number; email: string }
+  | { ok: false; message: string };
+
 export type CredentialAuthAdapter = AdminAuthAdapter & {
   /**
-   * Ends every session an account holds, on every device, and says how many there were.
+   * Ends every session the calling account holds, on every device, and says how many there were.
    *
-   * For a signed-in administrator, whose call it is, and the only one an editor is refused. The
-   * address comes from the session, which the client never sets.
+   * There is no account argument, and that is the whole design. The caller is the account being
+   * revoked: this adapter resolved them from the signed cookie, so the identity the rule decided
+   * on and the identity the revocation acts on are one value rather than two that a caller could
+   * point at different accounts. A signature that names some other session does not reach the
+   * store at all, so there is no id here to substitute either.
+   *
+   * Whether that caller may is `mayEndAllSessions`, which is a host policy because the package
+   * has no vocabulary for roles. It is refused unless the host supplies one.
    */
-  endAllSessions: (email: string) => Promise<number>;
+  endAllSessions: () => Promise<CredentialRevocation>;
 };
 
 /**
@@ -401,10 +430,28 @@ export function createCredentialAuthAdapter(options: CredentialAuthOptions): Cre
       await reader.logout();
     },
 
-    async endAllSessions(email: string): Promise<number> {
-      const user = await store.findUserByEmail(normalizeEmail(email));
-      if (!user) return 0;
-      return store.deleteSessionsForUser(user.id);
+    async endAllSessions(): Promise<CredentialRevocation> {
+      // The one value: whoever the signed cookie names, resolved by the same path every read
+      // takes. Nothing the caller passes reaches this, so the account the rule decides on and
+      // the account the rows belong to cannot be different accounts.
+      const session = await reader.getSession();
+      if (!session) {
+        return { ok: false, message: "There is no session to end." };
+      }
+
+      // Before any row is read or written, so a refusal is observably a refusal: the store spy
+      // stays untouched and a caller cannot learn anything from the difference.
+      const permitted = await options.mayEndAllSessions?.(session);
+      if (!permitted) {
+        return { ok: false, message: "This account may not end every session." };
+      }
+
+      const user = await store.findUserByEmail(normalizeEmail(session.email));
+      if (!user) {
+        return { ok: false, message: "This account may not end every session." };
+      }
+      const ended = await store.deleteSessionsForUser(user.id);
+      return { ok: true, ended, email: session.email };
     },
   };
 }

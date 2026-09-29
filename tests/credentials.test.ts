@@ -14,7 +14,8 @@ import {
   CREDENTIAL_SESSIONS_SCHEMA,
   CREDENTIAL_USERS_SCHEMA,
 } from "../src/baseline";
-import type { AdminSessionCookieIO, CredentialStore } from "../src/baseline";
+import type { AdminSession } from "../src/adapters/index";
+import type { AdminSessionCookieIO, CredentialRevocation, CredentialStore } from "../src/baseline";
 
 /**
  * The six properties the demo's implementation had, which have to survive the move into the
@@ -39,6 +40,20 @@ function sourcesIn(directory: string): string[] {
 }
 
 const sourceFiles = sourcesIn(sourceRoot);
+
+/**
+ * The store calls that would mean a revocation actually happened.
+ *
+ * Asserting that the store was never touched would be wrong, because establishing who is asking
+ * reads the caller's own session row and there is no way to know the caller without it. What
+ * must not happen is the account lookup that precedes a revocation and the delete that follows
+ * it, so those are the calls named here.
+ */
+const REVOKING_CALLS = ["findUserByEmail", "deleteSession", "deleteSessionsForUser"];
+
+function revocationsAttempted(counts: Map<string, number>): string[] {
+  return [...counts.entries()].filter(([name]) => REVOKING_CALLS.includes(name)).map(([name]) => name);
+}
 
 /** A cookie jar standing in for the request's own cookie store. */
 function jar(initial?: string) {
@@ -80,7 +95,13 @@ async function account(
  * `counting` records every store call by name, which is how a test proves the store was never
  * asked rather than merely that it answered null.
  */
-function harness(options: { store?: CredentialStore; db?: AdminPersistenceAdapter } = {}) {
+function harness(
+  options: {
+    store?: CredentialStore;
+    db?: AdminPersistenceAdapter;
+    mayEndAllSessions?: (session: AdminSession) => boolean | Promise<boolean>;
+  } = {},
+) {
   const db = options.db ?? createMemoryPersistenceAdapter();
   const store = options.store ?? createPersistenceCredentialStore(db);
   const counts = new Map<string, number>();
@@ -111,7 +132,12 @@ function harness(options: { store?: CredentialStore; db?: AdminPersistenceAdapte
     },
   };
   const cookie = jar();
-  const auth = createCredentialAuthAdapter({ secret: SECRET, store: counted, cookie: cookie.io });
+  const auth = createCredentialAuthAdapter({
+    secret: SECRET,
+    store: counted,
+    cookie: cookie.io,
+    mayEndAllSessions: options.mayEndAllSessions,
+  });
   return { db, store, counts, cookie, auth };
 }
 
@@ -240,29 +266,172 @@ describe("property 2: signing out ends the row, so a replayed cookie is refused"
     expect(owner.id).toBeTruthy();
   });
 
-  it("ends every session an account holds, across browsers", async () => {
+  it("ends every session the calling account holds, across browsers", async () => {
     const db = createMemoryPersistenceAdapter();
     const store = createPersistenceCredentialStore(db);
-    const owner = await account(db);
-    const desktop = harness({ db, store });
-    const laptop = harness({ db, store });
+    await account(db);
+    // One store, two browsers, and each keeps its own cookie, which is the arrangement the
+    // capability exists for: the desktop's call has to reach the laptop's session too.
+    const desktop = harness({ db, store, mayEndAllSessions: () => true });
+    const laptop = harness({ db, store, mayEndAllSessions: () => true });
     await desktop.auth.login({ email: EMAIL, password: PASSWORD });
     await laptop.auth.login({ email: EMAIL, password: PASSWORD });
 
-    expect(await desktop.auth.endAllSessions(EMAIL)).toBe(2);
+    expect(await desktop.auth.endAllSessions()).toEqual({ ok: true, ended: 2, email: EMAIL });
     expect(await desktop.auth.getSession()).toBeNull();
     expect(await laptop.auth.getSession()).toBeNull();
-    expect(owner.id).toBeTruthy();
   });
 
   it("leaves another account's sessions alone", async () => {
-    const { auth, db } = harness();
+    const { auth, db } = harness({ mayEndAllSessions: () => true });
     await account(db, { email: normalizeEmail("editor@demo.helmdeck.dev") });
     await account(db);
     await auth.login({ email: "editor@demo.helmdeck.dev", password: PASSWORD });
+    // A second browser for the owner, so there is a session the editor's call must not reach.
+    const owner = harness({ db, mayEndAllSessions: () => true });
+    await owner.auth.login({ email: EMAIL, password: PASSWORD });
 
-    expect(await auth.endAllSessions(EMAIL)).toBe(0);
-    expect(await auth.getSession()).toEqual({ email: "editor@demo.helmdeck.dev", role: "admin" });
+    // The revocation acts on the caller's own account, so ending it cannot reach the owner.
+    expect(await auth.endAllSessions()).toEqual({
+      ok: true,
+      ended: 1,
+      email: "editor@demo.helmdeck.dev",
+    });
+    expect(await owner.auth.getSession()).toEqual({ email: EMAIL, role: "admin" });
+  });
+});
+
+/**
+ * The capability an attacker reaches first, so the tests call the exported method the way a
+ * server action would rather than through a page.
+ *
+ * A caller here is any code holding the adapter, which is every server action and every route
+ * handler in the host. Two of them are worth distinguishing: one that has resolved a session and
+ * passes it along, and one that has been handed a value by a request. The method takes neither,
+ * because a value a caller supplies is an assertion rather than an authorization.
+ */
+describe("property 7: endAllSessions authorizes itself", () => {
+  it("refuses a caller the host policy does not permit, and leaves the store untouched", async () => {
+    // An editor, signed in on a real cookie, calling the exported method directly.
+    const { auth, counts, db } = harness({ mayEndAllSessions: (session) => session.role === "admin" });
+    await account(db, { email: normalizeEmail("editor@demo.helmdeck.dev"), role: "editor" });
+    await auth.login({ email: "editor@demo.helmdeck.dev", password: PASSWORD });
+    counts.clear();
+
+    const result = await auth.endAllSessions();
+
+    expect(result).toEqual({ ok: false, message: "This account may not end every session." });
+    // Asserted rather than implied. A refusal that had already looked the account up, or begun
+    // deleting, would still return this, and the difference is exactly what the check exists to
+    // prevent: an editor learning which accounts exist by watching what a refused call touches.
+    expect(revocationsAttempted(counts)).toEqual([]);
+    // And the account's own session is still there, so the refusal revoked nothing.
+    expect(await auth.getSession()).toEqual({ email: "editor@demo.helmdeck.dev", role: "editor" });
+  });
+
+  it("refuses when the host supplied no policy at all", async () => {
+    // The default is off rather than permissive, so a host that has not thought about who may
+    // revoke does not ship the capability by omission.
+    const { auth, counts, db } = harness();
+    await account(db);
+    await auth.login({ email: EMAIL, password: PASSWORD });
+    counts.clear();
+
+    expect(await auth.endAllSessions()).toEqual({
+      ok: false,
+      message: "This account may not end every session.",
+    });
+    expect(revocationsAttempted(counts)).toEqual([]);
+  });
+
+  it("refuses an anonymous caller, because there is nobody to authorize", async () => {
+    const { auth, counts, db } = harness({ mayEndAllSessions: () => true });
+    await account(db);
+    counts.clear();
+
+    expect(await auth.endAllSessions()).toEqual({ ok: false, message: "There is no session to end." });
+    expect([...counts.keys()]).toEqual([]);
+  });
+
+  it("refuses a forged cookie before the policy is consulted at all", async () => {
+    // The identity comes from the signature, so a cookie naming someone else's session is not a
+    // caller at all. Without this, a forged cookie plus a permissive policy would revoke rows
+    // belonging to whoever the forged id named.
+    const { counts, db } = harness({ mayEndAllSessions: () => true });
+    await account(db);
+    const victim = harness({ db, mayEndAllSessions: () => true });
+    await victim.auth.login({ email: EMAIL, password: PASSWORD });
+    const [row] = await sessionsIn(db);
+    const forged = harness({ db, mayEndAllSessions: () => true });
+    forged.cookie.tamper(`${row.id}.not-a-signature`);
+    counts.clear();
+
+    expect(await forged.auth.endAllSessions()).toEqual({ ok: false, message: "There is no session to end." });
+    expect([...counts.keys()]).toEqual([]);
+    // The victim's session survived the attempt.
+    expect(await victim.auth.getSession()).not.toBeNull();
+  });
+
+  it("ignores an account a caller passes anyway, and revokes only its own", async () => {
+    // The behavioural half of the structural fix, because the arity assertion below only proves
+    // the signature. A host's server action may be handed an email by a request and pass it
+    // through; in JavaScript that argument exists whether or not the type declares it, so the
+    // call is made through a cast rather than not at all.
+    const { db } = harness();
+    await account(db, { email: normalizeEmail("victim@demo.helmdeck.dev") });
+    await account(db);
+    const attacker = harness({ db, mayEndAllSessions: () => true });
+    await attacker.auth.login({ email: EMAIL, password: PASSWORD });
+    const victim = harness({ db, mayEndAllSessions: () => true });
+    await victim.auth.login({ email: "victim@demo.helmdeck.dev", password: PASSWORD });
+
+    const smuggled = attacker.auth.endAllSessions as unknown as (
+      target: unknown,
+    ) => Promise<CredentialRevocation>;
+    const result = await smuggled.call(attacker.auth, { email: "victim@demo.helmdeck.dev" });
+
+    // The attacker's own sessions went, because the attacker is the target. The victim's did
+    // not, because naming them in an argument is not a thing the method reads.
+    expect(result).toEqual({ ok: true, ended: 1, email: EMAIL });
+    expect(await victim.auth.getSession()).toEqual({
+      email: "victim@demo.helmdeck.dev",
+      role: "admin",
+    });
+  });
+
+  it("takes no account argument, so a caller has no target to substitute", () => {
+    // A method that accepted an email or a session would let a caller's authorization and its
+    // target be two different accounts, and no amount of checking inside the method would close
+    // that. Asserted on the signature as well as the behaviour above, because the two fail
+    // independently: a method can ignore its argument and still be a confusing thing to call.
+    expect(harness().auth.endAllSessions.length).toBe(0);
+  });
+
+  it("gives the policy the stored role, which a request cannot write", async () => {
+    const seen: unknown[] = [];
+    const { auth, db } = harness({
+      mayEndAllSessions: (session) => {
+        seen.push(session);
+        return session.role === "admin";
+      },
+    });
+    await account(db, { role: "editor" });
+    await auth.login({ email: EMAIL, password: PASSWORD });
+
+    await auth.endAllSessions();
+
+    expect(seen).toEqual([{ email: EMAIL, role: "editor" }]);
+  });
+
+  it("permits a caller the policy allows, and reports what it ended", async () => {
+    const { auth, db } = harness({ mayEndAllSessions: (session) => session.role === "admin" });
+    await account(db);
+    await auth.login({ email: EMAIL, password: PASSWORD });
+
+    // The row the caller arrived on is ended too, so the caller is signed out by its own action
+    // and the count says so rather than reading as a partial success.
+    expect(await auth.endAllSessions()).toEqual({ ok: true, ended: 1, email: EMAIL });
+    expect(await auth.getSession()).toBeNull();
   });
 });
 
