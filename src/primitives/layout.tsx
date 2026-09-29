@@ -97,12 +97,19 @@ export function AdminSectionIntro({
   );
 }
 
-export type AdminStatCardTone = "neutral" | "success" | "warning" | "danger";
+/**
+ * "danger" is still accepted, because a host written against the earlier type passes it and a
+ * compile error is a worse way to learn about a rename than a tone that quietly means the same thing.
+ * The three tone types now agree on one word per severity; "danger" is the deprecated spelling of
+ * "error" and both map to the same classes, so nothing renders differently.
+ */
+export type AdminStatCardTone = "neutral" | "success" | "warning" | "error" | "danger";
 
 const adminStatCardToneClasses: Record<AdminStatCardTone, string> = {
   neutral: "bg-admin-surface text-zinc-600",
   success: "bg-emerald-50 text-emerald-700",
   warning: "bg-amber-50 text-amber-700",
+  error: "bg-red-50 text-red-700",
   danger: "bg-red-50 text-red-700",
 };
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { hashPassword, type DemoUser } from "./demo-users";
+import { seedUsers } from "./seed-data";
 
 /**
  * The demo's accounts, seeded rather than registered.
@@ -15,15 +16,29 @@ import { hashPassword, type DemoUser } from "./demo-users";
 export const DEMO_PASSWORD = "helmdeck-demo";
 
 export type DemoAccount = {
+  id: string;
   email: string;
   role: DemoUser["role"];
   note: string;
 };
 
-export const demoAccounts: readonly DemoAccount[] = [
-  { email: "owner@demo.helmdeck.dev", role: "admin", note: "Full access, including settings" },
-  { email: "editor@demo.helmdeck.dev", role: "editor", note: "Content only, no settings" },
-];
+const notes: Record<DemoUser["role"], string> = {
+  admin: "Everything, including ending every session.",
+  editor: "The dashboard and content. No administration.",
+};
+
+/**
+ * Taken from the seeded workspace rather than written out again, because a session row points at
+ * `users(id)`: an account with an id the workspace has never heard of is a session referring to
+ * nothing, and a login that works anyway is the kind of inconsistency nobody notices until the
+ * foreign key refuses the insert.
+ */
+export const demoAccounts: readonly DemoAccount[] = seedUsers.map((user) => ({
+  id: user.id,
+  email: user.email,
+  role: user.role,
+  note: notes[user.role],
+}));
 
 /**
  * Built once per process and memoised, because hashing is deliberately slow and the demo is read on
@@ -34,7 +49,7 @@ let cached: Promise<DemoUser[]> | null = null;
 export function demoUsers(): Promise<DemoUser[]> {
   cached ??= Promise.all(
     demoAccounts.map(async (account) => ({
-      id: account.email,
+      id: account.id,
       email: account.email,
       role: account.role,
       passwordHash: await hashPassword(DEMO_PASSWORD),

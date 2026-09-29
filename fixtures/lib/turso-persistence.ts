@@ -32,7 +32,7 @@ export type SqlClient = {
 };
 
 /** The tables this adapter will talk to, so a resource name can never reach SQL unchecked. */
-const tables = new Set(["users", "posts", "products", "orders", "dashboard_placements"]);
+const tables = new Set(["users", "posts", "products", "orders", "dashboard_placements", "sessions"]);
 
 function tableFor(resource: string): string {
   if (!tables.has(resource)) {
