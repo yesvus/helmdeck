@@ -70,6 +70,7 @@ describe("createTursoPersistenceAdapter", () => {
   it("writes only the columns it was given", async () => {
     resetTursoAdapterCache();
     const { client, execute } = fakeClient();
+    execute.mockResolvedValueOnce({ columns: ["name"], rows: [["id"], ["title"]] }); // pragma_table_info
     const adapter = createTursoPersistenceAdapter(client);
 
     await adapter.update("posts", "p1", { title: "Next" });
@@ -80,10 +81,71 @@ describe("createTursoPersistenceAdapter", () => {
     });
   });
 
+  /**
+   * A record's values are bound as parameters, so a value cannot become syntax. Its keys can: they
+   * are pasted into the `SET` list, so a key carrying an assignment is read as one. That made a write
+   * to any exposed table a way to read any other table, including the accounts the allowlist exists
+   * to keep out of reach, and it was reachable by anyone signed in with the lowest role because the
+   * permission check on the resource is about the table, not about the columns.
+   *
+   * The value here is the shape that was confirmed to work against the schema: a subquery that
+   * gathers another table's rows into a cell the caller reads back with the ordinary read.
+   */
+  it("refuses an update whose column name is really an assignment", async () => {
+    resetTursoAdapterCache();
+    const { client, execute } = fakeClient();
+    execute.mockResolvedValueOnce({ columns: ["name"], rows: [["id"], ["name"], ["sku"]] });
+    const adapter = createTursoPersistenceAdapter(client);
+
+    await expect(
+      adapter.update("products", "prd_1", {
+        "name = (SELECT group_concat(email, password_hash) FROM users), id": "x",
+      }),
+    ).rejects.toThrow(/is not a column/);
+
+    const statements = execute.mock.calls.map(([arg]) => String(arg.sql)).join("\n");
+    expect(statements).not.toContain("group_concat");
+    expect(statements).not.toContain("UPDATE products SET");
+  });
+
+  it("refuses a create whose column name is really an assignment", async () => {
+    resetTursoAdapterCache();
+    const { client, execute } = fakeClient();
+    execute.mockResolvedValueOnce({ columns: ["name"], rows: [["id"], ["name"], ["sku"]] });
+    const adapter = createTursoPersistenceAdapter(client);
+
+    await expect(
+      adapter.create("products", {
+        "name = (SELECT group_concat(email, password_hash) FROM users)": "x",
+      }),
+    ).rejects.toThrow(/is not a column/);
+
+    const statements = execute.mock.calls.map(([arg]) => String(arg.sql)).join("\n");
+    expect(statements).not.toContain("group_concat");
+  });
+
+  it("still writes every column a legitimate record names", async () => {
+    // The check above is a schema check, not a blocklist, so a real edit with several fields goes
+    // through untouched. A filter that only rejected the attack would pass the test before it.
+    resetTursoAdapterCache();
+    const { client, execute } = fakeClient();
+    execute.mockResolvedValueOnce({ columns: ["name"], rows: [["id"], ["name"], ["sku"]] });
+    const adapter = createTursoPersistenceAdapter(client);
+
+    await adapter.update("products", "prd_1", { name: "Renamed", sku: "LAMP-002" });
+
+    expect(execute).toHaveBeenCalledWith({
+      sql: "UPDATE products SET name = ?, sku = ? WHERE id = ?",
+      args: ["Renamed", "LAMP-002", "prd_1"],
+    });
+  });
+
   it("generates an id when a create is given none", async () => {
     resetTursoAdapterCache();
     const { client, execute } = fakeClient();
-    execute.mockResolvedValue({ columns: ["id"], rows: [] });
+    execute
+      .mockResolvedValueOnce({ columns: ["name"], rows: [["id"], ["title"]] }) // pragma_table_info
+      .mockResolvedValue({ columns: ["id"], rows: [] });
     const adapter = createTursoPersistenceAdapter(client);
 
     const created = await adapter.create<{ id: string }>("posts", { title: "x" });
