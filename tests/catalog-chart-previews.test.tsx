@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { adminChartAxis, adminChartFormatters } from "../src/charts";
 import { catalogPreviews } from "../fixtures/app/catalog/previews";
 import { componentCatalog } from "../fixtures/lib/demo-catalog";
 
@@ -16,6 +17,19 @@ import { componentCatalog } from "../fixtures/lib/demo-catalog";
  * The previews are the ones the catalogue page shows, keyed by the export's own name, so a preview
  * that stops drawing what its entry promises fails here and not on a page nobody opens.
  */
+
+const money = adminChartFormatters("money");
+
+/**
+ * The cents on the revenue axis, for the peak of 44150 across the previewed week.
+ *
+ * Named once so the values asserted for the axis and the labels asserted for the drawing are the
+ * same four numbers rather than two lists kept in step by hand. The literal is cents, which no
+ * runtime can render differently.
+ */
+const AXIS_CENTS = [0, 20000, 40000, 60000];
+
+const PEAK_CENTS = 44150;
 
 type Mark = {
   series: string;
@@ -80,16 +94,65 @@ describe("the time series preview", () => {
   it("scales the marks against one round axis above the data", () => {
     draw("AdminTimeSeriesChart");
 
-    // $441.50 is the peak, and the top gridline is $600: a multiple of a round step and never below
-    // the data. An axis topping out at the peak itself would clip the tallest bar.
-    const tickLabels = [...document.querySelectorAll("svg text")].map((node) => node.textContent);
-    expect(tickLabels.slice(0, 4)).toEqual(["$0", "$200", "$400", "$600"]);
+    // The axis values, in cents, that the peak of 44150 implies: four gridlines at an even step of
+    // 20000, the top one round and strictly above the data. Asserted on the values rather than on
+    // the text they print as, because the values are the property and the text is one runtime's
+    // rendering of them. An axis topping out at the peak itself would clip the tallest bar.
+    expect(adminChartAxis(PEAK_CENTS, { ticks: 4, integer: true }).ticks).toEqual(AXIS_CENTS);
+
+    // The four labels the bars are drawn against, still pinned in order, but taken from the
+    // formatter the chart itself draws with. `Intl` renders a whole compact currency value as
+    // "$600" on one runtime and "$600.0" on another, so a literal here passed on the machine it was
+    // written on and failed on CI while saying nothing about the chart. This says the axis prints
+    // the formatter's own rendering of the four values above, which is the property that matters
+    // and which holds on every runtime. Scoped to the first drawing, because the card shows the bar
+    // variant and then the line variant and both draw the same axis.
+    const labels = [...document.querySelector("svg")!.querySelectorAll("text")]
+      .map((node) => node.textContent)
+      .filter((label) => label?.startsWith("$"));
+    expect(labels).toEqual(AXIS_CENTS.map((cents) => money.tick(cents)));
+    expect(labels).toHaveLength(4);
 
     // Two bars scaled against that axis: 44150 and 12780 cents, so the ratio of their heights is
     // the ratio of their values and not a per-series normalisation.
     const peak = marks().find((mark) => mark.category === "2026-09-28")!;
     const small = marks().find((mark) => mark.category === "2026-09-29")!;
-    expect(peak.height / small.height).toBeCloseTo(44150 / 12780, 2);
+    expect(peak.height / small.height).toBeCloseTo(PEAK_CENTS / 12780, 2);
+  });
+});
+
+describe("why a tick label is derived from its value rather than written out", () => {
+  it("holds for a tick that needs no fraction digit and for one that does", () => {
+    // Compact currency with a maximum of one fraction digit is where runtimes part company, and it
+    // is worth being precise about why, because the reason narrows the trap. A value whose compact
+    // form carries no fraction digit is the only kind that diverges: one runtime prints "$600" and
+    // the next prints "$600.0", because there is a trailing zero that one keeps and the other drops.
+    // A value that does carry a fraction digit prints the same on every runtime, because there is
+    // no trailing zero for a runtime to add or drop.
+    //
+    // So a form like $12.8K is safe because of the number it renders, not because compact currency
+    // is safe in general, and the trap does not generalise: swap 20000 for a value that happens to
+    // end in a zero and the divergence is back. Asserting a digit rather than a whole string is how
+    // the distinction is stated without depending on which side of it a runtime sits, because the
+    // digit a rendering ends in is the fact that makes it stable.
+    for (const cents of [1150, 12345]) {
+      const label = money.tick(cents);
+      expect(label.slice(-1), `${cents} rendered as ${label}, which ends in a digit a runtime could drop`).not.toBe(
+        "0",
+      );
+    }
+
+    // The axis itself is asserted on values, which is the half that owes nothing to a runtime: four
+    // whole numbers at an even step, from zero, with the top strictly above the peak.
+    const ticks = adminChartAxis(PEAK_CENTS, { ticks: 4, integer: true }).ticks;
+    expect(ticks).toEqual(AXIS_CENTS);
+    expect(ticks.every((tick) => Number.isInteger(tick))).toBe(true);
+    expect(ticks.at(-1)!).toBeGreaterThan(PEAK_CENTS);
+
+    // Even steps from zero, which is what makes the axis a scale rather than decoration: a reader
+    // has to be able to work an unmarked value out from the marked ones.
+    const steps = ticks.slice(1).map((tick, index) => tick - ticks[index]!);
+    expect(steps).toEqual([20000, 20000, 20000]);
   });
 });
 
