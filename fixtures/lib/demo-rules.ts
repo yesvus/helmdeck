@@ -2,11 +2,11 @@
 import type { AdminPermission, AdminSession } from "@yesvus/helmdeck";
 
 /**
- * The resources this admin exposes, and the rule for whether a session may touch one.
+ * The resources this admin exposes, and the one rule that says what a session may do with one.
  *
- * The set lives here because two callers need it and must not drift: the persistence actions check
- * a resource name that arrived from the browser before any name reaches a table, and the permission
- * rule checks the resource a permission is about. Duplicating the list in both would mean adding a
+ * The set lives here because two callers need it and must not drift: `createAdminResourceActions`
+ * checks a resource name that arrived from the browser before any name reaches a table, and the rule
+ * checks the resource a permission is about. Duplicating the list in both would mean adding a
  * resource in one place and leaving the other answering about something it no longer agrees on.
  *
  * `users` and `sessions` are absent on purpose. They are reachable through the same persistence
@@ -53,14 +53,13 @@ type RoleRule = {
 };
 
 /**
- * What a session is allowed to do, in one place.
+ * What a session is allowed to do, in one place, and the only decision the demo makes about it.
  *
- * Both halves of the admin ask this question and must get the same answer. The resource views ask
- * through `AdminPermissionsAdapter`, which runs in the browser where the session is not available;
- * the persistence server actions ask directly, because they already hold the session and cannot be
- * talked around by a client that happens to render no buttons. Two decision points that could
- * disagree would mean a button that appears and then fails, or a hidden one whose action succeeds
- * anyway, so the rule lives here and both call it.
+ * The package asks this function on both sides of the admin and the two answers cannot disagree:
+ * `createAdminPermissionCheck` is what the browser half asks, `createAdminPermissionGuard` is what the
+ * server path runs, and both evaluate this rule over the session the server resolved. A rule that
+ * answered a request as well as a decision would be two answers to one question, which is how a
+ * button comes to render and then fail.
  *
  * The role is the whole of the answer, and it arrives on the session from the stored user row rather
  * than from anything the browser sent. That is what makes this a decision rather than a request: the
@@ -83,9 +82,24 @@ const ROLE_RULES: ReadonlyMap<string, RoleRule> = new Map([
  */
 const ADMIN_ONLY = new Set(["orders"]);
 
-/** Whether this session may perform this permission, which is named `resource.operation`. */
-export function demoCan(session: AdminSession | null, permission: AdminPermission): boolean {
-  if (!session) return false;
+/**
+ * The rule, in the shape the package asks one: a session it resolved and a permission named
+ * `resource.operation`.
+ *
+ * Declared as the synchronous answer it is, which `AdminPermissionRule` allows, because the demo's
+ * other callers need a boolean to render a control with. A host whose rule has to ask a store can
+ * return a promise here instead, and the package awaits it.
+ *
+ * There is no session check here because the package does it before asking. A rule that had to
+ * defend itself against a session that is not there would be a second decision about the same
+ * question, and the one that governs it is the one that refuses.
+ *
+ * Nothing reads the record, so this rule answers the same for `read`, `update` and `delete` of a
+ * record whatever the record is. That is the demo's policy rather than a limit of the seam: the
+ * package hands the record's id in the context, and a host whose rule withholds one record decides it
+ * here and is enforced on both sides of the admin with no change to anything but this function.
+ */
+export const demoCan = (session: AdminSession, permission: AdminPermission): boolean => {
   const parts = permission.split(".");
   if (parts.length !== 2) return false;
   const [resource, operation] = parts;
@@ -97,4 +111,4 @@ export function demoCan(session: AdminSession | null, permission: AdminPermissio
   if (!rule) return false;
   if (!rule.everyResource && ADMIN_ONLY.has(resource)) return false;
   return rule.operations.has(operation);
-}
+};

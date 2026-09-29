@@ -12,7 +12,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { AdminLoginCredentials } from "@yesvus/helmdeck";
-import { demoAuth, endEverySession } from "../../lib/demo-session";
+import { demoAuth } from "../../lib/demo-session";
 import { demoRecovery } from "../../lib/demo-auth-recovery";
 import { DEFAULT_AFTER_LOGIN, readReturnTo } from "../../lib/demo-guard";
 
@@ -61,15 +61,14 @@ export async function requestPasswordRecoveryAction(
  * Ends every session the signed-in administrator holds, including this one.
  *
  * Refused for any other role, read from the session rather than from what the browser sent, so an
- * editor gets the same answer whether or not they ever found the button.
- */
-/**
- * A thin pass-through. The session is resolved and the role is checked inside `endEverySession`,
- * not here, because a check that lives in the caller is a check that any other caller can skip. A
- * direct call to this action with no cookie is refused there for the same reason.
+ * editor gets the same answer whether or not they ever found the button. The session is resolved and
+ * the role is decided inside the adapter rather than here, because a check that lives in the caller is
+ * a check that any other caller can skip, and because the method takes no account argument at all: the
+ * caller is the target, so there is no second value for a caller to point somewhere else. A direct
+ * call to this action with no cookie is refused for the same reason.
  */
 export async function endEverySessionAction(): Promise<{ ok: boolean; message: string; ended?: number }> {
-  const result = await endEverySession();
+  const result = await demoAuth().endAllSessions();
   if (!result.ok) return { ok: false, message: result.message };
 
   return {

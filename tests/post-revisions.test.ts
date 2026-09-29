@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { hashPassword } from "@yesvus/helmdeck/baseline";
 import { signInAction } from "../fixtures/app/login/actions";
 import {
   listPostRevisionsAction,
@@ -94,12 +95,33 @@ beforeEach(async () => {
   await seedPost();
 });
 
+/**
+ * The account row, with the role it holds.
+ *
+ * The whole row, not just the role: an update replaces the record rather than merging into it, and the
+ * accounts are what a sign-in now reads, so a role-only write would leave a row with no address and
+ * no hash, which is answered exactly as an address nobody has. These tests change the role and
+ * nothing else about the account.
+ */
+async function setRole(account: { id: string; email: string; role: string }, role: unknown) {
+  await store.update("users", account.id, {
+    id: account.id,
+    email: account.email,
+    role,
+    password_hash: await publishedHash(),
+  });
+}
+
+/** One hash for the file, because scrypt is deliberately slow and the password is the same one. */
+let published: Promise<string> | null = null;
+const publishedHash = () => (published ??= hashPassword(DEMO_PASSWORD));
+
 afterEach(async () => {
   vi.unstubAllGlobals();
   // The role column belongs to the account, and these tests write to it, so it goes back to what
   // the migration put there rather than to what this file last needed.
   for (const account of demoAccounts) {
-    await store.update("users", account.id, { role: account.role });
+    await setRole(account, account.role);
   }
 });
 
@@ -319,7 +341,7 @@ describe("what the role is worth over the actions", () => {
     // A NULL in a column that is supposed to hold one of two words is a missing grant, and is read
     // as one. The history is the surface that would be worst to leave open: it is readable, and it
     // names who changed what.
-    await store.update("users", editor.id, { role: null });
+    await setRole(editor, null);
 
     await expect(listPostRevisionsAction(POST)).rejects.toThrow(/may not read posts/);
     await expect(
