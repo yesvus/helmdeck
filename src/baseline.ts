@@ -15,6 +15,7 @@ export {
 export type {
   CredentialAuthAdapter,
   CredentialAuthOptions,
+  CredentialRevocation,
   CredentialSession,
   CredentialStore,
   CredentialStoreOptions,
