@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import * as baselineExports from "../src/baseline";
 import * as rootExports from "../src/index";
-import { componentCatalog, searchCatalog } from "../fixtures/lib/demo-catalog";
+import { CATALOG_CATEGORIES, catalogSummary, componentCatalog, searchCatalog } from "../fixtures/lib/demo-catalog";
 
 /**
  * The catalogue is derived from the entry points, so this file is the check that keeps it that way.
@@ -86,6 +86,55 @@ describe("what a catalogue entry can show a person", () => {
     const rendered = components.filter((entry) => entry.renderable).length;
     expect(rendered).toBeGreaterThan(components.length / 2);
     expect(components.length).toBeGreaterThan(50);
+  });
+});
+
+/**
+ * A class and a component are both capitalised functions to the name rule `kindOf` reads the kind
+ * from, so the catalogue files a class under components and has to decide what to put on its card.
+ * The source is the only thing that tells the two apart: an async function and a plain one are
+ * both functions too, and `Function.prototype` is shared with components.
+ */
+const isClass = (value: unknown) =>
+  typeof value === "function" && /^\s*class\s/.test(Function.prototype.toString.call(value));
+
+describe("the groups the filter offers", () => {
+  it("gives every category at least one entry, so a group added ahead of its exports is a failure", () => {
+    const empty = catalogSummary.byCategory.filter(({ count }) => count === 0).map(({ category }) => category);
+    expect(empty, "a category the filter offers that no entry sits in").toEqual([]);
+  });
+
+  it("puts every entry in a category the page renders, so a mistyped one cannot make it invisible", () => {
+    // The page groups by `CATALOG_CATEGORIES` and drops what it finds in no group, so an entry
+    // filed under a name that is not in the list is absent from the page while every other test
+    // still passes. Nothing else here can see that, because the entry is described and categorised.
+    const offered = new Set<string>(CATALOG_CATEGORIES);
+    const invisible = componentCatalog
+      .filter((entry) => entry.category !== null && !offered.has(entry.category))
+      .map((entry) => entry.name);
+    expect(invisible, "in a category the page never renders").toEqual([]);
+  });
+});
+
+describe("a class in a catalogue that reads kinds off names", () => {
+  const classes = componentCatalog.filter((entry) => isClass(entry.value));
+
+  it("finds the error classes, so the checks below are about a set that is not empty", () => {
+    expect(classes.map((entry) => entry.name)).toEqual(
+      expect.arrayContaining([
+        "AdminPermissionDeniedError",
+        "AdminResourceNotExposedError",
+        "AdminUnauthenticatedError",
+      ]),
+    );
+  });
+
+  it("explains a class rather than promising a preview of it", () => {
+    for (const entry of classes) {
+      expect(entry.kind, `${entry.name} is filed as a component by the name rule`).toBe("component");
+      expect(entry.renderable, `${entry.name} is a class and has nothing to draw`).toBe(false);
+      expect(entry.hostNote ?? "", `${entry.name} does not say what it is for`).not.toBe("");
+    }
   });
 });
 

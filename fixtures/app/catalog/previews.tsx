@@ -17,6 +17,7 @@
 import { useState, type ComponentType, type ReactNode } from "react";
 import { CheckCircle2, Info, Package, Palette, Rows3 } from "lucide-react";
 import {
+  ADMIN_DENSITIES,
   AdminBanner,
   AdminBreadcrumbs,
   AdminContextualHelp,
@@ -75,6 +76,7 @@ import {
   AdminTableBulkActions,
   AdminTableRowActions,
   AdminTextarea,
+  AdminThemeSettingsProvider,
   AdminToastCard,
   AdminToastViewport,
   AdminUrlFeedback,
@@ -94,6 +96,7 @@ import {
   useAdminSortableList,
   useAdminTableSelection,
   type AdminDashboard,
+  type AdminDensity,
   type AdminNavGroup,
   type AdminTableColumn,
   type AdminWidgetLoader,
@@ -207,6 +210,26 @@ const STATES: Record<string, AdminWidgetState<unknown>> = Object.fromEntries(
 );
 
 const missingPlacement = { id: "catalog-archive", widget: "archivedWidget", size: "sm" as const };
+
+/**
+ * One density step, scoped to its own element rather than to the document, so three of them can be
+ * shown side by side. The ref is state because the provider takes the element it writes to, and
+ * only has one on the render after mount.
+ */
+function DensitySample({ density }: { density: AdminDensity }) {
+  const [target, setTarget] = useState<HTMLDivElement | null>(null);
+  return (
+    <AdminThemeSettingsProvider settings={{ density }} target={target}>
+      <div ref={setTarget} className="space-y-2 rounded-lg border border-dashed border-zinc-200 p-3">
+        <p className="text-xs font-semibold text-zinc-700">{density}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm">Save</Button>
+          <Button size="sm" variant="outline">Cancel</Button>
+        </div>
+      </div>
+    </AdminThemeSettingsProvider>
+  );
+}
 
 const loaders: Record<string, AdminWidgetLoader<unknown>> = {
   [placements[0].id]: async () => ({ total: 24, units: 312 }),
@@ -686,6 +709,22 @@ export const catalogPreviews: Record<string, ComponentType> = {
       <AdminI18nProvider locale="tr" messages={turkishAdminMessages}>
         <p className="text-sm text-zinc-700">Turkish: the same surface, with a dictionary the host supplied.</p>
       </AdminI18nProvider>
+    </div>
+  ),
+
+  AdminThemeSettingsProvider: () => (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        {ADMIN_DENSITIES.map((density) => (
+          <DensitySample key={density} density={density} />
+        ))}
+      </div>
+      <p className="text-xs leading-5 text-zinc-500">
+        Each block sets <span className="font-mono">--admin-density</span> on itself. Every
+        <span className="font-mono"> p-*</span>, <span className="font-mono">gap-*</span> and
+        fixed-height utility in the package reads it, which is why the same buttons sit at three
+        different heights above.
+      </p>
     </div>
   ),
 };
