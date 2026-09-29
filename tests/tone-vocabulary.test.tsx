@@ -211,7 +211,11 @@ describe("the shared tone vocabulary", () => {
       `;
       expect(typeErrorsIn(source, `tone-vocabulary.${name}.ts`), name).toEqual([]);
     }
-  });
+    // Each of the three calls above starts a TypeScript compiler, which is seconds of work rather
+    // than milliseconds, and three of them in sequence do not fit in the default budget once the
+    // rest of the suite is competing for the machine. The failure this budget was added for looked
+    // like a broken assertion rather than a slow one, and it passed in isolation every time.
+  }, 120_000);
 });
 
 describe("the documented tone vocabulary", () => {
