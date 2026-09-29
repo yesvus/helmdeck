@@ -53,7 +53,10 @@ export type PostRevision = PostSnapshot & {
 
 type PostRow = PostSnapshot & { id: string; [key: string]: unknown };
 
-function requirePostPermission(session: AdminSession | null, operation: "read" | "update") {
+function requirePostPermission(
+  session: AdminSession | null,
+  operation: "read" | "update",
+): AdminSession {
   if (!session) {
     throw new Error("Reading and changing post history needs a session");
   }
@@ -153,6 +156,16 @@ export async function listPostRevisions(
   return revisionsOf(postId);
 }
 
+/** The post as it stands, which is the one place the current content lives. */
+export async function readPost(
+  session: AdminSession | null,
+  postId: string,
+): Promise<PostSnapshot & { id: string }> {
+  requirePostPermission(session, "read");
+  const row = await readPostRow(postId);
+  return { id: row.id, ...snapshotOf(row) };
+}
+
 export async function listPostsWithHistory(
   session: AdminSession | null,
 ): Promise<Array<{ post: PostSnapshot & { id: string }; revisions: number; latest: string | null }>> {
@@ -185,7 +198,7 @@ export async function savePost(
   postId: string,
   input: { title?: unknown; body?: unknown },
 ): Promise<PostRevision> {
-  requirePostPermission(session, "update");
+  const actor = requirePostPermission(session, "update");
   const row = await readPostRow(postId);
   const next: PostSnapshot = {
     title: String(input.title ?? ""),
@@ -195,7 +208,7 @@ export async function savePost(
   if (isBlank(next.title)) {
     throw new Error("A post needs a title before it can be saved");
   }
-  const revision = await recordRevision(postId, snapshotOf(row), "edit", session);
+  const revision = await recordRevision(postId, snapshotOf(row), "edit", actor);
   await writePost(row, next);
   return revision;
 }
@@ -209,7 +222,7 @@ export async function savePost(
  * state for "this is finished", so the check that stands in for it belongs on the transition.
  */
 export async function publishPost(session: AdminSession | null, postId: string): Promise<PostRevision> {
-  requirePostPermission(session, "update");
+  const actor = requirePostPermission(session, "update");
   const row = await readPostRow(postId);
   const current = snapshotOf(row);
   if (current.status === "published") {
@@ -218,7 +231,7 @@ export async function publishPost(session: AdminSession | null, postId: string):
   if (isBlank(current.body)) {
     throw new Error(`Post ${postId} has no content to publish`);
   }
-  const revision = await recordRevision(postId, current, "publish", session);
+  const revision = await recordRevision(postId, current, "publish", actor);
   await writePost(row, { ...current, status: "published" });
   return revision;
 }
@@ -227,13 +240,13 @@ export async function unpublishPost(
   session: AdminSession | null,
   postId: string,
 ): Promise<PostRevision> {
-  requirePostPermission(session, "update");
+  const actor = requirePostPermission(session, "update");
   const row = await readPostRow(postId);
   const current = snapshotOf(row);
   if (current.status === "draft") {
     throw new Error(`Post ${postId} is already a draft`);
   }
-  const revision = await recordRevision(postId, current, "unpublish", session);
+  const revision = await recordRevision(postId, current, "unpublish", actor);
   await writePost(row, { ...current, status: "draft" });
   return revision;
 }
@@ -251,7 +264,7 @@ export async function restorePostRevision(
   postId: string,
   revisionId: string,
 ): Promise<PostRevision> {
-  requirePostPermission(session, "update");
+  const actor = requirePostPermission(session, "update");
   const row = await readPostRow(postId);
   const revisions = await revisionsOf(postId);
   const target = revisions.find((revision) => revision.id === revisionId);
@@ -259,13 +272,7 @@ export async function restorePostRevision(
     throw new Error(`No revision ${revisionId} belongs to post ${postId}`);
   }
   const current = snapshotOf(row);
-  const revision = await recordRevision(
-    postId,
-    current,
-    "restore",
-    session,
-    target.id,
-  );
+  const revision = await recordRevision(postId, current, "restore", actor, target.id);
   await writePost(row, snapshotOf(target));
   return revision;
 }
