@@ -118,25 +118,27 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
         const sizeProblems = problems.get(placement.id) ?? [];
 
         return (
-          <div key={placement.id} className="min-w-0">
+          // One element, not a wrapper around a tile. A grid places its direct children, so a
+          // wrapper would take the span class while the tile inside it kept the measurement hooks,
+          // and every widget size would silently stop having any effect.
+          <div
+            key={placement.id}
+            data-placement={placement.id}
+            data-widget={placement.widget}
+            className={cn(sizeClasses[placement.size], "min-w-0")}
+          >
             {sizeProblems.length > 0 ? (
               <p role="alert" className="mb-2 text-xs font-medium text-admin-danger-text">
                 {sizeProblems.join(" ")}
               </p>
             ) : null}
-            <div
-              data-placement={placement.id}
-              data-widget={placement.widget}
-              className={cn(sizeClasses[placement.size], "min-w-0")}
-            >
-              <AdminWidgetPanel
-                definition={definition}
-                state={state ?? { status: "loading" }}
-                messages={copy}
-                onRetry={onRetry ? () => onRetry(placement) : undefined}
-                className="h-full"
-              />
-            </div>
+            <AdminWidgetPanel
+              definition={definition}
+              state={state ?? { status: "loading" }}
+              messages={copy}
+              onRetry={onRetry ? () => onRetry(placement) : undefined}
+              className="h-full"
+            />
           </div>
         );
       })}
