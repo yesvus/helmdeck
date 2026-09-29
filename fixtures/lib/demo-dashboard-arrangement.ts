@@ -47,11 +47,12 @@ type PlacementRow = { id: string; dashboard: unknown; widget: unknown; size: unk
 /**
  * What the role on the session is worth over the arrangement.
  *
- * `dashboard_placements` is not in the demo's exposed resource set, so `demoCan` refuses that name
- * for every role, the administrator included. The arrangement is not one of the pages reserved to
- * administrators, so the role half of the question is the one the catalogue already answers: an
- * editor arranges content, and only an administrator removes a row. Asking it about a resource the
- * rule does expose keeps one rule answering rather than a second table of roles to drift from it.
+ * `dashboard_placements` is absent from the demo's exposed resource set, so `demoCan` refuses that
+ * name for every role, the administrator included. The arrangement is not one of the pages reserved
+ * to administrators, so the role half of the question is the one the catalogue already answers: an
+ * editor arranges content, and only an administrator removes a row. Asking it of a resource the rule
+ * does expose keeps one rule answering rather than a second table of roles to drift from it, and it
+ * is the same answer the exposed name would give once this table is in the set.
  */
 function canArrange(session: AdminSession, operation: Operation): boolean {
   return demoCan(session, `products.${operation}` as AdminPermission);
