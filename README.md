@@ -405,6 +405,76 @@ const posts = defineAdminResource({
 
 `AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input.
 
+#### Searching, sorting, filtering and paging a generated list
+
+A list is a window onto a collection, so the collection's size is part of what the list has to say. An adapter answers that with `queryPage`, beside the rows-only `query`:
+
+```ts
+type AdminPersistenceAdapter = {
+  query: <T>(resource: string, query?: Record<string, unknown>) => Promise<T[]>;
+  queryPage?: <T>(resource: string, query?: AdminResourceQuery) => Promise<AdminResourcePage<T>>;
+  // read, create, update, delete as before
+};
+```
+
+```ts
+import type { AdminResourcePage, AdminResourceQuery } from "@yesvus/helmdeck";
+
+const db = {
+  // ...the rest of the adapter
+  async queryPage<T>(resource: string, query: AdminResourceQuery = {}): Promise<AdminResourcePage<T>> {
+    // The count is what the query matched before the window, so a list can say "showing 40 of 4000".
+    const total = await db.count(resource, query);
+    const rows = await db.select(resource, query);
+    return { rows, total };
+  },
+};
+```
+
+`AdminResourceQuery` is the whole of what a list can ask for, and every part of it is optional:
+
+| Part | Shape | What it asks for |
+| --- | --- | --- |
+| `search` | `string` | a term, matched by the store rather than by the view |
+| `filter` | `{ field, operator, value }[]` | comparisons, with `operator` one of `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `isNull`, `notNull` |
+| `sort` | `{ field, direction: "asc" \| "desc" }[]` | the ordering, first entry first |
+| `window` | `{ offset, limit }` | which slice of the matched set to return |
+
+`AdminResourcePage<T>` is `{ rows: T[]; total: number }`, with `total` required: an adapter that implements this has committed to counting, and the number it reports is the one the list shows.
+
+**The host answers the query. The view never does.** A generated list filters nothing, orders nothing and slices nothing it was handed, so the count beside the table is the count the store gave rather than the number of rows that happened to render. That is also why an adapter that answers with rows the query does not match will see them on screen: the list reports what it was told.
+
+**An adapter without `queryPage` keeps working, and is not asked.** `query` is unchanged, so an adapter written before this contract still satisfies `AdminPersistenceAdapter` and a list reading through one renders every row it was given, exactly as before. A generated list draws no search box, no sort control, no filter bar, no pagination and no count for such an adapter, because a control that cannot work is not drawn, and a count nobody answered is not a count. The declaration is what turns the features on:
+
+```tsx
+const posts = defineAdminResource({
+  resource: "posts",
+  label: "Posts",
+  columns: [
+    { key: "title", header: "Title", sortable: true },
+    { key: "status", header: "Status" },
+  ],
+  fields: [{ name: "title", label: "Title", required: true }],
+  filters: [
+    // Options make it a choice from a set; without them it is a term compared with "contains".
+    { field: "status", label: "Status", options: [{ value: "live", label: "Live" }] },
+    { field: "views", label: "At least", operator: "gte", parse: (value) => Number(value) || undefined },
+  ],
+  permissions: { read: "posts.read" },
+});
+
+<AdminResourceList definition={posts} persistence={db} pageSize={40} />;
+```
+
+- `sortable: true` on a column puts a sort button in its header, which cycles ascending, descending and back to the store's own order.
+- `filters` are the controls the list draws. A field the definition does not declare has no control, and a control whose value `parse` answers with `undefined` sends no comparison.
+- `pageSize` is how many rows a window asks for, 40 by default.
+- The count, the search box, the sort directions, the filter label and the "no records match" copy are the `labels` prop, so a host translates one object. Pagination keeps its own labels, which live in the message dictionary.
+
+**A query that crosses the server is read or refused.** `createAdminResourceActions` reads the query it is handed before it asks about the session, and refuses anything it cannot read: a part that is not part of a query, a field name that is not a field, an ordering that is not ascending or descending, a comparison with nothing to compare to, an offset that is not a whole record, a window of no rows, and a window larger than the contract allows. The refusal is deliberate, because the adapters this contract grew out of read every key they are given as a field to match exactly: a `sort` was a column named `sort`, and a `limit` was a filter nothing matched. A store is not handed a guess about what a caller meant.
+
+`query` on the actions is still the rows-only read, and its argument is passed through as the host's adapter takes it. A host that wants its queries read, checked and counted asks for `queryPage`, and a host whose adapter has no `queryPage` is not offered one, so a list mounted on the actions sees the same capabilities it would see mounted on the adapter itself.
+
 ### Enforcing a permission on the server
 
 Everything above runs in a browser, so it decides what is drawn. This section is the half that refuses. A hidden button is not authorization: any client can post the action directly, and the button is not in the way.
@@ -456,11 +526,11 @@ export const updateResource = async (resource: string, id: string, value: unknow
 export const deleteResource = async (resource: string, id: string) => store.delete(resource, id);
 ```
 
-`AdminResourceList` and `AdminResourceForm` take an object of those five as their `persistence` prop, so the reads a list performs are the ones that were refused, and a delete reaches the store only after the rule allows it. A resource name arrives from the browser as a string the caller chose, so `expose` is a closed set of names and is checked before the session is resolved. `before` runs after the refusal and before the effect, for a store that has to be prepared first. Passing no guard throws at construction rather than handing back calls that decide nothing.
+`AdminResourceList` and `AdminResourceForm` take an object of those as their `persistence` prop, so the reads a list performs are the ones that were refused, and a delete reaches the store only after the rule allows it. A resource name arrives from the browser as a string the caller chose, so `expose` is a closed set of names and is checked before the session is resolved. `before` runs after the refusal and before the effect, for a store that has to be prepared first. Passing no guard throws at construction rather than handing back calls that decide nothing. The set carries a sixth call, `queryPage`, when the host's adapter has one, and omits it when it does not.
 
-**A decision carries the record the call names, and the view asks it the same way.** `read`, `update` and `delete` are decided for the record they are given, so a rule that withholds one record refuses that record and nothing else. `query` names no record, so it asks the collection question the list asks. Two halves asking different questions get different answers from a per-record rule, which is a button that renders and then fails, or one that does not render and succeeds anyway.
+**A decision carries the record the call names, and the view asks it the same way.** `read`, `update` and `delete` are decided for the record they are given, so a rule that withholds one record refuses that record and nothing else. `query` and `queryPage` name no record, so they ask the collection question the list asks. Two halves asking different questions get different answers from a per-record rule, which is a button that renders and then fails, or one that does not render and succeeds anyway.
 
-Which rows a `query` returns is your own row scoping, alongside whatever else filters it. A rule asked once per returned row would be a second row filter in a place that cannot compose with the first, so a host with per-record read rules filters inside the query it hands to `persistence`, and every record a `read` or a `write` names is enforced at the boundary.
+Which rows a read returns is your own row scoping, alongside whatever else filters it. A rule asked once per returned row would be a second row filter in a place that cannot compose with the first, so a host with per-record read rules narrows inside the query it hands to `persistence`, and every record a `read` or a `write` names is enforced at the boundary.
 
 **A missing rule denies.** A host that wired the views and not the server has no authorization at all, so a permission decision denies rather than allows, and the view hides what it would have shown. The view's answer is the server's either way, so hiding is not what makes it safe; it is what makes it diagnosable. A view showing everything looks exactly like a host whose roles grant nothing, and sends the person debugging it to the role rules instead of to the rule that is not there. The refusal also warns in development. The errors are `AdminUnauthenticatedError`, `AdminPermissionDeniedError`, which carries the `reason` for the refusal, and `AdminResourceNotExposedError` for a name outside the exposed set.
 
@@ -511,6 +581,8 @@ A path with no scheme is a local file, so `file:./helmdeck.db` and `./helmdeck.d
 Records are stored as JSON documents keyed by resource and id, which is why no schema is needed: any resource works on the first call, and an id you supply is the id that is stored, so seeded rows keep pointing at each other.
 
 Filters are exact matches on a stored value, so a filter is a string, a number, a boolean or `null`. Each predicate states the JSON type it expects, which is what keeps a filter for `1` from being answered by a record storing `true`, and lets `null` find a record storing `null` rather than matching nothing at all. A filter carrying an object or an array is refused with an error rather than compared as text, because text comparison matches on key order and would quietly return the wrong rows.
+
+This adapter answers `query` and nothing else, so a list reading through it renders every record it was given, with no search, sorting, filtering, paging or count. Adding `queryPage` to it is the whole of the change: run the same filters, order and slice what `AdminResourceQuery` asks for, and report the count the filters matched before the window.
 
 This is the adapter to start on. A filter runs through `json_extract`, which SQLite cannot index the way it can a column, so once a resource is large enough that the scan shows, put it behind a mapped schema and the same `AdminPersistenceAdapter`.
 
