@@ -76,6 +76,25 @@ describe("an address with no account", () => {
     expect(await credentials.findUserByEmail("nobody@demo.helmdeck.dev")).toBeNull();
   });
 
+  it("does not answer an unknown address noticeably faster than a wrong password", async () => {
+    // Equal answers that arrive at very different speeds are still an oracle: the gap is the
+    // measurement. The margin is loose on purpose, because this is a smoke check against a gross
+    // difference and a benchmark would be a test that fails on a slow machine.
+    const credentials = demoCredentialStore(await seeded());
+    const timeFor = async (email: string) => {
+      const started = process.hrtime.bigint();
+      await authenticate(credentials, email, "wrong");
+      return Number(process.hrtime.bigint() - started) / 1e6;
+    };
+
+    // A warm pass, so the first call's cost is the decoy's first hash rather than the module's.
+    await timeFor(demoAccounts[0].email);
+    const unknown = await timeFor("nobody@demo.helmdeck.dev");
+    const known = await timeFor(demoAccounts[0].email);
+
+    expect(unknown).toBeGreaterThan(known * 0.2);
+  });
+
   it("is refused by a row that is not an account yet, because no password matches it", async () => {
     // A row a migration created carries an empty hash, and the seed fills it in. Until it is filled
     // in the row must be refused exactly as no row is, or a half-written migration is an account
