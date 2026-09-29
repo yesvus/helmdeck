@@ -6,6 +6,55 @@ canonical and must match `package.json` and the install command in the README.
 Artifacts are distributed as GitHub release tarballs. npm publication is postponed indefinitely, so
 upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
+## Unreleased
+
+Roles are enforced, the dashboard reads the database, and a SQL injection in the demo's write paths
+is closed. No exported name was removed and no adapter contract changed.
+
+### Security
+
+- **Column names arriving from the browser are checked against the schema on writes, not only on
+  reads.** `AdminPersistenceAdapter` implementations bound record values as parameters but pasted the
+  caller's own keys into the `INSERT` and `SET` lists, so a key carrying an assignment was read as
+  one. A write to any exposed table was a way to read any other table, including `users` with its
+  password hashes. Values are still parameterised; only names are now validated, against the table's
+  own columns, so a record naming a field that does not exist is an error rather than a statement that
+  silently means something else. Hosts that wrote records with keys their table does not have will
+  now see those writes refused.
+
+### Changed behaviour that a host may notice
+
+- **`AdminCollectionEditor` provides its own drag context.** It previously rendered drag handles and
+  called the sortable hook while providing no `DndContext`, so every handle was an inert button that
+  still carried a role, a label and a tab stop. A host that wrapped the editor in
+  `AdminSortableDndContext` to make it work should drop that wrapper; nesting still works but the
+  outer context is now redundant. `AdminSortableDndContext` accepts an optional `id`, which fixes the
+  ids dnd-kit generates for its screen reader instructions: left unset they come from a module-level
+  counter, which makes them differ between a server render and the browser, leaving the handle
+  pointing at an element that does not exist.
+- **The three tone types are one union, `AdminTone`.** `AdminStatCardTone`, `AdminStatusTone` and
+  `AdminBannerTone` are each `AdminTone`, so `"danger"` and `"error"` are accepted everywhere and
+  render identically, and a function mapping a domain state to a tone can be typed against all
+  three. `AdminTone` is the name to import for new code; the three existing names remain valid. This
+  is additive: no previously accepted value stops compiling. `AdminToastTone` is unchanged and is
+  still narrower.
+
+### Added
+
+- **`AdminTone`**, the shared severity vocabulary for the status pill, the stat card and the banner.
+- **`AdminSortableDndContext` accepts an `id`**, for stable screen reader instruction ids.
+- **`createSqlitePersistenceAdapter`** covering both a local `file:` database and hosted Turso, so a
+  host gets persistence without writing an adapter. This reverses the package's previous contract,
+  which said the adapter types are a seam and do not imply a backend; the seam is still there, it
+  just has a default now.
+
+### Fixed
+
+- **`AdminDashboardTiles` reloads per tile.** The memo keyed on the loader's identity, so a loader
+  written inline in the caller's render reloaded on every rerender, and a settled dashboard issued
+  one more load per rerender than a mounted one.
+- **`AdminCollectionEditor` handles were inert** without a host-supplied drag context, as above.
+
 ## 0.4.0
 
 A host can now assemble a working admin from the package alone: a session contract, a permission
