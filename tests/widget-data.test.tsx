@@ -216,10 +216,11 @@ describe("useAdminWidgetData", () => {
     expect(screen.getByText("total: 4")).toBeInTheDocument();
   });
 
-  it("does not surface an abort of the current request, which StrictMode causes on every mount", async () => {
-    // StrictMode mounts, cleans up and remounts, so the first effect's request is aborted while it is
-    // still the newest one. The sequence check cannot catch that, only the abort guard can, and
-    // without it every StrictMode consumer would see a spurious error on mount.
+  it("does not surface an error under StrictMode, which aborts and remounts every effect", async () => {
+    // StrictMode mounts, cleans the effect up and remounts, so the first request is aborted and
+    // rejects. It is already out of date by then, so the sequence check discards it and nothing is
+    // reported. A guard for the abort itself turned out to be unreachable, so it was removed rather
+    // than left in place under a comment claiming it prevented this.
     const signals: AbortSignal[] = [];
     const gates = [deferred<Row>(), deferred<Row>()];
     let call = 0;

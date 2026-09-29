@@ -87,9 +87,6 @@ export function useAdminWidgetData<TData>({
         setState(adminWidgetState(definition, data));
       } catch (error) {
         if (!mounted.current || request !== latestRequest.current) return;
-        // An abort is this widget's own decision to stop, not a failure to report. Reporting it would
-        // put an error on a widget that was merely replaced.
-        if (nextController.signal.aborted) return;
         setState({ status: "error", error: error instanceof Error ? error : new Error(String(error)) });
       } finally {
         if (mounted.current && request === latestRequest.current) {
