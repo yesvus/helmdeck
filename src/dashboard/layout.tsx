@@ -112,20 +112,31 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
           );
         }
 
+        // A widget that exists but at a size it does not support still renders, so the problem is
+        // reported beside it. Rendering nothing would lose a tile the registry does know about, and
+        // rendering silently would hide a layout the engine cannot honour.
+        const sizeProblems = problems.get(placement.id) ?? [];
+
         return (
-          <div
-            key={placement.id}
-            data-placement={placement.id}
-            data-widget={placement.widget}
-            className={cn(sizeClasses[placement.size], "min-w-0")}
-          >
-            <AdminWidgetPanel
-              definition={definition}
-              state={state ?? { status: "loading" }}
-              messages={copy}
-              onRetry={onRetry ? () => onRetry(placement) : undefined}
-              className="h-full"
-            />
+          <div key={placement.id} className="min-w-0">
+            {sizeProblems.length > 0 ? (
+              <p role="alert" className="mb-2 text-xs font-medium text-admin-danger-text">
+                {sizeProblems.join(" ")}
+              </p>
+            ) : null}
+            <div
+              data-placement={placement.id}
+              data-widget={placement.widget}
+              className={cn(sizeClasses[placement.size], "min-w-0")}
+            >
+              <AdminWidgetPanel
+                definition={definition}
+                state={state ?? { status: "loading" }}
+                messages={copy}
+                onRetry={onRetry ? () => onRetry(placement) : undefined}
+                className="h-full"
+              />
+            </div>
           </div>
         );
       })}

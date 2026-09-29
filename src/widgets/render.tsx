@@ -34,5 +34,3 @@ export function AdminWidget<TData>({
   );
 }
 
-export { adminWidgetBody } from "./body.js";
-export { AdminWidgetPanel } from "./panel.js";

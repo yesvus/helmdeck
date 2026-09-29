@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { StrictMode } from "react";
+import { StrictMode, useState } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { adminWidgetLoadAll, useAdminWidgetData, type AdminWidgetLoader } from "../src/widgets/data";
@@ -244,6 +244,34 @@ describe("useAdminWidgetData", () => {
 
     await act(async () => gates[1].resolve({ total: 6 }));
     expect(screen.getByText("total: 6")).toBeInTheDocument();
+  });
+
+  it("does not let a load land after the widget is disabled", async () => {
+    // Disabling is a decision to stop caring, so an answer that arrives afterwards must not be
+    // committed. Without the invalidation the pending request is still the newest and lands anyway.
+    const gate = deferred<Row>();
+    function Toggle() {
+      const [on, setOn] = useState(true);
+      const { state } = useAdminWidgetData({ definition: counter, load: () => gate.promise, enabled: on });
+      return (
+        <div>
+          <button type="button" onClick={() => setOn(false)}>
+            Disable
+          </button>
+          <p>status: {state.status}</p>
+          {state.status === "ready" ? <p>total: {state.data.total}</p> : null}
+        </div>
+      );
+    }
+    render(<Toggle />);
+    expect(screen.getByText("status: loading")).toBeInTheDocument();
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Disable" }).click();
+    });
+    await act(async () => gate.resolve({ total: 11 }));
+
+    expect(screen.queryByText("total: 11")).not.toBeInTheDocument();
   });
 
   it("does not load when disabled", async () => {
