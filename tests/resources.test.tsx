@@ -35,6 +35,27 @@ vi.mock("next/link.js", () => ({
   ),
 }));
 
+/**
+ * A store whose reads are decided by `read`, wired to both calls a list can make.
+ *
+ * A list asks for a window whenever its adapter can answer one, and the in-memory adapter can, so a
+ * test that means to decide what a list loads has to decide the paged call. Leaving the paged call
+ * on the real store would leave these tests asserting about rows they never asked for.
+ */
+function reading(
+  base: ReturnType<typeof createMemoryPersistenceAdapter>,
+  read: (resource: string) => Promise<unknown[]>,
+): AdminPersistenceAdapter {
+  return {
+    ...base,
+    query: read as unknown as AdminPersistenceAdapter["query"],
+    queryPage: async <T,>(resource: string) => {
+      const rows = await read(resource);
+      return { rows: rows as T[], total: rows.length };
+    },
+  };
+}
+
 const posts = defineAdminResource({
   resource: "posts",
   label: "Posts",
@@ -236,7 +257,7 @@ describe("AdminResourceList", () => {
     // records would have seen an edit control on every row.
     // create() assigns its own id, so the rows are written directly.
     const rows = [{ id: "mine", title: "Mine" }, { id: "theirs", title: "Theirs" }];
-    const db: AdminPersistenceAdapter = { ...createMemoryPersistenceAdapter(), query: (async () => rows) as unknown as AdminPersistenceAdapter["query"] };
+    const db = reading(createMemoryPersistenceAdapter(), async () => rows);
     // Read is granted: the read check passes no id, so denying it here would empty the list
     // and make every row assertion below pass for the wrong reason.
     const perRecord: AdminPermissionsAdapter = {
@@ -259,18 +280,18 @@ describe("AdminResourceList", () => {
     const base = createMemoryPersistenceAdapter();
     await base.create("posts", { title: "Earlier" });
     let failNext = false;
-    const flaky: AdminPersistenceAdapter = {
-      ...base,
-      query: (vi.fn(async (resource: string) => {
-        if (failNext) throw new Error("database down");
-        return base.query(resource);
-      })) as unknown as AdminPersistenceAdapter["query"],
+    const flakyRead = async (resource: string) => {
+      if (failNext) throw new Error("database down");
+      return base.query(resource);
     };
-    const { rerender } = wrap(<AdminResourceList definition={posts} persistence={flaky} />);
+    const { rerender } = wrap(
+      <AdminResourceList definition={posts} persistence={reading(base, flakyRead)} />,
+    );
     expect(await screen.findByText("Earlier")).toBeInTheDocument();
 
     failNext = true;
-    rerender(tree(<AdminResourceList definition={posts} persistence={{ ...flaky, query: flaky.query }} />));
+    // A new adapter object, which is what changes the effect's dependencies.
+    rerender(tree(<AdminResourceList definition={posts} persistence={reading(base, flakyRead)} />));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
     expect(screen.queryByText("Earlier")).not.toBeInTheDocument();
@@ -281,27 +302,22 @@ describe("AdminResourceList", () => {
     // worked still showed the old failure.
     let failNext = true;
     const base = createMemoryPersistenceAdapter();
-    const flaky: AdminPersistenceAdapter = {
-      ...base,
-      query: (vi.fn(async (resource: string) => {
-        if (failNext) {
-          failNext = false;
-          throw new Error("database down");
-        }
-        return base.query(resource);
-      })) as unknown as AdminPersistenceAdapter["query"],
+    const flakyRead = async (resource: string) => {
+      if (failNext) {
+        failNext = false;
+        throw new Error("database down");
+      }
+      return base.query(resource);
     };
-    const { rerender } = wrap(<AdminResourceList definition={posts} persistence={flaky} />);
+    const { rerender } = wrap(
+      <AdminResourceList definition={posts} persistence={reading(base, flakyRead)} />,
+    );
     expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
 
     // A retry is a new adapter, which is what changes the effect's dependencies. Calling the
     // old one directly would resolve nothing and re-render nothing.
     await base.create("posts", { title: "Recovered" });
-    const recovered: AdminPersistenceAdapter = {
-      ...base,
-      query: (vi.fn((r: string) => base.query(r))) as unknown as AdminPersistenceAdapter["query"],
-    };
-    rerender(tree(<AdminResourceList definition={posts} persistence={recovered} />));
+    rerender(tree(<AdminResourceList definition={posts} persistence={reading(base, flakyRead)} />));
 
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(await screen.findByText("Recovered")).toBeInTheDocument();
@@ -528,11 +544,9 @@ describe("AdminResourceList", () => {
 
   it("encodes a record id that would otherwise reshape the detail route", async () => {
     // create() assigns its own id, so a hand-written row is the only way to get an awkward one.
-    const db = createMemoryPersistenceAdapter();
-    const awkward: AdminPersistenceAdapter = {
-      ...db,
-      query: (async () => [{ id: "a/b?c#d", title: "Awkward" }]) as unknown as AdminPersistenceAdapter["query"],
-    };
+    const awkward = reading(createMemoryPersistenceAdapter(), async () => [
+      { id: "a/b?c#d", title: "Awkward" },
+    ]);
     wrap(<AdminResourceList definition={posts} persistence={awkward} />);
 
     const link = await screen.findByRole("link", { name: "Edit: a/b?c#d" });
@@ -540,10 +554,9 @@ describe("AdminResourceList", () => {
   });
 
   it("reports a failed load instead of showing an empty table as if it were empty", async () => {
-    const broken: AdminPersistenceAdapter = {
-      ...createMemoryPersistenceAdapter(),
-      query: vi.fn().mockRejectedValue(new Error("database down")),
-    };
+    const broken = reading(createMemoryPersistenceAdapter(), async () => {
+      throw new Error("database down");
+    });
     wrap(<AdminResourceList definition={posts} persistence={broken} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createMemoryPersistenceAdapter } from "../src/baseline/memory";
 import { createSqlitePersistenceAdapter } from "../src/baseline/sqlite";
 import { adminResourceQuery } from "../src/adapters/query";
-import type { AdminPersistenceAdapter } from "../src/adapters/index";
+import type { AdminPersistenceAdapter, AdminResourcePage, AdminResourceQuery } from "../src/adapters/index";
 
 /**
  * The paged form of the query, asked of both stores this repository ships.
@@ -22,6 +22,15 @@ import type { AdminPersistenceAdapter } from "../src/adapters/index";
  */
 type Row = { id: string; [key: string]: unknown };
 
+/**
+ * An adapter whose paged form is there, which is what every question in this file is about. Written
+ * out rather than derived with `Required`, because the interface's member carries the `undefined`
+ * inside it and taking that away is the point.
+ */
+type PagingStore = Omit<AdminPersistenceAdapter, "queryPage"> & {
+  queryPage: <T>(resource: string, query?: AdminResourceQuery) => Promise<AdminResourcePage<T>>;
+};
+
 const temporary: string[] = [];
 
 afterEach(() => {
@@ -31,28 +40,34 @@ afterEach(() => {
 async function seeded(
   records: Row[],
   options: { resource?: string; url?: string } = {},
-): Promise<Array<[string, AdminPersistenceAdapter]>> {
+): Promise<Array<[string, PagingStore]>> {
   const resource = options.resource ?? "products";
   const url = options.url ?? (() => {
     const directory = mkdtempSync(join(tmpdir(), "helmdeck-query-"));
     temporary.push(directory);
     return join(directory, "store.db");
   })();
+  // Narrowed rather than asserted on its own, so every question below is asked of a store that
+  // really answers one. The interface calls the member optional for the hosts that predate it, and
+  // these two are the ones that have it.
   const memory = createMemoryPersistenceAdapter();
   const sqlite = createSqlitePersistenceAdapter({ url });
+  if (typeof memory.queryPage !== "function" || typeof sqlite.queryPage !== "function") {
+    throw new Error("A store every question here is asked of has to answer a paged query");
+  }
   for (const record of records) {
     await memory.create(resource, record);
     await sqlite.create(resource, record);
   }
   return [
-    ["the in-memory adapter", memory as AdminPersistenceAdapter],
-    ["the SQLite adapter", sqlite],
+    ["the in-memory adapter", memory as PagingStore],
+    ["the SQLite adapter", sqlite as PagingStore],
   ];
 }
 
 async function inBothStores(
   records: Row[],
-  body: (name: string, store: AdminPersistenceAdapter) => Promise<void>,
+  body: (name: string, store: PagingStore) => Promise<void>,
   options?: { resource?: string; url?: string },
 ): Promise<void> {
   for (const [name, store] of await seeded(records, options)) {
@@ -432,7 +447,7 @@ describe("the two stores answering the same question", () => {
     { id: "r5", status: "live", views: 50, title: "Epsilon", published: true, note: null, meta: { slug: "one" } },
   ];
 
-  const queries: Array<[string, Parameters<AdminPersistenceAdapter["queryPage"]>[1]]> = [
+  const queries: Array<[string, Parameters<PagingStore["queryPage"]>[1]]> = [
     ["nothing asked for", undefined],
     ["a term", { search: "alpha" }],
     ["a term in a nested value's own resource", { search: "second" }],
@@ -491,7 +506,9 @@ describe("the two stores answering the same question", () => {
 
       // The sets are compared first, so a failure says which of the two stores answered wrongly
       // rather than only that they differ.
-      expect([...fromSqlite.rows].sort(byId), what).toEqual([...fromMemory.rows].sort(byId));
+      expect([...fromSqlite.rows].sort(byIdAscending), what).toEqual(
+        [...fromMemory.rows].sort(byIdAscending),
+      );
       expect(fromSqlite.total, what).toBe(fromMemory.total);
       expect(fromSqlite.rows.map(byId), what).toEqual(fromMemory.rows.map(byId));
     });
@@ -528,6 +545,10 @@ describe("the two stores answering the same question", () => {
 
 function byId(row: Row): string {
   return row.id;
+}
+
+function byIdAscending(left: Row, right: Row): number {
+  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
 
 describe("the query the older form reads", () => {
