@@ -25,6 +25,8 @@
 
 import { redirect } from "next/navigation";
 import { normalizeHex } from "@yesvus/helmdeck";
+import { demoCan } from "./demo-rules";
+import { requireDemoSession } from "./demo-guard";
 import { createResourceAction, readResourceAction, updateResourceAction } from "./resource-actions";
 
 const RESOURCE = "site_settings";
@@ -54,7 +56,8 @@ export type SiteSettings = {
  *
  * The rule is the same string whether it is the hint under the field or the reason a save was
  * refused, because a page that states one set of rules and enforces another is a page whose errors
- * cannot be acted on. `hint` is what the form shows; the rule decides what is stored.
+ * cannot be acted on. `hint` is what the form shows; `rule` decides what may be stored; `normalise`
+ * is the form that rule admits, applied to what was typed.
  */
 export const SETTINGS_FIELDS = [
   {
@@ -67,10 +70,13 @@ export const SETTINGS_FIELDS = [
     column: "accent",
     label: "Accent",
     hint: "A hex colour such as #b45309.",
-    // Read through the package's own parser, so the value the shell will read is a value the
-    // package would have produced, and `#b4530` is refused rather than padded into a colour nobody
-    // chose. Stored lower case, because the migration's CHECK admits no other form.
-    rule: (value: string) => normalizeHex(value) === value.toLowerCase() && Boolean(normalizeHex(value)),
+    // Read through the package's own parser rather than a pattern of our own, so a value the shell
+    // will read is a value the package would have produced, and `#b4530` is refused rather than
+    // padded into a colour nobody chose. The stored form is the parser's, which is lower case:
+    // the migration's CHECK admits no other form, so accepting upper case here without folding it
+    // would hand the writer a constraint error in place of a message naming the field.
+    rule: (value: string) => Boolean(normalizeHex(value)),
+    normalise: (value: string) => normalizeHex(value) ?? value,
   },
   {
     column: "support_email",
@@ -106,7 +112,9 @@ export function settingsFromForm(form: FormData): { ok: true; value: Record<Colu
     if (!field.rule(trimmed)) {
       return { ok: false, refusal: { field: field.column, message: field.hint } };
     }
-    value[field.column] = trimmed;
+    // A field that declares how it is stored gets it; a field that does not is stored as typed,
+    // because a form that rewrites a name is a form that changes what somebody wrote.
+    value[field.column] = "normalise" in field ? field.normalise(trimmed) : trimmed;
   }
 
   return { ok: true, value };
@@ -169,6 +177,10 @@ export async function readSiteSettingsAction(): Promise<SiteSettings> {
  */
 export async function writeSiteSettingsAction(form: FormData): Promise<void> {
   "use server";
+  // The operation being performed is checked before the read below decides how to write it, so a
+  // refusal names the update a person asked for rather than the read that was an implementation
+  // detail of it. The same rule, asked once more, not a second one.
+  await requireUpdate();
   const parsed = settingsFromForm(form);
   if (!parsed.ok) {
     redirect(`${SETTINGS_PATH}?refused=${parsed.refusal.field}`);
@@ -192,6 +204,13 @@ export async function writeSiteSettingsAction(form: FormData): Promise<void> {
   }
 
   redirect(`${SETTINGS_PATH}?saved=1`);
+}
+
+async function requireUpdate(): Promise<void> {
+  const session = await requireDemoSession({ returnTo: SETTINGS_PATH });
+  if (!demoCan(session, "site_settings.update")) {
+    throw new Error("This session may not update site_settings");
+  }
 }
 
 /**

@@ -22,8 +22,17 @@ CREATE TABLE IF NOT EXISTS site_settings (
   id TEXT PRIMARY KEY CHECK (id = 'site'),
   name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 2 AND 48),
   accent TEXT NOT NULL CHECK (accent GLOB '#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]'),
-  support_email TEXT NOT NULL
-    CHECK (support_email NOT LIKE '% %' AND support_email LIKE '%_@_%._%' AND length(support_email) <= 254),
+  -- The same shape the application rule applies, written in SQL because SQLite has no regex. The
+  -- parts are stated separately rather than as one pattern: `a@b@example.com` satisfies a single
+  -- `LIKE '%_@_%._%'`, so a constraint written that way would admit an address with two at signs
+  -- which the form refuses. This is the only part of the check that took more than one attempt.
+  support_email TEXT NOT NULL CHECK (
+    support_email NOT LIKE '% %'
+    AND length(support_email) <= 254
+    AND instr(support_email, '@') > 1
+    AND instr(substr(support_email, instr(support_email, '@') + 1), '@') = 0
+    AND instr(substr(support_email, instr(support_email, '@') + 1), '.') > 0
+  ),
   -- Who changed it and when, so the page can say whether the values on screen are ones a person put
   -- there or the ones the site started with.
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
