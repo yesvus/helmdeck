@@ -46,8 +46,14 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
 }: {
   registry: TRegistry;
   placements: readonly AdminDashboardPlacement[];
-  /** Each widget's state, keyed by placement id, resolved by the host or by the data contract. */
-  states: Readonly<Record<string, AdminWidgetState<never>>>;
+  /**
+   * Each widget's state, keyed by placement id, resolved by the host or by the data contract.
+   *
+   * The data is typed `unknown` rather than the widget's own type because a dashboard holds widgets
+   * of many types at once and the engine is not generic in all of them. Hosts write real data here
+   * without a cast; the erasure happens once, inside, where the widget's own `render` consumes it.
+   */
+  states: Readonly<Record<string, AdminWidgetState<unknown>>>;
   onRetry?: (placement: AdminDashboardPlacement) => void;
   className?: string;
 }) {
@@ -67,7 +73,7 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
   return (
     <div className={cn(dashboardGridClassName, className)}>
       {placements.map((placement) => {
-        const definition = registry.get(placement.widget);
+        const definition = registry.resolve(placement.widget);
         const state = states[placement.id];
 
         // A tile the registry no longer knows, or a size it does not support, is reported in place.
@@ -101,7 +107,7 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
           >
             <AdminWidget
               definition={definition as AdminWidgetDefinitionLike}
-              state={state ?? { status: "loading" }}
+              state={(state ?? { status: "loading" }) as AdminWidgetState<never>}
               onRetry={onRetry ? () => onRetry(placement) : undefined}
               className="h-full"
             />

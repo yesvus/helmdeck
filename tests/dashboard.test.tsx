@@ -13,7 +13,6 @@ import {
 } from "../src/dashboard/model";
 import { AdminDashboardLayout, dashboardGridClassName } from "../src/dashboard/layout";
 import { createAdminWidgetRegistry, defineAdminWidget } from "../src/widgets/registry";
-import type { AdminWidgetDefinition } from "../src/widgets/types";
 
 const counter = defineAdminWidget<{ total: number }>({
   id: "counter",

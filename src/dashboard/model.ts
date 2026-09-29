@@ -33,9 +33,15 @@ export type AdminDashboard = {
   placements: AdminDashboardPlacement[];
 };
 
-/** Anything that can answer whether a widget id is registered, which is all validation needs. */
+/**
+ * What the dashboard needs from a registry, and no more.
+ *
+ * It takes an erased lookup rather than the registry's own `get` because that one is generic in the
+ * id, and a generic signature cannot satisfy a plain `(id: string) => …`. Hosts keep the typed `get`;
+ * the engine reads through `resolve`.
+ */
 export type AdminDashboardRegistry = {
-  get: (id: string) => AdminWidgetDefinition<never> | undefined;
+  resolve: (id: string) => AdminWidgetDefinition<never> | undefined;
   validate: (placement: { widget: string; size: AdminWidgetSize }) => string[];
 };
 
@@ -50,7 +56,7 @@ export function adminDashboardAddPlacement<T extends AdminDashboardRegistry>(
   registry: T,
   widget: string,
 ): AdminDashboard {
-  const definition = registry.get(widget);
+  const definition = registry.resolve(widget);
   if (!definition) {
     throw new Error(`Cannot add "${widget}": no such widget is registered`);
   }
@@ -101,7 +107,10 @@ export function adminDashboardSetSize(
  */
 export function adminDashboardCollection<T extends AdminDashboardRegistry>(
   registry: T,
-): AdminCollectionDefinition<AdminDashboardPlacementValue> {
+): AdminCollectionDefinition<AdminDashboardPlacementValue> & {
+  /** Narrowed to required: a dashboard placement is always checked, never merely checkable. */
+  validate: (entry: AdminCollectionEntry<AdminDashboardPlacementValue>) => string[];
+} {
   return {
     name: "placements",
     fields: [{ name: "widget" }, { name: "size" }],

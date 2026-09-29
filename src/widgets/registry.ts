@@ -61,6 +61,11 @@ export type AdminWidgetRegistry<TDefinitions extends AdminWidgetDefinitions> = {
   has: (id: string) => boolean;
   get: <K extends keyof TDefinitions & string>(id: K) => TDefinitions[K] | undefined;
   /**
+   * The erased lookup, for engine code that handles widgets of any data type and so cannot be generic
+   * in the id. `get` is what a host writes against; this is what the dashboard reads.
+   */
+  resolve: (id: string) => AdminWidgetDefinition<never> | undefined;
+  /**
    * One message per problem with a placement, or an empty array when it can be rendered. An unknown
    * widget is reported rather than skipped, because a dashboard that silently loses a tile is worse
    * than one that says which tile went missing.
@@ -118,6 +123,7 @@ export function createAdminWidgetRegistry(
     // A persisted dashboard can name a widget this build no longer registers, and no compiler can
     // see that, so the miss is answered rather than throwing.
     get: (id) => byId.get(id),
+    resolve: (id) => byId.get(id),
     validate: (placement) => {
       const definition = byId.get(placement.widget);
       if (!definition) {
