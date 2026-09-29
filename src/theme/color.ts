@@ -31,13 +31,32 @@ export function normalizeHex(hex: string): string | null {
   return rgb ? toHex(rgb) : null;
 }
 
-export function contrastingTextHex(hex: string): string | null {
+/** WCAG relative luminance. Null for a value that is not a hex colour. */
+function relativeLuminance(hex: string): number | null {
   const rgb = parseHex(hex);
   if (!rgb) return null;
-  const luminance = [rgb.r, rgb.g, rgb.b]
+  return [rgb.r, rgb.g, rgb.b]
     .map((channel) => channel / 255)
     .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
     .reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+}
+
+/**
+ * WCAG contrast between two hex colours, or null when either cannot be read. Callers that
+ * decide whether to accept a value need the number, and a value they cannot resolve has to
+ * read as a failure rather than as a passing zero.
+ */
+export function contrastRatio(foreground: string, background: string): number | null {
+  const from = relativeLuminance(foreground);
+  const onto = relativeLuminance(background);
+  if (from === null || onto === null) return null;
+  const [high, low] = from > onto ? [from, onto] : [onto, from];
+  return (high + 0.05) / (low + 0.05);
+}
+
+export function contrastingTextHex(hex: string): string | null {
+  const luminance = relativeLuminance(hex);
+  if (luminance === null) return null;
   return luminance > 0.179 ? "#1c1917" : "#ffffff";
 }
 
