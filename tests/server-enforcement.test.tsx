@@ -263,6 +263,26 @@ describe("the resource calls refuse on the server before the effect", () => {
 
     await expect(app.actions.query("products")).rejects.toThrow(AdminUnauthenticatedError);
     expect(app.calls.query).not.toHaveBeenCalled();
+    // The rule is never asked about a session that does not exist, so a host writes its rule
+    // against a session that is there rather than defending itself against a missing one.
+    expect(app.seen).toEqual([]);
+  });
+
+  it("names the missing session as the reason, rather than blaming the rule", async () => {
+    const onUnauthenticated = vi.fn();
+    const onDenied = vi.fn();
+    const guard = createAdminPermissionGuard({
+      rule: can,
+      session: () => null,
+      onUnauthenticated,
+      onDenied,
+    });
+
+    await expect(guard("products.read")).rejects.toThrow(AdminUnauthenticatedError);
+    expect(onUnauthenticated).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "no-session", session: null }),
+    );
+    expect(onDenied).not.toHaveBeenCalled();
   });
 
   it("refuses everything when the host wired no rule, and says so in development", async () => {
@@ -298,7 +318,9 @@ describe("the resource calls refuse on the server before the effect", () => {
       },
     });
 
-    await expect(actions.query("users")).rejects.toThrow(AdminResourceNotExposedError);
+    // The refused call is one the guard turns away rather than one the exposed set refuses, so
+    // this is where the preparation ordering against the refusal shows.
+    await expect(actions.delete("products", FROZEN)).rejects.toThrow(AdminPermissionDeniedError);
     await actions.query("products");
 
     expect(order).toEqual(["before:read:products", "query:products"]);
@@ -554,7 +576,7 @@ describe("what a missing rule does to the view", () => {
 
 describe("the server path carries no client boundary", () => {
   const root = resolve(import.meta.dirname, "..");
-  const isClient = (path: string) => /^\s*["']use client["']/.test(readFileSync(path, "utf8"));
+  const isClient = (path: string) => /^\s*["']use client["']/m.test(readFileSync(path, "utf8"));
   const relativeImports = (source: string) =>
     [...source.matchAll(/(?:from|import)\s*\(?\s*["'](\.[^"']+)["']/g)].map((match) => match[1]);
 
