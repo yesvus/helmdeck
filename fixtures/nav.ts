@@ -40,11 +40,62 @@ export const sampleNav: AdminNavGroup[] = [
     ],
   },
   {
+    // The CMS. Its three surfaces read and write the same posts, and each was unreachable by anything
+    // but a typed URL until now, which is the failure the engine dashboard entry above was added for.
+    label: "Writing",
+    icon: "article",
+    items: [
+      {
+        href: "/shell/content",
+        label: "Content",
+        shortLabel: "Content",
+        icon: "article",
+        keywords: ["posts", "draft", "published", "edit"],
+      },
+      {
+        href: "/shell/revisions",
+        label: "History",
+        shortLabel: "History",
+        icon: "clock",
+        keywords: ["revisions", "restore", "versions", "undo", "what did it say"],
+      },
+      {
+        href: "/shell/schedule",
+        label: "Schedule",
+        shortLabel: "Schedule",
+        icon: "calendar",
+        keywords: ["publish", "queued", "later", "go live"],
+      },
+    ],
+  },
+  {
     label: "Settings",
     icon: "settings",
     items: [
       { href: "/shell/profile", label: "Profile", shortLabel: "Profile", icon: "users" },
       { href: "/shell/settings/site", label: "Site settings", shortLabel: "Site", icon: "settings" },
+    ],
+  },
+  {
+    // The package itself, and the shape of this demo. Outside the shell because neither is part of an
+    // operator's work: one is what a host installs, the other is what this site is made of.
+    label: "The framework",
+    icon: "wrench",
+    items: [
+      {
+        href: "/catalog",
+        label: "Component catalogue",
+        shortLabel: "Catalogue",
+        icon: "wrench",
+        keywords: ["components", "exports", "reference", "api", "what does it ship"],
+      },
+      {
+        href: "/dashboard/arrange",
+        label: "Arrange this dashboard",
+        shortLabel: "Arrange",
+        icon: "activity",
+        keywords: ["dashboard", "tiles", "layout", "order", "engine"],
+      },
     ],
   },
 ];
