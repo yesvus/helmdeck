@@ -67,3 +67,24 @@ describe("the persistence adapter against a real database", () => {
     await store.delete("dashboard_placements", "a");
   });
 });
+
+describe("seeding the demo", () => {
+  it("is idempotent, so a deploy does not double the workspace", { timeout: 30000 }, async () => {
+    const { adapter: store } = adapter();
+    const { seedDemo } = await import("../fixtures/lib/seed");
+    const { DEMO_PASSWORD } = await import("../fixtures/lib/demo-accounts");
+    const { seedOrders } = await import("../fixtures/lib/seed-data");
+
+    // The database is not assumed empty: an earlier run may have seeded it, and idempotency means
+    // the second pass changes nothing, not that the first one created something.
+    await seedDemo(store as never, DEMO_PASSWORD);
+    const afterFirst = (await store.query("orders")).length;
+    const second = await seedDemo(store as never, DEMO_PASSWORD);
+
+    // A seed that inserted on every run would be invisible in a fresh database and obvious in the
+    // demo within a week of deploys.
+    expect(second.created).toEqual({});
+    expect((await store.query("orders")).length).toBe(afterFirst);
+    expect(afterFirst).toBe(seedOrders.length);
+  });
+});
