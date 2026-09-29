@@ -124,18 +124,22 @@ describe("the seeded posts, read back", () => {
     expect(posts.map((post) => post.id)).toEqual(seedPosts.map((post) => post.id));
   });
 
-  it("reads a status and a title that look like JSON as the text that was written", async () => {
+  it("reads a title and a body that arrived as something other than text as the text that was written", async () => {
     // The driver parses a text column on the way back when it happens to be valid JSON, so a post
     // titled "42" arrives as the number 42 and one titled "null" arrives as nothing at all. Read
-    // naively, the second loses its name on the way to the screen.
+    // naively, the second loses its name on the way to the screen and the first reaches a form that
+    // will write it back as a string. The values are put in the store as those parsed values, because
+    // going through the action would write text and the parser would be exercised in the driver
+    // rather than here.
     await signIn(owner);
-    const created = await createContentPost({ title: "42", body: "null", status: "draft" });
-    await store.update("posts", created.id, { title: "null", body: "false" });
+    const created = await createContentPost({ title: "Typed normally", body: "Typed normally" });
+    await store.update("posts", created.id, { title: null, body: 42, status: "published" });
 
     const found = await readContentPost(created.id);
 
-    expect(found).toMatchObject({ title: "null", body: "false" });
+    expect(found).toMatchObject({ title: "null", body: "42", status: "published" });
     expect(typeof found?.title).toBe("string");
+    expect(typeof found?.body).toBe("string");
   });
 
   it("refuses everyone when nobody is signed in", async () => {
