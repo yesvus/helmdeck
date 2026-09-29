@@ -54,6 +54,26 @@ Theme CSS exposes `--admin-surface`, `--admin-surface-muted`, `--admin-surface-s
 
 Keep normal text/background combinations at WCAG AA contrast (4.5:1), and large text and the boundaries of interactive controls at 3:1. Control boundaries resolve to `--admin-border-strong`, which is held to 3:1 against `--admin-surface` in both themes. `--admin-border` draws card edges and section rules, which identify no control, so WCAG 1.4.11 does not apply to it and it is deliberately left lighter. `tests/theme-contrast.test.ts` asserts the 3:1 pair, records the ratio for `--admin-border`, and fails if any interactive element draws its boundary from that token. The default amber action color is `#b45309`, which exceeds 4.5:1 against white. All theme controls should remain native keyboard-operable inputs, selects, and buttons. The fixture at `/theme` demonstrates light, dark, and system mode, OS preference updates, live token editing, reset, and JSON preset import/export.
 
+## Tone vocabulary
+
+`danger` is the canonical spelling for the severity tone on `AdminStatCard`, `AdminStatusPill`, and `AdminBanner`. `error` is still accepted and renders identically, so existing code keeps compiling and nothing changes on screen.
+
+The three tone types, `AdminStatCardTone`, `AdminStatusTone`, and `AdminBannerTone`, are the same union, `AdminTone`: `neutral`, `info`, `success`, `warning`, `danger`, and `error`. Type a shared helper against `AdminTone` and its result passes to any of the three, so a tone resolved once in host code is not re-typed per component.
+
+```tsx
+import { AdminBanner, AdminStatusPill, type AdminTone } from "@yesvus/helmdeck";
+
+function toneForStatus(status: "healthy" | "degraded" | "failed"): AdminTone {
+  if (status === "failed") return "danger";
+  return status === "degraded" ? "warning" : "success";
+}
+
+<AdminStatusPill tone={toneForStatus(status)} label={status} />;
+<AdminBanner tone={toneForStatus(status)} title="Health" body={status} />;
+```
+
+`AdminToastTone` is a narrower union of its own, covering only the tones a toast is shown in.
+
 ## Quick start
 
 ### The profile and settings routes

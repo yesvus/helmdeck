@@ -75,6 +75,7 @@ export type { AdminTableColumn, AdminTableSelection } from "./table.js";
 export { AdminTableBulkActions, AdminTableRowActions, useAdminTableSelection } from "./table-actions.js";
 export { AdminToastCard, AdminToastViewport } from "./toast.js";
 export type { AdminToastTone } from "./toast.js";
+export type { AdminTone } from "./tone.js";
 export { AdminUrlFeedback } from "./url-feedback.js";
 export type { AdminUrlFeedbackLabels, AdminUrlFeedbackQueryKeys } from "./url-feedback.js";
 export { useAdminSearchParams } from "./use-admin-search-params.js";
