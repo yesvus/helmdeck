@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Apply the demo's migrations.
+#
+# Migrations are numbered files applied in order and recorded in the database itself, so applying
+# twice is a no-op and a half-applied run is visible afterwards.
+#
+# Credentials never come from this repository. The SQL does; the connection does not. The script
+# refuses to run without an explicit target rather than defaulting to somewhere plausible, because a
+# migration applied to the wrong database is indistinguishable from a successful one until someone
+# notices the data is missing.
+#
+# Usage:
+#   HELMDECK_TURSO_DB=helmdeck-demo scripts/apply-migrations
+#   HELMDECK_TURSO_DB=helmdeck-demo HELMDECK_TURSO_URL=libsql://... HELMDECK_TURSO_TOKEN=... scripts/apply-migrations
+#
+# The URL and token forms are for a CI or deploy environment, where the libsql client is used
+# directly because the CLI authenticates from its own stored credentials.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+MIGRATIONS_DIR="fixtures/lib/migrations"
+DB="${HELMDECK_TURSO_DB:-}"
+
+if [ -z "$DB" ]; then
+  echo "  HELMDECK_TURSO_DB must name the target database." >&2
+  echo "  It is not defaulted: a migration applied to the wrong database looks successful." >&2
+  exit 2
+fi
+
+if [ ! -d "$MIGRATIONS_DIR" ]; then
+  echo "  $MIGRATIONS_DIR is missing." >&2
+  exit 2
+fi
+
+shell() {
+  turso db shell "$DB" "$1"
+}
+
+shell "CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));" >/dev/null
+
+# Matched by shape rather than by line offset. The shell's output framing is not part of its
+# contract, and an offset that assumes it drops the first result as easily as the header, which
+# silently re-applies every migration.
+applied=$(shell "SELECT name FROM schema_migrations;" 2>/dev/null | tr -d ' ' | grep -E '^[0-9]+_[a-z0-9_]+\.sql$' || true)
+
+for file in "$MIGRATIONS_DIR"/*.sql; do
+  name=$(basename "$file")
+  if printf '%s\n' "$applied" | grep -qx "$name"; then
+    echo "  skip  $name"
+    continue
+  fi
+  echo "  apply $name"
+  shell ".read $file" >/dev/null
+  shell "INSERT INTO schema_migrations (name) VALUES ('$name');" >/dev/null
+done
+
+echo "  migrations up to date on $DB"
