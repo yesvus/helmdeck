@@ -71,7 +71,9 @@ export function AdminTimeSeriesChart({
   const band = categories.length > 0 ? plotWidth / categories.length : plotWidth;
   const width = barWidth(band, series.length);
   const labelIndices = adminChartLabelIndices(categories.length);
-  const y = (value: number) => TOP_PADDING + plotHeight * (1 - axis.fraction(value));
+  // `fraction` is 1 at the floor and 0 at the top, so it multiplies the plot height directly. A bar
+  // of zero lands on the baseline with no height, which is what makes an empty day read as a gap.
+  const y = (value: number) => TOP_PADDING + plotHeight * axis.fraction(value);
 
   const polyline = (entry: AdminChartSeries) =>
     entry.values
@@ -125,6 +127,10 @@ export function AdminTimeSeriesChart({
                   return (
                     <rect
                       key={entry.key}
+                      // Distinguishes a mark from the hit area behind it, which is also a rect and
+                      // covers the full plot height. Anything reading the drawing needs to tell a bar
+                      // from the target that reveals it.
+                      data-chart-mark={`${entry.key}:${category.key}`}
                       x={x + seriesIndex * width}
                       y={top}
                       width={width}
@@ -189,6 +195,7 @@ export function AdminTimeSeriesChart({
           {categories.map((category, index) => (
             <rect
               key={category.key}
+              data-chart-hit={category.key}
               x={AXIS_GUTTER + band * index}
               y={TOP_PADDING}
               width={band}

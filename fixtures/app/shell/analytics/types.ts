@@ -7,7 +7,8 @@ export type DailyRevenue = {
 
 export type RankedProduct = { key: string; label: string; units: number; cents: number };
 
-export type RankedProducts = { products: RankedProduct[] };
+/** What the stock chart loads: the ranked rows themselves, so the chart maps over them directly. */
+export type RankedProducts = RankedProduct[];
 
 export type AnalyticsTotals = {
   revenueCents: number;

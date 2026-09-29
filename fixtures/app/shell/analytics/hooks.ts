@@ -38,7 +38,7 @@ function definitionFor<TData>(
 
 const revenueIsEmpty = (data: DailyRevenue) => data.days.every((day) => day.value === 0);
 const stockIsEmpty = (data: RankedProducts) =>
-  data.products.length === 0 || data.products.every((product) => product.units === 0);
+  data.length === 0 || data.every((product) => product.units === 0);
 const totalsAreEmpty = (data: AnalyticsTotals) => data.paidOrders === 0 && data.unitsInStock === 0;
 
 export function useDailyRevenue(days: number) {
@@ -58,7 +58,9 @@ export function useStockByProduct() {
     () => definitionFor("analytics.stock", "Units in stock by product", stockIsEmpty),
     [],
   );
-  const load = useCallback(async () => ({ products: await loadStockByProductAction() }), []);
+  // Wrapped rather than passed by name: the hook is keyed on the load function's identity, and a
+  // server action reference is not something to hand to `useCallback` directly.
+  const load = useCallback(() => loadStockByProductAction(), []);
   return useAdminWidgetData({ definition, load });
 }
 

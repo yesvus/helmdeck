@@ -57,7 +57,7 @@ export function AdminRankChart({
         ))}
       </div>
 
-      <ul className="mt-3 space-y-2.5">
+      <ul className="mt-3 space-y-2.5" role="img" aria-label={ariaLabel}>
         {items.map((item) => {
           const width = axis.top === 0 ? 0 : Math.min(100, (Math.max(0, item.value) / axis.top) * 100);
           return (

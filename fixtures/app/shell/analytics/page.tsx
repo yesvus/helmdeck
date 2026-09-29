@@ -182,7 +182,7 @@ export default function AnalyticsPage() {
         {readyStock ? (
           <AdminRankChart
             ariaLabel="Units in stock by product"
-            items={readyStock.products.map((product) => ({
+            items={readyStock.map((product) => ({
               key: product.key,
               label: product.label,
               value: product.units,
