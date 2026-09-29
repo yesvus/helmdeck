@@ -14,8 +14,10 @@
  */
 
 import { cn } from "../cn.js";
-import { useAdminMessages } from "../i18n.js";
-import { AdminWidget } from "../widgets/render.js";
+import { defaultWidgetMessages } from "../widgets/messages.js";
+import { AdminWidgetPanel } from "../widgets/panel.js";
+import { defaultDashboardMessages, type AdminDashboardMessages } from "./messages.js";
+import type { AdminMessages } from "../i18n.js";
 import type { AdminWidgetSize, AdminWidgetState } from "../widgets/types.js";
 import {
   adminDashboardValidate,
@@ -43,6 +45,7 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
   states,
   onRetry,
   className,
+  messages,
 }: {
   registry: TRegistry;
   placements: readonly AdminDashboardPlacement[];
@@ -56,15 +59,26 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
   states: Readonly<Record<string, AdminWidgetState<unknown>>>;
   onRetry?: (placement: AdminDashboardPlacement) => void;
   className?: string;
+  /**
+   * Copy for the engine's own dashboard messages. Supplied rather than read from the interface
+   * dictionary, which lives in a client context, so that a page of tiles stays a server component.
+   * Defaults to the shipped English; a host rendering the dashboard in a server component passes the
+   * dictionary it already resolved.
+   */
+  messages?: Pick<AdminMessages, "widget"> & AdminDashboardMessages;
 }) {
-  const messages = useAdminMessages();
+  const copy = {
+    ...defaultDashboardMessages,
+    ...messages,
+    widget: { ...defaultWidgetMessages, ...messages?.widget },
+  };
   const problems = adminDashboardValidate(registry, placements);
 
   if (placements.length === 0) {
     return (
       <div className={cn(dashboardGridClassName, className)}>
         <p className="rounded-admin-card border border-dashed border-admin-border bg-admin-surface p-8 text-center text-sm text-zinc-500">
-          {messages.dashboard.empty}
+          {copy.empty}
         </p>
       </div>
     );
@@ -87,7 +101,7 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
               className="rounded-admin-card border border-dashed border-admin-danger-border bg-admin-danger-surface p-5"
             >
               <p className="text-sm font-semibold text-admin-danger-text">
-                {messages.dashboard.missingWidget(placement.widget)}
+                {copy.missingWidget(placement.widget)}
               </p>
               {problems.get(placement.id)?.map((problem) => (
                 <p key={problem} className="mt-1 text-xs text-admin-danger-text">
@@ -105,9 +119,10 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
             data-widget={placement.widget}
             className={cn(sizeClasses[placement.size], "min-w-0")}
           >
-            <AdminWidget
+            <AdminWidgetPanel
               definition={definition as AdminWidgetDefinitionLike}
               state={(state ?? { status: "loading" }) as AdminWidgetState<never>}
+              messages={copy}
               onRetry={onRetry ? () => onRetry(placement) : undefined}
               className="h-full"
             />
@@ -118,4 +133,4 @@ export function AdminDashboardLayout<TRegistry extends AdminDashboardRegistry>({
   );
 }
 
-type AdminWidgetDefinitionLike = Parameters<typeof AdminWidget>[0]["definition"];
+type AdminWidgetDefinitionLike = Parameters<typeof AdminWidgetPanel>[0]["definition"];
