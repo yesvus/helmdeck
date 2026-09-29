@@ -27,7 +27,7 @@ function ThemeSelector() {
       <select
         value={theme}
         onChange={(event) => setTheme(event.target.value as typeof theme)}
-        className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs"
+        className="rounded-md border border-zinc-300 bg-admin-surface px-2 py-1 text-xs text-zinc-700"
       >
         <option value="light">Light</option>
         <option value="dark">Dark</option>
