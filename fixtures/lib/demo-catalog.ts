@@ -959,6 +959,84 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Checks a whole arrangement against its registry and reports what does not hold.",
     keywords: "validate arrangement registry",
   },
+  adminStatWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A figure with a caption, coloured by its own trend: a rise reads good, a fall reads bad, and invertTrend swaps that for churn and error rates.",
+    keywords: "stat figure kpi trend tile number tone colour",
+  },
+  adminTableWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A read-only table that works out from the data alone that a column is numbers, formats it and right-aligns it, then caps the rows and says how many it left out.",
+    keywords: "table rows columns align right numeric cap truncated",
+  },
+  adminListWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A handful of ranked or recent rows, where a long label truncates and keeps its full text while the figure beside it holds its width.",
+    keywords: "list rows ranked label truncate figure cap",
+  },
+  adminChartWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A host's rows as a time series on the package's own chart, deciding the formatters, the whole-number ticks and the sentence a screen reader reads instead of the drawing.",
+    keywords: "chart time series bar line axis ticks aria screen reader",
+  },
+  adminRankWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A ranking on the package's rank chart, kept apart from the time series because the order is the claim: plotting ranked rows along a dated axis would say something false about them.",
+    keywords: "rank ranking chart bars ordered top",
+  },
+  adminActivityWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A feed of what changed, owning the age thresholds a host gets subtly wrong and mapping each event's kind to a tone, so a failure is scannable rather than read.",
+    keywords: "activity feed events recent ages timestamps tone",
+  },
+  adminActivityAge: {
+    category: "Dashboard and widgets",
+    summary:
+      "How old an event is in words, with the thresholds stated once: just now under a minute, minutes under an hour, and the date itself past a week.",
+    keywords: "age relative time thresholds just now ago",
+  },
+  adminWidgetRows: {
+    category: "Dashboard and widgets",
+    summary:
+      "The rows a selector found, or none at all, so a query answering a shape the host did not expect empties one tile instead of taking the dashboard down with it.",
+    keywords: "rows select read safe array shape",
+  },
+  adminWidgetCappedRows: {
+    category: "Dashboard and widgets",
+    summary:
+      "The rows a tile will draw after its cap, with the line that says how many of the total are on screen rather than leaving a partial list to pass for the whole one.",
+    keywords: "cap rows limit note truncated partial",
+  },
+  adminWidgetCapNote: {
+    category: "Dashboard and widgets",
+    summary:
+      "The sentence under a capped tile, replaced by a host that needs the count in its own language or its own order.",
+    keywords: "cap note count showing truncated sentence",
+  },
+  adminWidgetRequired: {
+    category: "Dashboard and widgets",
+    summary:
+      "Refuses a value a tile cannot be built from, naming the widget and the option, because a missing accessor is the host's mistake and not a fact about the data.",
+    keywords: "required refuse missing option throw misconfigured",
+  },
+  adminWidgetRequiredList: {
+    category: "Dashboard and widgets",
+    summary:
+      "Refuses an empty list a tile cannot be drawn from, such as a table declared with no columns at all.",
+    keywords: "required list columns empty refuse misconfigured",
+  },
+  adminWidgetRowKey: {
+    category: "Dashboard and widgets",
+    summary:
+      "A key for a row the host did not key, falling back to the row's position, which a read-only tile can survive and a selectable one cannot.",
+    keywords: "key row index fallback react list",
+  },
 
   AdminCollectionEditor: {
     category: "Collections",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
 import {
   adminActivityWidget,
@@ -35,6 +35,7 @@ function deferred<T>() {
 }
 
 type Order = { id: string; customer: string; cents: number; placed: string };
+type Event = { id: string; action: string; actor: string; at: string };
 type Count = { total: number; previous: number };
 
 /** A tile driven through the load hook, which is the only path the states are reached on. */
@@ -121,7 +122,7 @@ const stockByProduct = adminRankWidget<Array<{ key: string; label: string; value
   valueLabel: "units",
 });
 
-const feed = adminActivityWidget<{ id: string; action: string; actor: string; at: string }>({
+const feed = adminActivityWidget<Event, Event[]>({
   id: "feed",
   title: "Recent activity",
   rows: (rows) => rows,
@@ -157,7 +158,7 @@ describe("a registered widget renders through the registry", () => {
       />,
     );
 
-    const tile = container.querySelector(`[data-placement="${placements[0]!.id}"]`)!;
+    const tile = container.querySelector<HTMLElement>(`[data-placement="${placements[0]!.id}"]`)!;
     // The engine took the definition from `resolve` by id and the section inside carries the
     // definition's own id, so the two are joined by the registry rather than by the test.
     expect(tile.getAttribute("data-widget")).toBe("revenue");
@@ -176,7 +177,7 @@ describe("a registered widget renders through the registry", () => {
 
     // $129.00 is only reachable through the stat widget's money formatter, and 43.3% only through
     // its trend. A tile rendering "12900" would be the engine's data and not the widget's judgement.
-    const tile = container.querySelector(`[data-placement="${placements[0]!.id}"]`)!;
+    const tile = container.querySelector<HTMLElement>(`[data-placement="${placements[0]!.id}"]`)!;
     expect(within(tile).getByText("$129.00")).toBeInTheDocument();
     expect(within(tile).getByText(/43\.3%/)).toBeInTheDocument();
   });
@@ -196,7 +197,7 @@ describe("a registered widget renders through the registry", () => {
       />,
     );
 
-    const tile = container.querySelector(`[data-placement="${placements[0]!.id}"]`)!;
+    const tile = container.querySelector<HTMLElement>(`[data-placement="${placements[0]!.id}"]`)!;
     expect(tile.getAttribute("data-widget")).toBe("revenue");
     // The tile is reported in place. Rendering nothing would leave a hole that reads as a layout
     // bug, and the figure staying on screen would be claiming the engine resolved a widget it did not.
@@ -235,10 +236,13 @@ describe("a registered widget renders through the registry", () => {
     expect(new Set(shipped.list().map((w) => w.id)).size).toBe(6);
   });
 
-  it("exports a function under every widget name, so a host importing one cannot reach undefined", () => {
-    const names = Object.keys(shippedWidgets).filter((name) => name.startsWith("admin") && name.endsWith("Widget"));
-    // Read off the namespace rather than a list kept beside it, so a renamed export is caught here
-    // rather than by whichever test happened to write the old name.
+  it("builds a working definition from every widget name the package exports", () => {
+    // Read off the namespace and called through it, rather than checked for being a function. A
+    // name that resolves to some other function is a broken import that a typeof check waves
+    // through, and the catalogue entry for it would then describe something the package does not do.
+    const names = Object.keys(shippedWidgets).filter(
+      (name) => name.startsWith("admin") && name.endsWith("Widget"),
+    );
     expect(names.sort()).toEqual([
       "adminActivityWidget",
       "adminChartWidget",
@@ -247,8 +251,48 @@ describe("a registered widget renders through the registry", () => {
       "adminStatWidget",
       "adminTableWidget",
     ]);
+
+    const options: Record<string, Record<string, unknown>> = {
+      adminStatWidget: { id: "s", title: "S", value: () => 1 },
+      adminTableWidget: {
+        id: "t",
+        title: "T",
+        rows: (rows: unknown[]) => rows,
+        columns: [{ key: "a", header: "A", value: (row: { a: string }) => row.a }],
+      },
+      adminListWidget: {
+        id: "l",
+        title: "L",
+        rows: (rows: unknown[]) => rows,
+        label: (row: { a: string }) => row.a,
+      },
+      adminChartWidget: {
+        id: "c",
+        title: "C",
+        categories: (data: { days: unknown[] }) => data.days,
+        series: () => [],
+      },
+      adminRankWidget: { id: "r", title: "R", items: (data: { items: unknown[] }) => data.items },
+      adminActivityWidget: {
+        id: "a",
+        title: "A",
+        rows: (rows: unknown[]) => rows,
+        message: (row: { a: string }) => row.a,
+        at: () => "2026-09-30T12:00:00Z",
+      },
+    };
+
     for (const name of names) {
-      expect(typeof shippedWidgets[name as keyof typeof shippedWidgets], `${name} is not a function`).toBe("function");
+      const build = shippedWidgets[name as keyof typeof shippedWidgets] as (
+        options: Record<string, unknown>,
+      ) => AdminWidgetDefinition<unknown>;
+      const definition = build(options[name]!);
+      // The three things the engine needs from a definition, checked through the built value rather
+      // than through the options: a name that built a shape the registry cannot use would throw at
+      // the first placement instead of here.
+      expect(definition.id, `${name} built a definition under the wrong id`).toBe(options[name]!.id);
+      expect(definition.sizes.length, `${name} built a definition with no size`).toBeGreaterThan(0);
+      expect(definition.render, `${name} built a definition with no render`).toBeTypeOf("function");
     }
   });
 });
@@ -329,13 +373,13 @@ describe("the stat widget's states, driven through the load", () => {
   });
 
   it("shows a host's own empty copy when it supplies one, rather than the engine's generic sentence", async () => {
-    const orders30 = adminStatWidget<Count>({
+    const orders30 = adminStatWidget<Partial<Count>>({
       id: "orders30",
       title: "Orders",
       value: (data) => data.total,
       empty: { title: "No orders in this period", body: "Nothing was placed in the last 30 days." },
     });
-    const gate = deferred<Count>();
+    const gate = deferred<Partial<Count>>();
     render(<DrivenTile definition={orders30} load={() => gate.promise} />);
 
     await act(async () => gate.resolve({}));
@@ -748,7 +792,7 @@ describe("the chart widgets' states, driven through the load", () => {
 });
 
 describe("the activity widget's states, driven through the load", () => {
-  const events = [
+  const events: Event[] = [
     { id: "e-1", action: "published Home", actor: "Ada", at: "2026-09-30T11:58:00Z" },
     { id: "e-2", action: "deleted a draft", actor: "Grace", at: "2026-09-29T09:00:00Z" },
   ];
@@ -786,7 +830,7 @@ describe("the activity widget's states, driven through the load", () => {
 });
 
 describe("what the activity widget decides", () => {
-  const events = [
+  const events: Event[] = [
     { id: "e-1", action: "published Home", actor: "Ada", at: "2026-09-30T11:58:00Z" },
     { id: "e-2", action: "deleted a draft", actor: "Grace", at: "2026-09-29T09:00:00Z" },
     { id: "e-3", action: "shipped it", actor: "Katherine", at: "2026-09-23T09:00:00Z" },
@@ -837,7 +881,7 @@ describe("what the activity widget decides", () => {
   });
 
   it("uses a host's own age vocabulary, so the feed is in the host's language", async () => {
-    const turkish = adminActivityWidget<typeof events>({
+    const turkish = adminActivityWidget<Event, Event[]>({
       id: "feed-tr",
       title: "Son hareketler",
       rows: (rows) => rows,
@@ -864,7 +908,7 @@ describe("what the activity widget decides", () => {
   });
 
   it("says an event with no readable time is at an unknown time, rather than printing NaN", () => {
-    const broken = adminActivityWidget<{ id: string; at: string }>({
+    const broken = adminActivityWidget<{ id: string; at: string }, Array<{ id: string; at: string }>>({
       id: "broken",
       title: "Activity",
       rows: (rows) => rows,
@@ -880,7 +924,7 @@ describe("what the activity widget decides", () => {
   });
 
   it("caps the feed and says what it left out", () => {
-    const capped = adminActivityWidget<typeof events>({
+    const capped = adminActivityWidget<Event, Event[]>({
       id: "capped",
       title: "Activity",
       rows: (rows) => rows,
@@ -898,7 +942,13 @@ describe("what the activity widget decides", () => {
 });
 
 describe("a widget given data it cannot read", () => {
-  it.each([
+  /**
+   * One entry per shipped widget, each declared so that its own selector answers nothing: a missing
+   * field, a null, an undefined. Typed through the erased definition because a table of six
+   * differently-typed widgets has no single data type to name, which is the same reason a dashboard
+   * holds its states as `unknown`.
+   */
+  const UNREADABLE: Array<[string, AdminWidgetDefinition<never>, unknown]> = [
     [
       "the stat",
       adminStatWidget<{ missing?: number }>({ id: "s", title: "S", value: (d) => d.missing }),
@@ -945,22 +995,33 @@ describe("a widget given data it cannot read", () => {
       }),
       undefined,
     ],
-  ])("shows the empty state rather than throwing when %s is handed nothing", (_name, definition, data) => {
-    // Each widget's selector is handed data whose field is missing, absent, or a value of the wrong
-    // type, and the state is built through the engine's own `adminWidgetState` so the widget's empty
-    // rule is what decides. A dashboard with one such query should show one empty tile, not lose
-    // the page, and a widget that read a length on something undefined throws here and nowhere else.
-    expect(() =>
-      render(<Tile definition={definition} state={adminWidgetState(definition, data as never)} />),
-    ).not.toThrow();
-    expect(screen.getByText("Nothing to show")).toBeInTheDocument();
-  });
+  ] as Array<[string, AdminWidgetDefinition<never>, unknown]>;
+
+  it.each(UNREADABLE)(
+    "shows the empty state rather than throwing when %s is handed nothing",
+    (_name, definition, data) => {
+      // Each widget's selector is handed data whose field is missing, absent, or a value of the
+      // wrong type, and the state is built through the engine's own `adminWidgetState` so the
+      // widget's empty rule is what decides. A dashboard with one such query should show one empty
+      // tile, not lose the page, and a widget that read a length on something undefined throws here
+      // and nowhere else.
+      expect(() =>
+        render(<Tile definition={definition} state={adminWidgetState(definition, data)} />),
+      ).not.toThrow();
+      expect(screen.getByText("Nothing to show")).toBeInTheDocument();
+    },
+  );
 
   it("reaches the empty state through the load rather than only through a constructed state", async () => {
     // The same selectors, driven: the hook asks the widget's own isEmpty, so a widget whose isEmpty
     // read a length on something undefined would throw here and nowhere else.
-    const gate = deferred<{ items?: unknown[] }>();
-    render(<DrivenTile definition={stockByProduct} load={() => gate.promise} />);
+    const unreadable = adminRankWidget<{ items?: unknown }>({
+      id: "unreadable",
+      title: "Stock",
+      items: (data) => data.items as never,
+    });
+    const gate = deferred<{ items?: unknown }>();
+    render(<DrivenTile definition={unreadable} load={() => gate.promise} />);
     await act(async () => gate.resolve({}));
 
     await waitFor(() => expect(screen.getByText("Nothing to show")).toBeInTheDocument());
@@ -1068,7 +1129,7 @@ describe("the demo's own tiles are unaffected", () => {
       />,
     );
 
-    const tile = container.querySelector(`[data-placement="${placement.id}"]`)!;
+    const tile = container.querySelector<HTMLElement>(`[data-placement="${placement.id}"]`)!;
     expect(within(tile).getByText("$129.00")).toBeInTheDocument();
     expect(within(tile).getByText("across 2 paid and shipped orders")).toBeInTheDocument();
     // The panel still announces itself, which is what the tile's outline is for.
@@ -1102,9 +1163,14 @@ describe("the demo's own tiles are unaffected", () => {
       label: (row) => row.id,
     });
     const together = createAdminWidgetRegistry([reorder, shipped]);
+    // Both rules asked about the same absent data. Read through the erased lookup the dashboard
+    // reads, because a registry holding two differently-typed widgets has no typed `get` to ask.
+    const absent: never = [] as never;
+    const readReorder = together.resolve("reorder")!;
+    const readShipped = together.resolve("shipped")!;
 
-    expect(together.get("reorder")!.isEmpty?.([])).toBe(true);
-    expect(together.get("shipped")!.isEmpty?.([])).toBe(true);
+    expect(readReorder.isEmpty?.(absent)).toBe(true);
+    expect(readShipped.isEmpty?.(absent)).toBe(true);
     expect(together.list()).toHaveLength(2);
   });
 
@@ -1119,23 +1185,23 @@ describe("the demo's own tiles are unaffected", () => {
 
 describe("the engine's states reach a shipped widget without the widget inventing them", () => {
   it("shows the engine's error title beside the loader's message for every shipped widget", async () => {
-    const definitions: Array<[string, AdminWidgetDefinition<never>, (gate: ReturnType<typeof deferred<unknown>>) => void]> = [];
-
-    for (const [name, definition, settle] of [
-      ["stat", revenue, (gate) => gate.resolve({ total: 1, previous: 1 })],
-      ["table", orderTable as never, (gate) => gate.resolve(orders)],
-      ["list", topProducts as never, (gate) => gate.resolve([])],
-      ["chart", revenueByDay as never, (gate) => gate.resolve({ days: [] })],
-      ["rank", stockByProduct as never, (gate) => gate.resolve([])],
-      ["activity", feed as never, (gate) => gate.resolve([])],
-    ] as const) {
-      definitions.push([name, definition, settle as never]);
-    }
-
-    for (const [name, definition, settle] of definitions) {
-      const gate = deferred<unknown>();
+    // Driven through a rejected load rather than a constructed error state, and each widget's own
+    // loader is what rejects. A widget that drew its own failure copy would keep its own sentence
+    // and lose the engine's title, which is the pair these two assertions read.
+    for (const [name, definition] of [
+      ["stat", revenue],
+      ["table", orderTable],
+      ["list", topProducts],
+      ["chart", revenueByDay],
+      ["rank", stockByProduct],
+      ["activity", feed],
+    ] as Array<[string, AdminWidgetDefinition<never>]>) {
+      const gate = deferred<never>();
       const { unmount } = render(<DrivenTile definition={definition} load={() => gate.promise} />);
+
       await act(async () => gate.reject(new Error(`${name} could not load`)));
+
+      expect(screen.getByText("This widget could not load"), `${name} lost the engine's title`).toBeInTheDocument();
       expect(screen.getByText(`${name} could not load`), `${name} lost the loader's message`).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Try again" }), `${name} has no retry`).toBeInTheDocument();
       unmount();
@@ -1150,7 +1216,7 @@ describe("the engine's states reach a shipped widget without the widget inventin
       ["chart", revenueByDay],
       ["rank", stockByProduct],
       ["activity", feed],
-    ] as const) {
+    ] as Array<[string, AdminWidgetDefinition<never>]>) {
       expect(definition.renderLoading, `${name} leaves the loading state to the engine`).toBeTypeOf("function");
       // A spinner of the widget's own is a widget that cannot show the engine's failure message, so
       // the loading state has to be markup and not a state the widget switches on.
@@ -1160,7 +1226,7 @@ describe("the engine's states reach a shipped widget without the widget inventin
   });
 
   it("does not claim the error state in any of them, which is what leaves the engine's message intact", () => {
-    for (const definition of [revenue, orderTable, topProducts, revenueByDay, stockByProduct, feed]) {
+    for (const definition of [revenue, orderTable, topProducts, revenueByDay, stockByProduct, feed] as AdminWidgetDefinition<never>[]) {
       expect(definition.renderError).toBeUndefined();
     }
   });
