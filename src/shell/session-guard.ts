@@ -58,11 +58,6 @@ function isSameSitePath(value: string): boolean {
   return !value.includes("\\");
 }
 
-/** A destination a host supplied is only a destination if it stays on the origin. */
-function validatedDestination(returnTo: string | null | undefined): string {
-  return returnTo && isSameSitePath(returnTo) ? returnTo : "/";
-}
-
 /**
  * The destination a guard recorded, read back off a sign-in page. Anything that is not a plain
  * same-site path is rejected: this value comes from a query string, so without the check a
@@ -73,7 +68,15 @@ function validatedDestination(returnTo: string | null | undefined): string {
  * otherwise turn "/%2F%2Fevil.example" back into "//evil.example".
  */
 export function adminReturnTo(search: URLSearchParams | null | undefined): string | null {
-  const raw = search?.get("next");
+  return readDestination(search?.get("next"));
+}
+
+/**
+ * One set of rules for a destination, wherever it was read. A guard that checked a `returnTo`
+ * by a laxer rule than the sign-in page reads its own output with would write a destination its
+ * own reader refuses, and would hand a decoding host one that leaves the origin.
+ */
+function readDestination(raw: string | null | undefined): string | null {
   if (!raw || !isSameSitePath(raw)) return null;
 
   let current = raw;
@@ -92,6 +95,11 @@ export function adminReturnTo(search: URLSearchParams | null | undefined): strin
   // Still changing after three rounds, so the value is obfuscated past the point of being read
   // safely. Refuse rather than guess which layer was meant.
   return null;
+}
+
+/** A destination a host supplied is only a destination if it stays on the origin. */
+function validatedDestination(returnTo: string | null | undefined): string {
+  return readDestination(returnTo) ?? "/";
 }
 
 /**
