@@ -72,9 +72,24 @@ function containsTerm(value: unknown, term: string): boolean {
   return asText(value).toLowerCase().includes(term.toLowerCase());
 }
 
+/**
+ * The value a field names, following a dotted field into the record rather than looking for a key
+ * with a dot in it. A field the contract reads as a path is a path here, as it is in the SQLite
+ * adapter, so the same record answers the same comparison in both.
+ */
+function valueAt(record: MemoryRecord, field: string): unknown {
+  if (!field.includes(".")) return record[field];
+  let value: unknown = record;
+  for (const segment of field.split(".")) {
+    if (typeof value !== "object" || value === null) return undefined;
+    value = (value as Record<string, unknown>)[segment];
+  }
+  return value;
+}
+
 /** `===` for equality, because the exact-match reading of the older query depends on it. */
 function matches(record: MemoryRecord, filter: AdminResourceFilter): boolean {
-  const value = record[filter.field];
+  const value = valueAt(record, filter.field);
   switch (filter.operator) {
     case "eq":
       return value === filter.value;
@@ -113,7 +128,7 @@ function orderRecords(records: MemoryRecord[], sort: AdminResourceSort[] | undef
   const keys: AdminResourceSort[] = [...sort, { field: "id", direction: "asc" }];
   return [...records].sort((left, right) => {
     for (const key of keys) {
-      const compared = compareValues(left[key.field], right[key.field]);
+      const compared = compareValues(valueAt(left, key.field), valueAt(right, key.field));
       if (compared !== 0) return key.direction === "desc" ? -compared : compared;
     }
     return 0;
