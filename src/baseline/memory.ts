@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
+import type {
+  AdminAuditAdapter,
+  AdminAuditEvent,
+  AdminCacheInvalidationAdapter,
+  AdminPersistenceAdapter,
+} from "../adapters/index.js";
 import {
   parseAdminResourceQuery,
-  type AdminAuditAdapter,
-  type AdminAuditEvent,
-  type AdminCacheInvalidationAdapter,
-  type AdminPersistenceAdapter,
   type AdminResourceFilter,
   type AdminResourcePage,
   type AdminResourceQuery,
   type AdminResourceSort,
-} from "../adapters/index.js";
+} from "./query.js";
 
 /** A stored record, with the identity the persistence layer needs to address it. */
 export type MemoryRecord = { id: string; [key: string]: unknown };
