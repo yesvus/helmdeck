@@ -232,11 +232,29 @@ Four behaviours are worth knowing about, because each is the difference between 
 - **A forged cookie is refused before the store is asked anything**, so it cannot be used to find out which session ids exist.
 - **Expiry is checked on every read** and the row is deleted rather than left behind. An expiry that is not a number ends the session instead of reading as one that never lapses.
 
-`endAllSessions(email)` ends every session an account holds, on every device, and says how many there were. It is an administrator's own action, and the address comes from the session, which the client never sets.
-
 This is server-side and that is enforced rather than documented. `node:crypto` and `next/headers` are both things a browser does not have, so the credential path cannot be bundled for one, and a test builds it with a real bundler and calls the result rather than asserting it in a comment.
 
+
+
 **Hand-rolled instead:** write the six methods below and pass them to `createCredentialAuthAdapter`, or implement `AdminAuthAdapter` yourself and pass it to `AdminAuthProvider`. Nothing in the shell requires either.
+
+### Who may end every session
+
+`endAllSessions()` ends every session **the calling account** holds, on every device, and reports how many. It takes no account argument, and that is the design rather than an omission: the caller is the target, so the identity the rule decides on and the identity the rows belong to are the one value the adapter resolved from the signed cookie. A method that took an email would let a caller's authorization and its target be two different accounts, and no check inside it would close that.
+
+Because the package has no vocabulary for roles, who may is yours:
+
+```ts
+export const auth = createCredentialAuthAdapter({
+  secret: process.env.SESSION_SECRET,
+  store,
+  mayEndAllSessions: (session) => session.role === "admin",
+});
+```
+
+The session it is given is the one the cookie named, and its role is read from the user row, so a request cannot write it. **Omit the option and the capability is refused**, so a host that has not thought about who may revoke does not ship it by accident. A refusal is reported as a refusal rather than as a count of zero, and it happens before any session row is looked up or deleted, so a refused call cannot be used to learn which accounts exist.
+
+This method is about ending your own sessions everywhere. Ending a *different* account's sessions is a different capability, and the demo shows how to authorize it in its own action, where the target and the authority are resolved together rather than one being handed to the other.
 
 ### The secret
 
