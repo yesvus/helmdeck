@@ -36,6 +36,7 @@ const tables = new Set([
   "users",
   "posts",
   "post_revisions",
+  "post_schedules",
   "site_settings",
   "products",
   "orders",
