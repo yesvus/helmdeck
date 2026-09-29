@@ -166,6 +166,19 @@ function allowAll(): AdminPermissionsAdapter {
   return { can: vi.fn(async () => true) };
 }
 
+/**
+ * A store as a host wrote it before the paged form: the same adapter with `queryPage` taken off it.
+ *
+ * Removing the member rather than writing a fresh object is what makes these cases about the
+ * interface's own optionality: the store underneath is the real one, answering exactly the calls it
+ * always answered, and the only difference is the one member these cases are about.
+ */
+function withoutPaging(adapter: AdminPersistenceAdapter): AdminPersistenceAdapter {
+  const legacy = { ...adapter };
+  delete legacy.queryPage;
+  return legacy;
+}
+
 function tree(element: React.ReactElement, adapter: AdminPermissionsAdapter = allowAll()) {
   return (
     <AdminI18nProvider locale="en">
@@ -582,7 +595,7 @@ describe("a host whose adapter does not answer the query", () => {
     // adapter's answer and not the definition's silence.
     const base = createMemoryPersistenceAdapter();
     await base.create("posts", { title: "Alpha", status: "live" });
-    const { queryPage: _unasked, ...legacy } = base;
+    const legacy = withoutPaging(base);
 
     wrap(<AdminResourceList definition={posts} persistence={legacy} />);
 
@@ -598,9 +611,12 @@ describe("a host whose adapter does not answer the query", () => {
   });
 
   it("shows the empty state, because an adapter that returns nothing says the resource is empty", async () => {
-    const { queryPage: _unasked, ...legacy } = createMemoryPersistenceAdapter();
-
-    wrap(<AdminResourceList definition={posts} persistence={legacy} />);
+    wrap(
+      <AdminResourceList
+        definition={posts}
+        persistence={withoutPaging(createMemoryPersistenceAdapter())}
+      />,
+    );
 
     expect(await screen.findByText("Nothing here yet.")).toBeInTheDocument();
   });
@@ -783,10 +799,9 @@ describe("the seam the browser's query crosses", () => {
     // actions said so rather than the adapter. The in-memory adapter with its paged call removed
     // is the shape every host wrote before the query contract, so the absence below is the one a
     // real host meets rather than one arranged for the test.
-    const { queryPage: _unasked, ...base } = createMemoryPersistenceAdapter();
     const actions = createAdminResourceActions({
       guard: (async () => undefined) as never,
-      persistence: base,
+      persistence: withoutPaging(createMemoryPersistenceAdapter()),
     });
 
     expect(actions.queryPage).toBeUndefined();

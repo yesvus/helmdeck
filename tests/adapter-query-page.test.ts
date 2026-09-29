@@ -265,7 +265,12 @@ describe("the ordering the store applies", () => {
     // Every row ties on `shelf`, so the ordering alone says nothing about which row is the tenth.
     // Paging the whole store and collecting what came back is the only way to see a tie broken
     // differently on each page, which is how a row goes missing without any page looking wrong.
-    const records = catalogue(97);
+    //
+    // Written in the reverse of id order, which is the part that lets this fail at all. Seeded in id
+    // order, a store with no tiebreak still answers in id order, because that is the order it was
+    // handed the rows in and both engines keep it, so the assertions below pass against a sort that
+    // settles nothing and the property this test exists for goes untested.
+    const records = catalogue(97).reverse();
 
     await inBothStores(
       records,
