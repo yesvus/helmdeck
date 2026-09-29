@@ -18,16 +18,28 @@ import type { AdminPermission, AdminSession } from "@yesvus/helmdeck";
  * views and the actions come to disagree about the same question, and the disagreement shows up as a
  * button that appears and then fails.
  *
- * `dashboard_placements` is absent on purpose, and that is the interesting one. It is a table of
- * ordered things a person arranges, which is also what a landing page is, so reusing it looked
- * reasonable. It is not: `0001_initial.sql` declares it as the engine dashboard's arrangement. One
- * surface writing the other's rows is a coupling that only shows up once something reads them.
+ * `dashboard_placements` is the engine dashboard's arrangement, declared as such by
+ * `0001_initial.sql`. It was deliberately absent at first, and for a real reason: it is a table of
+ * ordered things a person arranges, which is also what the landing page is, so the collection editor
+ * reached for it and two surfaces would have been writing one table. The landing page was given its
+ * own `landing_sections` table instead, and with the two separated both can be exposed without either
+ * one reaching the other's rows.
+ *
+ * `posts` is the CMS's own content, on the same reasoning: the collection editor, the revisions
+ * history and the dashboard's tiles all ask the one rule rather than each keeping its own list.
  *
  * `site_settings` is the demo's own site configuration, read and written by the settings page
  * through the same actions. It is here rather than reached by a private path so the settings screen
  * answers the same question as a product form and cannot drift from it.
  */
-const EXPOSED = new Set(["products", "orders", "landing_sections", "site_settings"]);
+const EXPOSED = new Set([
+  "products",
+  "orders",
+  "landing_sections",
+  "site_settings",
+  "posts",
+  "dashboard_placements",
+]);
 
 export function exposedResource(resource: string): boolean {
   return EXPOSED.has(resource);
