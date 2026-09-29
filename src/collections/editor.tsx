@@ -12,6 +12,7 @@ import {
   adminCollectionAdd,
   adminCollectionDuplicateAt,
   adminCollectionRemoveAt,
+  adminCollectionReorder,
   adminCollectionValidate,
   type AdminCollectionDefinition,
   type AdminCollectionEntry,
@@ -76,12 +77,9 @@ export function AdminCollectionEditor<T>({
       // The hook acknowledges optimistically and reverts on failure, so the engine is the authority
       // and the host is told the new order. The toast copy comes from the sortable dictionary
       // rather than a second collection string saying the same thing.
-      const byId = new Map(entries.map((entry) => [entry.id, entry]));
-      const ordered = orderedIds.flatMap((id) => {
-        const entry = byId.get(id);
-        return entry ? [entry] : [];
-      });
-      onChange(ordered);
+      // Reordering by identity lives in the model, where a stale or partial id list degrades to a
+      // partial move instead of dropping entries.
+      onChange(adminCollectionReorder(entries, orderedIds));
       return { success: true, message: i18n.sortable.toastSuccessTitle };
     },
   });
