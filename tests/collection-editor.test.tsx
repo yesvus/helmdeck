@@ -136,6 +136,32 @@ describe("AdminCollectionEditor", () => {
     expect(screen.getByRole("button", { name: "Remove 1" })).toBeInTheDocument();
   });
 
+  /**
+   * The editor renders its own drag handles and calls the sortable hook, and for a long time it
+   * provided neither a `DndContext` nor a `SortableContext`. `useSortable` reads its activators and
+   * listeners from that context, so every handle was an inert button that still carried a role, a
+   * label and a tab stop: focusable, reachable, and doing nothing on Space or on a drag. No test
+   * caught it because none of them asked whether the handle worked, only whether it was there.
+   *
+   * A host cannot detect this either. The fix is a wrapper they have to know about, and the one
+   * consumer of this component wrapped it, which is exactly how the engine's gap stayed invisible.
+   */
+  it("provides the drag context itself, so a host does not have to know to wrap it", async () => {
+    const user = userEvent.setup();
+    render(<Editor initial={twoEntries()} onChange={vi.fn()} />);
+
+    const handle = screen.getByRole("button", { name: "Edit 1" });
+
+    // With a context the handle is wired to a screen reader instruction and reports its state.
+    // Without one, dnd-kit leaves both empty while the handle still looks and tabs like a control.
+    expect(handle.getAttribute("aria-describedby")).toBeTruthy();
+
+    handle.focus();
+    await user.keyboard(" ");
+
+    expect(handle.getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("falls back to a positional label when the host renders no summary", () => {
     render(
       <AdminI18nProvider locale="en">

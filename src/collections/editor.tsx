@@ -7,7 +7,7 @@ import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
 import { Button } from "../primitives/button.js";
 import { AdminEmptyState } from "../primitives/empty-state.js";
-import { AdminDragHandle, AdminSortableCard, useAdminSortableList } from "../primitives/sortable-list.js";
+import { AdminDragHandle, AdminSortableCard, AdminSortableDndContext, useAdminSortableList } from "../primitives/sortable-list.js";
 import {
   adminCollectionAdd,
   adminCollectionDuplicateAt,
@@ -121,6 +121,18 @@ export function AdminCollectionEditor<T>({
   );
 
   return (
+    // The drag context belongs here rather than in the host. `useSortable` reads its activators and
+    // listeners from a context this component never provided, so every handle it rendered was an inert
+    // button that still carried a role, a label and a tab stop: reachable, focusable, and doing
+    // nothing. A host that did not happen to read `sortable-list` and wrap the editor had no way to
+    // see that, and the demo was wrapping it, which is how the engine's gap was invisible for as long
+    // as the demo was the only thing exercising the editor.
+    <AdminSortableDndContext
+      ids={sortable.ids}
+      sensors={sortable.sensors}
+      announcements={sortable.announcements}
+      onDragEnd={sortable.handleDragEnd}
+    >
     <section className={cn("rounded-admin-card border border-admin-border bg-admin-surface", className)}>
       {title ? (
         <div className="flex items-center justify-between gap-4 border-b border-admin-border bg-admin-surface-subtle px-5 py-4">
@@ -197,5 +209,6 @@ export function AdminCollectionEditor<T>({
         </ul>
       )}
     </section>
+    </AdminSortableDndContext>
   );
 }
