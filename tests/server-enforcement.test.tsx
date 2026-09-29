@@ -5,7 +5,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
 import { AdminPermissionsProvider, useAdminPermission } from "../src/shell/permissions";
-import { AdminResourceList, defineAdminResource } from "../src/resources/index";
+import {
+  AdminResourceForm,
+  AdminResourceList,
+  defineAdminResource,
+} from "../src/resources/index";
 import { createMemoryPersistenceAdapter } from "../src/baseline";
 import {
   AdminPermissionDeniedError,
@@ -60,6 +64,8 @@ const SESSIONS: Record<string, AdminSession> = { admin: ADMIN, editor: EDITOR };
 
 /** The record whose delete is withheld, so a per-record decision has something to decide. */
 const FROZEN = "prd_frozen";
+/** The record whose read is withheld, which is the one a collection question cannot see. */
+const SEALED = "prd_sealed";
 const OPEN = "prd_open";
 
 const OPERATIONS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
@@ -75,6 +81,7 @@ function can(session: AdminSession, permission: AdminPermission, context?: Admin
   const [resource, operation] = permission.split(".");
   if (!EXPOSED.has(resource)) return false;
   if (permission === "products.delete" && context?.resourceId === FROZEN) return false;
+  if (permission === "products.read" && context?.resourceId === SEALED) return false;
   return OPERATIONS.get(session.role ?? "")?.has(operation ?? "") ?? false;
 }
 
@@ -119,6 +126,7 @@ async function host(options: { role?: Role | null; rule?: AdminPermissionRule } 
   };
   await calls.create("products", { id: OPEN, name: "Open" });
   await calls.create("products", { id: FROZEN, name: "Frozen" });
+  await calls.create("products", { id: SEALED, name: "Sealed" });
   // The seed went through the same spies, so a test asserting the store was not touched starts
   // from a call record holding nothing but the seed.
   for (const call of Object.values(calls)) call.mockClear();
@@ -133,6 +141,7 @@ async function host(options: { role?: Role | null; rule?: AdminPermissionRule } 
     ADMIN,
     EDITOR,
     FROZEN,
+    SEALED,
     OPEN,
     asked,
     seen,
@@ -234,7 +243,23 @@ describe("the resource calls refuse on the server before the effect", () => {
     );
 
     expect(app.calls.create).not.toHaveBeenCalled();
-    expect(await app.actions.query("products")).toHaveLength(2);
+    expect(await app.actions.query("products")).toHaveLength(3);
+  });
+
+  it("refuses a read of the one record the rule withholds, before the store is reached", async () => {
+    const app = await host({ role: "admin" });
+
+    // The call an attacker makes. Nothing rendered here asks for this record: the list asks about
+    // the collection, and the form's own read check now asks about the record it was given, so a
+    // direct read is the only route to a record the rule withholds. That it is the only route is
+    // what this asserts, and the spy is what says the refusal came before the record was fetched.
+    await expect(app.actions.read("products", SEALED)).rejects.toThrow(AdminPermissionDeniedError);
+    expect(app.calls.read).not.toHaveBeenCalled();
+
+    // The same session still reads what the rule allows, so the refusal is the record and not the
+    // session, the resource, or the call.
+    expect(await app.actions.read("products", OPEN)).toMatchObject({ id: OPEN });
+    expect(app.calls.read).toHaveBeenCalledExactlyOnceWith("products", OPEN);
   });
 
   it("refuses the one record the rule withholds, whichever role asks", async () => {
@@ -341,7 +366,7 @@ describe("the resource calls refuse on the server before the effect", () => {
     // A compile-time claim, checked by naming the type rather than by a comment: the actions are
     // the persistence prop, so the reads a list performs are the ones that refused above.
     const asPersistence: AdminPersistenceAdapter = app.actions;
-    expect(await asPersistence.query("products")).toHaveLength(2);
+    expect(await asPersistence.query("products")).toHaveLength(3);
   });
 });
 
@@ -445,6 +470,13 @@ describe("the two halves decide the same thing", () => {
   };
   const PERMISSIONS = Object.keys(CALL) as AdminPermission[];
 
+  /** The read of a named record, which is the call that used to ask about the collection. */
+  const READ_A_RECORD: [AdminPermission, string, (actions: AdminResourceActions) => Promise<unknown>] = [
+    "products.read",
+    SEALED,
+    (actions) => actions.read("products", SEALED),
+  ];
+
   async function refused(call: Promise<unknown>) {
     try {
       await call;
@@ -464,6 +496,14 @@ describe("the two halves decide the same thing", () => {
           onServer ? "allowed" : "denied",
         );
         expect(await refused(CALL[permission](app.actions)), `${permission} in the action`).toBe(!onServer);
+      }
+
+      for (const [permission, resourceId, call] of [READ_A_RECORD]) {
+        const onServer = await served(app.guard, permission, { resourceId });
+        expect(await viewSays(app, permission, resourceId), `${permission} ${resourceId} in the view`).toBe(
+          onServer ? "allowed" : "denied",
+        );
+        expect(await refused(call(app.actions)), `${permission} ${resourceId} in the action`).toBe(!onServer);
       }
     });
   }
@@ -485,20 +525,65 @@ describe("the two halves decide the same thing", () => {
     expect(app.calls.delete).not.toHaveBeenCalled();
   });
 
+  it("withholds the sealed record in the form and never reads it", async () => {
+    const app = await host({ role: "admin" });
+
+    render(mounted(app, <AdminResourceForm definition={products} persistence={app.actions} id={SEALED} />));
+
+    // The detail route is where a visitor names a record. The form decides the read about that
+    // record, so the denial is a permission and the record was never in the response.
+    expect(await screen.findByText(DENIED_COPY)).toBeInTheDocument();
+    expect(app.calls.read).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+  });
+
+  it("asks the identical question in the form and in the action, record and all", async () => {
+    const app = await host({ role: "admin" });
+
+    render(mounted(app, <AdminResourceForm definition={products} persistence={app.actions} id={OPEN} />));
+    expect(await screen.findByLabelText("Name")).toBeInTheDocument();
+    const askedByForm = app.asked.length;
+
+    await app.actions.read("products", OPEN);
+
+    // The same permission and the same record, asked in the same order on both sides. Two halves
+    // asking different questions get different answers from a per-record rule, which is the
+    // disagreement this seam exists to make impossible.
+    expect(app.asked.slice(askedByForm)).toEqual([
+      { permission: "products.read", context: { resourceId: OPEN } },
+    ]);
+    expect(app.asked.slice(0, askedByForm)).toContainEqual({
+      permission: "products.read",
+      context: { resourceId: OPEN },
+    });
+  });
+
+  it("asks the collection question for a list, and leaves the rows to the host's own query", async () => {
+    const app = await host({ role: "admin" });
+
+    // A list names no record, so this is the question the list view asks, and every row the
+    // host's query returns comes back. Which rows a session may see is the host's row scoping,
+    // which already lives in the query; a per-row permission filter here would be a second one
+    // in a place that cannot compose with the first.
+    expect(await app.actions.query("products")).toHaveLength(3);
+    expect(app.asked).toEqual([{ permission: "products.read", context: undefined }]);
+  });
+
   it("asks the same question on both sides, per record and per collection alike", async () => {
     const app = await host({ role: "admin" });
 
     await app.actions.delete("products", OPEN);
     await expect(app.actions.delete("products", FROZEN)).rejects.toThrow(AdminPermissionDeniedError);
+    await expect(app.actions.read("products", SEALED)).rejects.toThrow(AdminPermissionDeniedError);
     await app.actions.query("products");
 
-    // The view decides a read for the collection, so the action must not start asking about a
-    // record for it, and the reverse for the calls the view decides per row. Two halves asking
-    // different questions get different answers from a per-record rule, which is the disagreement
-    // this seam exists to make impossible.
+    // Every call that names a record carries it and every call that does not is the collection.
+    // A call that named a record and left it out would be asked a different question than the view
+    // asks, and a rule that withholds one record would answer for the collection instead.
     expect(app.asked).toEqual([
       { permission: "products.delete", context: { resourceId: OPEN } },
       { permission: "products.delete", context: { resourceId: FROZEN } },
+      { permission: "products.read", context: { resourceId: SEALED } },
       { permission: "products.read", context: undefined },
     ]);
   });

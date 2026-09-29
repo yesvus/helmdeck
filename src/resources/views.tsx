@@ -60,7 +60,9 @@ export function AdminResourceList({
   const base = detailBaseHref ?? adminResourcePath(definition);
   const permissions = definition.permissions ?? {};
   // Checked before anything is read. Gating the rendered rows would still have queried, and
-  // a denied visitor would have had the records in the response.
+  // a denied visitor would have had the records in the response. No record is named, because a
+  // list is a collection: this is the question the server's `query` asks, and the form asks the
+  // per-record one.
   const mayRead = useAdminPermission(permissions.read);
 
   // Resolved in a callback rather than by awaiting inside the effect body, because a setState
@@ -290,8 +292,15 @@ export function AdminResourceForm({
     isNew || id === undefined ? undefined : { resourceId: id },
   );
   const granted = declared && held === "allowed";
-  // Checked before the read, so a denied visitor never has the record in the response.
-  const mayRead = useAdminPermission(permissions.read);
+  // Checked before the read, so a denied visitor never has the record in the response. The id
+  // goes in for the same reason the write check above carries it: the server's read asks about
+  // this record, so asking about the collection here would put two different questions against
+  // one rule, and a rule that withholds a single record would be answered for the collection
+  // instead of for it.
+  const mayRead = useAdminPermission(
+    permissions.read,
+    id === undefined ? undefined : { resourceId: id },
+  );
 
   // A new record starts empty without a state write, so switching between new and existing
   // cannot leave the previous record's values in the form. Loading is the third state the

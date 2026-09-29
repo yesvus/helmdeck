@@ -92,23 +92,30 @@ export function createAdminResourceActions({
     if (typeof name !== "string" || name.length === 0) {
       throw new Error(`No permission name is declared for ${operation} ${resource}`);
     }
-    // A record-scoped decision for the calls the views decide per record, and a collection-scoped
-    // one for the calls the views decide for the whole collection. The id is here because the view
-    // passes that row's id to the same check, so leaving it out would ask a different question on
-    // the two halves.
+    // The record goes in whenever the operation names one, because the view asks the same
+    // question with it. The form's read and write checks carry this record's id, and the list's
+    // row controls carry the row's, so a call that names a record and a call that does not are
+    // two different questions and the rule answers each of them.
     const context = resourceId === undefined ? undefined : { resourceId };
     await guard(name, context);
     await before?.({ resource, operation, resourceId });
   }
 
   return {
+    // No record is named, so this asks the collection question the list view asks. Which rows a
+    // host's query returns is their own scoping, alongside whatever else filters it, and asking
+    // the rule once per returned row would put a second row filter in a place that cannot
+    // compose with the first.
     async query<T>(resource: string, query?: Record<string, unknown>): Promise<T[]> {
       await permit(resource, "read");
       return persistence.query<T>(resource, query);
     },
 
+    // The record is named, so the decision is this record's, and it is made before the store is
+    // reached: a record the rule withholds is not in the response, rather than refused after it
+    // has been fetched.
     async read<T>(resource: string, id: string): Promise<T | null> {
-      await permit(resource, "read");
+      await permit(resource, "read", id);
       return persistence.read<T>(resource, id);
     },
 
