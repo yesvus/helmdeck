@@ -50,9 +50,59 @@ grid, modals that do not centre. The path is relative to the stylesheet that dec
 
 Helmdeck defaults to the light theme and an accessible amber primary (`#b45309`). The host selects color mode by setting `data-admin-theme="light"` or `data-admin-theme="dark"` on the document root or an ancestor. The attribute can be rendered server-side to avoid a mode flash. Helmdeck does not persist theme choices; the host owns persistence and synchronization. Omit the attribute for the default light theme.
 
-Theme CSS exposes `--admin-surface`, `--admin-surface-muted`, `--admin-surface-subtle`, `--admin-overlay`, `--admin-media-backdrop`, `--admin-border`, `--admin-border-strong`, `--admin-text-primary`, `--admin-text-secondary`, `--admin-text-muted`, `--admin-text-disabled`, `--admin-skeleton`, `--admin-brand-100`, `--admin-brand-500`, `--admin-brand-600`, `--admin-brand-text`, and `--admin-on-brand`. Feedback tokens are grouped by role: warning, danger, and success each define surface, text, and border tokens; danger and success also define action, action-hover, and action-foreground tokens. Typography, spacing, radius, and density are represented by `--admin-font-family`, `--admin-spacing`, `--admin-radius`, and `--admin-density`. `--admin-skeleton` is the loading-placeholder fill; it was previously sourced from `--admin-border-strong` via `bg-zinc-300`, so a host that retuned that token to change control borders was also changing its skeletons. Tailwind semantic utilities used by shared components resolve these values inline, so wrapper-level and tenant overrides flow through to the components. Override the variables on a host wrapper or `:root` to customize tenant branding. `useAdminBranding(accent)` provides the primary color and contrasting foreground for a validated hex accent.
+Theme CSS exposes `--admin-surface`, `--admin-surface-muted`, `--admin-surface-subtle`, `--admin-overlay`, `--admin-media-backdrop`, `--admin-border`, `--admin-border-strong`, `--admin-text-primary`, `--admin-text-secondary`, `--admin-text-muted`, `--admin-text-disabled`, `--admin-skeleton`, `--admin-brand-100`, `--admin-brand-500`, `--admin-brand-600`, `--admin-brand-text`, and `--admin-on-brand`. Feedback tokens are grouped by role: warning, danger, and success each define surface, text, and border tokens; danger and success also define action, action-hover, and action-foreground tokens. Typography, spacing, radius, and density are represented by `--admin-font-family`, `--admin-spacing`, `--admin-radius`, and `--admin-density`. `--admin-skeleton` is the loading-placeholder fill; it was previously sourced from `--admin-border-strong` via `bg-zinc-300`, so a host that retuned that token to change control borders was also changing its skeletons. Tailwind semantic utilities used by shared components resolve these values inline, so wrapper-level and tenant overrides flow through to the components. Override the variables on a host wrapper or `:root` to customize tenant branding. `useAdminBranding(accent)` returns the brand custom properties for a hex accent, or nothing at all when the accent is refused as described below.
 
 Keep normal text/background combinations at WCAG AA contrast (4.5:1), and large text and the boundaries of interactive controls at 3:1. Control boundaries resolve to `--admin-border-strong`, which is held to 3:1 against `--admin-surface` in both themes. `--admin-border` draws card edges and section rules, which identify no control, so WCAG 1.4.11 does not apply to it and it is deliberately left lighter. `tests/theme-contrast.test.ts` asserts the 3:1 pair, records the ratio for `--admin-border`, and fails if any interactive element draws its boundary from that token. The default amber action color is `#b45309`, which exceeds 4.5:1 against white. All theme controls should remain native keyboard-operable inputs, selects, and buttons. The fixture at `/theme` demonstrates light, dark, and system mode, OS preference updates, live token editing, reset, and JSON preset import/export.
+
+### Host settings
+
+A host customises the theme through declared settings rather than by hand-editing tokens. `resolveAdminThemeSettings` takes whatever the host has stored, fills in the defaults, and reports each value it would not use.
+
+| Setting | Accepted | Default | What it sets |
+| --- | --- | --- | --- |
+| `density` | `compact`, `comfortable`, `spacious` | `comfortable` | `--admin-density`, at 0.85, 1 or 1.15 |
+| `accent` | 3 or 6 digit hex, or `null` | `null` | `--admin-brand-100`, `--admin-brand-500`, `--admin-brand-600`, `--admin-brand-text`, `--admin-on-brand` |
+
+Wrap the admin in the provider and it writes the custom properties to the document root, and removes them again when it unmounts. Pass `target` to scope them to one subtree instead, and `mode` to pick the `--admin-brand-text` derivation for the colour mode in use.
+
+```tsx
+import { AdminShell, AdminThemeSettingsProvider } from "@yesvus/helmdeck";
+
+export function AdminLayout({ children, nav, settings }: { children: ReactNode; nav: AdminShellNav; settings: unknown }) {
+  return (
+    <AdminThemeSettingsProvider settings={settings}>
+      <AdminShell nav={nav}>{children}</AdminShell>
+    </AdminThemeSettingsProvider>
+  );
+}
+```
+
+`useAdminThemeSettings()` reads what is applied and `setSettings` changes it, which is what a settings page needs. A rejected value leaves the default in place and arrives in `problems`:
+
+```tsx
+const { settings, problems, setSettings } = useAdminThemeSettings();
+
+<select
+  aria-label="Density"
+  value={settings.density}
+  onChange={(event) => setSettings({ density: event.target.value as AdminDensity })}
+>
+  {ADMIN_DENSITIES.map((step) => <option key={step}>{step}</option>)}
+</select>
+{problems.map((problem) => <p key={problem.setting}>{problem.reason}</p>)}
+```
+
+`adminThemeSettingsStyle(settings, mode)` returns the same custom properties as a plain style object, so a host that renders the document element on the server can avoid a flash without booting a client script:
+
+```tsx
+<html style={adminThemeSettingsStyle(resolveAdminThemeSettings(row).settings, mode)}>
+```
+
+Density reaches the rendered page through the Tailwind spacing multiplier, which the theme stylesheet points at `--admin-density`. `compact` shortens every padding, gap and fixed control height in the package by 15%, and `spacious` lengthens them by the same. Widths, type sizes and radii are not in that scale. It also covers the host's own components, because it is the spacing variable itself, and a host that sets its own `--spacing` replaces the effect.
+
+An accent is refused when no label colour clears 4.5:1 on it or on the hover shade derived from it, which is what a mid-tone such as `#808080` runs into: it reads at 4.43:1 with ink and 3.95:1 with white, so no button label would be legible. A refused accent applies nothing, the palette in the theme stylesheet stands, and `problems` carries the ratio that decided it. The hover fill moves away from the label colour rather than always downward, so a light accent keeps a visible hover that stays legible, and `--admin-brand-text` is derived per mode for the same reason: the 80% accent mix the default palette uses reads at 0.5:1 on a white surface once the accent is light.
+
+There is no surface setting. `--admin-surface` is the background every text token is measured against, so a host that changed it would move the whole palette outside what `tests/theme-contrast.test.ts` measures. Override the variable and the text tokens with it, and check the ratios for the values you shipped.
 
 ## Tone vocabulary
 
