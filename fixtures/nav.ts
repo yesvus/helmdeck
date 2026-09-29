@@ -1,4 +1,4 @@
-import type { AdminNavGroup, AdminSession } from "@yesvus/helmdeck";
+import type { AdminNavGroup } from "@yesvus/helmdeck";
 
 export const sampleNav: AdminNavGroup[] = [
   {
@@ -7,6 +7,10 @@ export const sampleNav: AdminNavGroup[] = [
     items: [
       { href: "/shell", label: "Dashboard", shortLabel: "Home", icon: "overview", mobilePrimary: true },
       { href: "/shell/analytics", label: "Analytics", shortLabel: "Stats", icon: "chart" },
+        // The engine dashboard, inside the shell. It was built at /dashboard and reachable only by
+        // typing the URL, which is the same failure #130 is about: a feature that exists and that a
+        // visitor never sees.
+        { href: "/dashboard", label: "Engine dashboard", shortLabel: "Engine", icon: "chart" },
     ],
   },
   {
@@ -44,8 +48,3 @@ export const sampleSearchEntries = [
   },
 ];
 
-export const sampleSession: AdminSession = {
-  email: "alex@northstar.example",
-  name: "Alex Morgan",
-  role: "editor",
-};
