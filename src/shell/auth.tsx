@@ -15,6 +15,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
 import type { AdminAuthAdapter, AdminLoginCredentials, AdminLoginResult, AdminSession } from "../adapters/index.js";
 import { useAdminMessages } from "../i18n.js";
 import { cn } from "../cn.js";
+import { adminLoginHref, adminReturnTo, DEFAULT_ADMIN_LOGIN_HREF } from "./session-guard.js";
+
+/**
+ * The rules that decide where a visitor may be sent, and where they land afterwards. They live in
+ * a module a server guard can import, because a value a browser validated is a value the browser
+ * chose. Re-exported here so an existing import of this module keeps working.
+ */
+export { adminReturnTo } from "./session-guard.js";
 
 /**
  * Where the session currently stands. `checking` is the first value, so a guard denies
@@ -161,77 +169,9 @@ export function useAdminSession(): AdminAuthContextValue {
   return value;
 }
 
-/**
- * A destination is usable only if every layer of encoding in it is still a plain same-site
- * path. Root-relative, not protocol-relative, and free of backslashes, which several
- * browsers normalise into a host separator.
- *
- * Control characters are refused as well. A URL parser strips them before resolving, so
- * "/%0D%0A/evil.example" passes every other check here and still resolves to another origin.
- */
-// eslint-disable-next-line no-control-regex -- the point is to reject these, not to match them
-const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F]/;
-
-function isSameSitePath(value: string): boolean {
-  if (CONTROL_CHARACTERS.test(value)) return false;
-  if (!value.startsWith("/")) return false;
-  if (value.startsWith("//") || value.startsWith("/\\")) return false;
-  return !value.includes("\\");
-}
-
-/**
- * The destination a guard recorded, read back off a login page. Anything that is not a plain
- * same-site path is rejected: this value comes from a query string, so without the check a
- * crafted link would turn the sign-in page into an open redirect that hands a visitor to
- * another origin immediately after authenticating.
- *
- * Encoded layers are peeled as well, because a host that decodes before redirecting would
- * otherwise turn "/%2F%2Fevil.example" back into "//evil.example".
- */
-export function adminReturnTo(search: URLSearchParams | null | undefined): string | null {
-  const raw = search?.get("next");
-  if (!raw || !isSameSitePath(raw)) return null;
-
-  let current = raw;
-  for (let round = 0; round < 3; round += 1) {
-    let decoded: string;
-    try {
-      decoded = decodeURIComponent(current);
-    } catch {
-      // A malformed escape is not a path anyone meant to visit.
-      return null;
-    }
-    if (decoded === current) return current;
-    if (!isSameSitePath(decoded)) return null;
-    current = decoded;
-  }
-  // Still changing after three rounds, so the value is obfuscated past the point of being
-  // read safely. Refuse rather than guess which layer was meant.
-  return null;
-}
-
 /** The same destination for a host that wants to read it in a component. */
 export function useAdminReturnTo(): string | null {
   return adminReturnTo(useSearchParams());
-}
-
-/**
- * Attaches the preserved destination to a login URL, keeping any query the host already put
- * there. A second "?" would be malformed, and a host carrying a tenant or return flag in its
- * login URL is an ordinary case rather than an exotic one.
- */
-function withNext(loginHref: string, next: string): string {
-  // Split the fragment off first. Left in place, a login URL ending in "#section" would
-  // swallow the query into the fragment and the destination would be lost.
-  const hashAt = loginHref.indexOf("#");
-  const fragment = hashAt === -1 ? "" : loginHref.slice(hashAt);
-  const withoutFragment = hashAt === -1 ? loginHref : loginHref.slice(0, hashAt);
-
-  const queryAt = withoutFragment.indexOf("?");
-  const base = queryAt === -1 ? withoutFragment : withoutFragment.slice(0, queryAt);
-  const params = new URLSearchParams(queryAt === -1 ? "" : withoutFragment.slice(queryAt + 1));
-  params.set("next", next);
-  return `${base}?${params.toString()}${fragment}`;
 }
 
 function destination(pathname: string, search: string | null): string {
@@ -252,7 +192,7 @@ function destination(pathname: string, search: string | null): string {
  */
 export function AdminRequireSession({
   children,
-  loginHref = "/admin/login",
+  loginHref = DEFAULT_ADMIN_LOGIN_HREF,
   returnTo,
   onRedirect,
   className,
@@ -272,9 +212,7 @@ export function AdminRequireSession({
   const labels = useAdminMessages().shell;
 
   const search = searchParams?.toString() ?? null;
-  const requested = returnTo ?? destination(pathname ?? "", search);
-  const intended = isSameSitePath(requested) ? requested : "/";
-  const loginUrl = withNext(loginHref, intended);
+  const loginUrl = adminLoginHref(loginHref, returnTo ?? destination(pathname ?? "", search));
 
   useEffect(() => {
     if (status !== "anonymous") return;
