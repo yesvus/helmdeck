@@ -899,7 +899,10 @@ describe("AdminResourceForm", () => {
     );
 
     (await screen.findByLabelText("Title")).setAttribute("value", "Hello");
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    // Awaited rather than queried synchronously. Save is absent while a save is in flight, so a
+    // synchronous getByRole raced that state and failed intermittently, and a click landing during
+    // it would silently do nothing while the assertions below still passed.
+    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
 
     await waitFor(async () => expect(await db.query("posts")).toHaveLength(1));
     expect(screen.queryByText("That change could not be saved.")).not.toBeInTheDocument();

@@ -15,6 +15,7 @@ import {
   type AdminPaginationLabels,
   type AdminSortableMessages,
 } from "../primitives/messages.js";
+import { defaultCollectionMessages, type AdminCollectionMessages } from "../collections/messages.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -46,6 +47,7 @@ export type AdminMessages = {
   media: AdminMediaLabels;
   form: AdminManagedFormFeedbackLabels & { assetTitle: string; pendingLabel: string };
   sortable: AdminSortableMessages;
+  collection: AdminCollectionMessages;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -64,6 +66,7 @@ export const englishAdminMessages: AdminMessages = {
     pendingLabel: "Saving...",
   },
   sortable: defaultSortableMessages,
+  collection: defaultCollectionMessages,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -207,6 +210,14 @@ export const turkishAdminMessages: AdminMessages = {
       dragEnd: (id) => `${id} öğesi yeni konuma taşındı.`,
       dragCancel: (id) => `${id} taşıma işlemi iptal edildi.`,
     },
+  },
+  collection: {
+    add: "Ekle",
+    remove: "Kaldır",
+    duplicate: "Çoğalt",
+    edit: "Düzenle",
+    emptyTitle: "Henüz bir şey yok",
+    emptyBody: "Başlamak için ilk kaydı ekleyin.",
   },
   destructive: {
     title: "İçeriği silmek istiyor musunuz?",
