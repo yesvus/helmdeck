@@ -12,8 +12,18 @@ import type { AdminPermission, AdminSession } from "@yesvus/helmdeck";
  * `users` and `sessions` are absent on purpose. They are reachable through the same persistence
  * interface as products, so a table browser that exposed them would put password hashes and session
  * rows behind a form.
+ *
+ * `landing_sections` is the landing page the collection editor arranges. It is here rather than
+ * special-cased in that editor, because a second rule answering "may this session do this" is how the
+ * views and the actions come to disagree about the same question, and the disagreement shows up as a
+ * button that appears and then fails.
+ *
+ * `dashboard_placements` is absent on purpose, and that is the interesting one. It is a table of
+ * ordered things a person arranges, which is also what a landing page is, so reusing it looked
+ * reasonable. It is not: `0001_initial.sql` declares it as the engine dashboard's arrangement. One
+ * surface writing the other's rows is a coupling that only shows up once something reads them.
  */
-const EXPOSED = new Set(["products", "orders"]);
+const EXPOSED = new Set(["products", "orders", "landing_sections"]);
 
 export function exposedResource(resource: string): boolean {
   return EXPOSED.has(resource);
