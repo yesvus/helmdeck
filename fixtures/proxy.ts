@@ -29,8 +29,8 @@ export function proxy(request: NextRequest): NextResponse | undefined {
   // refuses it with the answer it wants to give. Redirecting it from here would forward the POST
   // body to a sign-in page that has no POST handler, which turns a refusal into a 405.
   if (request.method !== "GET" && request.method !== "HEAD") return undefined;
-  // An empty value is not a session either, and the guard below would refuse it, so treating it as
-  // absent costs nothing and keeps the destination for the browser that sent one by accident.
+  // An empty value is not a session either, and the layout's guard would refuse it, so treating it
+  // as absent costs nothing and keeps the destination for a browser that sent one by accident.
   if (request.cookies.get(SESSION_COOKIE)?.value) return undefined;
 
   // `adminLoginHref` validates the destination before it becomes a link a visitor follows, so a
