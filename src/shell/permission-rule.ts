@@ -115,11 +115,11 @@ export async function evaluateAdminPermission(input: {
  * verdict, which is what keeps a rendered button and a served action from disagreeing.
  *
  * ```ts
+ * // lib/permissions.ts
+ * export const check = createAdminPermissionCheck({ rule: can, session: currentSession });
+ *
  * // app/lib/permission-actions.ts, "use server"
- * export const checkPermission = createAdminPermissionCheck({
- *   rule: demoCan,
- *   session: currentDemoSession,
- * });
+ * export const checkPermission = async (permission: AdminPermission) => check(permission);
  * ```
  */
 export function createAdminPermissionCheck({
@@ -200,8 +200,8 @@ export type AdminPermissionGuard = (
  *
  * ```ts
  * export const requireBilling = createAdminPermissionGuard({
- *   rule: demoCan,
- *   session: currentDemoSession,
+ *   rule: can,
+ *   session: currentSession,
  *   onUnauthenticated: () => redirect("/login?next=/billing"),
  *   onDenied: ({ permission }) => forbidden(`This session may not ${permission}`),
  * });
