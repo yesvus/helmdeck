@@ -31,6 +31,30 @@ describe("Helmdeck localization", () => {
     expect(turkishAdminMessages.media.total).toBe("toplam");
   });
 
+  it("gives every key in both dictionaries, so a new string cannot ship in one language only", () => {
+    // Turkish is the last-resort fallback, so a key present only in English renders in English for
+    // every Turkish user without a single type error. Walking both sides of the object is the only
+    // way to notice, and it has to be every key rather than the handful a test happens to read.
+    const leafPaths = (messages: AdminMessages): string[] => {
+      const found: string[] = [];
+      const walk = (value: unknown, path: string) => {
+        if (typeof value === "function" || value === null || typeof value !== "object") {
+          found.push(path);
+          return;
+        }
+        for (const [key, child] of Object.entries(value)) walk(child, `${path}.${key}`);
+      };
+      for (const [key, value] of Object.entries(messages)) walk(value, key);
+      return [...new Set(found)].sort();
+    };
+
+    const english = leafPaths(englishAdminMessages);
+    const turkish = leafPaths(turkishAdminMessages);
+
+    expect(english.length).toBeGreaterThan(0);
+    expect(turkish).toEqual(english);
+  });
+
   it("defaults to Turkish and resolves regional fallbacks", () => {
     expect(defaultAdminLocale).toBe("tr");
     expect(getAdminMessages("fr")).toBe(turkishAdminMessages);
