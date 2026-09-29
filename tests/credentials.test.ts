@@ -148,6 +148,27 @@ describe("the password primitives", () => {
     // is the kind of input that throws rather than returning a wrong answer.
     expect(await verifyPassword(PASSWORD, "scrypt$c2FsdA==$!")).toBe(false);
   });
+
+  it("compares the derived key with a constant-time comparison", () => {
+    // The one property in this file a black-box test cannot hold. A `===` over the two keys
+    // returns exactly the same answer as `timingSafeEqual` for every input; what differs is how
+    // long the answer takes as the first differing byte moves right, and a test that timed
+    // sixty-four bytes would be measuring the machine rather than the code. So this reads the
+    // comparison rather than calling it, and the mutation it is there to catch is the one
+    // above it: swapping `timingSafeEqual` for a string compare, which passes every behavioural
+    // test in this file.
+    const source = readFileSync(
+      join(sourceRoot, "baseline", "passwords.ts"),
+      "utf8",
+    ).replace(/^\s*\*.*$/gm, "");
+
+    expect(source).toMatch(/timingSafeEqual\s*\(\s*actual\s*,\s*expected\s*\)/);
+    // The early-return on differing lengths is not the same as a byte-by-byte comparison, but
+    // it is also not this: `timingSafeEqual` is what refuses the mismatch, and a `===` over the
+    // two base64 strings is the thing that must not be here.
+    expect(source).not.toMatch(/toString\("base64"\)\s*===/);
+    expect(source).not.toMatch(/actual\s*===\s*expected/);
+  });
 });
 
 describe("property 1: an unknown address is answered exactly as a wrong password", () => {

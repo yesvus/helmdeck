@@ -144,6 +144,27 @@ export async function resolveSessionCookie(
 }
 
 /**
+ * The attributes a session cookie is written and cleared with.
+ *
+ * `httpOnly` is not an option because a session cookie a script can read is a session cookie a
+ * stolen page can send elsewhere, and no host setting makes that a trade worth offering.
+ */
+export function sessionCookieOptions(options: {
+  maxAge?: number;
+  path?: string;
+  sameSite?: "lax" | "strict" | "none";
+  secure?: boolean;
+}) {
+  return {
+    maxAge: options.maxAge ?? DEFAULT_SESSION_MAX_AGE,
+    path: options.path ?? "/",
+    sameSite: options.sameSite ?? "lax",
+    secure: options.secure ?? true,
+    httpOnly: true,
+  } as const;
+}
+
+/**
  * A credential auth adapter over a signed cookie.
  *
  * The cookie carries a session id and an HMAC of it, so a client cannot invent a session or
@@ -190,38 +211,13 @@ export function createSessionAuthAdapter({
   cookie?: AdminSessionCookieIO;
   invalidMessage?: string;
 }): AdminAuthAdapter {
-  if (!secret) {
-    throw new Error("createSessionAuthAdapter needs a secret to sign the session cookie with");
-  }
+  const { seal, unseal } = createSessionSigner(secret);
 
   async function store(): Promise<AdminSessionCookieIO> {
-    if (cookie) return cookie;
-    if (typeof window !== "undefined") {
-      throw new Error(
-        "createSessionAuthAdapter reads an HTTP-only cookie and is server-side. Call it from a " +
-          "server action or route handler and hand AdminAuthProvider a client-side adapter that " +
-          "calls that, or pass the cookie option with your own store.",
-      );
-    }
-    return nextCookies(cookieName);
+    return resolveSessionCookie(cookieName, cookie);
   }
 
-  async function seal(sessionId: string): Promise<string> {
-    return `${sessionId}.${await hmac(secret, sessionId)}`;
-  }
-
-  async function unseal(value: string | undefined): Promise<string | null> {
-    if (!value) return null;
-    const separator = value.lastIndexOf(".");
-    if (separator <= 0) return null;
-    const sessionId = value.slice(0, separator);
-    const signature = value.slice(separator + 1);
-    // A forged id never reaches getUser, so the cookie cannot be used to probe which session
-    // ids exist, and the comparison does not leak where it first differs.
-    return equal(await hmac(secret, sessionId), signature) ? sessionId : null;
-  }
-
-  const options = { maxAge, path, sameSite, secure, httpOnly: true } as const;
+  const options = sessionCookieOptions({ maxAge, path, sameSite, secure });
 
   return {
     async getSession(): Promise<AdminSession | null> {
