@@ -50,6 +50,12 @@ describe("verifyPassword", () => {
     // kind of input that throws rather than returning a wrong answer.
     expect(await verifyPassword(PASSWORD, "scrypt$c2FsdA==$!")).toBe(false);
   });
+
+  it("rejects a stored hash whose salt decodes to nothing", async () => {
+    // A zero-length salt happens not to throw on the Node version tested, so this asserts the value
+    // is refused rather than relying on the runtime to reject it.
+    expect(await verifyPassword(PASSWORD, "scrypt$!$c2FsdA==")).toBe(false);
+  });
 });
 
 describe("authenticate", () => {

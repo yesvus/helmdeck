@@ -42,12 +42,15 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const [scheme, saltPart, keyPart] = stored.split("$");
   if (scheme !== "scrypt" || !saltPart || !keyPart) return false;
 
+  const salt = Buffer.from(saltPart, "base64");
   const expected = Buffer.from(keyPart, "base64");
-  // A base64 string that decodes to nothing yields a zero-length key, and scrypt rejects a length of
-  // zero by throwing, which would take the login page down instead of failing the login.
-  if (expected.length === 0) return false;
+  // Both are checked because both can decode to nothing from input that is not base64 at all. A
+  // zero-length key makes scrypt throw, which would take the login page down rather than failing the
+  // login. A zero-length salt happens not to throw on the Node version tested, but a degenerate salt
+  // is rejected on its own terms rather than because a runtime happens to tolerate it.
+  if (expected.length === 0 || salt.length === 0) return false;
 
-  const actual = await scrypt(password, Buffer.from(saltPart, "base64"), expected.length);
+  const actual = await scrypt(password, salt, expected.length);
   // Lengths differ only if the stored hash is malformed, and timingSafeEqual throws on a mismatch.
   if (actual.length !== expected.length) return false;
   return timingSafeEqual(actual, expected);
