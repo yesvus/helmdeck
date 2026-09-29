@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { configure } from "@testing-library/react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
@@ -16,6 +17,10 @@ import {
 import { createMemoryPersistenceAdapter } from "../src/baseline";
 import type { AdminResourceRecord } from "../src/resources/registry";
 import type { AdminPermissionsAdapter, AdminPersistenceAdapter } from "../src/adapters/index";
+
+// A term is settled before it is asked for, so a wait here has to outlast the settling as well as
+// whatever else the machine is doing.
+configure({ asyncUtilTimeout: 5000 });
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/posts",
