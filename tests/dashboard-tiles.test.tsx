@@ -29,15 +29,27 @@ function never(): Promise<never> {
 function Harness({
   loaders,
   items = placements,
+  className,
 }: {
   loaders: Record<string, AdminWidgetLoader<unknown>>;
   items?: AdminDashboardPlacement[];
+  className?: string;
 }) {
   return (
     <AdminI18nProvider locale="en">
-      <AdminDashboardTiles registry={registry} placements={items} loaders={loaders} />
+      <AdminDashboardTiles
+        registry={registry}
+        placements={items}
+        loaders={loaders}
+        className={className}
+      />
     </AdminI18nProvider>
   );
+}
+
+/** Long enough for any effect a rerender wrongly triggered to run to completion. */
+function settle() {
+  return new Promise((resolve) => setTimeout(resolve, 60));
 }
 
 describe("AdminDashboardTiles", () => {
@@ -109,37 +121,64 @@ describe("AdminDashboardTiles", () => {
     await waitFor(() => expect(screen.getByText("4 signups")).toBeInTheDocument());
   });
 
-  it("does not reload every tile just because the grid re-rendered", async () => {
-    // A loader identity that changes on each render makes the effect re-run, so every tile on screen
-    // refetches. That is a request storm against the host's database, and a single waitFor above a
-    // stable count cannot see it because the storm settles into the same number.
-    const load = vi.fn().mockResolvedValue({ total: 9 });
-    const { rerender } = render(<Harness loaders={{ p0: load, p1: never }} />);
-    await waitFor(() => expect(load).toHaveBeenCalled());
-    // Measured rather than assumed, so the check is about rerenders and not about how many calls a
-    // mount happens to make.
-    const afterMount = load.mock.calls.length;
+  it("loads a tile once for a settled mount, however often the grid rerenders", async () => {
+    // The loaders are written inline in the caller's render, which is what a loaders prop looks like
+    // in real code: a fresh closure every time. `useAdminWidgetData` reloads when the load function's
+    // identity changes, so a tile that memoized on that closure answers every rerender of the host's
+    // page with a refetch, and a dashboard turns into a request storm the moment anything above it
+    // holds state. The count is asserted exactly, because a bound cannot tell one extra load per
+    // rerender from a settled mount.
+    const calls = { p0: 0, p1: 0 };
+    const loaders = () => ({
+      p0: async () => {
+        calls.p0 += 1;
+        return { total: 9 };
+      },
+      p1: async () => {
+        calls.p1 += 1;
+        return { total: 2 };
+      },
+    });
+    // The arrangement is rebuilt as well, and for the same reason: a host that reads it from a store
+    // gets a fresh array of fresh objects on each render, and a tile memoizing on any of them would
+    // reload exactly as it does on a new closure. The tiles are keyed by placement id, so this
+    // rerenders them rather than replacing them.
+    const arrangement = () => placements.map((placement) => ({ ...placement }));
 
-    for (let i = 0; i < 3; i += 1) {
+    const { rerender } = render(<Harness loaders={loaders()} items={arrangement()} />);
+    await waitFor(() => expect(screen.getByText("9 signups")).toBeInTheDocument());
+    expect(calls).toEqual({ p0: 1, p1: 1 });
+
+    for (let round = 0; round < 3; round += 1) {
       rerender(
-        <AdminI18nProvider locale="en">
-          <AdminDashboardTiles
-            registry={registry}
-            placements={placements}
-            loaders={{ p0: load, p1: never }}
-            className={`mt-${i + 2}`}
-          />
-        </AdminI18nProvider>,
+        <Harness loaders={loaders()} items={arrangement()} className={`mt-${round + 2}`} />,
       );
     }
+    await settle();
 
-    // Let any effect a rerender wrongly triggered run to completion, then compare.
-    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(calls).toEqual({ p0: 1, p1: 1 });
+    // Still showing what it loaded, so this is a grid that stopped asking rather than one that gave up.
+    expect(screen.getByText("9 signups")).toBeInTheDocument();
+  });
 
-    // Bounded rather than exactly equal. A loader identity that changed on every render would make
-    // each of these rerenders refetch, so the count would climb once per rerender; three rerenders
-    // against a settled mount cannot produce more than a small constant. Asserting the exact number
-    // would be asserting a mount behaviour this test has not isolated.
-    expect(load.mock.calls.length).toBeLessThan(afterMount + 2);
+  it("runs the loader the caller last handed when a failed tile is retried", async () => {
+    // A tile's load function is built once, so a caller that swaps a loader mid-life is not
+    // refetched behind its back. The retry is the path that picks the newer loader up, and it has
+    // to pick up the new one rather than the one the tile mounted with.
+    const user = userEvent.setup();
+    const failing = vi.fn().mockRejectedValue(new Error("upstream down"));
+    const recovered = vi.fn().mockResolvedValue({ total: 4 });
+
+    const { rerender } = render(<Harness loaders={{ p0: never, p1: failing }} />);
+    await waitFor(() => expect(screen.getByText("upstream down")).toBeInTheDocument());
+
+    rerender(<Harness loaders={{ p0: never, p1: recovered }} />);
+    await settle();
+    expect(recovered).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() => expect(screen.getByText("4 signups")).toBeInTheDocument());
+    expect(recovered).toHaveBeenCalledTimes(1);
   });
 });

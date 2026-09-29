@@ -11,7 +11,7 @@
  * counter and nothing for the host to wire.
  */
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { cn } from "../cn.js";
 import { useAdminWidgetData, type AdminWidgetLoader } from "../widgets/data.js";
 import type { AdminWidgetDefinition } from "../widgets/types.js";
@@ -38,14 +38,28 @@ function AdminDashboardLiveTile({
   problems: string[];
   copy: AdminDashboardCopy;
 }) {
+  // The loader the parent currently holds, in a ref rather than in the memo's dependencies.
+  // `useAdminWidgetData` reloads whenever the load function's identity changes, and a memo keyed on
+  // the caller's closure cannot tell a genuinely new query from the caller's page rerendering: it
+  // answers both with a refetch, so one rerender reloads every tile on screen. A host that writes
+  // `loaders={{ signups: () => countSignups() }}` does exactly that, because that is what a
+  // JavaScript prop looks like. The ref lets a tile run whatever loader it was last handed, so a map
+  // rebuilt on each render settles.
+  const latestLoader = useRef(loader);
+  useEffect(() => {
+    latestLoader.current = loader;
+  }, [loader]);
+
   // The callback lives in this component rather than in the parent's map, so the hook call and the
-  // memo that feeds it are both unconditional for the lifetime of one tile.
+  // memo that feeds it are both unconditional for the lifetime of one tile. It is built once: a
+  // tile that starts naming a different widget is handed a different definition, and that is the
+  // change the hook reloads on.
   const { state, refetch } = useAdminWidgetData({
     definition,
-    load: useCallback(
-      (signal: AbortSignal) => (loader ? loader(signal) : Promise.reject(new Error("no loader"))),
-      [loader],
-    ),
+    load: useCallback((signal: AbortSignal) => {
+      const current = latestLoader.current;
+      return current ? current(signal) : Promise.reject(new Error("no loader"));
+    }, []),
   });
 
   return (
@@ -69,7 +83,10 @@ export function AdminDashboardTiles<TRegistry extends AdminDashboardRegistry>({
 }: {
   registry: TRegistry;
   placements: readonly AdminDashboardPlacement[];
-  /** Each placement's loader. A widget with no loader shows its loading state rather than a blank. */
+  /**
+   * Each placement's loader. A widget with no loader is told so rather than left waiting for an
+   * answer that cannot arrive.
+   */
   loaders: Readonly<Record<string, AdminWidgetLoader<unknown>>>;
   className?: string;
   messages?: Partial<AdminDashboardCopy>;
