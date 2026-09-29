@@ -70,7 +70,7 @@ export function ScheduleRow({
       </p>
       {due ? (
         <p className="mt-1 text-xs font-medium text-amber-700">
-          Due now. It goes live on the next run, not before.
+          The moment has arrived. It goes live on the next run, not before.
         </p>
       ) : null}
       {schedule.last_refusal ? (
@@ -81,7 +81,7 @@ export function ScheduleRow({
 
       {canWrite && waiting ? (
         <div className="mt-3 flex flex-wrap items-end gap-2">
-          <AdminField label="Go live at (UTC)" id={`move-${schedule.id}`}>
+          <AdminField label="Move to (UTC)" id={`move-${schedule.id}`}>
             <AdminInput
               id={`move-${schedule.id}`}
               type="datetime-local"

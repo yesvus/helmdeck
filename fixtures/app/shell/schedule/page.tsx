@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { notFound } from "next/navigation";
 import { AdminBanner, AdminEmptyState, AdminInput, AdminSurfaceCard } from "@yesvus/helmdeck";
 import { requireDemoSession } from "../../../lib/demo-guard";
 import { demoCan } from "../../../lib/demo-rules";
@@ -27,8 +28,16 @@ export default async function SchedulePage({
 }) {
   const session = await requireDemoSession({ returnTo: "/shell/schedule" });
   const [schedules, drafts, query] = await Promise.all([
-    listPostSchedules(session),
-    listSchedulablePosts(session),
+    // A post that is not there and a post this session may not read are the same answer to a request
+    // for this page, and a 500 for a role the rule has not heard of would be a worse answer than an
+    // empty one. The refusal is enforced on the actions, which is where a caller can be told what it
+    // was refused; a page has no caller to tell.
+    listPostSchedules(session).catch(() => {
+      notFound();
+    }),
+    listSchedulablePosts(session).catch(() => {
+      notFound();
+    }),
     searchParams,
   ]);
 

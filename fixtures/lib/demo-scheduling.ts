@@ -56,7 +56,8 @@ export type PublishRun = {
   refused: Array<{ schedule_id: string; post_id: string; reason: string }>;
 };
 
-type Clock = () => Date;
+/** What the demo reads the moment from, which is a host's own clock as much as the server's. */
+export type Clock = () => Date;
 
 let clock: Clock = () => new Date();
 
