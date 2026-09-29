@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use server";
 
-import type { AdminPermission } from "../../src/adapters/index";
+import type { AdminPermission } from "@yesvus/helmdeck";
 import { demoCan, exposedResource } from "./demo-rules";
 import { demoPersistence } from "./demo-persistence";
 import { ensureDemoSeeded } from "./ensure-seeded";
@@ -24,9 +24,11 @@ import { requireDemoSession } from "./demo-guard";
  * absent, so password hashes and session rows are not reachable through a table browser that
  * happens to exist for products.
  *
- * What a session is allowed to do is decided by `demoCan`, which is also what decides whether the
- * buttons render. Enforcing it here rather than only there is the point: hiding a button is not
- * authorization, and a client that skips the UI can still post the action.
+ * The session is resolved from the cookie's signed session id and from the role on the user row that
+ * id points at, so nothing here can be talked into a different role. What a session is allowed to do
+ * is decided by `demoCan`, which is also what decides whether the buttons render. Enforcing it here
+ * rather than only there is the point: hiding a button is not authorization, and a client that skips
+ * the UI can still post the action.
  */
 function resourceOrRefuse(resource: string): string {
   if (!exposedResource(resource)) {
