@@ -15,10 +15,18 @@
  * The arithmetic lives in `shape.ts` and not here, so it can be checked against rows written down by
  * hand rather than only against a database that already agrees. Cents stay integers through all of
  * it and are divided by 100 in the chart's formatter alone.
+ *
+ * Every export of this file is an async function, because that is the whole of what a `"use server"`
+ * module is allowed to export. The types these actions answer with live in `types.ts`, which carries
+ * no directive and is erased before the bundle is built, so a client module can name the shape it
+ * expects without pulling a server module across the boundary for it. The range default is private
+ * for the same reason. Both are build failures rather than type errors, which is why a test and
+ * `tsc` both pass while the production build does not.
  */
 
 import { adminChartDayRange, adminChartFillDays } from "@yesvus/helmdeck";
 import { queryResourceAction } from "../../../lib/resource-actions";
+import type { AnalyticsTotals } from "./types";
 import {
   catalogValueCents,
   earnedOrders,
@@ -31,8 +39,15 @@ import {
   type RankedProduct,
 } from "./shape";
 
-/** How many days the revenue chart covers, which is also the window the header states. */
-export const ANALYTICS_RANGE_DAYS = 30;
+/**
+ * How many days this action covers when the caller does not say.
+ *
+ * Not exported. A `"use server"` module may only export async functions, so a constant exported from
+ * here is a build failure that neither a test nor `tsc` reports. The page states its own range
+ * through the control above it and passes the width in on every call, so nothing outside this file
+ * needs the default and there is nothing for it to live in but here.
+ */
+const DEFAULT_RANGE_DAYS = 30;
 
 /** Products on the ranked chart. The demo has five, so the cap is about what a longer catalog needs. */
 const RANKED_PRODUCTS = 6;
@@ -57,7 +72,7 @@ async function readOrders(): Promise<AnalyticsOrderRow[]> {
  */
 export async function loadDailyRevenueAction(
   end: Date = new Date(),
-  days: number = ANALYTICS_RANGE_DAYS,
+  days: number = DEFAULT_RANGE_DAYS,
 ): Promise<{ cents: number; days: Array<{ key: string; label: string; value: number }> }> {
   const dayKeys = adminChartDayRange(days, end);
   const firstDay = dayKeys[0] ?? "";
@@ -73,14 +88,6 @@ export async function loadDailyRevenueAction(
 export async function loadStockByProductAction(): Promise<RankedProduct[]> {
   return rankByStock((await queryResourceAction("products")) as AnalyticsProductRow[], RANKED_PRODUCTS);
 }
-
-export type AnalyticsTotals = {
-  revenueCents: number;
-  paidOrders: number;
-  averageOrderCents: number;
-  catalogValueCents: number;
-  unitsInStock: number;
-};
 
 /**
  * The stat cards' numbers, from the same two tables the charts read.
