@@ -60,7 +60,7 @@ function isSameSitePath(value: string): boolean {
  */
 export function readReturnTo(search: URLSearchParams | null | undefined): string | null {
   const raw = search?.get("next");
-  if (!raw) return null;
+  if (!raw || !isSameSitePath(raw)) return null;
 
   let current = raw;
   for (let round = 0; round < 3; round += 1) {
