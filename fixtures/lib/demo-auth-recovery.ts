@@ -259,6 +259,9 @@ function webhook(url: string): RecoveryTransport {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, token, expiresAt: expiresAt.toISOString() }),
+        // A redirect would replay this body to wherever it points, which is the token arriving at a
+        // host that was never told about it.
+        redirect: "error",
       });
       if (!response.ok) {
         throw new Error(`The recovery endpoint answered ${response.status}.`);
