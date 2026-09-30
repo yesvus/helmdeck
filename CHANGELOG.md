@@ -131,6 +131,33 @@ every permission decision the package made was made in a browser.
 - **Theme settings**: `resolveAdminThemeSettings`, `adminThemeSettingsStyle`,
   `AdminThemeSettingsProvider`, `useAdminThemeSettings`, `adminBrandVariables`, `adminDensityScale`
   and `describeAccentRejection`.
+- **The operator surface over a credential store**: `createAccountAdmin`, for creating an account,
+  changing a role, turning one off and back on, listing accounts and live sessions, and ending a
+  session by its id. Every operation asks the host's own policy before the store is reached.
+  `AccountAlreadyExistsError` makes a duplicate refusal recognisable rather than a string to match.
+  `createUserIfAbsent` is the one store write that is safe under concurrency: on the SQLite adapter it
+  creates a partial unique index scoped to the resource, which is a constraint appearing in a table the
+  host did not write and therefore outlives the call that made it. `createUser` is documented as **not**
+  concurrency-safe and says why.
+- **A bound on failed sign-ins**: `createLoginThrottle`, `forwardedClientKey`, `loginHeader` and the
+  three defaults, passed as `throttle` on the auth adapter. The refusal arrives before the password is
+  compared and names itself, so a throttled visitor is not left guessing why. **Its scope is one
+  process**, stated rather than implied: a scaled host implements `AdminLoginThrottle` over what its
+  processes share.
+- **A starter template** (`template/`): a Next.js admin with one rule in `lib/rules.ts`, nothing
+  stubbed, and `scripts/create-user.mjs` as the only way to make a first account, so a copied template
+  carries no fixture, no demo password and no open registration path.
+- **Export and import over a resource**, with no dependency: `adminResourceExport` streams rows a host
+  has already authorised through `queryPage`, bounded by `ADMIN_RESOURCE_EXPORT_MAX_ROWS` because a
+  file holding the first thousand rows is a file claiming to be the list.
+- **`HELMDECK_VERSION`**, generated from the `VERSION` file at build time rather than read at runtime,
+  so what a host sees is the version they installed. `pnpm version:check` fails when the two disagree.
+- **Theme settings reach the shell.** The settings page offers the declared surface, density and
+  accent, and nothing else about the theme: colour mode, the brand variables, the radius and the type
+  scale are derived from those two keys, so a control for one is a second place to set a value that
+  gets overwritten on the next render. An accent the contract refuses is refused **before it is
+  stored**, the reason is shown in a `role="alert"` naming the contrast ratio that decided it, and the
+  field shows the accent that is actually stored rather than the one turned down.
 
 ### Fixed
 
@@ -141,6 +168,15 @@ every permission decision the package made was made in a browser.
 - **A debounced search term no longer crosses resources.** A list that carried the previous
   resource's term into the next resource's first query would filter the wrong collection for as long
   as the timer ran.
+- **The demo brings its own schema up to date at boot** (`fixtures/lib/migrate.ts`). Seven migration
+  files had shipped while the deployed database sat at migration two, so a deploy of code reading
+  `landing_sections` met a table the database had never had, and every request that touched the seed
+  failed, sign-in included. `scripts/apply-migrations` already existed and did this correctly; nothing
+  referenced it, and it needs a named target and the `turso` CLI, so only a person who knew to could run
+  it. The runner applies the same files against the same `schema_migrations` ledger at boot.
+- **A settings row falls back per value** rather than being treated as unread when one field is
+  unrecognised. A row written before `density` existed, or carrying a density this build does not know,
+  still held a good site name and a good accent, and both were replaced by the defaults.
 
 ## 0.4.0
 
