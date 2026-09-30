@@ -7,4 +7,5 @@ pnpm lint
 pnpm test
 pnpm test:release
 pnpm build:fixtures
+pnpm surface:check
 pnpm audit --prod
