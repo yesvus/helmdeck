@@ -17,6 +17,10 @@ import {
 } from "../primitives/messages.js";
 import { defaultCollectionMessages, type AdminCollectionMessages } from "../collections/messages.js";
 import { defaultWidgetMessages, type AdminWidgetMessages } from "../widgets/messages.js";
+import {
+  defaultAdminShippedWidgetLabels,
+  type AdminShippedWidgetLabels,
+} from "../widgets/labels.js";
 import { defaultDashboardMessages, type AdminDashboardMessages } from "../dashboard/messages.js";
 import {
   defaultAdminResourceListQueryLabels,
@@ -55,6 +59,8 @@ export type AdminMessages = {
   sortable: AdminSortableMessages;
   collection: AdminCollectionMessages;
   widget: AdminWidgetMessages;
+  /** The words the shipped tiles print themselves, which a tile cannot read from a context. */
+  shippedWidget: AdminShippedWidgetLabels;
   dashboard: AdminDashboardMessages;
   resourceList: AdminResourceListQueryLabels;
   destructive: AdminDestructiveActionLabels;
@@ -77,6 +83,7 @@ export const englishAdminMessages: AdminMessages = {
   sortable: defaultSortableMessages,
   collection: defaultCollectionMessages,
   widget: defaultWidgetMessages,
+  shippedWidget: defaultAdminShippedWidgetLabels,
   dashboard: defaultDashboardMessages,
   resourceList: defaultAdminResourceListQueryLabels,
   destructive: {
@@ -242,6 +249,18 @@ export const turkishAdminMessages: AdminMessages = {
     emptyBody: "Bu bileşen için henüz veri yok.",
     errorTitle: "Bu bileşen yüklenemedi",
     retry: "Tekrar dene",
+  },
+  shippedWidget: {
+    capNote: (shown, total) => `${total} kaydın ${shown} tanesi gösteriliyor`,
+    justNow: "Az önce",
+    minutesAgo: (count) => `${count} dakika önce`,
+    hoursAgo: (count) => `${count} saat önce`,
+    daysAgo: (count) => `${count} gün önce`,
+    ageDate: (date) =>
+      new Intl.DateTimeFormat("tr-TR", { month: "short", day: "numeric", year: "numeric" }).format(date),
+    unknownTime: "Zamanı bilinmiyor",
+    trendUp: "Artış",
+    trendDown: "Düşüş",
   },
   collection: {
     add: "Ekle",

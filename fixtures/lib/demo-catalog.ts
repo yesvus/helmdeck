@@ -959,6 +959,60 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Checks a whole arrangement against its registry and reports what does not hold.",
     keywords: "validate arrangement registry",
   },
+  adminStatWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A figure with a caption, coloured by its own trend: a rise reads good, a fall reads bad, and invertTrend swaps that for churn and error rates.",
+    keywords: "stat figure kpi trend tile number tone colour",
+    renderable: true,
+  },
+  adminTableWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A read-only table that works out from the data alone that a column is numbers, formats it and right-aligns it, then caps the rows and says how many it left out.",
+    keywords: "table rows columns align right numeric cap truncated",
+    renderable: true,
+  },
+  adminListWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A handful of ranked or recent rows, where a long label truncates and keeps its full text while the figure beside it holds its width.",
+    keywords: "list rows ranked label truncate figure cap",
+    renderable: true,
+  },
+  adminChartWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A host's rows as a time series on the package's own chart, deciding the formatters, the whole-number ticks and the sentence a screen reader reads instead of the drawing.",
+    keywords: "chart time series bar line axis ticks aria screen reader",
+    renderable: true,
+  },
+  adminRankWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A ranking on the package's rank chart, kept apart from the time series because the order is the claim: plotting ranked rows along a dated axis would say something false about them.",
+    keywords: "rank ranking chart bars ordered top",
+    renderable: true,
+  },
+  adminActivityWidget: {
+    category: "Dashboard and widgets",
+    summary:
+      "A feed of what changed, owning the age thresholds a host gets subtly wrong and mapping each event's kind to a tone, so a failure is scannable rather than read.",
+    keywords: "activity feed events recent ages timestamps tone",
+    renderable: true,
+  },
+  adminActivityAge: {
+    category: "Dashboard and widgets",
+    summary:
+      "How old an event is in words, with the thresholds stated once: just now under a minute, minutes under an hour, and the date itself past a week. Takes the clock to read against, so a feed's ages stay in step with the tile's.",
+    keywords: "age relative time thresholds just now ago",
+  },
+  defaultAdminShippedWidgetLabels: {
+    category: "Dashboard and widgets",
+    summary:
+      "The words the shipped tiles print themselves, as the sentences taking a count rather than as templates, so a host's language is never assembled by this package.",
+    keywords: "labels words copy i18n translate sentences counts",
+  },
 
   AdminCollectionEditor: {
     category: "Collections",
@@ -1465,7 +1519,10 @@ function describe(entryPoint: CatalogEntryPoint, name: string, value: unknown): 
     category: meta?.category ?? null,
     summary: meta?.summary ?? "No description yet.",
     searchText: [name, meta?.summary ?? "", meta?.keywords ?? "", kind].join(" ").toLowerCase(),
-    renderable: kind === "component" && meta?.renderable === true,
+    // Read off the table rather than off the kind, because a widget factory is a lowercase function
+    // that renders perfectly well once the catalogue has a preview for it. The kind decides what a
+    // card can show when there is no preview, not whether one is possible.
+    renderable: meta?.renderable === true,
     hostNote: kind === "component" ? (meta?.hostNote ?? null) : null,
     signature: kind === "component" ? null : signatureOf(value),
     valueText: kind === "component" ? null : valueTextOf(value),

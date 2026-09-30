@@ -12,6 +12,7 @@ export * from "./widgets/data.js";
 export * from "./widgets/body.js";
 export * from "./widgets/panel.js";
 export * from "./widgets/render.js";
+export * from "./widgets/index.js";
 export * from "./collections/registry.js";
 export * from "./i18n.js";
 export * from "./media/index.js";

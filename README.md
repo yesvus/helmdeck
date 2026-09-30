@@ -8,6 +8,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, and status primitives.
 - Data-heavy primitives including tables, pagination, modals, toasts, skeletons, sortable lists, and destructive confirmations.
 - Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
+- Six ready dashboard tiles (stat, table, list, time-series chart, ranked chart, activity feed) that render the engine's four states themselves, so a host registers a tile rather than writing one.
 - Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
 - A static bilingual fixture app for the hosted demo.
@@ -832,6 +833,96 @@ without a chart knowing either. The default palette is a list of complete class 
 Tailwind generates a utility only when it can read the whole class in the source, so a composed
 `fill-${color}` produces nothing. The second series is the muted grey on purpose: a comparison series
 quieter than the one it is compared against reads as context. Override it with `seriesClasses`.
+
+## Dashboard tiles
+
+The package ships the six tiles a dashboard is mostly made of. Declare one, register it, and give it
+a loader. You do not write a component, and you do not write a spinner, an empty state, or an error
+state, because those are the engine's and each tile renders the same four of them.
+
+```tsx
+"use client";
+
+import {
+  AdminDashboardTiles,
+  adminStatWidget,
+  adminTableWidget,
+  createAdminWidgetRegistry,
+  type AdminWidgetLoader,
+} from "@yesvus/helmdeck";
+import { countRevenue, recentOrders } from "../lib/orders";
+
+type Order = { id: string; customer: string; cents: number };
+
+const registry = createAdminWidgetRegistry({
+  revenue: adminStatWidget({
+    id: "revenue",
+    title: "Revenue",
+    unit: "money",
+    value: (data: { cents: number; lastMonthCents: number }) => data.cents,
+    previous: (data: { cents: number; lastMonthCents: number }) => data.lastMonthCents,
+    comparison: "vs last month",
+    empty: { title: "No revenue yet", body: "No paid order has been placed." },
+  }),
+  orders: adminTableWidget<Order>({
+    id: "orders",
+    title: "Recent orders",
+    rows: (rows) => rows,
+    columns: [
+      { key: "customer", header: "Customer", value: (row) => row.customer },
+      { key: "cents", header: "Total", value: (row) => row.cents },
+    ],
+    getKey: (row) => row.id,
+    unit: "money",
+  }),
+});
+
+const loaders = {
+  revenue: countRevenue as AdminWidgetLoader<{ cents: number; lastMonthCents: number }>,
+  orders: recentOrders as AdminWidgetLoader<Order[]>,
+};
+
+export function SalesBoard({ placements }: { placements: AdminDashboardPlacement[] }) {
+  return <AdminDashboardTiles registry={registry} placements={placements} loaders={loaders} />;
+}
+```
+
+Each tile decides the thing a host would otherwise decide on every project:
+
+- `adminStatWidget` colours itself from its own trend: a rise reads good, a fall reads bad, and `invertTrend` swaps that for churn, refunds and error rates. A figure of zero is drawn as a figure, because $0.00 is a fact and an empty tile is a claim. A trend is drawn only where a rate exists, so a rise from zero does not become a percentage of nothing.
+- `adminTableWidget` works out from the data alone that a column is numbers, right-aligns it and formats it, which is why the example above writes a `value` and no `cell`. Rows are capped and the tile says how many it left out.
+- `adminListWidget` truncates a long label, keeps its full text reachable, and holds the figure beside it at a fixed width.
+- `adminChartWidget` maps rows onto `AdminTimeSeriesChart` and `adminRankWidget` onto `AdminRankChart`, deciding the formatters, the whole-number ticks, and the sentence a screen reader reads in place of the drawing. They are separate because a ranking and a time series answer different questions, and plotting ranked rows along a dated axis says something false about them.
+- `adminActivityWidget` owns the age thresholds a host otherwise gets subtly wrong, reads them against a clock at render time rather than at query time, and maps each event's kind to a tone so a feed can be scanned.
+
+### Every tile has the same four states
+
+`state.status` is handed straight through, so loading, empty, error and ready are the engine's answers
+and a tile has no way to disagree with them. Each shipped tile claims the loading and empty states,
+because both are shaped like the thing that is arriving, and claims neither error nor ready:
+
+- `loading` is a placeholder in the shape of the content, so a tile does not change height when its data lands.
+- `error` is left to the engine, which shows the failure's own message and the retry that is the load's own `refetch`. A tile that wrote its own error copy could not show the engine's message.
+- `empty` is reached because the data said so. A host whose metric reads zero as absent passes its own `isEmpty`; one with domain words for the case passes `empty`.
+
+A query that answers with a shape the host did not expect empties that one tile. It does not throw,
+because a dashboard that loses its page to one row is a worse outcome than a tile with nothing in it.
+
+### Declaring a tile you did not get here
+
+A tile is a plain object with no hooks, no directive and no state, so a server component can build a
+registry of them and render it through `AdminWidgetPanel` with states it resolved itself. The two
+chart tiles are a client module, because the charts are, so they are declared in a client module
+alongside the tiles that use them. `defineAdminWidget` declares a tile the package does not ship, and
+`AdminWidgetDefinition` is the contract to write it against.
+
+### Words a tile prints itself
+
+`defaultAdminShippedWidgetLabels` holds every sentence a shipped tile writes on its own: the note
+under a capped tile, the ages in a feed, the direction a trend moved. A host overrides any of them
+per tile with `labels`, or replaces the whole age vocabulary with `formatAge`. The counts are
+functions rather than templates, so a sentence that takes a number is never assembled by this package
+on a host's behalf.
 
 ## Media adapters
 
