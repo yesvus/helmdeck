@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { adminDashboardValidate, type AdminDashboard } from "@yesvus/helmdeck";
 import ShippedTilesPage from "../fixtures/app/dashboard/tiles/page";
 import { buildShippedTileDashboard } from "../fixtures/app/dashboard/tiles/arrangement";
@@ -27,14 +27,126 @@ const backend = vi.hoisted(() => ({
   contentActivity: vi.fn(),
 }));
 
-vi.mock("../fixtures/lib/demo-widgets-data", () => ({
-  loadWindowedRevenueAction: backend.revenue,
-  loadDailyRevenueAction: backend.revenueChart,
-  loadRecentOrdersAction: backend.ordersTable,
-  loadLowStockAction: backend.lowStockList,
-  loadStockValueRankAction: backend.stockValueRank,
-  loadContentActivityAction: backend.contentActivity,
+/**
+ * The request, stood in for.
+ *
+ * The two tests that reach a state through the real action need a session, and the session lives in a
+ * cookie the store's auth adapter reads from `next/headers`. This is the same seam the demo's own
+ * action tests stand in for, and it is here so the tile's answer is one a signed-in visitor gets rather
+ * than one a stub invented.
+ */
+/**
+ * The request's own cookie, which is where the session lives.
+ *
+ * The package's own seam is `read`, `write` and `clear` over one value, which is what the demo's
+ * `DemoAuthOptions.cookie` takes. Held in a hoisted box because a mock factory is hoisted above the
+ * module's own bindings, so a cookie built at module scope would not exist yet when the factory ran.
+ */
+const request = vi.hoisted(() => {
+  const box = {
+    value: undefined as string | undefined,
+    cookie: {
+      read: () => box.value,
+      write: (value: string) => {
+        box.value = value;
+      },
+      clear: () => {
+        box.value = undefined;
+      },
+    },
+  };
+  return box;
+});
+
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => {
+    throw new Error(`redirected to ${url}`);
+  },
 }));
+
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+
+/**
+ * The demo's session, reached with the request's own cookie rather than through a browser check.
+ *
+ * The auth adapter refuses to read an HTTP-only cookie from anything shaped like a browser, and the
+ * demo's own seams answer that by handing it the cookie. Doing it here rather than deleting `window` is
+ * what keeps React's scheduler working, because a scheduler that fires after a global was removed
+ * reports an error against whichever test happened to run last. `demoAuth` is covered as well as
+ * `currentDemoSession`, because the sign-in action builds the adapter itself.
+ */
+vi.mock("../fixtures/lib/demo-session", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../fixtures/lib/demo-session")>();
+  return {
+    ...actual,
+    currentDemoSession: async (options: Record<string, unknown> = {}) =>
+      await actual.currentDemoSession({ ...options, cookie: request.cookie }),
+    demoAuth: (options: Record<string, unknown> = {}) =>
+      actual.demoAuth({ ...options, cookie: request.cookie }),
+  };
+});
+
+/**
+ * The real actions, held for the two tests that drive a state through the page's own control.
+ *
+ * Those two need the store's answers rather than this file's, because what is under test is that the
+ * empty and the failed state are reachable by a person moving a control and a read being refused, not
+ * that a stub can produce an empty array. Mocked module, real implementations underneath.
+ */
+vi.mock("../fixtures/lib/demo-widgets-data", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../fixtures/lib/demo-widgets-data")>();
+  return {
+    ...actual,
+    loadWindowedRevenueAction: backend.revenue,
+    loadDailyRevenueAction: backend.revenueChart,
+    loadRecentOrdersAction: backend.ordersTable,
+    loadLowStockAction: backend.lowStockList,
+    loadStockValueRankAction: backend.stockValueRank,
+    loadContentActivityAction: backend.contentActivity,
+    __actual: actual,
+  };
+});
+
+/**
+ * A session for the tests that reach a state through the real action.
+ *
+ * The real reads run the boundary's guard, which is the point of using them: a page whose numbers come
+ * from the store is a page whose reads a role is checked on. The auth adapter refuses to read a cookie
+ * from anything shaped like a browser, so `window` is absent for the sign-in. It is restored
+ * immediately, because React needs a `window` to render into and a test that removed one would be
+ * measuring a page that cannot mount.
+ */
+async function signedIn(email?: string) {
+  const { signInAction } = await import("../fixtures/app/login/actions");
+  const { DEMO_PASSWORD, demoAccounts } = await import("../fixtures/lib/demo-accounts");
+  const account = demoAccounts.find((candidate) => candidate.email === email) ?? demoAccounts[0];
+  const result = await signInAction({ email: account.email, password: DEMO_PASSWORD }, null);
+  expect(result.ok, `${account.email} could not sign in`).toBe(true);
+}
+
+/**
+ * The store's own reads, reached past the stub.
+ *
+ * The mock factory hangs the real module off `__actual` so a test can ask the store rather than this
+ * file, which is the difference between a demo that shows the empty state and one that performs it.
+ */
+type WithActual = typeof import("../fixtures/lib/demo-widgets-data") & {
+  __actual: typeof import("../fixtures/lib/demo-widgets-data");
+};
+
+const actualModule = async () => (await import("../fixtures/lib/demo-widgets-data")) as WithActual;
+
+/** The store's own low-stock read. */
+const actualLowStock = async (limit: number, term: string) =>
+  await (await actualModule()).__actual.loadLowStockAction(limit, term);
+
+/** The store's own orders read. */
+const actualOrders = async (limit: number, term: string) =>
+  await (await actualModule()).__actual.loadRecentOrdersAction(limit, term);
+
+afterEach(() => {
+  request.value = undefined;
+});
 
 /** The panel for one widget, which is the element that carries the state. */
 function tile(widget: string): HTMLElement {
@@ -222,6 +334,41 @@ describe("the shipped tiles route", () => {
     expect(backend.revenue).toHaveBeenLastCalledWith(30, "lamp");
     expect(backend.ordersTable).toHaveBeenLastCalledWith(6, "lamp");
     expect(backend.contentActivity).toHaveBeenLastCalledWith(8, "lamp");
+  });
+
+  it("reaches the empty state through its own control, rather than only through a stubbed answer", async () => {
+    // The store's own answer to a term no row in the seeded workspace carries, read here rather than
+    // by the page: the page is a client component and cannot be mounted without a browser-shaped
+    // global, which is the same global the store's auth adapter refuses to read a cookie from. The
+    // empty rows are therefore established once, on the server side, and the page is then asked to
+    // render them.
+    await signedIn();
+    const rows = await actualLowStock(6, "zzz");
+    expect(rows, "the store is expected to hold no product matching this term").toEqual([]);
+    backend.lowStockList.mockResolvedValue(rows);
+    render(<ShippedTilesPage />);
+    await waitFor(() => expect(stateOf("lowStockList")).toBe("empty"));
+    expect(within(tile("lowStockList")).getByText("Nothing low on stock")).toBeInTheDocument();
+  });
+
+  it("reaches the error state through the boundary's own refusal, and shows the message it produced", async () => {
+    // The refusal is produced by the store's guard for the role that may not read orders, which is the
+    // editor. Read here and rendered by the page, so the message on screen is the one the boundary
+    // wrote rather than one this test put beside the tile, which is the whole claim of the error
+    // state: the tile adds no words of its own.
+    await signedIn("editor@demo.helmdeck.dev");
+    const refusal = await actualOrders(6, "").then(
+      () => "the editor was not refused, which is the bug this test is here to catch",
+      (cause: Error) => cause.message,
+    );
+    expect(refusal).toMatch(/may not orders\.read/);
+    backend.ordersTable.mockRejectedValue(new Error(refusal));
+    render(<ShippedTilesPage />);
+
+    await waitFor(() => expect(stateOf("ordersTable")).toBe("error"));
+    expect(within(tile("ordersTable")).getByText(/may not orders\.read/)).toBeInTheDocument();
+    // The retry is the load's own, so the control on the tile is the engine's rather than the page's.
+    expect(within(tile("ordersTable")).getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
   it("keeps a failed tile out of the count of tiles showing data", async () => {
