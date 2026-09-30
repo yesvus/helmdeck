@@ -370,7 +370,7 @@ export function adminResourceFilters(
   const declared = definition.filters ?? [];
   const narrowed = new Set(declared.map((filter) => filter.field));
   const derived: AdminResourceFilterDefinition[] = [];
-  for (const field of definition.fields) {
+  for (const field of definition.fields ?? []) {
     if (field.reference === undefined || narrowed.has(field.name)) continue;
     derived.push({
       field: field.name,
