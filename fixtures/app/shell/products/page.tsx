@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
-"use client";
 
-import { AdminResourceList } from "@yesvus/helmdeck";
+import { DemoResourceList } from "../../../components/demo-resource-list";
 import { productsResource } from "../../../lib/admin-resources";
-import { clientPersistence } from "../../../lib/client-persistence";
+import { demoPersistence } from "../../../lib/demo-persistence";
 
 /**
  * Products, generated from the resource definition rather than hand-written.
@@ -13,16 +12,18 @@ import { clientPersistence } from "../../../lib/client-persistence";
  * from one description shared with the edit form, so the two cannot disagree about what a product
  * is.
  *
- * A client component because `AdminResourceList` reads through its adapter from an effect, and the
- * adapter is a set of server actions. A server component cannot pass that object down: functions
- * do not cross the boundary, so the page has to be on the same side as the adapter.
+ * A server component because the list it renders reads through an adapter from a client effect, and
+ * what that adapter can do is the demo's store's own answer. The store is selected at run time, so
+ * the question is asked here, where the selection is readable, and the answer is a boolean. The
+ * adapter itself still cannot cross the boundary, which is why the list is one component further
+ * down.
  */
 export default function ProductsPage() {
   return (
-    <AdminResourceList
+    <DemoResourceList
       definition={productsResource}
-      persistence={clientPersistence}
       detailBaseHref="/shell/products"
+      paged={typeof demoPersistence().adapter.queryPage === "function"}
     />
   );
 }

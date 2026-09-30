@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { defineAdminResource } from "@yesvus/helmdeck";
+import { adminFormatCount, defineAdminResource, type AdminResourceFormatter } from "@yesvus/helmdeck";
 
 /**
  * The demo's two real resources, described once for both the list and the detail form.
@@ -17,17 +17,21 @@ import { defineAdminResource } from "@yesvus/helmdeck";
  * `demo-rules`, by both the adapter and the persistence actions.
  */
 
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-
-/** Stored in cents, shown as currency. A raw 4900 in a table reads as a price nobody charges. */
-function formatCents(value: unknown): string {
-  return typeof value === "number" ? money.format(value / 100) : "—";
-}
-
-function formatStock(value: unknown): string {
-  if (typeof value !== "number") return "—";
-  return value === 0 ? "Out of stock" : String(value);
-}
+/**
+ * The one cell format the demo declares for itself, by the name its stock column asks for.
+ *
+ * Held here and passed to the list rather than written into the column's `format`, because a
+ * definition reaches a client component as data and a function in it cannot travel. Zero is not a
+ * number worth putting in front of a reader, and this is where the demo says so in words. `money`
+ * and `count` need no entry here: the list ships those, and a name it answers is not the demo's to
+ * restate.
+ */
+export const demoFormatters: Readonly<Record<string, AdminResourceFormatter>> = {
+  stock: (value) => {
+    if (typeof value !== "number") return "—";
+    return value === 0 ? "Out of stock" : adminFormatCount(value);
+  },
+};
 
 export const productsResource = defineAdminResource({
   resource: "products",
@@ -41,11 +45,21 @@ export const productsResource = defineAdminResource({
     delete: "products.delete",
   },
   columns: [
-    { key: "name", header: "Name" },
-    { key: "sku", header: "SKU" },
-    { key: "price_cents", header: "Price", align: "right", format: (value) => formatCents(value) },
-    { key: "stock", header: "Stock", align: "right", format: (value) => formatStock(value) },
+    { key: "name", header: "Name", sortable: true },
+    { key: "sku", header: "SKU", sortable: true },
+    { key: "price_cents", header: "Price", align: "right", sortable: true, format: "money" },
+    { key: "stock", header: "Stock", align: "right", sortable: true, format: { name: "stock" } },
   ],
+  /**
+   * One filter, on a field rather than across the record, which is what a search box cannot be.
+   *
+   * The demo's products carry no closed set of values worth choosing from, so this is a term typed
+   * into a box and compared with `contains` against one field, which is the form the definition
+   * takes when it declares no options. The list sends the comparison to the adapter and draws
+   * whatever comes back, so a term no product carries is an answer from the store rather than a
+   * locally emptied table.
+   */
+  filters: [{ field: "sku", label: "SKU contains", operator: "contains" }],
   fields: [
     { name: "name", label: "Name", required: true },
     { name: "sku", label: "SKU", required: true },
@@ -68,7 +82,7 @@ export const ordersResource = defineAdminResource({
   columns: [
     { key: "customer", header: "Customer" },
     { key: "status", header: "Status" },
-    { key: "total_cents", header: "Total", align: "right", format: (value) => formatCents(value) },
+    { key: "total_cents", header: "Total", align: "right", format: "money" },
   ],
   fields: [
     { name: "customer", label: "Customer", required: true },

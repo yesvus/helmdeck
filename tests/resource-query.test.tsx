@@ -166,6 +166,19 @@ function allowAll(): AdminPermissionsAdapter {
   return { can: vi.fn(async () => true) };
 }
 
+/**
+ * A store as a host wrote it before the paged form: the same adapter with `queryPage` taken off it.
+ *
+ * Removing the member rather than writing a fresh object is what makes these cases about the
+ * interface's own optionality: the store underneath is the real one, answering exactly the calls it
+ * always answered, and the only difference is the one member these cases are about.
+ */
+function withoutPaging(adapter: AdminPersistenceAdapter): AdminPersistenceAdapter {
+  const legacy = { ...adapter };
+  delete legacy.queryPage;
+  return legacy;
+}
+
 function tree(element: React.ReactElement, adapter: AdminPermissionsAdapter = allowAll()) {
   return (
     <AdminI18nProvider locale="en">
@@ -551,25 +564,29 @@ describe("a host whose adapter does not answer the query", () => {
   });
 
   it("renders the rows it was given, and asks for them with no query at all", async () => {
-    // The memory adapter, unchanged: a one-argument query that reads every key it is given as a
-    // field to match exactly. This is the shape in every adapter and every test in the repository.
+    // A store written before the paged form: five methods, a one-argument query that reads every
+    // key it is given as a field to match exactly. This is the shape in every adapter and every
+    // test in the repository, and it is the memory adapter's own shape with its paged call
+    // removed, so the two differ in one member rather than in kind.
     const base = createMemoryPersistenceAdapter();
     await base.create("posts", { title: "Alpha", status: "live" });
     await base.create("posts", { title: "Bravo", status: "draft" });
-    const query = vi.fn((resource: string) => base.query(resource));
+    const asked = vi.fn((resource: string) => base.query<AdminResourceRecord>(resource));
+    const legacy: AdminPersistenceAdapter = {
+      read: (resource, id) => base.read(resource, id),
+      query: asked as unknown as AdminPersistenceAdapter["query"],
+      create: (resource, value) => base.create(resource, value),
+      update: (resource, id, value) => base.update(resource, id, value),
+      delete: (resource, id) => base.delete(resource, id),
+    };
 
-    wrap(
-      <AdminResourceList
-        definition={posts}
-        persistence={{ ...base, query: query as unknown as AdminPersistenceAdapter["query"] }}
-      />,
-    );
+    wrap(<AdminResourceList definition={posts} persistence={legacy} />);
 
     expect(await screen.findByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("Bravo")).toBeInTheDocument();
     // One argument. A query object handed to an adapter that reads its keys as field matches
     // would filter every row away, so the legacy path sends nothing.
-    expect(query).toHaveBeenCalledWith("posts");
+    expect(asked).toHaveBeenCalledWith("posts");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -578,8 +595,9 @@ describe("a host whose adapter does not answer the query", () => {
     // adapter's answer and not the definition's silence.
     const base = createMemoryPersistenceAdapter();
     await base.create("posts", { title: "Alpha", status: "live" });
+    const legacy = withoutPaging(base);
 
-    wrap(<AdminResourceList definition={posts} persistence={base} />);
+    wrap(<AdminResourceList definition={posts} persistence={legacy} />);
 
     await screen.findByText("Alpha");
     expect(screen.getByRole("columnheader", { name: "Status" })).toBeInTheDocument();
@@ -593,7 +611,12 @@ describe("a host whose adapter does not answer the query", () => {
   });
 
   it("shows the empty state, because an adapter that returns nothing says the resource is empty", async () => {
-    wrap(<AdminResourceList definition={posts} persistence={createMemoryPersistenceAdapter()} />);
+    wrap(
+      <AdminResourceList
+        definition={posts}
+        persistence={withoutPaging(createMemoryPersistenceAdapter())}
+      />,
+    );
 
     expect(await screen.findByText("Nothing here yet.")).toBeInTheDocument();
   });
@@ -773,11 +796,12 @@ describe("the seam the browser's query crosses", () => {
 
   it("does not offer a paged query the host's adapter cannot answer", async () => {
     // Otherwise every list mounted on these actions would see a store that can count, because the
-    // actions said so rather than the adapter.
-    const base = createMemoryPersistenceAdapter();
+    // actions said so rather than the adapter. The in-memory adapter with its paged call removed
+    // is the shape every host wrote before the query contract, so the absence below is the one a
+    // real host meets rather than one arranged for the test.
     const actions = createAdminResourceActions({
       guard: (async () => undefined) as never,
-      persistence: base,
+      persistence: withoutPaging(createMemoryPersistenceAdapter()),
     });
 
     expect(actions.queryPage).toBeUndefined();

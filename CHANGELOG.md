@@ -92,6 +92,20 @@ every permission decision the package made was made in a browser.
   three. `AdminTone` is the name to import for new code; the three existing names remain valid. This
   is additive: no previously accepted value stops compiling. `AdminToastTone` is unchanged and is
   still narrower.
+- **A column's `format` is a name rather than a function.** It was
+  `(value, row) => ReactNode`, which cannot be serialised: a host that put a definition in a server
+  component and rendered `AdminResourceList` on it failed at prerender with `Functions cannot be
+  passed directly to Client Components`, and no test, typecheck or lint noticed, because the value is
+  valid TypeScript and the failure is in a build step. It is now `"money" | "count" | { name: string }`,
+  the first two printed by the list itself and the rest resolved from a new `formatters` prop on
+  `AdminResourceList`. A name nothing answers is refused while the table is built rather than falling
+  back to the stored value, so a misspelled name cannot put a raw number on a page. Hosts that wrote
+  `format: (value) => ...` move the function into that prop. `AdminResourceColumnFormat` and
+  `AdminResourceFormatter` are exported for the prop's type.
+- **A field's `render` and `parse`, and a filter's `parse`, stay functions, and are documented as
+  what they are.** A custom control and a custom comparison are not expressible as a name, so a
+  definition declaring one still cannot cross the client boundary and its page still has to be a
+  client component. This is now said in the types and the README rather than discovered at prerender.
 - **`createSqlitePersistenceAdapter`** covering both a local `file:` database and hosted Turso, so a
   host gets persistence without writing an adapter. This reverses the package's previous contract,
   which said the adapter types are a seam and do not imply a backend; the seam is still there, it

@@ -14,7 +14,10 @@
  */
 
 import { seedEverything } from "./seed-data";
-import type { AdminPersistenceAdapter } from "../../src/adapters/host";
+// By name, and this one is type-only so nothing fails today. That is exactly why it is worth
+// changing: the moment a `src` file needs a value from a relative import rather than only a type,
+// the fixture's build stops resolving it, and this line is where library source entered the graph.
+import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
 import { hashPassword } from "./demo-users";
 
 export type SeedResult = {

@@ -35,6 +35,27 @@ vi.mock("next/link.js", () => ({
   ),
 }));
 
+/**
+ * A store whose reads are decided by `read`, wired to both calls a list can make.
+ *
+ * A list asks for a window whenever its adapter can answer one, and the in-memory adapter can, so a
+ * test that means to decide what a list loads has to decide the paged call. Leaving the paged call
+ * on the real store would leave these tests asserting about rows they never asked for.
+ */
+function reading(
+  base: ReturnType<typeof createMemoryPersistenceAdapter>,
+  read: (resource: string) => Promise<unknown[]>,
+): AdminPersistenceAdapter {
+  return {
+    ...base,
+    query: read as unknown as AdminPersistenceAdapter["query"],
+    queryPage: async <T,>(resource: string) => {
+      const rows = await read(resource);
+      return { rows: rows as T[], total: rows.length };
+    },
+  };
+}
+
 const posts = defineAdminResource({
   resource: "posts",
   label: "Posts",
@@ -236,7 +257,7 @@ describe("AdminResourceList", () => {
     // records would have seen an edit control on every row.
     // create() assigns its own id, so the rows are written directly.
     const rows = [{ id: "mine", title: "Mine" }, { id: "theirs", title: "Theirs" }];
-    const db: AdminPersistenceAdapter = { ...createMemoryPersistenceAdapter(), query: (async () => rows) as unknown as AdminPersistenceAdapter["query"] };
+    const db = reading(createMemoryPersistenceAdapter(), async () => rows);
     // Read is granted: the read check passes no id, so denying it here would empty the list
     // and make every row assertion below pass for the wrong reason.
     const perRecord: AdminPermissionsAdapter = {
@@ -259,18 +280,18 @@ describe("AdminResourceList", () => {
     const base = createMemoryPersistenceAdapter();
     await base.create("posts", { title: "Earlier" });
     let failNext = false;
-    const flaky: AdminPersistenceAdapter = {
-      ...base,
-      query: (vi.fn(async (resource: string) => {
-        if (failNext) throw new Error("database down");
-        return base.query(resource);
-      })) as unknown as AdminPersistenceAdapter["query"],
+    const flakyRead = async (resource: string) => {
+      if (failNext) throw new Error("database down");
+      return base.query(resource);
     };
-    const { rerender } = wrap(<AdminResourceList definition={posts} persistence={flaky} />);
+    const { rerender } = wrap(
+      <AdminResourceList definition={posts} persistence={reading(base, flakyRead)} />,
+    );
     expect(await screen.findByText("Earlier")).toBeInTheDocument();
 
     failNext = true;
-    rerender(tree(<AdminResourceList definition={posts} persistence={{ ...flaky, query: flaky.query }} />));
+    // A new adapter object, which is what changes the effect's dependencies.
+    rerender(tree(<AdminResourceList definition={posts} persistence={reading(base, flakyRead)} />));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
     expect(screen.queryByText("Earlier")).not.toBeInTheDocument();
@@ -281,27 +302,22 @@ describe("AdminResourceList", () => {
     // worked still showed the old failure.
     let failNext = true;
     const base = createMemoryPersistenceAdapter();
-    const flaky: AdminPersistenceAdapter = {
-      ...base,
-      query: (vi.fn(async (resource: string) => {
-        if (failNext) {
-          failNext = false;
-          throw new Error("database down");
-        }
-        return base.query(resource);
-      })) as unknown as AdminPersistenceAdapter["query"],
+    const flakyRead = async (resource: string) => {
+      if (failNext) {
+        failNext = false;
+        throw new Error("database down");
+      }
+      return base.query(resource);
     };
-    const { rerender } = wrap(<AdminResourceList definition={posts} persistence={flaky} />);
+    const { rerender } = wrap(
+      <AdminResourceList definition={posts} persistence={reading(base, flakyRead)} />,
+    );
     expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");
 
     // A retry is a new adapter, which is what changes the effect's dependencies. Calling the
     // old one directly would resolve nothing and re-render nothing.
     await base.create("posts", { title: "Recovered" });
-    const recovered: AdminPersistenceAdapter = {
-      ...base,
-      query: (vi.fn((r: string) => base.query(r))) as unknown as AdminPersistenceAdapter["query"],
-    };
-    rerender(tree(<AdminResourceList definition={posts} persistence={recovered} />));
+    rerender(tree(<AdminResourceList definition={posts} persistence={reading(base, flakyRead)} />));
 
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(await screen.findByText("Recovered")).toBeInTheDocument();
@@ -354,16 +370,73 @@ describe("AdminResourceList", () => {
     expect(await screen.findByText("Nothing here yet.")).toBeInTheDocument();
   });
 
-  it("uses a column's own formatter when it declares one", async () => {
+  it("prints a column through the formatter its name resolves to, and the host's own when it is the host's", async () => {
     const db = createMemoryPersistenceAdapter();
-    await db.create("posts", { title: "First", views: 1200 });
+    await db.create("posts", { title: "First", views: 1200, price_cents: 4900 });
     const definition = defineAdminResource({
       ...posts,
-      columns: [{ key: "views", header: "Views", format: (value) => `${value} views` }],
+      columns: [
+        { key: "views", header: "Views", format: { name: "views" } },
+        { key: "price_cents", header: "Price", format: "money" },
+      ],
     });
 
-    wrap(<AdminResourceList definition={definition} persistence={db} />);
+    // Two names, two sources. `money` is one the list ships, and a number stored in whole cents
+    // reads as `$49.00`; `views` is the host's, and only the host's map can answer it, which is why
+    // a definition naming one is a promise the client half keeps rather than a value it carries.
+    wrap(
+      <AdminResourceList
+        definition={definition}
+        persistence={db}
+        formatters={{ views: (value) => `${String(value)} views` }}
+      />,
+    );
     expect(await screen.findByText("1200 views")).toBeInTheDocument();
+    expect(await screen.findByText("$49.00")).toBeInTheDocument();
+  });
+
+  it("refuses a column naming a format nothing answers, rather than printing the stored value", () => {
+    const db = createMemoryPersistenceAdapter();
+    const definition = defineAdminResource({
+      ...posts,
+      columns: [{ key: "views", header: "Views", format: { name: "views" } }],
+    });
+
+    // A list that quietly fell back to the raw number would put `1200` on the page where its own
+    // definition promised `1200 views`, and the page would look right. The message names the column,
+    // the name it wanted and the names that do exist, because a developer reading it has to be able
+    // to act on it without opening this file. React logs the throw as well, and the log is not the
+    // assertion, so it is silenced rather than inspected.
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const renderList = () => wrap(<AdminResourceList definition={definition} persistence={db} />);
+
+    expect(renderList).toThrow(/Column views formats as "views"/);
+    expect(renderList).toThrow(/Known names: money, count/);
+    consoleError.mockRestore();
+  });
+
+  it("lets a host register a name the package ships, and its own wins", async () => {
+    // `money` is the package's, and a host whose amounts are in another currency has to be able to
+    // say so without a definition that names something else. The host's map is asked first, so
+    // registering the name is what changes the output rather than which spelling of it was used, and
+    // the shipped `$` is asserted absent so a resolution that ignored the host would fail here.
+    const db = createMemoryPersistenceAdapter();
+    await db.create("posts", { title: "First", views: 4900 });
+    const definition = defineAdminResource({
+      ...posts,
+      columns: [{ key: "views", header: "Price", format: "money" }],
+    });
+
+    wrap(
+      <AdminResourceList
+        definition={definition}
+        persistence={db}
+        formatters={{ money: (value) => `${String(value)} cents` }}
+      />,
+    );
+
+    expect(await screen.findByText("4900 cents")).toBeInTheDocument();
+    expect(screen.queryByText("$49.00")).not.toBeInTheDocument();
   });
 
   it("offers create only when the resource declares the permission and it is held", async () => {
@@ -528,11 +601,9 @@ describe("AdminResourceList", () => {
 
   it("encodes a record id that would otherwise reshape the detail route", async () => {
     // create() assigns its own id, so a hand-written row is the only way to get an awkward one.
-    const db = createMemoryPersistenceAdapter();
-    const awkward: AdminPersistenceAdapter = {
-      ...db,
-      query: (async () => [{ id: "a/b?c#d", title: "Awkward" }]) as unknown as AdminPersistenceAdapter["query"],
-    };
+    const awkward = reading(createMemoryPersistenceAdapter(), async () => [
+      { id: "a/b?c#d", title: "Awkward" },
+    ]);
     wrap(<AdminResourceList definition={posts} persistence={awkward} />);
 
     const link = await screen.findByRole("link", { name: "Edit: a/b?c#d" });
@@ -540,10 +611,9 @@ describe("AdminResourceList", () => {
   });
 
   it("reports a failed load instead of showing an empty table as if it were empty", async () => {
-    const broken: AdminPersistenceAdapter = {
-      ...createMemoryPersistenceAdapter(),
-      query: vi.fn().mockRejectedValue(new Error("database down")),
-    };
+    const broken = reading(createMemoryPersistenceAdapter(), async () => {
+      throw new Error("database down");
+    });
     wrap(<AdminResourceList definition={posts} persistence={broken} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("These records could not be loaded.");

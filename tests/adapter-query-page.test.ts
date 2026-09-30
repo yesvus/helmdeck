@@ -1,0 +1,972 @@
+// SPDX-License-Identifier: MIT
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { createMemoryPersistenceAdapter } from "../src/baseline/memory";
+import { createSqlitePersistenceAdapter } from "../src/baseline/sqlite";
+import { adminResourceQuery } from "../src/adapters/query";
+import type {
+  AdminPersistenceAdapter,
+  AdminResourcePage,
+  AdminResourceQuery,
+  AdminResourceSort,
+} from "../src/adapters/index";
+
+/**
+ * The paged form of the query, asked of both stores this repository ships.
+ *
+ * The two are asked the same questions through the same code, because a property one of them
+ * answers and the other does not is a store a host has to choose between rather than a list that
+ * works. Every assertion names the store it is about, because a failure in a loop that runs both is
+ * a failure whose cause is otherwise invisible.
+ *
+ * A file-backed database rather than a recorded client, for the same reason the rest of the SQLite
+ * tests use one: a fake client can only confirm the strings it was handed, and what matters here is
+ * which rows the statements select.
+ */
+type Row = { id: string; [key: string]: unknown };
+
+/**
+ * An adapter whose paged form is there, which is what every question in this file is about. Written
+ * out rather than derived with `Required`, because the interface's member carries the `undefined`
+ * inside it and taking that away is the point.
+ */
+type PagingStore = Omit<AdminPersistenceAdapter, "queryPage"> & {
+  queryPage: <T>(resource: string, query?: AdminResourceQuery) => Promise<AdminResourcePage<T>>;
+};
+
+const temporary: string[] = [];
+
+afterEach(() => {
+  while (temporary.length > 0) rmSync(temporary.pop()!, { force: true, recursive: true });
+});
+
+async function seeded(
+  records: Row[],
+  options: { resource?: string; url?: string } = {},
+): Promise<Array<[string, PagingStore]>> {
+  const resource = options.resource ?? "products";
+  const url = options.url ?? (() => {
+    const directory = mkdtempSync(join(tmpdir(), "helmdeck-query-"));
+    temporary.push(directory);
+    return join(directory, "store.db");
+  })();
+  // Narrowed rather than asserted on its own, so every question below is asked of a store that
+  // really answers one. The interface calls the member optional for the hosts that predate it, and
+  // these two are the ones that have it.
+  const memory = createMemoryPersistenceAdapter();
+  const sqlite = createSqlitePersistenceAdapter({ url });
+  if (typeof memory.queryPage !== "function" || typeof sqlite.queryPage !== "function") {
+    throw new Error("A store every question here is asked of has to answer a paged query");
+  }
+  for (const record of records) {
+    await memory.create(resource, record);
+    await sqlite.create(resource, record);
+  }
+  return [
+    ["the in-memory adapter", memory as PagingStore],
+    ["the SQLite adapter", sqlite as PagingStore],
+  ];
+}
+
+async function inBothStores(
+  records: Row[],
+  body: (name: string, store: PagingStore) => Promise<void>,
+  options?: { resource?: string; url?: string },
+): Promise<void> {
+  for (const [name, store] of await seeded(records, options)) {
+    await body(name, store);
+  }
+}
+
+/** A catalogue with the shapes a comparison has to tell apart: text, numbers, booleans, nulls. */
+function catalogue(count: number): Row[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `p${String(index).padStart(4, "0")}`,
+    name: `Product ${index}`,
+    // Two values, so an ordering on this field ties and a page boundary has to be decided by
+    // something other than the ordering itself.
+    shelf: `A${index % 2}`,
+    price_cents: index * 100,
+    in_stock: index % 3 !== 0,
+    discontinued: index % 7 === 0,
+    note: index % 5 === 0 ? null : `note ${index}`,
+    meta: { slug: `product-${index % 3}` },
+  }));
+}
+
+describe("the count a page carries", () => {
+  // Four thousand and three, because 4,003 is the number that cannot be mistaken for the page: a
+  // store of 4,040 would make a count taken from a window of 40 look right.
+  const records = catalogue(4003);
+
+  it("is what the query matched, not the length of the rows it sent", async () => {
+    await inBothStores(
+      records,
+      async (name, store) => {
+        const page = await store.queryPage<Row>("products", { window: { offset: 0, limit: 40 } });
+
+        expect(page.rows.length, name).toBe(40);
+        expect(page.total, name).toBe(4003);
+      },
+      { url: "file::memory:" },
+    );
+  });
+
+  it("stays the whole count on the last page, which is short", async () => {
+    // The failure a single page cannot see: 4,003 is 100 full pages and 3 rows, so a count taken
+    // after the window says 3 here and 40 on every page before it.
+    await inBothStores(
+      records,
+      async (name, store) => {
+        const page = await store.queryPage<Row>("products", { window: { offset: 4000, limit: 40 } });
+
+        expect(page.rows.map((row) => row.id), name).toEqual(["p4000", "p4001", "p4002"]);
+        expect(page.total, name).toBe(4003);
+      },
+      { url: "file::memory:" },
+    );
+  });
+
+  it("is what the filter matched, not what the table holds", async () => {
+    // The easy case to pass by accident is the one with no filter, so the store here holds 4,003
+    // rows and the filter keeps 1,143 of them, and the count has to be the smaller number.
+    await inBothStores(
+      catalogue(300),
+      async (name, store) => {
+        const matched = await store.queryPage<Row>("products", {
+          filter: [{ field: "discontinued", operator: "eq", value: true }],
+          window: { offset: 0, limit: 40 },
+        });
+
+        expect(matched.total, name).toBe(43);
+        expect(matched.rows.length, name).toBe(40);
+        expect(matched.rows.every((row) => row.discontinued === true), name).toBe(true);
+
+        // And the store still holds the 300 it was seeded with, so the count is not a count of the
+        // table by another name.
+        expect(await store.query("products"), name).toHaveLength(300);
+      },
+      { url: "file::memory:" },
+    );
+  });
+
+  it("is zero when the filter matches nothing, which is an answer rather than a failure", async () => {
+    await inBothStores(catalogue(20), async (name, store) => {
+      const page = await store.queryPage<Row>("products", {
+        filter: [{ field: "name", operator: "eq", value: "A product nobody stocks" }],
+      });
+
+      expect(page.rows, name).toEqual([]);
+      expect(page.total, name).toBe(0);
+    });
+  });
+
+  it("counts what the search matched, so a narrowed list is not offered the whole store", async () => {
+    await inBothStores(catalogue(60), async (name, store) => {
+      const page = await store.queryPage<Row>("products", {
+        search: "Product 3",
+        window: { offset: 0, limit: 40 },
+      });
+
+      // 3, and the ten rows from 30 to 39 whose names begin with it. Sixty in the store, so a
+      // count that ignored the term would be ten times what the list is showing.
+      expect(page.total, name).toBe(11);
+      expect(page.rows.map((row) => row.id), name).toEqual([
+        "p0003",
+        "p0030",
+        "p0031",
+        "p0032",
+        "p0033",
+        "p0034",
+        "p0035",
+        "p0036",
+        "p0037",
+        "p0038",
+        "p0039",
+      ]);
+    });
+  });
+});
+
+describe("the search the store does", () => {
+  it("reaches values the caller never asked to display", async () => {
+    // The search reads the record, not the columns a list happens to draw, so a term in a field no
+    // table shows still finds the record. A view that filtered what it fetched could not do this.
+    const records: Row[] = [
+      { id: "a", name: "Amber lamp", warehouse: "aisle 12" },
+      { id: "b", name: "Ash desk", warehouse: "aisle 4" },
+    ];
+
+    await inBothStores(records, async (name, store) => {
+      const page = await store.queryPage<Row>("products", { search: "aisle 12" });
+
+      expect(page.rows.map((row) => row.id), name).toEqual(["a"]);
+      expect(page.total, name).toBe(1);
+    });
+  });
+
+  it("folds case, because a term typed in a box is not a case-sensitive thing", async () => {
+    const records: Row[] = [
+      { id: "a", name: "Amber lamp" },
+      { id: "b", name: "Brass light" },
+    ];
+
+    await inBothStores(records, async (name, store) => {
+      expect((await store.queryPage<Row>("products", { search: "AMBER" })).rows.map((row) => row.id), name).toEqual(["a"]);
+      expect((await store.queryPage<Row>("products", { search: "lIgHt" })).rows.map((row) => row.id), name).toEqual(["b"]);
+    });
+  });
+
+  it("takes a term literally, so a wildcard is a character and not a pattern", async () => {
+    // A term holding a pattern's own characters is a term. A search that handed it to a pattern
+    // match would answer with every row and count them all, which looks like a working search box.
+    const records: Row[] = [
+      { id: "a", name: "100% cotton" },
+      { id: "b", name: "50% wool" },
+      { id: "c", name: "linen" },
+    ];
+
+    await inBothStores(records, async (name, store) => {
+      const percent = await store.queryPage<Row>("products", { search: "0%" });
+      expect(percent.rows.map((row) => row.id), name).toEqual(["a", "b"]);
+      expect(percent.total, name).toBe(2);
+
+      // A pattern would answer with the two rows above for this term as well.
+      const alone = await store.queryPage<Row>("products", { search: "%" });
+      expect(alone.total, name).toBe(2);
+
+      expect((await store.queryPage<Row>("products", { search: "50% wool" })).total, name).toBe(1);
+
+      // A quote in the term is a quote, so the statement it reaches is not broken by it.
+      const broken = await store.queryPage<Row>("products", { search: "' OR 1=1 --" });
+      expect(broken.total, name).toBe(0);
+    });
+  });
+
+  it("reads a boolean as the word a person would search for", async () => {
+    const records: Row[] = [
+      { id: "a", name: "Live", published: true },
+      { id: "b", name: "Draft", published: false },
+    ];
+
+    await inBothStores(records, async (name, store) => {
+      expect((await store.queryPage<Row>("products", { search: "true" })).rows.map((row) => row.id), name).toEqual(["a"]);
+      expect((await store.queryPage<Row>("products", { search: "false" })).rows.map((row) => row.id), name).toEqual(["b"]);
+    });
+  });
+
+  it("does not match a record the term is absent from, even when the term is one character", async () => {
+    await inBothStores(catalogue(10), async (name, store) => {
+      expect((await store.queryPage<Row>("products", { search: "0" })).total, name).toBeGreaterThan(0);
+      expect((await store.queryPage<Row>("products", { search: "nothing here at all" })).total, name).toBe(0);
+    });
+  });
+});
+
+describe("the ordering the store applies", () => {
+  it("settles a tie on the id, so paging through it neither repeats a row nor drops one", async () => {
+    // Every row ties on `shelf`, so the ordering alone says nothing about which row is the tenth.
+    // Paging the whole store and collecting what came back is the only way to see a tie broken
+    // differently on each page, which is how a row goes missing without any page looking wrong.
+    //
+    // Written in the reverse of id order, which is the part that lets this fail at all. Seeded in id
+    // order, a store with no tiebreak still answers in id order, because that is the order it was
+    // handed the rows in and both engines keep it, so the assertions below pass against a sort that
+    // settles nothing and the property this test exists for goes untested.
+    const records = catalogue(97).reverse();
+
+    await inBothStores(
+      records,
+      async (name, store) => {
+        const collected: string[] = [];
+        for (let page = 0; page < 3; page += 1) {
+          const answer = await store.queryPage<Row>("products", {
+            sort: [{ field: "shelf", direction: "asc" }],
+            window: { offset: page * 40, limit: 40 },
+          });
+          expect(answer.total, name).toBe(97);
+          collected.push(...answer.rows.map((row) => row.id));
+        }
+
+        expect(collected.length, name).toBe(97);
+        expect(new Set(collected).size, name).toBe(97);
+        // The two shelves, in order: the 49 rows on the first shelf and then the 48 on the second,
+        // so the last row read is the last of the second.
+        expect(collected.slice(0, 2), name).toEqual(["p0000", "p0002"]);
+        expect(collected[48], name).toBe("p0096");
+        expect(collected[49], name).toBe("p0001");
+        expect(collected[collected.length - 1], name).toBe("p0095");
+      },
+      { url: "file::memory:" },
+    );
+  });
+
+  it("keeps the tiebreak out of the direction that was asked for", async () => {
+    // Descending reverses what the caller ordered by and nothing else, so two rows tied on the
+    // sorted field are still read in id order rather than reversed with everything else.
+    const records: Row[] = [
+      { id: "b", shelf: "A" },
+      { id: "a", shelf: "A" },
+      { id: "c", shelf: "A" },
+    ];
+
+    await inBothStores(records, async (name, store) => {
+      const descending = await store.queryPage<Row>("products", {
+        sort: [{ field: "shelf", direction: "desc" }],
+      });
+
+      expect(descending.rows.map((row) => row.id), name).toEqual(["a", "b", "c"]);
+    });
+  });
+
+  it("orders by a second field when the first leaves rows tied", async () => {
+    const records: Row[] = [
+      { id: "a", shelf: "B", name: "second" },
+      { id: "b", shelf: "A", name: "second" },
+      { id: "c", shelf: "A", name: "first" },
+      { id: "d", shelf: "B", name: "first" },
+    ];
+
+    await inBothStores(records, async (name, store) => {
+      const ordered = await store.queryPage<Row>("products", {
+        sort: [
+          { field: "shelf", direction: "asc" },
+          { field: "name", direction: "desc" },
+        ],
+      });
+
+      expect(ordered.rows.map((row) => row.id), name).toEqual(["b", "c", "a", "d"]);
+    });
+  });
+
+  it("reads nothing first, then numbers, then text, as a store's own order does", async () => {
+    // The order of storage classes rather than the order a string comparison would produce: a
+    // number is below a text value however the two would compare as text, and a null is below
+    // both. The two stores have to agree on this, or the same records page differently.
+    const records: Row[] = [
+      { id: "a", rank: "text" },
+      { id: "b", rank: 2 },
+      { id: "c", rank: null },
+      { id: "d", rank: 10 },
+      { id: "e" },
+    ];
+
+    await inBothStores(records, async (name, store) => {
+      const ordered = await store.queryPage<Row>("products", { sort: [{ field: "rank", direction: "asc" }] });
+
+      expect(ordered.rows.map((row) => row.id), name).toEqual(["c", "e", "b", "d", "a"]);
+      expect(ordered.total, name).toBe(5);
+    });
+  });
+
+  it("leaves the store's own order in place when nothing is asked for", async () => {
+    const records = catalogue(5);
+
+    await inBothStores(
+      records,
+      async (name, store) => {
+        const ordered = await store.queryPage<Row>("products");
+        expect(ordered.rows.map((row) => row.id), name).toEqual(["p0000", "p0001", "p0002", "p0003", "p0004"]);
+        expect(ordered.total, name).toBe(5);
+      },
+      { url: "file::memory:" },
+    );
+  });
+});
+
+describe("the four parts of a query at once", () => {
+  it("compose into one answer rather than four answers", async () => {
+    // Search, filter, sort and window together, over a store big enough for each of them to be
+    // able to hide a part that was dropped: a term that matches 111 rows, a filter that keeps 75 of
+    // them, an ordering and a window inside what is left.
+    const records = catalogue(1000);
+    // Built once and re-read for each store, because a builder carries the query it has been given
+    // and a second store asked through it would be handed the first store's window.
+    const base = adminResourceQuery()
+      .search("product 1")
+      .where("in_stock", "eq", true)
+      .sort("price_cents", "desc")
+      .build();
+
+    await inBothStores(
+      records,
+      async (name, store) => {
+        const matched = await store.queryPage<Row>("products", base);
+        const page = await store.queryPage<Row>(
+          "products",
+          adminResourceQuery(base).window(20, 10).build(),
+        );
+
+        expect(matched.total, name).toBe(75);
+        expect(matched.rows.length, name).toBe(75);
+        expect(page.total, name).toBe(75);
+        expect(page.rows, name).toHaveLength(10);
+
+        // Every part was applied, and in that order: the term and the filter chose the set, the
+        // ordering arranged it, and the window took the twenty-first through the thirtieth of that
+        // rather than the twenty-first through the thirtieth of the thousand.
+        expect(page.rows.map(byId), name).toEqual(matched.rows.slice(20, 30).map(byId));
+        expect(page.rows.every((row) => row.in_stock === true), name).toBe(true);
+        expect(page.rows.every((row) => String(row.name).toLowerCase().includes("product 1")), name).toBe(true);
+        const prices = page.rows.map((row) => row.price_cents as number);
+        expect(prices, name).toEqual([...prices].sort((left, right) => right - left));
+      },
+      { url: "file::memory:" },
+    );
+  });
+
+  it("asks for a window with no search, no filter and no ordering, and counts the whole store", async () => {
+    await inBothStores(catalogue(45), async (name, store) => {
+      const page = await store.queryPage<Row>("products", { window: { offset: 40, limit: 40 } });
+
+      expect(page.rows, name).toHaveLength(5);
+      expect(page.total, name).toBe(45);
+    });
+  });
+
+  it("answers a window that reaches past the last record as no rows and the whole count", async () => {
+    // What a list needs to know when a page is out of date: not an empty resource, but a count
+    // that says there is something and a window that is past the end of it.
+    await inBothStores(catalogue(12), async (name, store) => {
+      const page = await store.queryPage<Row>("products", { window: { offset: 400, limit: 40 } });
+
+      expect(page.rows, name).toEqual([]);
+      expect(page.total, name).toBe(12);
+    });
+  });
+
+  it("refuses a query it cannot read, rather than answering part of it", async () => {
+    await inBothStores(catalogue(3), async (name, store) => {
+      await expect(store.queryPage("products", { limit: 10 } as never), name).rejects.toThrow(
+        /cannot be used/,
+      );
+      // Reaching the store at all would be the failure, so nothing was created by the refusal.
+      expect(await store.query("products"), name).toHaveLength(3);
+    });
+  });
+});
+
+describe("the two stores answering the same question", () => {
+  /**
+   * A field per shape a stored value can take, so a comparison has something of every class to
+   * answer about.
+   *
+   * `mixed` holds a null, a number, a text and a boolean across the five rows and is absent from
+   * the fifth, which is the whole ranking in one field: a range filter against any value has to
+   * cross every class, and a range filter against a null has to find the rows that are below
+   * everything. `weight` is a real that the two engines spell differently, and `uni` holds letters
+   * above the basic plane, which a string comparison and a database order differently.
+   */
+  const records: Row[] = [
+    {
+      id: "r1",
+      status: "live",
+      views: 10,
+      title: "Alpha",
+      published: true,
+      note: null,
+      meta: { slug: "one" },
+      mixed: null,
+      weight: 0.1 + 0.2,
+      uni: "ÉCOLE",
+      doc: { slug: "one" },
+      tags: ["red", "small"],
+      caption: null,
+    },
+    {
+      id: "r2",
+      status: "draft",
+      views: 20,
+      title: "beta",
+      published: false,
+      note: "second",
+      meta: { slug: "two" },
+      mixed: 5,
+      weight: 1e21,
+      uni: "école",
+      doc: [1, 2, 3],
+      tags: [],
+      caption: "nothing but a null in the text",
+    },
+    {
+      id: "r3",
+      status: "live",
+      views: 30,
+      title: "Gamma",
+      published: true,
+      note: "third",
+      meta: { slug: "one" },
+      mixed: "text",
+      weight: 1e-7,
+      uni: "�",
+      doc: null,
+      tags: "red",
+    },
+    {
+      id: "r4",
+      status: "archived",
+      views: 40,
+      title: "delta",
+      published: false,
+      meta: { slug: "three" },
+      weight: 1 / 3,
+      uni: "\u{10000}",
+    },
+    {
+      id: "r5",
+      status: "live",
+      views: 50,
+      title: "Epsilon",
+      published: true,
+      note: null,
+      meta: { slug: "one" },
+      mixed: true,
+      weight: -3.5,
+      uni: "plain",
+      doc: "a document's own text",
+      tags: ["red"],
+    },
+  ];
+
+  const queries: Array<[string, Parameters<PagingStore["queryPage"]>[1]]> = [
+    ["nothing asked for", undefined],
+    ["a term", { search: "alpha" }],
+    ["a term in a nested value's own resource", { search: "second" }],
+    ["a term nothing holds", { search: "no such thing" }],
+    // A term in a number is matched against the number as the store spells it, which is not always
+    // how JavaScript writes it: `1e21` is stored, read back and written out as `1.0e+21`, so a
+    // person searching for the value they typed finds nothing and a person searching for what the
+    // store holds finds the record. Both stores spell it the same way, which is the property.
+    ["a term in a number as the store spells it", { search: "1.0e+21" }],
+    ["a term in a number as JavaScript spells it", { search: "1e+21" }],
+    ["a term in a real with a rounding tail", { search: "0.3" }],
+    ["a term folded from a letter above ASCII", { search: "école" }],
+    ["a term in a boolean", { search: "true" }],
+    ["a term in a document", { search: "slug" }],
+    ["a term in a list", { search: "red" }],
+    ["equality", { filter: [{ field: "status", operator: "eq", value: "live" }] }],
+    ["inequality, including the rows with no such field", { filter: [{ field: "note", operator: "ne", value: null }] }],
+    ["greater than", { filter: [{ field: "views", operator: "gt", value: 20 }] }],
+    ["greater than or equal", { filter: [{ field: "views", operator: "gte", value: 30 }] }],
+    ["less than", { filter: [{ field: "views", operator: "lt", value: 30 }] }],
+    ["less than or equal", { filter: [{ field: "views", operator: "lte", value: 20 }] }],
+
+    // Every range operator against a null, which is where the four operators have four different
+    // answers. The bug this file missed was a range filter against a null, so each one is named
+    // here: `gt(null)` is the rows that hold something, `gte(null)` is all of them, `lt(null)` is
+    // none, and `lte(null)` is the null and the absent.
+    ["greater than a null", { filter: [{ field: "mixed", operator: "gt", value: null }] }],
+    ["greater than or equal to a null", { filter: [{ field: "mixed", operator: "gte", value: null }] }],
+    ["less than a null", { filter: [{ field: "mixed", operator: "lt", value: null }] }],
+    ["less than or equal to a null", { filter: [{ field: "mixed", operator: "lte", value: null }] }],
+
+    // A range across the classes, which is the other half of the same fix: a `less than` a number
+    // has to find the nulls, which sit below every number, and a `greater than` a word has to stop
+    // below the words rather than answer with the numbers.
+    ["greater than a number, over every class", { filter: [{ field: "mixed", operator: "gt", value: 0 }] }],
+    ["greater than or equal to a number, over every class", { filter: [{ field: "mixed", operator: "gte", value: 0 }] }],
+    ["less than a number, over every class", { filter: [{ field: "mixed", operator: "lt", value: 0 }] }],
+    ["less than or equal to a number, over every class", { filter: [{ field: "mixed", operator: "lte", value: 0 }] }],
+    ["greater than a word, over every class", { filter: [{ field: "mixed", operator: "gt", value: "a" }] }],
+    ["less than a word, over every class", { filter: [{ field: "mixed", operator: "lt", value: "a" }] }],
+    ["greater than a boolean", { filter: [{ field: "mixed", operator: "gt", value: true }] }],
+    ["less than a boolean", { filter: [{ field: "mixed", operator: "lt", value: false }] }],
+
+    // A range against a value the field does not hold, where a database reads an absent path as
+    // nothing and so ranks it with the nulls.
+    ["a range against a field no record has", { filter: [{ field: "absent", operator: "gt", value: 0 }] }],
+    ["a range against a field no record has, at or below nothing", { filter: [{ field: "absent", operator: "lte", value: null }] }],
+
+    ["a list to match", { filter: [{ field: "status", operator: "in", value: ["draft", "archived"] }] }],
+    ["a list including null", { filter: [{ field: "note", operator: "in", value: [null, "third"] }] }],
+    ["a list of numbers and words", { filter: [{ field: "mixed", operator: "in", value: [5, "text"] }] }],
+    ["a list holding a boolean", { filter: [{ field: "mixed", operator: "in", value: [true] }] }],
+    ["a list of values no record holds", { filter: [{ field: "mixed", operator: "in", value: ["nope", 999] }] }],
+
+    ["a term inside a value", { filter: [{ field: "title", operator: "contains", value: "TA" }] }],
+    ["a term inside a boolean", { filter: [{ field: "published", operator: "contains", value: "true" }] }],
+
+    // A term inside a value that is not text. The contract allows any scalar as a `contains`
+    // value, so each spelling is a question a host can ask and the two stores have to answer it
+    // the same way, rather than one of them failing on the value it was handed.
+    ["a term inside a number", { filter: [{ field: "views", operator: "contains", value: 5 }] }],
+    ["a term inside a number given as text", { filter: [{ field: "views", operator: "contains", value: "5" }] }],
+    ["a term inside a number the two engines spell differently", { filter: [{ field: "weight", operator: "contains", value: 0.1 + 0.2 }] }],
+    ["a term inside a number in exponent form", { filter: [{ field: "weight", operator: "contains", value: 1e21 }] }],
+    ["a term inside a boolean given as a boolean", { filter: [{ field: "published", operator: "contains", value: false }] }],
+    ["a term inside a null", { filter: [{ field: "caption", operator: "contains", value: null }] }],
+    ["a term inside a document", { filter: [{ field: "doc", operator: "contains", value: "slug" }] }],
+    ["a term inside a list", { filter: [{ field: "tags", operator: "contains", value: "red" }] }],
+    ["a term inside a field no record has", { filter: [{ field: "absent", operator: "contains", value: "5" }] }],
+
+    ["null", { filter: [{ field: "note", operator: "isNull" }] }],
+    ["not null", { filter: [{ field: "note", operator: "notNull" }] }],
+    ["a null over a field holding every class", { filter: [{ field: "mixed", operator: "isNull" }] }],
+    ["not null over a field holding every class", { filter: [{ field: "mixed", operator: "notNull" }] }],
+    ["a field some records do not have", { filter: [{ field: "note", operator: "notNull" }] }],
+    ["not null on a field no record has", { filter: [{ field: "absent", operator: "notNull" }] }],
+    ["a nested field", { filter: [{ field: "meta.slug", operator: "eq", value: "one" }] }],
+    ["a nested field that is null", { filter: [{ field: "meta.slug", operator: "isNull" }] }],
+    ["a nested range", { filter: [{ field: "meta.slug", operator: "gt", value: "one" }] }],
+    ["equality against a boolean", { filter: [{ field: "mixed", operator: "eq", value: true }] }],
+    ["inequality against a boolean", { filter: [{ field: "mixed", operator: "ne", value: true }] }],
+    ["equality against a document", { filter: [{ field: "doc", operator: "eq", value: "a document's own text" }] }],
+    ["two comparisons at once", {
+      filter: [
+        { field: "status", operator: "eq", value: "live" },
+        { field: "views", operator: "gte", value: 30 },
+      ],
+    }],
+    ["an ordering ascending", { sort: [{ field: "views", direction: "asc" }] }],
+    ["an ordering descending", { sort: [{ field: "views", direction: "desc" }] }],
+    ["an ordering on text", { sort: [{ field: "title", direction: "asc" }] }],
+    ["an ordering on a field some records lack", { sort: [{ field: "note", direction: "asc" }] }],
+    ["an ordering on a field some records lack, reversed", { sort: [{ field: "note", direction: "desc" }] }],
+    ["an ordering over every class", { sort: [{ field: "mixed", direction: "asc" }] }],
+    ["an ordering over every class, reversed", { sort: [{ field: "mixed", direction: "desc" }] }],
+    ["an ordering on a document", { sort: [{ field: "doc", direction: "asc" }] }],
+    ["an ordering on a document, reversed", { sort: [{ field: "doc", direction: "desc" }] }],
+    ["an ordering on a list", { sort: [{ field: "tags", direction: "asc" }] }],
+    ["an ordering on a list, reversed", { sort: [{ field: "tags", direction: "desc" }] }],
+    ["an ordering on a real", { sort: [{ field: "weight", direction: "asc" }] }],
+    ["an ordering on a real, reversed", { sort: [{ field: "weight", direction: "desc" }] }],
+    ["an ordering on a boolean", { sort: [{ field: "published", direction: "asc" }] }],
+    ["an ordering on a boolean, reversed", { sort: [{ field: "published", direction: "desc" }] }],
+    ["an ordering on letters above the basic plane", { sort: [{ field: "uni", direction: "asc" }] }],
+    ["an ordering on letters above the basic plane, reversed", { sort: [{ field: "uni", direction: "desc" }] }],
+    ["an ordering on a nested field", { sort: [{ field: "meta.slug", direction: "asc" }] }],
+    ["an ordering on a nested field, reversed", { sort: [{ field: "meta.slug", direction: "desc" }] }],
+    ["an ordering on a field no record has", { sort: [{ field: "absent", direction: "asc" }] }],
+    ["two orderings", {
+      sort: [
+        { field: "status", direction: "asc" },
+        { field: "views", direction: "desc" },
+      ],
+    }],
+    ["two orderings, both reversed", {
+      sort: [
+        { field: "status", direction: "desc" },
+        { field: "views", direction: "asc" },
+      ],
+    }],
+    // A window inside one class rather than between them, so the boundary is only reachable if the
+    // class is ranked before the value. A window over an ordering that put the window on the other
+    // side of a class boundary would agree between the two stores over a different set of rows.
+    ["an ordering with a window inside its lowest class", {
+      sort: [{ field: "mixed", direction: "asc" }],
+      window: { offset: 1, limit: 2 },
+    }],
+    ["an ordering with a window inside its highest class", {
+      sort: [{ field: "mixed", direction: "desc" }],
+      window: { offset: 0, limit: 2 },
+    }],
+    ["a reversed ordering with a window inside its lowest class", {
+      sort: [{ field: "note", direction: "desc" }],
+      window: { offset: 2, limit: 3 },
+    }],
+    ["an ordering on a document with a window", {
+      sort: [{ field: "doc", direction: "desc" }],
+      window: { offset: 0, limit: 3 },
+    }],
+    ["an ordering on a nested field with a window", {
+      sort: [{ field: "meta.slug", direction: "asc" }],
+      window: { offset: 2, limit: 5 },
+    }],
+    // The first ordering ties on every row, so the answer is the second one and the class of the
+    // first is not what put the rows in order. A store that ranked a missing field above a held one
+    // would still agree here, which is why the cases above ask for an ordering on both.
+    ["two orderings, the first of which no record holds", {
+      sort: [
+        { field: "absent", direction: "desc" },
+        { field: "views", direction: "asc" },
+      ],
+      window: { offset: 1, limit: 4 },
+    }],
+    ["a window", { window: { offset: 2, limit: 2 } }],
+    ["a window past the end", { window: { offset: 40, limit: 10 } }],
+    ["search, filter, ordering and window at once", {
+      search: "a",
+      filter: [{ field: "status", operator: "ne", value: "archived" }],
+      sort: [{ field: "title", direction: "desc" }],
+      window: { offset: 1, limit: 2 },
+    }],
+  ];
+
+  for (const [what, query] of queries) {
+    it(`answer the same rows in the same order with the same total to ${what}`, async () => {
+      // Each store is asked on its own, and the two answers are compared rather than checked
+      // against a list written out here: a filter one store applies and the other does not shows
+      // up as a disagreement, which is the bug this is here for.
+      const [memory, sqlite] = await seeded(records);
+      const [, memoryStore] = memory;
+      const [, sqliteStore] = sqlite;
+
+      const fromMemory = await memoryStore.queryPage<Row>("products", query);
+      const fromSqlite = await sqliteStore.queryPage<Row>("products", query);
+
+      // The sets are compared first, so a failure says which of the two stores answered wrongly
+      // rather than only that they differ.
+      expect([...fromSqlite.rows].sort(byIdAscending), what).toEqual(
+        [...fromMemory.rows].sort(byIdAscending),
+      );
+      expect(fromSqlite.total, what).toBe(fromMemory.total);
+      expect(fromSqlite.rows.map(byId), what).toEqual(fromMemory.rows.map(byId));
+    });
+  }
+
+  /**
+   * An ordering, the row order the ranking states for it, and the window it is read through.
+   *
+   * The cases in the set above hold the two stores to each other, which is not the same as holding
+   * either of them to the ranking: two stores that ranked a class the wrong way agree with each
+   * other perfectly, and a store that ranks the class for a comparison and not for an ordering
+   * agrees with itself on every query that does not cross a class. So the order is written out here
+   * beside each ordering, and each store is held to that list rather than to the other.
+   *
+   * Each row of the table below is read off the rule rather than off a store's answer, so a store
+   * that answers it is a store that applied the rule. The classes come out lowest first: nothing, a
+   * stored null and a field no record has alike, then numbers and booleans, then text, with a
+   * document and a list spelled as their own JSON, which is what a store casts them to. Reading the
+   * other way reverses each class and puts nothing at the end, and the id settles what is left tied,
+   * ascending whichever way the ordering reads.
+   */
+  const rankings: Array<[string, AdminResourceSort[], string[]]> = [
+    // Nothing first, then the two numbers, then the one word. `true` is the number a store keeps it
+    // as, so it is below `5`, and the null and the absent field are tied and the id orders them.
+    ["nothing, then numbers, then text", [{ field: "mixed", direction: "asc" }], ["r1", "r4", "r5", "r2", "r3"]],
+    // The same rows the other way, so the class that was first is last. A store that reversed the
+    // value and left the class alone would put the two lowest rows at the front.
+    ["and nothing at the end of it", [{ field: "mixed", direction: "desc" }], ["r3", "r2", "r5", "r1", "r4"]],
+    ["text, then nothing", [{ field: "note", direction: "asc" }], ["r1", "r4", "r5", "r2", "r3"]],
+    ["and the two words first", [{ field: "note", direction: "desc" }], ["r3", "r2", "r1", "r4", "r5"]],
+    // A document and a list sit above a number, so the three rows holding one come after the null
+    // and the absent field. Within them the cast to text reads by code point, which puts `[1,2,3]`
+    // below `a document's own text` below `{"slug":"one"}`.
+    ["a document cast as its own JSON, above the nothing", [{ field: "doc", direction: "asc" }], ["r3", "r4", "r2", "r5", "r1"]],
+    ["and the two nothing rows at the end of it", [{ field: "doc", direction: "desc" }], ["r1", "r5", "r2", "r3", "r4"]],
+    ["a list cast as its own JSON, above the nothing", [{ field: "tags", direction: "asc" }], ["r4", "r1", "r5", "r2", "r3"]],
+    ["and nothing at the end of it", [{ field: "tags", direction: "desc" }], ["r3", "r2", "r5", "r1", "r4"]],
+    // Every row here holds a boolean, so there is one class throughout and the order is the number
+    // a store keeps it as: `false` below `true`, and `true` tied across three rows in id order.
+    ["a boolean as the number a store keeps it as", [{ field: "published", direction: "asc" }], ["r2", "r4", "r1", "r3", "r5"]],
+    ["and the other way", [{ field: "published", direction: "desc" }], ["r1", "r3", "r5", "r2", "r4"]],
+    // Reals only, so what is being read is the value inside the class: `-3.5`, then `1e-7`, then
+    // `0.1 + 0.2` and `1 / 3` as the two engines each spell them, then `1e21`.
+    ["reals among themselves", [{ field: "weight", direction: "asc" }], ["r5", "r3", "r1", "r4", "r2"]],
+    ["and the other way", [{ field: "weight", direction: "desc" }], ["r2", "r4", "r1", "r3", "r5"]],
+    // Text by code point, which is not what a JavaScript string comparison says: the character above
+    // the basic plane is the last of these rather than the first.
+    ["text by code point rather than by code unit", [{ field: "uni", direction: "asc" }], ["r5", "r1", "r2", "r3", "r4"]],
+    ["and the other way", [{ field: "uni", direction: "desc" }], ["r4", "r3", "r2", "r1", "r5"]],
+    // A nested path is one field, ranked as the field it is. No row here holds nothing, so the class
+    // is the same throughout and the order is the three rows on `one` and then `three` and `two`.
+    ["a nested field, ranked as the field it is", [{ field: "meta.slug", direction: "asc" }], ["r1", "r3", "r5", "r4", "r2"]],
+    ["and the other way", [{ field: "meta.slug", direction: "desc" }], ["r2", "r4", "r1", "r3", "r5"]],
+    // A field no record holds is the lowest class on every row, so no value is compared anywhere
+    // and the id is the whole answer. This is where a store that ranked a missing field elsewhere,
+    // or that applied the direction to the id as well, would put these rows in another order.
+    ["a field no record holds, where the id is the whole answer", [{ field: "absent", direction: "asc" }], ["r1", "r2", "r3", "r4", "r5"]],
+  ];
+
+  /**
+   * The same orderings read through a window, which lands inside one class rather than between two.
+   *
+   * A window on the boundary between two classes cannot tell the two apart, since either ranking
+   * gives the same rows there. One landing inside a class can, because the rows on either side of it
+   * belong to the same class and only the value orders them.
+   */
+  const windows: Array<[string, AdminResourceSort[], { offset: number; limit: number }, string[]]> = [
+    ["a window inside the lowest class", [{ field: "mixed", direction: "asc" }], { offset: 1, limit: 2 }, ["r4", "r5"]],
+    ["a window inside the highest class", [{ field: "mixed", direction: "desc" }], { offset: 0, limit: 2 }, ["r3", "r2"]],
+    ["a window inside the class a reversal moved to the end", [{ field: "note", direction: "desc" }], { offset: 2, limit: 3 }, ["r1", "r4", "r5"]],
+    ["a window over documents", [{ field: "doc", direction: "desc" }], { offset: 0, limit: 3 }, ["r1", "r5", "r2"]],
+    ["a window over a nested field", [{ field: "meta.slug", direction: "asc" }], { offset: 2, limit: 5 }, ["r5", "r4", "r2"]],
+    ["a window over reals", [{ field: "weight", direction: "desc" }], { offset: 0, limit: 3 }, ["r2", "r4", "r1"]],
+    ["a window reaching past the end of the last class", [{ field: "mixed", direction: "asc" }], { offset: 3, limit: 9 }, ["r2", "r3"]],
+    ["a window on a field no record holds, where the id decides the boundary", [{ field: "absent", direction: "asc" }], { offset: 2, limit: 2 }, ["r3", "r4"]],
+  ];
+
+  it("answer each ordering with the row order the ranking states, in both stores", async () => {
+    const [[, memoryStore], [, sqliteStore]] = await seeded(records);
+
+    for (const [what, sort, expected] of rankings) {
+      const query: AdminResourceQuery = { sort };
+      expect((await memoryStore.queryPage<Row>("products", query)).rows.map(byId), `the in-memory adapter, ${what}`).toEqual(expected);
+      expect((await sqliteStore.queryPage<Row>("products", query)).rows.map(byId), `the SQLite adapter, ${what}`).toEqual(expected);
+    }
+  });
+
+  it("answer a window landing inside a class with that class's rows, in both stores", async () => {
+    const [[, memoryStore], [, sqliteStore]] = await seeded(records);
+
+    for (const [what, sort, window, expected] of windows) {
+      const query: AdminResourceQuery = { sort, window };
+      expect((await memoryStore.queryPage<Row>("products", query)).rows.map(byId), `the in-memory adapter, ${what}`).toEqual(expected);
+      expect((await sqliteStore.queryPage<Row>("products", query)).rows.map(byId), `the SQLite adapter, ${what}`).toEqual(expected);
+    }
+  });
+
+  it("are not both empty, or a pair of stores that answer nothing would pass every case above", async () => {
+    // Asked of every query in the set above rather than of one of them, because the failure this
+    // guards against is silent: a query that matches nothing is a pair of stores agreeing, so a
+    // case the records cannot express passes without either store being asked anything. A case
+    // that matches nothing here is a case the records cannot express, and the fix is the records.
+    //
+    // The exceptions are named rather than skipped silently, because "matches nothing" is the
+    // answer for a few of them and a vacuous pass for the rest.
+    const matchesNothing = new Set([
+      "a term nothing holds",
+      "a term in a number as JavaScript spells it",
+      "a term in a document",
+      "a range against a field no record has",
+      "not null on a field no record has",
+      "equality against a document",
+      "a nested field that is null",
+      "less than a null",
+      "a range against a field no record has, at or below nothing",
+      "a list of values no record holds",
+      "a term inside a field no record has",
+    ]);
+
+    const [[, memoryStore], [, sqliteStore]] = await seeded(records);
+
+    const asked: Array<[string, number]> = [];
+    for (const [what, query] of queries) {
+      if (matchesNothing.has(what)) continue;
+      const page = await memoryStore.queryPage<Row>("products", query);
+      asked.push([what, page.total]);
+    }
+
+    // Asserted on the totals as a collected whole rather than inside the loop, so that weakening
+    // the comparison cannot leave the guard passing. A case the records cannot express is a zero
+    // here, and the names are reported so the fix is the records rather than the expectation.
+    const expressed = asked.filter(([, total]) => total > 0).map(([what]) => what);
+    expect(
+      expressed,
+      "these queries match nothing in both stores, so the records cannot express them",
+    ).toEqual(asked.map(([what]) => what));
+
+    // Counted rather than trusted, because a loop over a set that shrank would still pass. Every
+    // query above is either asked here or named in the exceptions, and a new one cannot be added
+    // without saying whether it is meant to match.
+    expect(asked.length + matchesNothing.size).toBe(queries.length);
+    expect(matchesNothing.size).toBeLessThan(queries.length / 2);
+
+    const page = await memoryStore.queryPage<Row>("products", { sort: [{ field: "views", direction: "desc" }] });
+    expect(page.total).toBe(5);
+    expect(page.rows.map(byId)).toEqual(["r5", "r4", "r3", "r2", "r1"]);
+    expect((await sqliteStore.queryPage<Row>("products")).rows.map(byId)).toEqual([
+      "r1",
+      "r2",
+      "r3",
+      "r4",
+      "r5",
+    ]);
+  });
+
+  it("agree about a search over a document's nested values, which neither store walks into", async () => {
+    // Stated rather than left to be discovered: the search reads the top level of a record, so a
+    // term only in a nested value finds nothing in either store, and finds nothing for the same
+    // reason.
+    const [[, memoryStore], [, sqliteStore]] = await seeded(records);
+
+    const memoryPage = await memoryStore.queryPage<Row>("products", { search: "one" });
+    const sqlitePage = await sqliteStore.queryPage<Row>("products", { search: "one" });
+
+    expect(memoryPage.total).toBe(0);
+    expect(sqlitePage.total).toBe(memoryPage.total);
+  });
+});
+
+function byId(row: Row): string {
+  return row.id;
+}
+
+function byIdAscending(left: Row, right: Row): number {
+  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+}
+
+describe("the query the older form reads", () => {
+  const records: Row[] = [
+    { id: "r1", status: "live", views: 10, published: true, note: null },
+    { id: "r2", status: "draft", views: 20, published: false, note: "second" },
+    { id: "r3", status: "live", views: 30, published: true },
+  ];
+
+  it("still reads a map of exact values, in both stores", async () => {
+    await inBothStores(records, async (name, store) => {
+      const live = await store.query<Row>("products", { status: "live" });
+      expect(live.map(byId), name).toEqual(["r1", "r3"]);
+
+      expect(await store.query<Row>("products", { status: "live", views: 10 }), name).toHaveLength(1);
+      expect(await store.query<Row>("products", { status: "nope" }), name).toEqual([]);
+      expect(await store.query<Row>("products"), name).toHaveLength(3);
+    });
+  });
+
+  it("still tells a boolean from a number and a number from its own text", async () => {
+    // The exactness the older reading rests on, and the one several call sites depend on: a record
+    // storing `true` is not a record storing `1`.
+    await inBothStores(
+      [
+        { id: "flag", published: true },
+        { id: "one", published: 1 },
+        { id: "text", published: "1" },
+        { id: "code", code: 5 },
+        { id: "codeText", code: "5" },
+      ],
+      async (name, store) => {
+        expect((await store.query<Row>("products", { published: true })).map(byId), name).toEqual(["flag"]);
+        expect((await store.query<Row>("products", { published: 1 })).map(byId), name).toEqual(["one"]);
+        expect((await store.query<Row>("products", { code: 5 })).map(byId), name).toEqual(["code"]);
+        expect((await store.query<Row>("products", { code: "5" })).map(byId), name).toEqual(["codeText"]);
+      },
+    );
+  });
+
+  it("still finds a record storing null without claiming one that never had the field", async () => {
+    await inBothStores(records, async (name, store) => {
+      const found = await store.query<Row>("products", { note: null });
+      expect(found.map(byId), name).toEqual(["r1"]);
+    });
+  });
+
+  it("has no way to be sent a window, a sort or a limit, which are the paged form's own parts", async () => {
+    // A host that reaches for `query` to page gets a field match on a field nothing stores, which
+    // is the empty list the paged form exists to stop being silent about. It is still what it
+    // always was, and the paged form is a member beside it rather than a change to it.
+    await inBothStores(records, async (name, store) => {
+      expect(await store.query<Row>("products", { limit: 2 }), name).toEqual([]);
+      expect(await store.query<Row>("products", { sort: "views" }), name).toEqual([]);
+      expect(await store.query<Row>("products", { offset: 1 }), name).toEqual([]);
+    });
+
+    // A window sent as a document is the one shape the two older forms answer differently, and the
+    // difference is the SQLite adapter's own rule rather than anything the paged form changed: a
+    // document cannot be compared as a value, so it refuses instead of answering wrongly.
+    const [, [, sqliteStore]] = await seeded(records);
+    await expect(sqliteStore.query("products", { window: { offset: 0, limit: 2 } })).rejects.toThrow(
+      /stored as a JSON document/,
+    );
+  });
+
+  it("is still the call a list makes when its adapter cannot page", async () => {
+    // The compatibility the whole design rests on, checked through the adapter rather than through
+    // a type: a store that never heard of `queryPage` is an adapter, and a one-argument query is
+    // all it is asked.
+    await inBothStores(records, async (name, store) => {
+      const legacy: AdminPersistenceAdapter = {
+        read: (resource, id) => store.read(resource, id),
+        query: (resource, query) => store.query(resource, query),
+        create: (resource, value) => store.create(resource, value),
+        update: (resource, id, value) => store.update(resource, id, value),
+        delete: (resource, id) => store.delete(resource, id),
+      };
+
+      expect(legacy.queryPage, name).toBeUndefined();
+      expect((await legacy.query<Row>("products")).map(byId), name).toEqual(["r1", "r2", "r3"]);
+    });
+  });
+});

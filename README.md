@@ -440,7 +440,7 @@ const posts = defineAdminResource({
 });
 ```
 
-`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input.
+`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
 
 #### Searching, sorting, filtering and paging a generated list
 
@@ -507,6 +507,33 @@ const posts = defineAdminResource({
 - `filters` are the controls the list draws. A field the definition does not declare has no control, and a control whose value `parse` answers with `undefined` sends no comparison.
 - `pageSize` is how many rows a window asks for, 40 by default.
 - The count, the search box, the sort directions, the filter label and the "no records match" copy are the `labels` prop, so a host translates one object. Pagination keeps its own labels, which live in the message dictionary.
+
+#### Printing a column's value
+
+A column's `format` **names** a formatter rather than being one. `"money"` and `"count"` are the two the package prints, the first reading the stored integer as whole cents, and the division by a hundred happens at the moment of display and nowhere earlier. Any other name is the host's, written `{ name: "..." }`, and the list resolves it from its `formatters` prop:
+
+```tsx
+const posts = defineAdminResource({
+  resource: "posts",
+  label: "Posts",
+  columns: [
+    { key: "title", header: "Title" },
+    { key: "price_cents", header: "Price", align: "right", format: "money" },
+    { key: "status", header: "Status", format: { name: "status" } },
+  ],
+  fields: [{ name: "title", label: "Title", required: true }],
+});
+
+<AdminResourceList
+  definition={posts}
+  persistence={db}
+  formatters={{ status: (value) => <StatusPill value={String(value)} /> }}
+/>;
+```
+
+A name nothing answers is refused while the table is built, naming the column and the name it wanted, rather than falling back to the stored value. A column silently printing `4900` where its own definition promised `$49.00` is a wrong number on a page that looks right.
+
+**Most of a definition crosses the client boundary; the rest is code and does not.** `AdminResourceList` and `AdminResourceForm` are client components, so a definition passed to one from a server component travels as data. A column's `format` is a name for that reason. A field's `render` and `parse` and a filter's `parse` are functions and cannot be serialised at all, so a definition declaring one has to be built on the side that renders the view, and its page has to be a client component. Nothing about that is a limitation of the framework's convenience: a custom control and a custom comparison are code, and code has to be on the side that runs it.
 
 **A query that crosses the server is read or refused.** `createAdminResourceActions` reads the query it is handed before it asks about the session, and refuses anything it cannot read: a part that is not part of a query, a field name that is not a field, an ordering that is not ascending or descending, a comparison with nothing to compare to, an offset that is not a whole record, a window of no rows, and a window larger than the contract allows. The refusal is deliberate, because the adapters this contract grew out of read every key they are given as a field to match exactly: a `sort` was a column named `sort`, and a `limit` was a filter nothing matched. A store is not handed a guess about what a caller meant.
 
@@ -601,7 +628,7 @@ That also means the server names the record: `id` is a field only if the definit
 
 ### The memory adapter
 
-`createMemoryPersistenceAdapter` is CRUD over plain objects, which is enough for a fixture or a test with no database. It hands out copies in both directions, so a caller cannot edit stored state without going through `update`. `createAuditAdapter` and `createCacheAdapter` are thin defaults that swallow their own failures, because the change has already happened by the time either runs; both take an `onError` so the failure is still observable.
+`createMemoryPersistenceAdapter` is CRUD over plain objects, which is enough for a fixture or a test with no database. It hands out copies in both directions, so a caller cannot edit stored state without going through `update`. It answers `queryPage` too, ranking and comparing stored values the way SQLite does, so the same records answer the same query the same way through either store. Matching a database means matching its spelling as well as its order, so a number reads as fifteen significant digits, a search folds the ASCII letters and no others, and text orders by code point rather than by the surrogate pairs a JavaScript string compares on. `createAuditAdapter` and `createCacheAdapter` are thin defaults that swallow their own failures, because the change has already happened by the time either runs; both take an `onError` so the failure is still observable.
 
 ### The SQLite adapter
 
@@ -619,7 +646,9 @@ Records are stored as JSON documents keyed by resource and id, which is why no s
 
 Filters are exact matches on a stored value, so a filter is a string, a number, a boolean or `null`. Each predicate states the JSON type it expects, which is what keeps a filter for `1` from being answered by a record storing `true`, and lets `null` find a record storing `null` rather than matching nothing at all. A filter carrying an object or an array is refused with an error rather than compared as text, because text comparison matches on key order and would quietly return the wrong rows.
 
-This adapter answers `query` and nothing else, so a list reading through it renders every record it was given, with no search, sorting, filtering, paging or count. Adding `queryPage` to it is the whole of the change: run the same filters, order and slice what `AdminResourceQuery` asks for, and report the count the filters matched before the window.
+It answers `queryPage` as well, so a list reading through it draws its search box, sort controls, filters, pager and count, and every one of them reaches the database. The count is a statement of its own rather than a length of the rows it sent, because a window that has run past the last matching record comes back with no rows at all, and a list holding nothing has to ask whether that is an empty resource or an offset beyond the end of one. `ORDER BY` settles ties on `id`, so paging through an ordering that leaves rows equal cannot repeat one and drop another. With no ordering asked for, the rows come back in the table's own insertion order, which is what the in-memory adapter returns and what makes a window over no ordering repeatable.
+
+A comparison ranks before it compares, and so does an ordering, and both rank by the same written rule: nothing first, then numbers and booleans, then text. That is the database's own order of storage classes, and the adapter states it rather than leaving it to the engine, so a comparison and an ordering are the same rule read twice rather than two that happen to agree. A text value is above a number however the two would compare as text, and a boolean is the number a database stores it as, so `true` and `1` order as each other. A value the record does not have ranks with the nulls rather than above them, and reading an ordering the other way reverses each class and puts the nulls at the end. **A null is the lowest class, and a range filter can be given one**, so `gt(null)` is every record that is not null or absent, `gte(null)` is every record, `lt(null)` is none, and `lte(null)` is the null and the absent. That is where a three-valued language and a two-valued one part company: there is no value to compare and nothing compares against nothing, so the class decides and the operator still says which way. Both shipped adapters rank the same way, which is what lets a fixture and a database answer the same question alike.
 
 This is the adapter to start on. A filter runs through `json_extract`, which SQLite cannot index the way it can a column, so once a resource is large enough that the scan shows, put it behind a mapped schema and the same `AdminPersistenceAdapter`.
 

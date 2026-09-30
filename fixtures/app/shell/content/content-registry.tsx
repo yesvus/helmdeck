@@ -3,6 +3,7 @@ import {
   AdminSelect,
   AdminStatusPill,
   defineAdminResource,
+  type AdminResourceFormatter,
   type AdminStatusTone,
 } from "@yesvus/helmdeck";
 import { CONTENT_RESOURCE, CONTENT_STATUSES, isContentStatus } from "./content-status";
@@ -24,6 +25,25 @@ import { CONTENT_RESOURCE, CONTENT_STATUSES, isContentStatus } from "./content-s
 const STATUS_TONES: Readonly<Record<string, AdminStatusTone>> = {
   published: "success",
   draft: "warning",
+};
+
+/**
+ * The formatters the columns above name, and the page passes to the list.
+ *
+ * Exported rather than kept private because the code and the names have to meet somewhere: a
+ * definition that says `format: { name: "status" }` is a promise the client keeps, and this is the
+ * half that keeps it.
+ */
+export const contentFormatters: Readonly<Record<string, AdminResourceFormatter>> = {
+  // The pill is presentation. The word in it is the stored value, because a label invented here
+  // would be a second thing on the page to disagree with the row it sits in.
+  status: (value) => (
+    <AdminStatusPill
+      tone={typeof value === "string" ? (STATUS_TONES[value] ?? "neutral") : "neutral"}
+      label={typeof value === "string" && value !== "" ? value : "No status"}
+    />
+  ),
+  preview: (value) => preview(value),
 };
 
 /**
@@ -77,19 +97,13 @@ export const contentPosts = defineAdminResource({
   },
   columns: [
     { key: "title", header: "Title" },
-    {
-      key: "status",
-      header: "Status",
-      // The pill is presentation. The word in it is the stored value, because a label invented here
-      // would be a second thing on the page to disagree with the row it sits in.
-      format: (value) => (
-        <AdminStatusPill
-          tone={typeof value === "string" ? (STATUS_TONES[value] ?? "neutral") : "neutral"}
-          label={typeof value === "string" && value !== "" ? value : "No status"}
-        />
-      ),
-    },
-    { key: "body", header: "Preview", format: (value) => preview(value) },
+    // Both columns name a format rather than carrying one. This page is a client component, so it
+    // could hold the code, but the names are what make the definition a description the actions and
+    // the routes can read on the server too, which is the same reason a column's `format` is a name
+    // everywhere in the package. The code behind each name is below, and reaches the list through
+    // its `formatters` prop.
+    { key: "status", header: "Status", format: { name: "status" } },
+    { key: "body", header: "Preview", format: { name: "preview" } },
   ],
   fields: [
     { name: "title", label: "Title", required: true },

@@ -192,6 +192,24 @@ describe("the content list", () => {
     expect(screen.queryByText("Autumn sale")).not.toBeInTheDocument();
   });
 
+  it("prints the status and the preview through the formatters the page registered", async () => {
+    // The two columns whose code used to sit inside the definition, and this is the assertion that it
+    // still reaches the cells. The status is a pill, so what is compared is the word inside it, and
+    // the preview is cut at the limit. A page that registered neither would refuse the names outright
+    // rather than render blanks, so this is also the check that the page passes the map the columns
+    // ask for.
+    const long = `${"A paragraph of post body. ".repeat(8)}The end.`;
+    const created = await createContentPost({ title: "Long read", body: long, status: "draft" });
+
+    page(<ContentPage />);
+    await screen.findByText("Long read");
+
+    const cells = (await rows()).find((row) => row[0] === "Long read");
+    expect(cells?.[1]).toBe("draft");
+    expect(cells?.[2]).toBe(`${long.slice(0, 80).trimEnd()}...`);
+    await deleteContentPost(created.id);
+  });
+
   it("renders the stored body, cut short for a list, so the content is readable from the list", async () => {
     // A body longer than the list shows, so the cutting is exercised rather than assumed. The seed's
     // own bodies are all short enough to render whole, which would leave the cut untested.
