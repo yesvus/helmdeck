@@ -101,6 +101,11 @@ async function remainingBudget(bound: AdminLoginThrottle): Promise<number> {
   return through;
 }
 
+/** How many charges a key is carrying, measured as the budget a fresh limit of 8 no longer has. */
+async function charges(bound: AdminLoginThrottle): Promise<number> {
+  return 8 - (await remainingBudget(bound));
+}
+
 /** A throttle whose counts are per attempt email, so a test means one key when it says one. */
 function throttle(options: { limit?: number; now?: () => number; windowMs?: number; reservationMs?: number } = {}) {
   return createLoginThrottle({
@@ -624,6 +629,158 @@ describe("property 11: the number a host configures is the number the bound enfo
     // the budget check. Twenty at eight and twenty at three, counted at the comparison.
     expect((await burstAt(8)).reached).toBe(8);
     expect((await burstAt(3)).reached).toBe(3);
+  });
+});
+
+describe("property 12: a reservation is charged at most once, whichever path it arrives by", () => {
+  /**
+   * The invariant, as one reservation walked through every way a report can reach the accounting.
+   *
+   * A report arrives as a reservation that is still reserved, as one whose lease has lapsed, as a
+   * repeat of either, as one this process never minted, or as one whose key has been forgotten.
+   * Five paths, and each of them is a place where a charge could be taken twice. The rounds that
+   * found this accounting wrong found it four times, one path at a time, because the invariant
+   * was never written down and each case was a patch on its own. So it is asserted here as a
+   * property over the paths rather than as a test per path.
+   */
+  it("charges one reservation once and charges it nothing more, on each of the five paths", async () => {
+    const seen: string[] = [];
+    const note = (path: string, count: number) => seen.push(`${path}:${count}`);
+
+    // One: reported while its lease is still live. The ordinary case, and the only one that was
+    // ever charged once.
+    {
+      const time = clock();
+      const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+      const one = allowed(await bound.check(attempt()));
+      await bound.failed(attempt(), one);
+      note("live", await charges(bound));
+      // Three: the same reservation reported again, now that it is no longer reserved.
+      await bound.failed(attempt(), one);
+      note("live-then-again", await charges(bound));
+    }
+
+    // Two: reported after its own lease lapsed, so the throttle has no record of the attempt.
+    {
+      const time = clock();
+      const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+      const two = allowed(await bound.check(attempt()));
+      time.advance(1000);
+      await bound.failed(attempt(), two);
+      note("lapsed", await charges(bound));
+      // Three again, from the other direction.
+      await bound.failed(attempt(), two);
+      note("lapsed-then-again", await charges(bound));
+    }
+
+    // Four: a handle from a process that restarted, so this throttle never minted it.
+    {
+      const bound = throttle({ limit: 8 });
+      await bound.failed(attempt(), "minted-elsewhere");
+      note("never-seen", await charges(bound));
+      await bound.failed(attempt(), "minted-elsewhere");
+      note("never-seen-then-again", await charges(bound));
+    }
+
+    // Five: a key the throttle has forgotten entirely, because its window lapsed.
+    {
+      const time = clock();
+      const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+      const five = allowed(await bound.check(attempt()));
+      await bound.failed(attempt(), five);
+      time.advance(WINDOW);
+      // The window is what drops the key, so the report below finds nothing at all.
+      await bound.failed(attempt(), five);
+      note("forgotten", await charges(bound));
+      await bound.failed(attempt(), five);
+      note("forgotten-then-again", await charges(bound));
+    }
+
+    // One charge on the first report of each, and the same charge after any number of repeats. The
+    // direction matters and it is the safe one: this is about a slow visitor being charged for
+    // requests they did not make, never about a visitor being charged less than they guessed.
+    expect(seen).toEqual([
+      "live:1",
+      "live-then-again:1",
+      "lapsed:1",
+      "lapsed-then-again:1",
+      "never-seen:1",
+      "never-seen-then-again:1",
+      "forgotten:1",
+      "forgotten-then-again:1",
+    ]);
+  });
+
+  it("charges one reservation once through the credential path, where the charge is observable", async () => {
+    // The same invariant seen the way a host sees it: as how many wrong passwords the sign-in
+    // form answers before it starts refusing. A throttle whose own bookkeeping said one charge
+    // while the form had actually given up two would pass a test that only asked the bookkeeping.
+    const db = createMemoryPersistenceAdapter();
+    const store = createPersistenceCredentialStore(db);
+    await db.create<Record<string, unknown>>("users", {
+      email: EMAIL,
+      password_hash: await hashPassword(PASSWORD),
+      role: "admin",
+    });
+    const bound = throttle({ limit: 8 });
+    const auth = createCredentialAuthAdapter({
+      secret: SECRET,
+      store,
+      cookie: jar().io,
+      throttle: bound,
+    });
+
+    // One attempt, reported three times, which is what a host's transport retrying a report looks
+    // like. The reservation is the same value each time because it is the same attempt.
+    const one = allowed(await bound.check(attempt()));
+    await bound.failed(attempt(), one);
+    await bound.failed(attempt(), one);
+    await bound.failed(attempt(), one);
+    const chargedOnce = await charges(bound);
+
+    // And what the form gives away, counted at the answer rather than at the throttle's state.
+    let wrongPasswords = 0;
+    for (let i = 0; i < 40; i += 1) {
+      const result = await auth.login({ email: EMAIL, password: `probe-${i}` });
+      if (result.ok) break;
+      if (result.message === "Those credentials were not accepted.") wrongPasswords += 1;
+      else break;
+    }
+
+    expect(chargedOnce).toBe(1);
+    // One charge means seven wrong passwords still get through before the bound starts refusing.
+    // Three charges would mean five, and a person who typed one wrong password would have been
+    // three closer to a lockout than anything they did.
+    expect(wrongPasswords).toBe(7);
+  });
+
+  it("keeps charging a different reservation for a different attempt", async () => {
+    // The other half of the invariant, because an idempotent charge is easy to write by ignoring
+    // the reservation altogether. Two attempts, two charges, whether or not either repeats.
+    const bound = throttle({ limit: 8 });
+    const first = allowed(await bound.check(attempt()));
+    const second = allowed(await bound.check(attempt()));
+
+    await bound.failed(attempt(), first);
+    await bound.failed(attempt(), first);
+    await bound.failed(attempt(), second);
+    await bound.failed(attempt(), second);
+    await bound.failed(attempt(), second);
+
+    expect(await charges(bound)).toBe(2);
+  });
+
+  it("charges a report for a reservation it did not mint, once per reservation rather than once per report", async () => {
+    // Four paths, four handles, and none of them from this process. An attacker holding this many
+    // connections open gets this many charges, which is the reason an unrecognised reservation is
+    // charged at all: they are still guesses, and a guess that costs nothing is a free attempt.
+    const bound = throttle({ limit: 8 });
+    for (const handle of ["h1", "h2", "h3", "h4"]) {
+      await bound.failed(attempt(), handle);
+      await bound.failed(attempt(), handle);
+    }
+
+    expect(await charges(bound)).toBe(4);
   });
 });
 
