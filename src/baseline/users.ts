@@ -26,6 +26,14 @@
  * is usually doing so because of the session. The alternative costs a second button a host will
  * forget to press, and leaves a stolen cookie valid for its full lifetime.
  *
+ * The sessions are ended before the flag flips, and the count is measured rather than taken from the
+ * store's own answer. `setDisabled` says why below, and the part of it worth knowing before reading
+ * the code is that "a disabled account cannot be used" and "nothing anywhere holds a usable session
+ * for it" are two claims. The first is what this package can make, because every read of a session
+ * goes through the store. The second is not: a session value already resolved is a claim about a
+ * moment, and a server action that resolved one at the top of its request, or a browser provider
+ * that has not been refreshed, is still holding it. The window is the holder's, not the session's.
+ *
  * **3. `AdminSession` gained an optional `id`, which is what makes a session addressable.** The id is
  * the row's own, read from the row the signed cookie names, so a request cannot write it. It is
  * optional because a host's own `AdminAuthAdapter` may have no session table to have an id in, and
@@ -67,7 +75,15 @@ export type AccountRefusalReason =
   /** The password is shorter than the host's floor. */
   | "weak-password"
   /** The address already has an account, whether this call found it or the store refused the write. */
-  | "email-taken";
+  | "email-taken"
+  /**
+   * The account is off and at least one of its sessions is still a row.
+   *
+   * Not a failure to disable, which is why it is a distinct reason: the account is off and every
+   * request through it will be refused, so the operator's next question is whether anyone is still
+   * signed in, and this is the answer that says they might be.
+   */
+  | "sessions-survived";
 
 /** Why an operation was refused, and the sentence to show the person who asked. */
 export type AccountRefusal = { ok: false; reason: AccountRefusalReason; message: string };
@@ -180,14 +196,25 @@ export type AccountAdmin = {
   /**
    * Turns an account off and ends every session it holds, or turns it back on.
    *
-   * The count is answered because "turned off" and "how many were still open" are the two facts a
-   * host needs to be able to tell someone their other browser was signed out.
+   * `ended` is the number of live sessions this measured going away, which is null rather than a
+   * number when the store cannot list its sessions and the figure is therefore not knowable from
+   * here. A store that leaves a session behind is answered `sessions-survived` rather than with a
+   * count, because the count a store reports about itself is a claim and this checks it.
+   *
+   * **What a disable does not reach.** Ending the sessions and refusing the account are two moments,
+   * and a resolved session object outlives both: a server action that read the session at the top of
+   * its request keeps that object for the rest of the request, and `AdminAuthProvider` keeps one in
+   * the browser until the host calls its `refresh`. Neither is a credential that keeps working. The
+   * next read of the session goes through the store, which sees the flag and refuses, and the
+   * permission rule is asked at the decision rather than being handed an object. But a value already
+   * resolved is a claim about a moment, and a host holding one for a long time is holding a claim
+   * about a moment that has passed.
    */
   setDisabled: (
     session: AdminSession | null,
     accountId: string,
     disabled: boolean,
-  ) => Promise<AccountResult<{ account: AccountRecord; ended: number }>>;
+  ) => Promise<AccountResult<{ account: AccountRecord; ended: number | null }>>;
   /** The live sessions, for a list that can offer to end one. */
   listSessions: (session: AdminSession | null) => Promise<AccountResult<{ sessions: AccountSession[] }>>;
   /**
@@ -400,11 +427,44 @@ export function createAccountAdmin(
       }
       if (!store.updateUser) return capabilityMessage("change an account", "updateUser");
       if (!(await store.findUserById(accountId))) return { ok: false, reason: "no-account", message: noAccount };
-      const account = await store.updateUser(accountId, { disabled });
-      // Turning back on ends nothing, so the count is zero rather than a number a host would have to
-      // read twice to learn it was nothing.
-      const ended = disabled ? await store.deleteSessionsForUser(accountId) : 0;
-      return { ok: true, account, ended };
+
+      // Turning back on ends nothing, so there is nothing to end and the count says so rather than
+      // being a number a host has to read twice to learn it was nothing.
+      if (!disabled) {
+        return { ok: true, account: await store.updateUser(accountId, { disabled: false }), ended: 0 };
+      }
+
+      /**
+       * **Revoked before the flag flips, and that order is the fix.** The two halves of a disable are
+       * the sessions and the account, and which one goes first decides what a failure leaves behind.
+       * Ending the account first and the sessions second means a store that cannot delete leaves an
+       * account that is off with a session still live, and a caller that was handed an exception
+       * rather than an answer, so nobody learns that the person is still signed in. Revoking first
+       * means a failure leaves the account on, which is the state the caller asked to change away
+       * from and a retry can repeat.
+       *
+       * The count is measured rather than believed. A store's own number is a claim about the store,
+       * and a store that returns one it did not check would have this report a success it cannot
+       * vouch for, which is the shape of defect a "done" in an admin screen must never have. So the
+       * sessions are counted before and after, and any that survived is a refusal rather than a
+       * count: the read path refuses them either way, so this is not the only thing standing between
+       * a disabled account and a working session, and the refusal says so instead of implying the
+       * rows are gone.
+       */
+      const countable = typeof store.listSessions === "function";
+      const before = countable ? (await store.listSessions!(accountId)).length : null;
+      await store.deleteSessionsForUser(accountId);
+      const after = countable ? (await store.listSessions!(accountId)).length : null;
+      const account = await store.updateUser(accountId, { disabled: true });
+
+      if (after !== null && after > 0) {
+        return {
+          ok: false,
+          reason: "sessions-survived",
+          message: `The account is off, but ${after} of its sessions could not be ended. They are refused on the next request, and the rows are still there.`,
+        };
+      }
+      return { ok: true, account, ended: before === null || after === null ? null : before - after };
     },
 
     async listSessions(session) {
