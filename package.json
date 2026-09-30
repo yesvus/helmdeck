@@ -46,11 +46,13 @@
   ],
   "scripts": {
     "ci": "./scripts/ci",
+    "prebuild": "node scripts/version-source.mjs write",
     "build": "tsc -p tsconfig.build.json && cp src/theme/tokens.css dist/theme/tokens.css",
     "prepack": "pnpm build",
     "pretypecheck": "pnpm build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p fixtures",
     "version:check": "node scripts/release-version.mjs check",
+    "version:sync": "node scripts/version-source.mjs write",
     "version:next": "node scripts/release-version.mjs next",
     "version:bump": "node scripts/release-version.mjs bump",
     "test:release": "node --test scripts/release-version.test.mjs",
