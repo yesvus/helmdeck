@@ -69,6 +69,18 @@ every permission decision the package made was made in a browser.
   leaves the server, so it does not have to be unguessable. `createLoginThrottle` ages a
   reservation out with the window by default and takes `reservationMs` for a host that wants it
   shorter.
+- **A configured limit is the limit that is enforced, including at zero.** `check` created the
+  entry for a key it had never seen and admitted the attempt that arrived first, comparing against
+  the limit only from the second attempt onwards, so `limit: 0` still let one password comparison
+  happen. A key nobody has looked at yet has spent nothing, so the same comparison now decides the
+  first attempt as every one after it, and a limit of zero is zero attempts. `0` is legal and means
+  refuse everything, so a form a host has turned off says so through the throttle's own named
+  refusal rather than admitting one guess. A limit that is not a whole number is refused at
+  construction with a message naming the field, and `NaN` is the reason that check exists: every
+  comparison against it is false, so a throttle built with one refuses nothing and bounds nothing.
+  `windowMs` and `reservationMs` get the same rule, since a window of zero lapses every key on the
+  next read and a lease of zero lapses every reservation on the next read. Hosts that pass a
+  mis-sourced number now see a throw at startup rather than a bound that quietly does not exist.
 - **`endAllSessions` takes no account argument.** It resolves the caller from the signed cookie and
   acts on that account, and it refuses unless the host supplies `mayEndAllSessions`. There is no
   capability here that a caller can point at somebody else, which is the shape the previous version
