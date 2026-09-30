@@ -60,7 +60,8 @@
     "test:watch": "vitest",
     "lint": "eslint .",
     "dev": "next dev fixtures",
-    "build:fixtures": "pnpm build && next build fixtures"
+    "build:fixtures": "pnpm build && next build fixtures",
+    "typecheck:example": "cd examples/independent-host && tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -25,5 +25,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm test:release
+      # The example host is the first thing a host reads, and nothing compiled it. Its dependency is
+      # `link:../..`, so it follows the working tree, and a stale install here made it look pinned to
+      # the previous release. That is exactly how a real staleness would have been found: by noticing
+      # a version that was not the one it claimed.
+      - run: pnpm typecheck:example
       - run: pnpm build:fixtures
       - run: pnpm audit --prod
