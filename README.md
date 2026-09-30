@@ -350,6 +350,35 @@ Four behaviours are worth knowing about, because each is the difference between 
 
 This is server-side and that is enforced rather than documented. `node:crypto` and `next/headers` are both things a browser does not have, so the credential path cannot be bundled for one, and a test builds it with a real bundler and calls the result rather than asserting it in a comment.
 
+### Bounding the guesses on a login form
+
+A password behind a public form is a password somebody will guess. The adapter takes a `throttle` and asks it **before** `verify`, so an attempt that is refused costs no scrypt and reveals nothing about whether the password was close:
+
+```ts
+import { createLoginThrottle } from "@yesvus/helmdeck/baseline";
+
+export const auth = createCredentialAuthAdapter({
+  secret: process.env.SESSION_SECRET,
+  store,
+  throttle: createLoginThrottle(),
+});
+```
+
+Eight failures per key, then a refusal that names itself: `DEFAULT_THROTTLED_MESSAGE` is "Too many sign-in attempts. Wait a few minutes and try again.", and the defaults are `DEFAULT_THROTTLE_LIMIT` and `DEFAULT_THROTTLE_WINDOW_MS`. **The refusal is not the invalid-credentials message, on purpose.** "Too many attempts" and "wrong password" look identical to an attacker otherwise, so an attacker who cannot tell them apart does not know when to stop or when to change address, and a visitor who is being throttled cannot fix it by typing a different password. The window lapses when the key is next looked at: no timer, no sweep, and no interval for a host to remember to release. A refused attempt does not extend the window either, since that would be a way to hold an account locked for as long as an attacker cared to send.
+
+**What the default is not.** `createLoginThrottle` keeps its counts in a `Map` inside one process, so it is right for a single replica and wrong for a scaled one, it is lost on restart, and it is not a distributed rate limiter. The deployment decides which case the host is in, and only the host knows. On more than one process, implement `AdminLoginThrottle` yourself over Redis or a table and pass that: three methods, and nothing else in the package changes.
+
+```ts
+type AdminLoginThrottle = {
+  check(attempt): Promise<string | null> | string | null;   // a message refuses, null proceeds
+  failed(attempt): Promise<void> | void;                      // the credentials were refused
+  succeeded(attempt): Promise<void> | void;                   // accepted, which clears the key
+};
+```
+
+**What the key is, and what a client can do to it.** The default key is `forwardedClientKey`: the first address in `x-forwarded-for`, then `x-real-ip`, and the account being signed in to when neither arrived. The first address is the client, so a chain of proxies in front of it cannot be used to manufacture keys. That header is written by whatever is in front, though, so **a client that can set it can name a new key on every attempt and the bound bounds nothing.** Strip it at the edge and pass a `clientKey` built from the address the edge saw, or one the client cannot write at all. With no address to be had the attempt is keyed on the account, which is a real bound and a weaker one: it stops one account being guessed at and does not stop one client guessing at every account. `loginHeader` reads a header from either shape a request arrives in, so a host on `next/headers` and a host on a plain record share one key function.
+
+A throttle does not become a way to find out which addresses have accounts. The count is keyed and moved without ever consulting the user store, so an address nobody holds accumulates failures exactly as one that does and is refused in exactly the same words. That is the decoy-hash property holding in the other direction, and it is the one most easily broken by adding a throttle: counting attempts through the account lookup would make an unknown address answer differently, and answering differently is the enumeration oracle.
 
 
 **Hand-rolled instead:** write the six methods below and pass them to `createCredentialAuthAdapter`, or implement `AdminAuthAdapter` yourself and pass it to `AdminAuthProvider`. Nothing in the shell requires either.

@@ -868,6 +868,44 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     hostNote:
       "An error a credential store raises to refuse a duplicate account. There is nothing to draw here: throw it from your own store's createUser, or rethrow the database's own refusal as it.",
   },
+  createLoginThrottle: {
+    category: "Credentials and sessions",
+    summary:
+      "The in-memory bound on failed sign-ins: eight per key per fifteen minutes, kept in one process. A host running more than one writes the same three methods over what the processes share.",
+    keywords: "throttle limit lockout attempts brute force guess rate",
+    hostNote:
+      "Pass it as `throttle`. The refusal arrives before the password is compared and names itself, so a throttled visitor is not left guessing why. What it is not: a distributed limiter. Its counts live in one process and are lost on restart, so a scaled host needs its own implementation of `AdminLoginThrottle` over Redis or a table.",
+  },
+  forwardedClientKey: {
+    category: "Credentials and sessions",
+    summary:
+      "Names the client behind a sign-in attempt: the first address in `x-forwarded-for`, then `x-real-ip`, and the account being signed in to when neither arrived.",
+    keywords: "client key forwarded for ip address headers",
+    hostNote:
+      "The default key function, exported so the `x-forwarded-for` handling is written once. Read what it is not: that header is set by whatever is in front, so a client that can write it can name a new key per attempt. Strip it at the edge and pass your own key built from the address the edge saw.",
+  },
+  loginHeader: {
+    category: "Credentials and sessions",
+    summary:
+      "Reads one header from either shape a request arrives in, so a host on `next/headers` and a host on a plain record can share one key function.",
+    keywords: "header read get request headers lookup",
+  },
+  DEFAULT_THROTTLE_LIMIT: {
+    category: "Credentials and sessions",
+    summary: "Failures a key may make before the next attempt is refused. Eight.",
+    keywords: "limit default failures attempts threshold",
+  },
+  DEFAULT_THROTTLE_WINDOW_MS: {
+    category: "Credentials and sessions",
+    summary: "How long a key stays refused once it reaches the limit. Fifteen minutes.",
+    keywords: "window default window ms duration lapse",
+  },
+  DEFAULT_THROTTLED_MESSAGE: {
+    category: "Credentials and sessions",
+    summary:
+      "What a refusal says, deliberately not the invalid-credentials message, because a visitor who is being throttled cannot fix it by typing a different password.",
+    keywords: "message throttle refusal notice wording",
+  },
 
   AdminDashboardLayout: {
     category: "Dashboard and widgets",

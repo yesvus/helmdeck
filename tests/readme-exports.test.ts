@@ -48,6 +48,12 @@ const DOCUMENTED_BASELINE = [
   "hashPassword",
   "normalizeEmail",
   "verifyPassword",
+  "createLoginThrottle",
+  "forwardedClientKey",
+  "loginHeader",
+  "DEFAULT_THROTTLE_LIMIT",
+  "DEFAULT_THROTTLE_WINDOW_MS",
+  "DEFAULT_THROTTLED_MESSAGE",
   "CREDENTIAL_USERS_SCHEMA",
   "CREDENTIAL_SESSIONS_SCHEMA",
 ];
