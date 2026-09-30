@@ -64,60 +64,107 @@ export type AdminLoginAttempt = {
 };
 
 /**
+ * The handle a report carries back, which names the one attempt it belongs to.
+ *
+ * **It is an opaque string, and that is chosen so a host can mint one.** A host's throttle holds
+ * its counts in Redis, in a table, or in a Lua script, and a report arrives in whichever process
+ * happens to be serving the request, so this value has to survive a round trip through a
+ * serialising store and be matched by an equality test inside one statement. A string is the
+ * narrowest thing that does that. A symbol does not survive being written to Redis; an object
+ * with methods on it is not something a script can compare.
+ *
+ * **What has to survive, and what must not.** It has to be stable across that round trip and
+ * unique within the store, because a collision is a report retiring somebody else's slot. It must
+ * not be guessable by the client, and it does not have to be: nothing about a login form exposes
+ * it, it never leaves the server, and the caller of `check` is the one who hands it back. It must
+ * not be readable, which is the one property a store cannot be asked for, so the shipped one is
+ * a counter and says so.
+ *
+ * **A host that cannot produce this is not thereby excluded.** The type is a string, not an opaque
+ * class, so a host mints whatever its store makes cheaply and unique: a row id, a UUID, a
+ * `SETNX` token, a Redis `INCR`. Whatever it mints, two rules hold: it is not interpreted by this
+ * package, and a report naming a reservation the store does not hold is answered the way `failed`
+ * and `succeeded` below say.
+ */
+export type LoginReservation = string;
+
+/** What `check` answered, which is a refusal or the reservation the attempt now holds. */
+export type LoginThrottleDecision =
+  | { ok: true; reservation: LoginReservation }
+  | { ok: false; message: string };
+
+/**
  * The seam. Three methods, so a host can implement it over whatever the instances share.
  *
  * A host with a Redis or a table behind it implements the same three and hands that to
  * `createSessionAuthAdapter`; nothing else in the package changes.
  *
- * **`check` is a read-modify-write, and that is the whole point of it.** Returning null is not a
- * peek: it takes a slot for the key, and `failed` and `succeeded` are how that slot comes back.
- * Without the take, twenty attempts arriving together all read the same count before any of them
- * has recorded a failure, so all twenty reach the password and the bound does nothing to the one
- * shape an attacker actually uses. The cost of the fix falls on the implementation rather than the
- * caller, and it is written on `check` because that is where a host reads it: an implementation
- * that counts correctly but does not reserve is not wrong in any way a test of its arithmetic
- * would notice, and it is silently the pre-fix throttle.
+ * **A report names its reservation, and that is what makes the accounting order-independent.**
+ * Without it, `failed` and `succeeded` address the key, and two attempts from one key whose
+ * reports arrive in either order leave it in two different states: a success arriving last erases
+ * a failure that really happened, and a success arriving first leaves that failure counted
+ * against a key it had just cleared. With it, each report retires the one attempt it belongs to,
+ * and the order the two reports arrive in stops being an input to the result.
+ *
+ * The cost of the fix falls on the implementation rather than the caller. It is written on the
+ * type because that is where a host reads it: an implementation that counts correctly, does not
+ * reserve, and retires a shared slot instead of a named one is not wrong in any way a test of its
+ * arithmetic would notice, and it is silently the throttle that does not bound anything.
  */
 export type AdminLoginThrottle = {
   /**
-   * A message refuses the attempt and nothing is checked; null lets the attempt through.
+   * A refusal and a message to show, or the reservation this attempt now holds.
    *
-   * **Returning null takes a slot for this key, so this method writes and cannot be a read.** A
-   * null answer is a promise that the caller will come back with exactly one of `failed` or
-   * `succeeded`, which releases the slot: `failed` keeps it charged as a failure and `succeeded`
-   * gives it back and clears the key. The caller already has that shape, because a sign-in
-   * reports one outcome or the other, so nothing at the call site changes.
+   * **The allowed branch takes a slot, so this method writes and cannot be a read.** An `ok: true`
+   * is a promise that the caller will come back with exactly one of `failed` or `succeeded`,
+   * naming this reservation: `failed` converts the slot into a recorded failure and `succeeded`
+   * retires it and clears the key's recorded failures. The caller already has that shape, because
+   * a sign-in reports one outcome or the other, so nothing at the call site changes.
    *
    * The take must be atomic with the refusal. A `GET` followed by a `SET` lets two callers both
    * see the last free slot and both take it, which is the same bypass with a network hop in it,
    * so over a shared store this is one statement or one script rather than two.
    *
-   * A slot that is never reported back has to lapse on its own, or a request that dies between
-   * here and the comparison would hold the key below its limit for ever. The shipped throttle
-   * ages one out with the window, and a host's own is its own decision to make: a lease shorter
-   * than the window recovers sooner from a request that gave up, and is also a faster way for an
-   * attacker holding connections open to have slots handed back. There is no handle and nothing to
-   * release, so ageing out is the only way out of a caller that never reports.
+   * A reservation nothing ever reports back has to lapse on its own, or a request that dies
+   * between here and the comparison would hold the key below its limit for ever. The shipped
+   * throttle ages one out with the window, and a host's own is its own decision to make: a lease
+   * shorter than the window recovers sooner from a request that gave up, and is also a faster way
+   * for an attacker holding connections open to have slots handed back. Ageing out retires the
+   * named reservation and nothing else, so it cannot take a recorded failure with it.
    */
-  check: (attempt: AdminLoginAttempt) => Promise<string | null> | string | null;
+  check: (attempt: AdminLoginAttempt) => Promise<LoginThrottleDecision> | LoginThrottleDecision;
   /**
    * Called when the credentials were refused, which is what a bound counts.
    *
-   * The slot `check` took stays charged, converted from a reservation into a recorded failure, so
-   * this does not move the count on its own: an attempt that was allowed and then refused was
-   * spending a slot the whole time, and counting it twice would make a burst of `limit` refusals
-   * cost `2 * limit` of budget rather than `limit`.
-   */
-  failed: (attempt: AdminLoginAttempt) => Promise<void> | void;
-  /**
-   * Called when the credentials were accepted, which clears that key's count.
+   * The slot stays charged, converted from a reservation into a recorded failure, so this does not
+   * move the count on its own: an attempt that was allowed and then refused was spending a slot
+   * the whole time, and counting it twice would make a burst of `limit` refusals cost `2 * limit`
+   * of budget rather than `limit`.
    *
-   * Clears the reservations with the count, not only the failures. A key left holding the slots of
-   * attempts that did sign in is a key whose next few attempts are refused by a sign-in that
-   * worked, which is how somebody who fumbled three times and then got it right ends up one typo
-   * from a lockout.
+   * **A report for a reservation the store no longer holds still counts.** The reservation is
+   * named, so this is no longer about which slot to take off a shared pile, and the two ways to get
+   * here are both a refused attempt that deserves a refusal's worth of budget: a request that
+   * completed after its own lease lapsed, and a caller holding a handle from a process that has
+   * since restarted. Ignoring the report would hand out a free attempt to anyone who can keep a
+   * connection open, which is a cheaper bypass than the one this bound exists to stop. Counting it
+   * costs a slow attempt one extra charge, and the shipped lease is the window, which no honest
+   * sign-in comes near.
    */
-  succeeded: (attempt: AdminLoginAttempt) => Promise<void> | void;
+  failed: (attempt: AdminLoginAttempt, reservation: LoginReservation) => Promise<void> | void;
+  /**
+   * Called when the credentials were accepted, which clears that key's recorded failures.
+   *
+   * **It clears the key's failures, not the key.** A success is evidence about the person signing
+   * in, so the failures they made are forgiven, and a good password is what an attacker who does
+   * not have one cannot produce. The reservation it retires is its own, so a concurrent attempt
+   * still running keeps its slot rather than having it handed out twice.
+   *
+   * What a success does not do is discard a failure that is not its own to forgive. The recorded
+   * failure stands, and only the failure count is reset, so a person who fumbled three times and
+   * then got it right is not one typo from a lockout while an attacker's failures in the same
+   * window survive it.
+   */
+  succeeded: (attempt: AdminLoginAttempt, reservation: LoginReservation) => Promise<void> | void;
 };
 
 /** Reads a header from either shape, and returns the first entry of a repeated one. */
@@ -184,17 +231,27 @@ export type LoginThrottleOptions = {
 
 /** One key's count and the moment its window closes. */
 type LoginThrottleEntry = {
-  failures: number;
-  until: number;
   /**
-   * When each allowed attempt took its slot, oldest first, bounded by the limit.
+   * When each recorded failure was reserved, as the throttle's own order.
    *
-   * A timestamp per reservation rather than one per key, so ageing out hands back the attempt
-   * that went missing and leaves the ones that reported alone. They are dropped from the front
-   * because the report that comes back cannot be matched to the reservation that took it: the
-   * methods share an attempt and nothing to identify which of several it was.
+   * A list of positions rather than a number, because a success has to forgive the failures that
+   * were already there when it started and leave the ones that came after it, and the only ordering
+   * both reports agree on is the order the attempts were admitted in. A bare counter cannot say
+   * which failures a success was meant to forgive, so which ones it forgives would depend on
+   * whether its report happened to arrive before or after somebody else's.
    */
-  reserved: number[];
+  failures: number[];
+  /**
+   * The position of the most recent success, which is the failure position it forgives up to.
+   *
+   * A success forgives what its attempt was preceded by and nothing after it, so a failure from an
+   * attempt that was admitted later survives the sign-in. That is the narrow claim the old
+   * "clears the key's count" overreached on.
+   */
+  cleared: number;
+  until: number;
+  /** The outstanding reservations, with when each took its slot and the position it was given. */
+  reserved: Map<LoginReservation, { taken: number; position: number }>;
 };
 
 /**
@@ -224,6 +281,31 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
   const entries = new Map<string, LoginThrottleEntry>();
 
   /**
+   * Per-throttle rather than per-key, so a reservation says which attempt it was without saying
+   * anything about the key it belongs to. A reservation in a log is then a serial, not a record of
+   * somebody's address, and one counter cannot be exhausted by any key.
+   *
+   * It is also the ordering every report agrees on. Milliseconds do not do: two attempts in the
+   * same millisecond are not ordered by the clock, and which one a success forgives is then decided
+   * by which report the network delivered first.
+   */
+  let minted = 0;
+
+  function mint(): { reservation: LoginReservation; position: number } {
+    minted += 1;
+    return { reservation: `r${minted}`, position: minted };
+  }
+
+  /** The failures still in force, which is the whole of what a success is allowed to forgive. */
+  function charged(entry: LoginThrottleEntry): number {
+    let count = 0;
+    for (const position of entry.failures) {
+      if (position > entry.cleared) count += 1;
+    }
+    return count;
+  }
+
+  /**
    * The count still in force, or null. Reading is what expires: an entry whose window has passed
    * is dropped here rather than on a schedule, so the two branches cannot disagree about which
    * keys are live.
@@ -236,13 +318,17 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
       return null;
     }
     // The same lazy read for a slot nobody reported back, and on the same schedule as the window
-    // so that nothing here is a timer and no key is held by a request that is not coming back.
+    // so that nothing here is a timer and no key is held by a request that is not coming back. It
+    // walks the map rather than a queue because the leases are not in a known order and a stale
+    // one in the middle must not hold back a fresh one behind it, and it removes a named
+    // reservation so a recorded failure can never go with it.
     let dropped = false;
-    while (entry.reserved.length > 0 && now() - entry.reserved[0] >= reservationMs) {
-      entry.reserved.shift();
+    for (const [reservation, held] of entry.reserved) {
+      if (now() - held.taken < reservationMs) continue;
+      entry.reserved.delete(reservation);
       dropped = true;
     }
-    if (dropped && entry.failures === 0 && entry.reserved.length === 0) {
+    if (dropped && charged(entry) === 0 && entry.reserved.size === 0) {
       entries.delete(key);
       return null;
     }
@@ -252,38 +338,70 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
   return {
     check: async (attempt) => {
       const key = await clientKey(attempt);
+      const { reservation, position } = mint();
       const entry = read(key);
       if (!entry) {
-        entries.set(key, { failures: 0, until: now() + windowMs, reserved: [now()] });
-        return null;
+        entries.set(key, {
+          failures: [],
+          cleared: 0,
+          until: now() + windowMs,
+          reserved: new Map([[reservation, { taken: now(), position }]]),
+        });
+        return { ok: true, reservation };
       }
       // Failures and reservations are one budget, which is what makes the bound a bound: a slot
       // held by an attempt still running is a slot an attacker cannot spend twice.
-      if (entry.failures + entry.reserved.length >= limit) return message;
-      entry.reserved.push(now());
-      return null;
+      if (charged(entry) + entry.reserved.size >= limit) return { ok: false, message };
+      entry.reserved.set(reservation, { taken: now(), position });
+      return { ok: true, reservation };
     },
 
-    failed: async (attempt) => {
+    failed: async (attempt, reservation) => {
       const key = await clientKey(attempt);
       const entry = read(key);
       if (!entry) {
-        entries.set(key, { failures: 1, until: now() + windowMs, reserved: [] });
+        // A report for a reservation this throttle no longer holds, which is a request that
+        // reported after its own lease lapsed or a handle from a process that has restarted.
+        // Counted rather than dropped: ignoring it is a free attempt for anyone who can hold a
+        // connection open, and the slot it was holding has already been handed back, so counting
+        // is what puts that budget back where the attempt left it. Placed after every success on
+        // purpose, so no sign-in forgives it.
+        entries.set(key, {
+          failures: [minted + 1],
+          cleared: 0,
+          until: now() + windowMs,
+          reserved: new Map(),
+        });
         return;
       }
       // A refused attempt does not extend the window. It costs the caller nothing to send a
       // thousand of them, and a window that each one pushed forward would be a way to keep a
       // legitimate account locked out for as long as an attacker cared to hold the button.
-      entry.failures += 1;
-      // The slot becomes a recorded failure, so the budget is the same size afterwards. A report
-      // with no reservation behind it is a host calling `failed` directly, which still counts.
-      if (entry.reserved.length > 0) entry.reserved.shift();
+      //
+      // The named slot becomes the failure, so the budget is the same size afterwards, and the
+      // failure is filed under the position that attempt was admitted at.
+      const held = entry.reserved.get(reservation);
+      entry.reserved.delete(reservation);
+      entry.failures.push(held?.position ?? minted + 1);
     },
 
-    succeeded: async (attempt) => {
-      // The whole entry, so the reservations go with the count. Clearing failures but holding the
-      // reservations would leave the key at its limit for a person who just signed in on it.
-      entries.delete(await clientKey(attempt));
+    succeeded: async (attempt, reservation) => {
+      const key = await clientKey(attempt);
+      const entry = read(key);
+      if (!entry) return;
+      const held = entry.reserved.get(reservation);
+      // Only this attempt's slot. A concurrent attempt still running keeps its own, and a key
+      // whose slots were all handed back here would let a burst through the moment one attempt in
+      // it guessed right.
+      entry.reserved.delete(reservation);
+      // The failures this attempt was preceded by, which is what a good password forgives: the
+      // typos the person made before they got it right. A failure from an attempt admitted after
+      // this one is a later guess and stands, which is the claim narrowed to what survives a
+      // concurrent sign-in, and taking the maximum is what makes the result the same whichever of
+      // two reports arrived first. A success whose own reservation has lapsed cannot say what it
+      // was preceded by, so it forgives nothing rather than guessing a position.
+      if (held) entry.cleared = Math.max(entry.cleared, held.position);
+      if (charged(entry) === 0 && entry.reserved.size === 0) entries.delete(key);
     },
   };
 }

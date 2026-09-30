@@ -48,6 +48,8 @@ export type {
   AdminLoginAttempt,
   AdminLoginHeaders,
   AdminLoginThrottle,
+  LoginReservation,
+  LoginThrottleDecision,
   LoginThrottleOptions,
 } from "./baseline/throttle.js";
 export { createSessionAuthAdapter, generateSessionSecret } from "./baseline/session.js";
