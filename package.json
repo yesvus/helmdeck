@@ -61,7 +61,8 @@
     "lint": "eslint .",
     "dev": "next dev fixtures",
     "build:fixtures": "pnpm build && next build fixtures",
-    "typecheck:example": "node scripts/typecheck-example.mjs"
+    "typecheck:example": "node scripts/typecheck-example.mjs",
+    "typecheck:template": "node scripts/typecheck-template.mjs"
   },
   "peerDependencies": {
     "@dnd-kit/core": "^6.3.1",
