@@ -31,6 +31,13 @@ import type { AdminPermission, AdminSession } from "@yesvus/helmdeck";
  * `site_settings` is the demo's own site configuration, read and written by the settings page
  * through the same actions. It is here rather than reached by a private path so the settings screen
  * answers the same question as a product form and cannot drift from it.
+ *
+ * `customers` and `shipments` are here because a resource that points at another one needs both of
+ * its names in the same closed set: a reference is resolved by reading the row it names, so a
+ * shipment's `customer_id` is a `customers` row and an editor is refused the read without `customers`
+ * being exposed at all. The point of the pair is that `shipments.order_id` names an `orders` row,
+ * which an editor may not read, and a column whose target is refused offers no choices and refuses
+ * the writes naming one.
  */
 const EXPOSED = new Set([
   "products",
@@ -39,6 +46,8 @@ const EXPOSED = new Set([
   "site_settings",
   "posts",
   "dashboard_placements",
+  "customers",
+  "shipments",
 ]);
 
 export function exposedResource(resource: string): boolean {

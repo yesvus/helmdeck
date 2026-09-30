@@ -142,11 +142,44 @@ export const seedLandingSections = [
   },
 ] as const;
 
+/**
+ * The customers the shipments go to, with two of them under a third.
+ *
+ * A parent on two of the rows is the point of the shape rather than decoration: `parent_id` names a
+ * row of the same table, so every value in it resolves to another row that resolves in turn, and a
+ * generated view that walked those references would never finish. The views ask one hop, which is
+ * the whole of how this terminates.
+ */
+export const seedCustomers = [
+  { id: "cus_hale", name: "Hale & Roe", tier: "key", parent_id: null },
+  { id: "cus_north", name: "Northbank Studio", tier: "trade", parent_id: null },
+  { id: "cus_hale_films", name: "Hale & Roe Films", tier: "standard", parent_id: "cus_hale" },
+  { id: "cus_north_press", name: "Northbank Press", tier: "standard", parent_id: "cus_north" },
+] as const;
+
+/**
+ * The shipments, each naming a customer and, where there is one, an order.
+ *
+ * One of the five has no order, because a shipment that has not been raised yet is the ordinary case
+ * and a column of references where every value happens to be filled hides that. `shp_5` names an
+ * order, and an editor is refused reads of orders: the choices for that column are the store's, so
+ * an editor is offered none of them and cannot write one either.
+ */
+export const seedShipments = [
+  { id: "shp_1", tracking: "HD-1001", status: "delivered", customer_id: "cus_hale", order_id: "ord_1" },
+  { id: "shp_2", tracking: "HD-1002", status: "in_transit", customer_id: "cus_north", order_id: "ord_2" },
+  { id: "shp_3", tracking: "HD-1003", status: "label_created", customer_id: "cus_hale_films", order_id: null },
+  { id: "shp_4", tracking: "HD-1004", status: "delivered", customer_id: "cus_north_press", order_id: "ord_4" },
+  { id: "shp_5", tracking: "HD-1005", status: "in_transit", customer_id: "cus_hale", order_id: "ord_6" },
+] as const;
+
 export const seedEverything = {
   users: seedUsers,
   posts: seedPosts,
   products: seedProducts,
   orders: seedOrders,
+  customers: seedCustomers,
+  shipments: seedShipments,
   dashboard_placements: seedPlacements,
   landing_sections: seedLandingSections,
 };

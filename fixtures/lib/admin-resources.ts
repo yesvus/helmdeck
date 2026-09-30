@@ -2,7 +2,7 @@
 import { adminFormatCount, defineAdminResource, type AdminResourceFormatter } from "@yesvus/helmdeck";
 
 /**
- * The demo's two real resources, described once for both the list and the detail form.
+ * The demo's real resources, described once for both the list and the detail form.
  *
  * Nothing here reads or writes. `AdminResourceList` and `AdminResourceForm` take a definition and
  * generate their views from it, which is the alternative to hand-writing a table and a form for
@@ -91,4 +91,89 @@ export const ordersResource = defineAdminResource({
   ],
 });
 
-export const adminResources = [productsResource, ordersResource];
+/**
+ * Customers, and a column that points at customers.
+ *
+ * `parent_id` is the reference that makes this definition worth having: a trade account sits under
+ * the group it belongs to, so the value names a row of the table it is in. That is a cycle, and the
+ * generated views terminate it by asking one hop rather than by special-casing it, which is what a
+ * list of parents would have cost before a reference was a thing a definition could say.
+ *
+ * The column prints the parent's name rather than its id, and the form offers the customers that
+ * exist as a choice from the store rather than a box to type an id into.
+ */
+export const customersResource = defineAdminResource({
+  resource: "customers",
+  label: "Customers",
+  singularLabel: "Customer",
+  path: "customers",
+  permissions: {
+    read: "customers.read",
+    create: "customers.create",
+    update: "customers.update",
+    delete: "customers.delete",
+  },
+  columns: [
+    { key: "name", header: "Name", sortable: true },
+    { key: "tier", header: "Tier", sortable: true },
+    { key: "parent_id", header: "Group", reference: { resource: "customers", label: "name" } },
+  ],
+  fields: [
+    { name: "name", label: "Name", required: true },
+    { name: "tier", label: "Tier" },
+    {
+      name: "parent_id",
+      label: "Group",
+      hint: "The customer this one sits under. Leave empty for a top-level account.",
+      reference: { resource: "customers", label: "name" },
+    },
+  ],
+});
+
+/**
+ * Shipments, with a column pointing at customers and one pointing at orders.
+ *
+ * The two references are there for two different reasons. `customer_id` is the ordinary case: a
+ * column a form draws as a choice from the store and a write is checked against, and the list prints
+ * the customer's name and filters by it server-side. `order_id` is the one worth watching, because an
+ * editor may work the catalogue and may not read orders: its choices are the store's, so an editor is
+ * offered none of them, and a write carrying an order id is refused by the guard before the store is
+ * asked whether that order is real. A reference is a way to name a row, and this is the case where
+ * naming it must not become a way to read it.
+ */
+export const shipmentsResource = defineAdminResource({
+  resource: "shipments",
+  label: "Shipments",
+  singularLabel: "Shipment",
+  path: "shipments",
+  permissions: {
+    read: "shipments.read",
+    create: "shipments.create",
+    update: "shipments.update",
+    delete: "shipments.delete",
+  },
+  columns: [
+    { key: "tracking", header: "Tracking", sortable: true },
+    { key: "status", header: "Status", sortable: true },
+    { key: "customer_id", header: "Customer", reference: { resource: "customers", label: "name" } },
+    { key: "order_id", header: "Order", reference: { resource: "orders" } },
+  ],
+  fields: [
+    { name: "tracking", label: "Tracking", required: true },
+    { name: "status", label: "Status" },
+    {
+      name: "customer_id",
+      label: "Customer",
+      required: true,
+      reference: { resource: "customers", label: "name" },
+    },
+    {
+      name: "order_id",
+      label: "Order",
+      hint: "The order this went out for. Administrators only, so an editor is offered none of them.",
+      reference: { resource: "orders" },
+    },
+  ],
+});
+
+export const adminResources = [productsResource, ordersResource, customersResource, shipmentsResource];

@@ -82,6 +82,11 @@ export async function seedDemo(
     ["posts", seedEverything.posts],
     ["products", seedEverything.products],
     ["orders", seedEverything.orders],
+    // Customers before the shipments that name them, because the two tables are joined by a
+    // constraint the store enforces and a shipment written first would be refused for naming a row
+    // that is not there yet.
+    ["customers", seedEverything.customers],
+    ["shipments", seedEverything.shipments],
     ["dashboard_placements", seedEverything.dashboard_placements],
   ];
 

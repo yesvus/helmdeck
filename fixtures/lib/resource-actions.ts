@@ -96,6 +96,11 @@ const store = createAdminResourceActions({
   // After the refusal and before the effect, so the first request of a fresh process finds records
   // rather than an empty store, and a refused request does not pay for the seed.
   before: ensureDemoSeeded,
+  // Read for the references the definitions declare and nothing else, which is what lets a write
+  // carrying a value that names a row be refused before it reaches a table. Each of those references
+  // is resolved through the same guard as any other read, so a column pointing at a resource this
+  // session may not read offers no choices and refuses the writes naming one.
+  definitions: adminResources,
   // Both halves of the seam the package now offers. The audit trail is not a resource a browser
   // browses, so it is written to its own table directly and never through these calls.
   audit: createDemoAuditAdapter(),
