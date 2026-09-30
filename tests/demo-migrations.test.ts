@@ -106,7 +106,7 @@ describe("the migration runner", () => {
     const sqlDir = join(dir, "sql");
     writeFileSync(join(sqlDir, "0001_bad.sql"), "CREATE TABLE good (id TEXT);\nSELECT this_is_not_sql();\n");
     await expect(migrateDemo(clientFor(dir).sql, sqlDir)).rejects.toThrow();
-    const ledger = await clientFor(dir).sql.execute({ sql: "SELECT name FROM helmdeck_migrations" });
+    const ledger = await clientFor(dir).sql.execute({ sql: "SELECT name FROM schema_migrations" });
     expect(ledger.rows).toEqual([]);
   }, 60000);
 
@@ -118,6 +118,39 @@ describe("the migration runner", () => {
     const result = await migrateDemo(sql, sqlDir);
     expect(result.applied).toEqual(FILES);
   }, 120000);
+});
+
+describe("the runner and the script it duplicates", () => {
+  // Both write the ledger, and a database that has been migrated by hand is the normal case for a
+  // deployed demo, so two ledger names means the boot runner re-applies every file the script already
+  // applied and neither can say what has run. This reads the script rather than trusting a constant.
+  it("records into the same ledger table the manual script uses", () => {
+    const script = readFileSync(join(process.cwd(), "scripts", "apply-migrations"), "utf8");
+    expect(script).toContain("schema_migrations");
+    expect(script).not.toContain("helmdeck_migrations");
+  });
+
+  it("reads the same migrations directory the manual script reads", () => {
+    const script = readFileSync(join(process.cwd(), "scripts", "apply-migrations"), "utf8");
+    expect(script).toContain('MIGRATIONS_DIR="fixtures/lib/migrations"');
+  });
+
+  it("applies nothing the manual script has already recorded", async () => {
+    const dir = scratchDir("shared-ledger");
+    const { sql } = clientFor(dir);
+    // Exactly what the script leaves behind: its own ledger, holding one applied file.
+    await sql.execute({
+      sql: "CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')))",
+    });
+    for (const file of FILES) {
+      await sql.execute({ sql: "INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)", args: [file] });
+    }
+
+    const result = await migrateDemo(sql, MIGRATIONS);
+    // A second ledger would have applied all nine again and reported every one of them.
+    expect(result.applied).toEqual([]);
+    expect(result.skipped).toEqual(FILES);
+  });
 });
 
 describe("splitStatements", () => {

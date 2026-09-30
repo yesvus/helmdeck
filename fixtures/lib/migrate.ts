@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: MIT
 
 /**
- * Bringing a deployed database up to the schema the code expects.
+ * Bringing a deployed database up to the schema the code expects, at boot.
  *
- * This existed as a claim rather than as code: the seed's own docstring said a deploy runs
- * migrations, and nothing ran them. Seven migration files sat in the repository that no deploy, no
- * script and no build hook ever reached, so a deploy of code that reads `landing_sections` met a
- * database that had never heard of it. It is written here because the alternative is a demo whose
- * schema silently tracks whatever was last applied by hand.
+ * `scripts/apply-migrations` already existed and already did this correctly, keyed by file name in a
+ * `schema_migrations` ledger. **The defect was never that it was missing: it is referenced by no
+ * deploy, no build hook and no package script**, and it requires a named target and the `turso` CLI,
+ * so it can only be run by a person who knows to. Seven migration files sat applied-by-hand while a
+ * deploy of code reading `landing_sections` met a database that had never heard of it.
  *
- * Keyed by file name in a ledger table, not by a version number. The numbering carries the order and
- * nothing else, and two files currently share `0004_`: keying on the number would apply one and
- * silently skip the other, forever, which is the exact failure this is meant to remove.
+ * This is the same ledger and the same file-name key, run from the application instead of from a
+ * terminal, because a step only a person remembers is a step that does not happen. It shares
+ * `schema_migrations` with the script rather than keeping a second ledger: two ledgers over one
+ * directory of files is two sources of truth about what has run, and the disagreement between them
+ * would be invisible until a file was applied twice or skipped once.
  *
- * A migration is applied and only then recorded. Two instances booting at once can therefore apply
- * the same file twice, which every file here survives because they are all `CREATE ... IF NOT EXISTS`
- * or `INSERT OR IGNORE`. The alternative, recording first, risks the opposite and far worse case: a
+ * A file is applied and only then recorded. Two instances booting at once can therefore apply the
+ * same file twice, which every file here survives because they are all `CREATE ... IF NOT EXISTS` or
+ * `INSERT OR IGNORE`. The alternative, recording first, risks the opposite and far worse case: a
  * file marked applied that never ran, on a database whose schema now claims something untrue.
  */
 
@@ -30,7 +32,7 @@ export type MigrationResult = {
   skipped: string[];
 };
 
-const LEDGER = `CREATE TABLE IF NOT EXISTS helmdeck_migrations (
+const LEDGER = `CREATE TABLE IF NOT EXISTS schema_migrations (
   name TEXT PRIMARY KEY,
   applied_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`;
@@ -97,7 +99,7 @@ export async function migrateDemo(
 ): Promise<MigrationResult> {
   await client.execute({ sql: LEDGER });
 
-  const done = new Set(await rows(client, "SELECT name FROM helmdeck_migrations"));
+  const done = new Set(await rows(client, "SELECT name FROM schema_migrations"));
   const files = readdirSync(dir).filter((name) => name.endsWith(".sql")).sort();
   const applied: string[] = [];
   const skipped: string[] = [];
@@ -112,7 +114,7 @@ export async function migrateDemo(
     for (const statement of splitStatements(sql)) {
       await client.execute({ sql: statement });
     }
-    await client.execute({ sql: "INSERT OR IGNORE INTO helmdeck_migrations (name) VALUES (?)", args: [file] });
+    await client.execute({ sql: "INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)", args: [file] });
     applied.push(file);
   }
 
