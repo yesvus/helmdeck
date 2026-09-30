@@ -463,6 +463,9 @@ async function readExpired(
     return { rows: page.rows, total: page.total };
   }
 
+  // Read again on each pass rather than once, so the rows a page held are gone by the time the next
+  // one is asked for. On a store with no paged query that is one whole read per pass, which is the
+  // cost of the shape and the reason a host with a real table should give it a paged query.
   const all = await store.query<AdminAnalyticsEventRow>(ADMIN_ANALYTICS_RESOURCE);
   const expired = all
     .filter((row) => row.occurred_at < cutoff)

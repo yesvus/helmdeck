@@ -17,10 +17,13 @@ export const ADMIN_ANALYTICS_PAGE_VIEW = "page_view";
 /** What to do with an event the host supplied no key for. */
 export type AdminAnalyticsUnkeyed = "count" | "drop";
 
-/** Refused before a write, and named so the host can tell a refusal from a store that was down. */
+/**
+ * A refused event, an unreadable range or an unusable window, named so the host can tell a refusal
+ * of its own input from a store that was unreachable.
+ */
 export class AdminAnalyticsError extends Error {
   constructor(reason: string) {
-    super(`That analytics event cannot be recorded: ${reason}`);
+    super(`That analytics call cannot be served: ${reason}`);
     this.name = "AdminAnalyticsError";
   }
 }
