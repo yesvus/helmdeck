@@ -133,9 +133,13 @@ jobs:
           fi
           git config user.name "helmdeck-release"
           git config user.email "helmdeck-release@users.noreply.github.com"
-          git add VERSION package.json README.md CHANGELOG.md
+          # scripts/exported-surface.json is written by `release-version.mjs write` immediately above,
+          # which is the whole point of putting the record there: the baseline is the surface of the
+          # release being cut. It has to be committed with the version, or the recording happens on the
+          # runner and is thrown away, and the tag ships a baseline labelled with the previous release.
+          git add VERSION package.json README.md CHANGELOG.md scripts/exported-surface.json
           changed="$(git diff --cached --name-only | LC_ALL=C sort)"
-          expected="$(printf '%s\n' CHANGELOG.md README.md VERSION package.json | LC_ALL=C sort)"
+          expected="$(printf '%s\n' CHANGELOG.md README.md VERSION package.json scripts/exported-surface.json | LC_ALL=C sort)"
           if [[ "$changed" != "$expected" ]]; then
             echo "Unexpected release version files: $changed" >&2
             exit 1
