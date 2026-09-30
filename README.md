@@ -374,13 +374,18 @@ export const auth = createCredentialAuthAdapter({
 
 Eight failures per key, then a refusal that names itself: `DEFAULT_THROTTLED_MESSAGE` is "Too many sign-in attempts. Wait a few minutes and try again.", and the defaults are `DEFAULT_THROTTLE_LIMIT` and `DEFAULT_THROTTLE_WINDOW_MS`. **The refusal is not the invalid-credentials message, on purpose.** "Too many attempts" and "wrong password" look identical to an attacker otherwise, so an attacker who cannot tell them apart does not know when to stop or when to change address, and a visitor who is being throttled cannot fix it by typing a different password. The window lapses when the key is next looked at: no timer, no sweep, and no interval for a host to remember to release. A refused attempt does not extend the window either, since that would be a way to hold an account locked for as long as an attacker cared to send.
 
+**Attempts arriving together share one budget.** `check` is not a peek: returning null takes a slot for the key, and `failed` and `succeeded` are how the slot comes back. Without that, twenty requests sent at the same moment all read the same count before any of them has recorded a failure, so all twenty reach the password, and a bound that holds against a person typing is no bound at all against the shape an attacker actually uses. With it, at most `limit` of a burst reach the comparison. It costs nothing at the call site, because a sign-in reports exactly one of `failed` or `succeeded` and already did. Two consequences are worth knowing:
+
+- **The take has to be atomic with the refusal.** The shipped one is, because a `Map` in one process gives it. A host over Redis needs its `GET` and its `SET` to be one script or one conditional `UPDATE`, since two callers reading the last free slot and both taking it is the same bypass with a network hop in it.
+- **A slot that is never reported back lapses on its own**, or a request that dies between `check` and the comparison would hold the key below its limit for ever. The shipped throttle ages one out with the window, so a dead request costs the key the same one window a wrong password would have. `reservationMs` shortens that for a host that would rather a browser which gave up recover in seconds, at the price of a faster way for an attacker holding connections open to have their slots handed back, so it is the host's trade. There is no handle and nothing for a caller to release.
+
 **What the default is not.** `createLoginThrottle` keeps its counts in a `Map` inside one process, so it is right for a single replica and wrong for a scaled one, it is lost on restart, and it is not a distributed rate limiter. The deployment decides which case the host is in, and only the host knows. On more than one process, implement `AdminLoginThrottle` yourself over Redis or a table and pass that: three methods, and nothing else in the package changes.
 
 ```ts
 type AdminLoginThrottle = {
-  check(attempt): Promise<string | null> | string | null;   // a message refuses, null proceeds
-  failed(attempt): Promise<void> | void;                      // the credentials were refused
-  succeeded(attempt): Promise<void> | void;                   // accepted, which clears the key
+  check(attempt): Promise<string | null> | string | null;   // a message refuses, null proceeds and reserves a slot
+  failed(attempt): Promise<void> | void;                      // refused: the slot it took stays charged
+  succeeded(attempt): Promise<void> | void;                   // accepted: the slot comes back and the key is cleared
 };
 ```
 
