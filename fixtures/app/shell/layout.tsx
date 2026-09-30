@@ -22,10 +22,11 @@ import { readSiteSettingsAction } from "../../lib/demo-settings";
  * page as itself rather than as this segment's root. What reaches the call here is a visitor
  * carrying a cookie the guard refuses, and for those this is a real page of the segment they were in.
  *
- * The accent is read here for the same reason. It used to be a constant in the client half, so the
- * settings page could offer a colour picker that changed nothing; it is now the stored value, and a
- * server component reads a row directly rather than through an action, because there is no client
- * boundary to cross. The value that reaches the brand block is the value the settings page writes.
+ * The accent and the density are read here for the same reason. The accent used to be a constant in
+ * the client half, so the settings page could offer a colour picker that changed nothing; it is now
+ * the stored value, and a server component reads a row directly rather than through an action,
+ * because there is no client boundary to cross. The value that reaches the brand block is the value
+ * the settings page writes, and the density is stored beside it so the same holds for spacing.
  */
 export default async function ShellLayout({ children }: { children: ReactNode }) {
   const [session, settings] = await Promise.all([
@@ -34,7 +35,13 @@ export default async function ShellLayout({ children }: { children: ReactNode })
   ]);
 
   return (
-    <ShellClient nav={sampleNav} session={session} accent={settings.accent} siteName={settings.name}>
+    <ShellClient
+      nav={sampleNav}
+      session={session}
+      accent={settings.accent}
+      density={settings.density}
+      siteName={settings.name}
+    >
       {children}
     </ShellClient>
   );

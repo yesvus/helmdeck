@@ -43,4 +43,5 @@ export * from "./export/index.js";
 export * from "./import/index.js";
 export * from "./shell/index.js";
 export * from "./theme/index.js";
+export { HELMDECK_VERSION } from "./version.js";
 export { cn } from "./cn.js";

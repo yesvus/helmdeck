@@ -32,6 +32,7 @@ export const CATALOG_CATEGORIES = [
   "Internationalisation",
   "Theme and colour",
   "Adapters",
+  "Package",
 ] as const;
 
 export type CatalogCategory = (typeof CATALOG_CATEGORIES)[number];
@@ -1658,6 +1659,14 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Adapters",
     summary: "A cache the resource layer reads through, so a repeated list does not repeat its query.",
     keywords: "cache memoise query baseline",
+  },
+
+  HELMDECK_VERSION: {
+    category: "Package",
+    summary:
+      "The version that was built, taken from the VERSION file at build time. A host puts it wherever " +
+      "a person looks to find out what they are running.",
+    keywords: "version build release tag about which",
   },
 };
 

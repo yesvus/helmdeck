@@ -3,10 +3,19 @@
 
 import Link from "next/link.js";
 import { createContext, useContext, type ReactNode } from "react";
-import { AdminShell, AdminPermissionsProvider, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
+import {
+  AdminShell,
+  AdminThemeSettingsProvider,
+  AdminPermissionsProvider,
+  DEFAULT_ADMIN_DENSITY,
+  type AdminDensity,
+  type AdminNavGroup,
+  type AdminSession,
+} from "@yesvus/helmdeck";
 import { useShellTheme } from "../../components/shell-theme-provider";
 import { signOutAction } from "./sign-out-action";
 import { demoPermissionsAdapter } from "../../lib/demo-permissions";
+import { ShellVersionReadout } from "./version-readout";
 
 // Module scope, not inside the component: the provider watches for the adapter to change and
 // invalidates every cached answer when it does, so a fresh object per render would re-run that
@@ -15,6 +24,7 @@ const permissions = demoPermissionsAdapter();
 
 type ShellSettings = {
   accent: string;
+  density: AdminDensity;
   siteName: string;
 };
 
@@ -47,51 +57,70 @@ function ThemeSelector() {
 /**
  * The shell's client half: presentation, theme, and a sign-out that actually ends the session.
  *
- * The accent arrives as a prop from the layout, which read it from the store. It was a constant here
- * once, which is what made the settings page's colour picker a control that changed nothing; the
- * value is now the same one the settings page writes, so the brand here and the form there cannot
- * disagree.
+ * The accent and the density arrive as props from the layout, which read them from the store. The
+ * accent used to be a constant here, which is what made the settings page's colour picker a control
+ * that changed nothing; the value is now the same one the settings page writes, so the brand here
+ * and the form there cannot disagree.
+ *
+ * They go through the package's own theme provider rather than into style attributes here. The
+ * density has to reach the document root to matter at all, because `tokens.css` remaps Tailwind's
+ * spacing scale through `--admin-density`, and a value set on one element would leave every other
+ * element at the default.
+ *
+ * The density prop is optional and falls back to the package's `DEFAULT_ADMIN_DENSITY`, so a shell
+ * mounted without one renders what a host that stored nothing renders. The fallback is the
+ * contract's value rather than a constant written here, which is what keeps the demo from becoming
+ * the place the default is decided.
+ *
+ * No colour mode is passed, so the provider derives the brand text the same way `AdminShell` derives
+ * it for its own sidebar. Passing the mode would give the root a dark-correct value that the shell's
+ * inline one overrides anyway, which is two behaviours where one is better.
  */
 export function ShellClient({
   nav,
   session,
   accent,
+  density = DEFAULT_ADMIN_DENSITY,
   siteName,
   children,
 }: {
   nav: AdminNavGroup[];
   session: AdminSession;
   accent: string;
+  density?: AdminDensity;
   siteName: string;
   children: ReactNode;
 }) {
   return (
-    <SettingsContext.Provider value={{ accent, siteName }}>
+    <SettingsContext.Provider value={{ accent, density, siteName }}>
       <AdminPermissionsProvider adapter={permissions}>
-        <AdminShell
-        nav={nav}
-        session={session}
-        homeHref="/shell"
-        viewSiteHref="/"
-        profileHref="/shell/profile"
-        onLogout={signOutAction}
-        topbarExtra={<ThemeSelector />}
-        profileMenuExtra={
-          <Link
-            className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            href="/dashboard"
+        <AdminThemeSettingsProvider settings={{ accent, density }}>
+          <AdminShell
+            nav={nav}
+            session={session}
+            homeHref="/shell"
+            viewSiteHref="/"
+            profileHref="/shell/profile"
+            onLogout={signOutAction}
+            topbarExtra={<ThemeSelector />}
+            sidebarExtra={<ShellVersionReadout />}
+            profileMenuExtra={
+              <Link
+                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                href="/dashboard"
+              >
+                Engine dashboard
+              </Link>
+            }
+            brand={{
+              label: siteName,
+              accent,
+              logo: <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">{siteName.slice(0, 1).toUpperCase()}</span>,
+            }}
           >
-            Engine dashboard
-          </Link>
-        }
-        brand={{
-          label: siteName,
-          accent,
-          logo: <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">{siteName.slice(0, 1).toUpperCase()}</span>,
-        }}
-      >
-        {children}
-      </AdminShell>
+            {children}
+          </AdminShell>
+        </AdminThemeSettingsProvider>
       </AdminPermissionsProvider>
     </SettingsContext.Provider>
   );

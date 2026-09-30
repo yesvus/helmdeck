@@ -134,6 +134,14 @@ An accent is refused when no label colour clears 4.5:1 on it or on the hover sha
 
 There is no surface setting. `--admin-surface` is the background every text token is measured against, so a host that changed it would move the whole palette outside what `tests/theme-contrast.test.ts` measures. Override the variable and the text tokens with it, and check the ratios for the values you shipped.
 
+### A settings page that offers these
+
+A host's settings page should offer exactly the keys in `ADMIN_THEME_SETTING_KEYS` and nothing else about the theme. Colour mode, the individual brand variables, the radius and the type scale stay with the shell: they are the package's to decide, and a control for one of them on a settings page is a second place to set it, which is how a guarantee stops being one. Read the declared list rather than a subset written beside it, so adding a key produces a page that offers less rather than one that quietly forgot.
+
+The demo does this at `/shell/settings/site`. It stores the density beside the accent in one `site_settings` row, and the shell layout reads that row on the same request, so a change survives a reload rather than living in a component. The density reaches the document through the provider rather than a style attribute on one element, because `tokens.css` remaps `--spacing` through `--admin-density` and a value on one element leaves every element outside it at the default.
+
+An accent the contract refuses is refused before it is stored, and the refusal is legible in three places: the field is marked invalid, the message carries the ratio `describeAccentRejection` measured, and the field re-renders holding the accent that is actually stored rather than the one that was turned down. The stored value does not move, so the shell keeps rendering the accent it had.
+
 ## Tone vocabulary
 
 `danger` is the canonical spelling for the severity tone on `AdminStatCard`, `AdminStatusPill`, and `AdminBanner`. `error` is still accepted and renders identically, so existing code keeps compiling and nothing changes on screen.

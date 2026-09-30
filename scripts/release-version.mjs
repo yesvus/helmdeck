@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { VERSION_TAG_PATTERN as tagPattern, GENERATED_PATH, versionSource } from "./version-source.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packagePath = resolve(root, "package.json");
@@ -19,11 +20,6 @@ const installUrlPattern = /(pnpm add https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/re
 // Splits a release asset into its stable prefix and its trailing version, so the prefix
 // stays owned by the README while the version is replaced.
 const assetPattern = /\/([^/\s]+)-(\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?)\.tgz$/;
-const semverIdentifier = "(?:0|[1-9]\\d*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)";
-const semverPattern = new RegExp(
-  `^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(${semverIdentifier}(?:\\.${semverIdentifier})*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`,
-);
-const tagPattern = new RegExp(`^v${semverPattern.source.slice(1, -1)}$`);
 const bumpTypes = new Set(["alpha", "beta", "stable", "patch", "minor", "major"]);
 
 function fail(message) {
@@ -80,6 +76,17 @@ function assertReadmeInSync(version) {
 
 function installCommands(readme) {
   return [...readme.matchAll(installUrlPattern)].map((match) => match[1]);
+}
+
+/**
+ * The constant the package exports is the file's value, so the file holding it is gated here too.
+ * `writeTag` below writes it in the same commit as VERSION, which makes drift a mistake rather
+ * than a state, and this is what catches a VERSION edited by hand.
+ */
+function assertGeneratedSourceInSync(tag) {
+  if (readFileSync(GENERATED_PATH, "utf8") !== versionSource(tag)) {
+    fail(`src/version.ts does not hold VERSION (${tag}).\nRun: node scripts/version-source.mjs write`);
+  }
 }
 
 // Keeps the owner, repository, and asset naming already in the README and moves only the
@@ -205,13 +212,18 @@ function writeTag(tag) {
   writeFileSync(versionPath, `${tag}\n`);
   writeFileSync(readmePath, rewriteInstallUrls(readFileSync(readmePath, "utf8"), version));
   writeFileSync(changelogPath, rewriteChangelogHeading(readFileSync(changelogPath, "utf8"), version));
+  // Last, and in the same call, so a release cannot move VERSION without moving the constant the
+  // package exports. A half-completed bump is the drift this gate exists to catch.
+  writeFileSync(GENERATED_PATH, versionSource(tag));
 }
 
 export function main(args = process.argv.slice(2)) {
   const [command, value] = args;
 
   if (command === "check") {
-    assertReadmeInSync(readState().version);
+    const { tag, version } = readState();
+    assertReadmeInSync(version);
+    assertGeneratedSourceInSync(tag);
     return;
   }
 
