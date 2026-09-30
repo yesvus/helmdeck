@@ -178,11 +178,31 @@ export type CredentialStore = {
    * covers one process and not several, and the cross-process half is a schema question the host
    * answers with an index rather than with anything in this interface.
    *
+   * **This method is not safe under concurrency, and the check inside it is why.** It is a read
+   * followed by a write, so two callers in one process can both pass the read, and two callers in
+   * two processes always can. It refuses the duplicate a caller can see; it does not make the write
+   * atomic. A host that needs both implements `createUserIfAbsent` instead, which is the one that
+   * can, or calls this one knowing what it is.
+   *
    * "The same address" has to mean the same thing here as it does in the lookup, or the store
    * refuses a duplicate on one spelling and writes it on another. The shipped store folds both sides
    * for that reason, and a store with a different idea of an address implements both methods to it.
    */
   createUser?: (account: NewAccount) => Promise<AccountRecord>;
+  /**
+   * Writes one account only if the address is free, and answers null when one is already there.
+   *
+   * **This is the one store method that is safe under concurrency, and it is optional for the same
+   * reason: only a store whose underlying persistence can make the decision in one statement can
+   * offer it.** `createUser` cannot, because a read followed by a write is a shape two processes
+   * interleave, and that is the reason this exists rather than `createUser` being documented harder.
+   * A host calling `createUser` from two instances at once will get two accounts for one person, and
+   * a host needing that not to happen implements this or puts a unique index on the column.
+   *
+   * Absent on the shipped persistence store when the persistence adapter has no `insertIfAbsent`,
+   * which is a host's own adapter rather than one of the two shipped here.
+   */
+  createUserIfAbsent?: (account: NewAccount) => Promise<AccountRecord | null>;
   updateUser?: (id: string, changes: AccountChanges) => Promise<AccountRecord>;
   /** Live sessions, newest first, optionally narrowed to one account. A lapsed row is not one. */
   listSessions?: (userId?: string) => Promise<CredentialSession[]>;
@@ -490,10 +510,9 @@ export function createPersistenceCredentialStore(
 
       // The store's own duplicate refusal, and the reason it is here rather than only in
       // `createAccountAdmin`: this method is exported, so a host calling it directly gets the same
-      // guarantee the surface gives. It is a check and not a constraint, because these two adapters
-      // store the address as a value inside a document and have no index that could refuse one, so
-      // the check is the strongest thing available here and a host with a real unique address
-      // column gets a stronger one from the database as well.
+      // guarantee the surface gives. It is a check and not a constraint, and the interface says so:
+      // a read followed by a write is a shape two callers interleave, which is what
+      // `createUserIfAbsent` below exists to stop.
       const existing = await persistence.query<Record<string, unknown>>(users, {
         [userColumns.email]: email,
       });
@@ -507,6 +526,30 @@ export function createPersistenceCredentialStore(
       });
       return toAccount(row) ?? unusableRow(users, "written");
     },
+
+    /**
+     * Present only when the persistence can make the decision in one statement.
+     *
+     * A store that cannot be atomic must not offer this, because a method named for a guarantee it
+     * cannot make is worse than an absent one: a caller would skip the index it still needs. So the
+     * method is defined conditionally, and its absence is the store saying so.
+     */
+    ...(persistence.insertIfAbsent
+      ? {
+          async createUserIfAbsent(account: NewAccount): Promise<AccountRecord | null> {
+            const row = await persistence.insertIfAbsent!<Record<string, unknown>>(users, userColumns.email, {
+              [userColumns.email]: normalizeEmail(account.email),
+              [userColumns.passwordHash]: account.passwordHash,
+              ...(account.role === undefined ? {} : { [userColumns.role]: account.role }),
+              ...(account.name === undefined ? {} : { [userColumns.name]: account.name }),
+            });
+            // Null is the answer rather than a row to map: nothing was written, so there is nothing
+            // to read back, and asking for one would turn a refusal into a lookup.
+            if (row === null) return null;
+            return toAccount(row) ?? unusableRow(users, "written");
+          },
+        }
+      : {}),
 
     async updateUser(id, changes) {
       const existing = await persistence.read<Record<string, unknown>>(users, id);

@@ -499,20 +499,39 @@ describe("the store's own refusal, for a caller that is not the surface", () => 
     expect(await db.query("users")).toHaveLength(1);
   });
 
-  it("lets a failure that is not a duplicate through, rather than reporting it as one", async () => {
-    // The whole reason the refusal is recognisable rather than swallowed: a host whose store is
-    // broken must see the break, not a sentence about an address that was free.
-    const store = createPersistenceCredentialStore(createMemoryPersistenceAdapter());
-    const boom = new Error("the database is away");
-    const broken: CredentialStore = {
-      ...store,
-      findUserByEmail: async () => null,
-      createUser: () => Promise.reject(boom),
-    };
-    const admin = createAccountAdmin(broken, { may: { create: () => true } });
+  // Both write paths, because a store with a primitive takes one and a store without takes the other,
+  // and a refusal that swallowed a broken store on one of them would be the defect on the other.
+  for (const [label, breakIt] of [
+    [
+      "the atomic write",
+      (store: CredentialStore, boom: Error): CredentialStore => ({
+        ...store,
+        findUserByEmail: async () => null,
+        createUserIfAbsent: () => Promise.reject(boom),
+      }),
+    ],
+    [
+      "the checking write",
+      (store: CredentialStore, boom: Error): CredentialStore => ({
+        ...store,
+        findUserByEmail: async () => null,
+        createUserIfAbsent: undefined,
+        createUser: () => Promise.reject(boom),
+      }),
+    ],
+  ] as const) {
+    it(`lets a failure from ${label} through, rather than reporting it as a duplicate`, async () => {
+      // The whole reason the refusal is recognisable rather than swallowed: a host whose store is
+      // broken must see the break, not a sentence about an address that was free.
+      const boom = new Error("the database is away");
+      const admin = createAccountAdmin(
+        breakIt(createPersistenceCredentialStore(createMemoryPersistenceAdapter()), boom),
+        { may: { create: () => true } },
+      );
 
-    await expect(admin.create(ADMIN, { email: ADDRESS, password: PASSWORD })).rejects.toThrow(boom);
-  });
+      await expect(admin.create(ADMIN, { email: ADDRESS, password: PASSWORD })).rejects.toThrow(boom);
+    });
+  }
 
   it("reports the account it made without a hash on it, which is what a race has to be able to do", async () => {
     const db = createMemoryPersistenceAdapter();

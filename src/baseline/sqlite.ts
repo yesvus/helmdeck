@@ -342,6 +342,9 @@ export function createSqlitePersistenceAdapter(options: SqlitePersistenceOptions
   }
 
   let clientPromise: Promise<SqlClient> | null = null;
+  // One index per resource and key `insertIfAbsent` has been asked for, and the promise is kept so
+  // eight concurrent callers create it once rather than racing eight `IF NOT EXISTS` statements.
+  const indexedKeys = new Map<string, Promise<unknown>>();
 
   async function client(): Promise<SqlClient> {
     clientPromise ??= (async () => {
@@ -472,6 +475,76 @@ export function createSqlitePersistenceAdapter(options: SqlitePersistenceOptions
         args: [resource, id, JSON.stringify(stored)],
       });
       return stored as T;
+    },
+
+    /**
+     * One statement, so the database decides rather than a read and a write that another process can
+     * come between.
+     *
+     * **The unique index is created here, on first use, and it is scoped twice**: to the resource and
+     * to a JSON path holding one key. A record of another resource has no value at that path, and
+     * SQLite treats a NULL in a unique index as distinct from every other NULL, so the index is
+     * invisible to every other resource in this shared table rather than a constraint this adapter
+     * has quietly put on a host's other data. A host that has its own mapped schema gets this for
+     * free from a real column, which is what `ON CONFLICT (email) DO NOTHING` is in that world.
+     *
+     * The key is checked as an identifier because it reaches both the index name and the JSON path,
+     * and a column name is a host's configuration value like any other.
+     *
+     * **The index outlives the call that made it.** Once `insertIfAbsent` has been used for a resource
+     * and key, the database refuses a duplicate there for every other write to that resource too,
+     * including a plain `create`. That is a constraint appearing in a table a host did not write, so
+     * it is said here rather than discovered: it is what makes the guarantee real, and it fails loudly
+     * and permanently if the table already held duplicates when the index was built.
+     */
+    async insertIfAbsent<T>(resource: string, key: string, value: unknown): Promise<T | null> {
+      if (!IDENTIFIER.test(resource)) {
+        throw new Error(
+          `"${resource}" cannot be a resource name; use letters, digits and underscores, starting with a letter`,
+        );
+      }
+      if (!IDENTIFIER.test(key)) {
+        throw new Error(
+          `"${key}" cannot be a key name; use letters, digits and underscores, starting with a letter`,
+        );
+      }
+      const db = await client();
+      const cacheKey = `${resource}.${key}`;
+      const indexed = indexedKeys.get(cacheKey) ?? Promise.resolve();
+      const creating = indexed.then(() =>
+        db
+          .execute({
+            sql:
+              `CREATE UNIQUE INDEX IF NOT EXISTS ${table}_uniq_${resource}_${key}` +
+              ` ON ${table} (json_extract(data, '$.${key}')) WHERE resource = '${resource}'`,
+          })
+          .catch((cause: unknown) => {
+            // A unique index over data that already holds two of a kind cannot be built, and that is
+            // the truth rather than a driver fault: the table has duplicates in it and does not know
+            // it. The raw error says "UNIQUE constraint failed" and names no resource or key, so
+            // this says which of them and what to do about it.
+            throw new Error(
+              `A unique index on ${resource}.${key} could not be created, so this store cannot offer an ` +
+                `atomic insert. That index is what refuses a duplicate, and building it fails when the ` +
+                `table already holds two ${resource} records with the same ${key}. Find them and remove or ` +
+                `merge them first, or keep using a store that checks before it writes.`,
+              { cause },
+            );
+          }),
+      );
+      indexedKeys.set(cacheKey, creating);
+      await creating;
+
+      const record = { ...(value as Record<string, unknown>) };
+      const id = typeof record.id === "string" && record.id ? record.id : crypto.randomUUID();
+      const stored = { ...record, id };
+      // `rowsAffected` is the whole answer, and it is the database's: one row means this call won,
+      // zero means a record of this resource already held that value at that key.
+      const result = await db.execute({
+        sql: `INSERT INTO ${table} (resource, id, data) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`,
+        args: [resource, id, JSON.stringify(stored)],
+      });
+      return result.rowsAffected ? (stored as T) : null;
     },
 
     async update<T>(resource: string, id: string, value: unknown): Promise<T> {

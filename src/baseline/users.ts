@@ -370,13 +370,14 @@ export function createAccountAdmin(
       // Read once, outside the queue, because a narrowing that does not survive into a closure is a
       // narrowing the compiler cannot see and the reader cannot either.
       const createUser = store.createUser.bind(store);
+      const createIfAbsent = store.createUserIfAbsent?.bind(store);
 
       return serialiseOnAddress(email, async () => {
         // **What this check is for: the message, not the uniqueness.** It is a read followed by a
-        // write, so on its own it cannot prevent a duplicate, and it is not what does: the queue
-        // below is, within a process, and the store's own constraint is across them. It is here
-        // because it turns the ordinary case, a second invite to an address that already has an
-        // account, into a sentence naming that address rather than an error raised and caught.
+        // write, so on its own it cannot prevent a duplicate, and it is not what does: the write
+        // below is, when the store can make it atomic, and the queue is for the stores that cannot.
+        // It is here because it turns the ordinary case, a second invite to an address that already
+        // has an account, into a sentence naming that address rather than an error raised and caught.
         if (await store.findUserByEmail(email)) return taken(email);
         // Derived inside the queue rather than before it, which refuses a duplicate before paying
         // for a key derivation, and leaves nothing between a call and the store but the queue and
@@ -385,21 +386,25 @@ export function createAccountAdmin(
         // time between two calls, and a test that needs elapsed time to see a race cannot be a
         // reliable one.
         const passwordHash = await hashPassword(input.password);
+        const newAccount = {
+          email,
+          passwordHash,
+          ...(input.role === undefined ? {} : { role: input.role }),
+          ...(input.name === undefined ? {} : { name: input.name }),
+        };
+        // Both paths, not either. The primitive is the one that holds across processes, and the
+        // queue is what a store with no primitive and no index has instead, so a host supplying
+        // neither still gets the in-process guarantee rather than nothing.
+        if (createIfAbsent) {
+          const account = await createIfAbsent(newAccount);
+          return account ? { ok: true, account } : taken(email);
+        }
         try {
-          const account = await createUser({
-            email,
-            passwordHash,
-            ...(input.role === undefined ? {} : { role: input.role }),
-            ...(input.name === undefined ? {} : { name: input.name }),
-          });
-          return { ok: true, account };
+          return { ok: true, account: await createUser(newAccount) };
         } catch (cause) {
-          // The half of this that covers another process, and the reason the store has a documented
-          // way to refuse. A store whose address is unique refuses the second write itself, and
-          // that refusal arrives as whatever error the store raises; `AccountAlreadyExistsError` is
-          // how a store says it in a shape this can recognise. Anything else is a failure to create
-          // rather than a duplicate, and letting it through is the honest answer: a refusal here
-          // that reported success would be worse than a throw.
+          // The store's own refusal, for a store that has one and no primitive. Anything else is a
+          // failure to create rather than a duplicate, and letting it through is the honest answer: a
+          // refusal here that reported success would be worse than a throw.
           if (cause instanceof AccountAlreadyExistsError) return taken(email);
           throw cause;
         }

@@ -34,6 +34,21 @@ export type AdminPersistenceAdapter = {
    */
   queryPage?: <T>(resource: string, query?: AdminResourceQuery) => Promise<AdminResourcePage<T>>;
   create: <T>(resource: string, value: unknown) => Promise<T>;
+  /**
+   * Writes the record only if no record in the same resource holds this value at that key, and
+   * answers the row it wrote or null when one was already there.
+   *
+   * **Optional, and the absence is the answer rather than a failure.** A read followed by a write
+   * is the shape that interleaves, so an adapter without this cannot offer a host a uniqueness
+   * guarantee that survives two processes, however carefully the caller checks first. Where a
+   * uniqueness decision matters and this is absent, the host has a real problem and the
+   * implementations say so rather than quietly doing the racy thing.
+   *
+   * It has to be one statement, not a check followed by a write, and that is the whole reason for
+   * the method existing on this contract rather than only on the store above it: the database is the
+   * only thing in the process that can make the decision atomic.
+   */
+  insertIfAbsent?: <T>(resource: string, key: string, value: unknown) => Promise<T | null>;
   update: <T>(resource: string, id: string, value: unknown) => Promise<T>;
   delete: (resource: string, id: string) => Promise<void>;
 };

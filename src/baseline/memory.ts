@@ -247,6 +247,24 @@ export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord
     return created;
   }
 
+  /**
+   * The write half of `create` and of `insertIfAbsent`, so the two agree about ids and the copy.
+   *
+   * Shared because `insertIfAbsent` is only atomic while there is nothing between its check and this,
+   * and a second copy of the id logic would be a second thing to keep in step.
+   */
+  function thisCreate<T>(resource: string, value: unknown, records: MemoryRecord[]): T {
+    const supplied = (value as Record<string, unknown>).id;
+    const id =
+      supplied === undefined || supplied === null || supplied === "" ? nextId() : String(supplied);
+    if (records.some((record) => record.id === id)) {
+      throw new Error(`A ${resource} record with id ${id} already exists`);
+    }
+    const record = { ...clone(value as Record<string, unknown>), id };
+    records.push(record);
+    return clone(record) as T;
+  }
+
   return {
     async read<T>(resource: string, id: string): Promise<T | null> {
       return read(resource, id) as T | null;
@@ -284,22 +302,32 @@ export function createMemoryPersistenceAdapter(seed: Record<string, MemoryRecord
     },
 
     async create<T>(resource: string, value: unknown): Promise<T> {
-      const supplied = (value as Record<string, unknown>).id;
       // An id the caller chose is kept, so a seeded row stays addressable by the id the seed
       // knows. Generating one instead renumbers it, and a second seed pass then cannot find the
       // first pass's rows, so it writes them again: a store documented as idempotent grows on
       // every run while nothing about it looks wrong from outside.
-      const id =
-        supplied === undefined || supplied === null || supplied === "" ? nextId() : String(supplied);
+      return thisCreate<T>(resource, value, recordsFor(resource));
+    },
 
+    /**
+     * Atomic because JavaScript runs one thing at a time, not because anything here is clever.
+     *
+     * The body of an `async` function runs to completion without yielding until its first `await`,
+     * and this one has none, so a second caller cannot be between the test and the push. **That is
+     * the whole guarantee, and it is a property of this function body rather than of the store**, so
+     * an `await` added anywhere between the `some` and the `push` silently turns this into the racy
+     * check-then-write it looks like it is not. There is a test that hammers it concurrently, which
+     * is the only thing that would notice.
+     *
+     * A comparison by `===` on the stored value, which is the same equality `query` filters with, so
+     * "absent" here means the same thing as "not found by a query" rather than a second rule.
+     */
+    async insertIfAbsent<T>(resource: string, key: string, value: unknown): Promise<T | null> {
+      const body = value as Record<string, unknown>;
+      const wanted = body[key];
       const records = recordsFor(resource);
-      if (records.some((record) => record.id === id)) {
-        throw new Error(`A ${resource} record with id ${id} already exists`);
-      }
-
-      const record = { ...clone(value as Record<string, unknown>), id };
-      records.push(record);
-      return clone(record) as T;
+      if (records.some((record) => record[key] === wanted)) return null;
+      return thisCreate<T>(resource, value, records);
     },
 
     async update<T>(resource: string, id: string, value: unknown): Promise<T> {

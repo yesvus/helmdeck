@@ -402,7 +402,21 @@ Every refusal carries a `reason` beside its `message`: `no-session`, `not-permit
 
 **The limit, because it is a decision and not a setting.** Two spellings your own collation would treat as different addresses are one account here. A host that disagrees writes its own `CredentialStore`, whose `findUserByEmail` and `createUser` use its own comparison, and says so in those two methods. There is no option to make this one case-sensitive, and adding one would produce a store that sometimes writes rows its own sign-in cannot find.
 
-**The cross-process half is a schema question, and it is yours.** The serialisation is per process: two instances of a deployed app racing on one database are not serialised by anything in this package. Put a unique index on the address column, which is what `CREDENTIAL_USERS_SCHEMA` declares, and rethrow the database's own refusal as `AccountAlreadyExistsError`. Neither shipped adapter runs that DDL, because they store the address as a value inside a document rather than as a column, so a host on `createMemoryPersistenceAdapter` or `createSqlitePersistenceAdapter` gets the in-process guarantee from the code and the cross-process one from the index it adds.
+**`createUserIfAbsent` is the one store method that is safe under concurrency, and it is the one that needs a database.** `createUser` refuses a duplicate it can see, and its docstring says plainly that a read followed by a write is a shape two callers interleave. Eight concurrent direct `createUser` calls for one address wrote eight rows on both shipped adapters before this existed, and they still would: the check inside it is a check, not a constraint.
+
+```ts
+const account = await store.createUserIfAbsent({ email, passwordHash });
+// null means an account for that address was already there. One statement, so the database decides.
+```
+
+`AdminPersistenceAdapter` gained the optional `insertIfAbsent(resource, key, value)` to carry it, because the database is the only thing in a process that can make the decision atomic. It is optional and **its absence is the answer**: a store whose persistence cannot do it does not offer `createUserIfAbsent` either, rather than offering a method that cannot keep the promise in its name. `create` uses the primitive when it is there and the per-address queue when it is not, both rather than either, so a host supplying neither still gets the in-process guarantee.
+
+What each adapter does, because they are honest in different ways:
+
+- **The SQLite adapter** creates a unique index on first use and inserts with `ON CONFLICT DO NOTHING`. The index is partial: `WHERE resource = 'users'` over `json_extract(data, '$.email')`, so it is invisible to every other resource in that shared table, since SQLite treats a NULL in a unique index as distinct from every other NULL. **The index outlives the call that made it**, so after one use the database refuses a duplicate address for that resource on every write, `create` included. That is a constraint appearing in a table you did not write, and it fails loudly and permanently if the table already held duplicates, with a message naming the resource and key.
+- **The memory adapter** has no `await` between its test and its push, and JavaScript runs one thing at a time, so the body cannot be interleaved. That is the whole guarantee and it is a property of that function's source rather than of a mechanism, so an `await` added between the two lines would silently turn it into the racy check-then-write it is not. There is a test that hammers it concurrently because nothing else would notice.
+
+**The cross-process half, for a host with a real schema, is a unique index on the column.** `CREDENTIAL_USERS_SCHEMA` declares one; neither shipped adapter runs that DDL, because they keep the address as a value inside a document rather than as a column. A host on its own mapped schema implements `insertIfAbsent` as `INSERT ... ON CONFLICT (email) DO NOTHING` and gets it from the column.
 
 Four store methods are optional: `listUsers`, `createUser`, `updateUser` and `listSessions`. A store written before them is a working sign-in, and a surface that reported an empty account list would be the one answer that cannot be told apart from an admin with nobody in it, so it names the method to add instead.
 
