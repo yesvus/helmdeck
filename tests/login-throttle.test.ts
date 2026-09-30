@@ -635,6 +635,34 @@ describe("property 7: attempts arriving together share one budget", () => {
       message: DEFAULT_THROTTLED_MESSAGE,
     });
   });
+
+  it("gives a person who fumbled and then signed in a whole budget again", async () => {
+    // The scenario the review named. Five slots in flight on a limit of eight, five of them refused
+    // and one accepted, and the accepted one is the person getting in. What is left behind decides
+    // whether their next typo is refused, so it has to be nothing.
+    const bound = throttle({ limit: 8 });
+    const target = adapter({ throttle: bound });
+
+    await Promise.all([
+      target.auth.login({ email: EMAIL, password: "wrong-0" }),
+      target.auth.login({ email: EMAIL, password: "wrong-1" }),
+      target.auth.login({ email: EMAIL, password: "wrong-2" }),
+      target.auth.login({ email: EMAIL, password: "wrong-3" }),
+      target.auth.login({ email: EMAIL, password: "wrong-4" }),
+      target.auth.login({ email: EMAIL, password: PASSWORD }),
+    ]);
+
+    // A fresh budget rather than whatever the six attempts left. A key that still held five
+    // failures or five reservations would refuse somewhere inside the next eight, and the person
+    // who just signed in correctly would be one typo from being told to wait.
+    for (let i = 0; i < 7; i += 1) {
+      expect(await target.auth.login({ email: EMAIL, password: `typo-${i}` })).toEqual({
+        ok: false,
+        message: "Those credentials were not accepted.",
+      });
+    }
+    expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
+  });
 });
 
 describe("property 8: a request that reports back late does not hold the key for ever", () => {
