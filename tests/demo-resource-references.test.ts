@@ -292,9 +292,9 @@ describe("a session the demo has no part in", () => {
 
 describe("the definitions the demo's own pages are built from", () => {
   it("name a target the demo's rule can be asked about, and a label the target has", async () => {
-    // A reference is three names, and all three are checked here rather than at the first refused
-    // write: a typo in a declaration is a mistake in the definition, and a blank cell tells its
-    // author nothing about where the name came from.
+    // A reference names a resource and optionally the field to print, and both are checked here
+    // rather than at the first refused write: a typo in a declaration is a mistake in the definition,
+    // and a blank cell tells its author nothing about where the name came from.
     const { customersResource, shipmentsResource } = await import("../fixtures/lib/admin-resources");
     const { exposedResource } = await import("../fixtures/lib/demo-rules");
     await signIn(owner);

@@ -10,24 +10,23 @@ import {
 /**
  * What a column's value names: a row of another resource.
  *
- * Three names and no code, because a definition crosses the client boundary as data and because
- * every one of the three is something a host already knows about its own schema. `resource` is the
- * table the value points at, which is the fact that lets the server refuse a value naming a row that
- * is not there rather than storing a string. `field` is which column of that table the value is, and
- * is absent for the ordinary case of a value that is the row's own id: naming it is there for the
- * schema where it is not, and a host that has to write it has already looked. `label` is which of
- * the target's fields a person reads instead of the id, and is absent for a target whose id is
- * already what a person would say.
+ * Two names and no code, because a definition crosses the client boundary as data and because both
+ * are something a host already knows about its own schema. `resource` is the table the value points
+ * at, which is the fact that lets the server refuse a value naming a row that is not there rather
+ * than storing a string, and the value is that row's own id, which is the one name a row is read by
+ * everywhere a reference is resolved. `label` is which of the target's fields a person reads instead
+ * of the id, and is absent for a target whose id is already what a person would say.
  *
- * Nothing here is a guess about the target's shape, and nothing is optional ceremony: a declaration
- * carrying only a resource name is the common case, and the two optional names are read only when
- * they are there.
+ * A value naming some other column of the target is deliberately not sayable here. Every place a
+ * reference is resolved reads a row through the adapter's `read`, which takes an id and nothing else,
+ * so a third name would be a declaration the code could not honour: the choices, the printed row and
+ * the write check would each have to look the value up a different way to stay in step, and a value
+ * none of them read by id would be refused as dangling. A host whose column holds a slug writes a
+ * `format` for the cell and a `render` for the field, which is where code goes.
  */
 export type AdminResourceReference = {
   /** The resource whose row this value names. Checked as a name before it reaches a store. */
   resource: string;
-  /** The field of the target this value names. Absent means the target record's own id. */
-  field?: string;
   /** The field of a target row printed in place of the id. Absent means the id. */
   label?: string;
 };
@@ -164,29 +163,17 @@ const RESOURCE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 function describeReference(reference: AdminResourceReference): string {
   return JSON.stringify({
     resource: reference.resource,
-    ...(reference.field === undefined ? {} : { field: reference.field }),
     ...(reference.label === undefined ? {} : { label: reference.label }),
   });
 }
 
 /**
- * The part of a declaration that decides which row a value names.
- *
- * Two declarations of the same name pointing at different places is a definition that says one thing
- * in one half and another in the other, and the halves are read by different code: a form would
- * offer the rows of one and a write would be checked against the other.
- */
-function referenceTarget(reference: AdminResourceReference): string {
-  return `${reference.resource}.${reference.field ?? "id"}`;
-}
-
-/**
  * Checks a reference declaration, on a column, a field or a filter, and returns it.
  *
- * A resource name crosses to a store the moment a reference is resolved, and `field` and `label` are
- * field paths, so all three are read here rather than where they are used: a typo in a declaration is
- * a mistake in the definition, and finding it out through a refused write or a blank cell tells its
- * author nothing about where the name came from.
+ * A resource name crosses to a store the moment a reference is resolved, and `label` is a field
+ * path, so both are read here rather than where they are used: a typo in a declaration is a mistake
+ * in the definition, and finding it out through a refused write or a blank cell tells its author
+ * nothing about where the name came from.
  */
 function checkedReference(
   definition: AdminResourceDefinition,
@@ -202,23 +189,18 @@ function checkedReference(
         `${JSON.stringify(reference.resource)}, which is not a resource. A resource is one identifier.`,
     );
   }
-  if (reference.field !== undefined && !isAdminResourceField(reference.field)) {
-    throw new Error(
-      `Resource ${definition.resource} declares ${where} field ` +
-        `${JSON.stringify(reference.field)}, which is not a field.`,
-    );
-  }
   if (reference.label !== undefined && !isAdminResourceField(reference.label)) {
     throw new Error(
       `Resource ${definition.resource} declares ${where} label ` +
         `${JSON.stringify(reference.label)}, which is not a field.`,
     );
   }
-  const extra = Object.keys(reference).find((key) => !["resource", "field", "label"].includes(key));
+  const extra = Object.keys(reference).find((key) => !["resource", "label"].includes(key));
   if (extra !== undefined) {
     throw new Error(
       `Resource ${definition.resource} declares ${where} with a "${extra}". A reference names a ` +
-        `resource, and optionally the field of it this value names and the field of it to print.`,
+        `resource, and optionally the field of it to print. A value is the target row's own id, ` +
+        `which is the name every part of the package reads that row by.`,
     );
   }
   return reference;
@@ -226,6 +208,12 @@ function checkedReference(
 
 export function defineAdminResource(definition: AdminResourceDefinition): AdminResourceDefinition {
   const seenColumns = new Set<string>();
+  /**
+   * What each column's values name, by the name the field is read under, so a column and a field of
+   * one name pointing at different rows are found here rather than by a page that says one thing and
+   * shows another: the halves are read by different code, a form offering the rows of one and a write
+   * checked against the other.
+   */
   const columnReferences = new Map<string, string>();
   for (const column of definition.columns) {
     if (seenColumns.has(column.key)) {
@@ -245,7 +233,7 @@ export function defineAdminResource(definition: AdminResourceDefinition): AdminR
             `row wants the target resource's column to say so.`,
         );
       }
-      columnReferences.set(column.key, referenceTarget(checked));
+      columnReferences.set(column.key, checked.resource);
     }
   }
 
@@ -267,15 +255,14 @@ export function defineAdminResource(definition: AdminResourceDefinition): AdminR
           `needs its own declares no reference.`,
       );
     }
-    const target = referenceTarget(checked);
     const columnTarget = columnReferences.get(field.name);
-    if (columnTarget !== undefined && columnTarget !== target) {
+    if (columnTarget !== undefined && columnTarget !== checked.resource) {
       throw new Error(
         `Resource ${definition.resource} points ${field.name} at ${columnTarget} on its column and at ` +
-          `${target} on its field. One value names one row.`,
+          `${checked.resource} on its field. One value names one row.`,
       );
     }
-    fieldReferences.set(field.name, target);
+    fieldReferences.set(field.name, checked.resource);
   }
 
   // Checked here rather than at the first query, because a filter whose field is not a field is
@@ -316,7 +303,7 @@ export function defineAdminResource(definition: AdminResourceDefinition): AdminR
       // box could be filtered as a choice from a resource, and the store would be asked about rows
       // the form never offered.
       const fieldTarget = fieldReferences.get(filter.field);
-      if (fieldTarget !== undefined && fieldTarget !== referenceTarget(checked)) {
+      if (fieldTarget !== undefined && fieldTarget !== checked.resource) {
         throw new Error(
           `Resource ${definition.resource} filters ${filter.field} against ` +
             `${describeReference(checked)}, which is not what the field points at.`,

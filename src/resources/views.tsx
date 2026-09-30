@@ -154,7 +154,7 @@ function useReferenceChoices(
   const key =
     reference === undefined
       ? null
-      : `${reference.resource}.${reference.field ?? "id"}@${String(limit)}`;
+      : `${reference.resource}@${String(limit)}`;
 
   useEffect(() => {
     const asked = wanted.current;

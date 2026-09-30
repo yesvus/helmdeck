@@ -62,8 +62,8 @@ function crossing(props: unknown): string[] {
 describe("a reference that names a row of another resource", () => {
   it("carries a resource name on its own, which is the whole of what a host has to know", () => {
     // The minimum that lets the server refuse a value naming a row that is not there, and nothing
-    // more. `field` and `label` are for the schemas where the id is not enough, and a host that has
-    // to declare them has already looked at the table.
+    // more. `label` is for the targets whose id is not what a person would say, and a host that has
+    // to declare it has already looked at the table.
     const definition = defineAdminResource({
       resource: "shipments",
       label: "Shipments",
@@ -90,17 +90,7 @@ describe("a reference that names a row of another resource", () => {
     }
   });
 
-  it("refuses a field or a label that is not a field", () => {
-    expect(() =>
-      defineAdminResource({
-        resource: "shipments",
-        label: "Shipments",
-        columns: [],
-        fields: [
-          { name: "customer_id", label: "Customer", reference: { resource: "customers", field: "id;" } },
-        ],
-      }),
-    ).toThrow(/which is not a field/);
+  it("refuses a label that is not a field", () => {
     expect(() =>
       defineAdminResource({
         resource: "shipments",
@@ -111,6 +101,23 @@ describe("a reference that names a row of another resource", () => {
         ],
       }),
     ).toThrow(/which is not a field/);
+  });
+
+  it("refuses a field, so a value read by id is not declared as something else", () => {
+    // Every part of a reference resolves a row through the adapter's `read`, which takes an id and
+    // nothing else. A `field` here would be a declaration the choices, the printed row and the write
+    // check could not honour without each looking the value up a different way, and the refusal says
+    // so rather than carrying a name the code ignores.
+    expect(() =>
+      defineAdminResource({
+        resource: "shipments",
+        label: "Shipments",
+        columns: [],
+        fields: [
+          { name: "customer_slug", label: "Customer", reference: { resource: "customers", field: "slug" } },
+        ],
+      }),
+    ).toThrow(/A reference names a resource/);
   });
 
   it("refuses a part it does not know, so a typo in a declaration is not silently ignored", () => {
@@ -296,7 +303,7 @@ describe("what a definition with no reference anywhere does", () => {
 
 describe("the demo's two resources that gained no reference", () => {
   it("still cross the client boundary as data, and the two that gained one do too", () => {
-    // A reference is three strings, so it crosses like the rest of a definition. This is the same
+    // A reference is two strings, so it crosses like the rest of a definition. This is the same
     // serialiser `definition-boundary.test.ts` runs, over the real objects the real pages hand down,
     // because a reference that could not cross would be a client page per resource rather than a
     // server one.
