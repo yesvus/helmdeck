@@ -187,7 +187,7 @@ describe("the count the file is of", () => {
     // is not the whole set, which nothing downstream can work out from the bytes alone.
     let calls = 0;
     const actions = {
-      queryPage: async <T>(resource: string, query?: AdminResourceQuery) => {
+      queryPage: async <T>() => {
         calls += 1;
         if (calls === 1) {
           return { rows: [{ id: "a" }, { id: "b" }] as T[], total: 50 };

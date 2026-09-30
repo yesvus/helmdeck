@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { AdminResourceActions } from "../resources/actions.js";
-import { adminCsvRecords, type AdminCsvSource } from "./csv.js";
+import { adminCsvCellValue, adminCsvRecords, type AdminCsvSource } from "./csv.js";
 
 /**
  * The most failures one run's report holds.
@@ -188,7 +188,9 @@ function valuesOf(
   for (const name of [...header, ...declared.keys()]) {
     if (Object.hasOwn(values, name)) continue;
     const cell = byName.get(name) ?? null;
-    const text = cell === null || cell.length === 0 ? null : cell;
+    // The mark comes off before the column's parse sees the cell, so a number a writer marked is a
+    // number the column can read rather than a string with an apostrophe on the front of it.
+    const text = cell === null || cell.length === 0 ? null : adminCsvCellValue(cell);
     const column = declared.get(name);
     values[name] = column?.parse ? column.parse(text) : text;
   }
@@ -248,6 +250,11 @@ export async function* adminResourceImport(
       yield { kind: "rejected", line: record.line, reason: reasonOf(cause) };
       if (stopOnError) return "stopped";
     }
+  }
+  // A file with no header row wrote nothing, and a run that reported success for a file it could not
+  // read is a run that says it imported an upload which was never importable.
+  if (header === null) {
+    throw new AdminResourceImportError(resource, "the file is empty, so it has no header row to read");
   }
   return "complete";
 }

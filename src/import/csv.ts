@@ -18,9 +18,9 @@ export type AdminCsvRecord = {
 /** What a reader is fed: a whole file, a stream of pieces of one, or the bytes of either. */
 export type AdminCsvSource =
   | string
-  | Uint8Array
-  | Iterable<string | Uint8Array>
-  | AsyncIterable<string | Uint8Array>;
+  | ArrayBufferView
+  | Iterable<string | ArrayBufferView>
+  | AsyncIterable<string | ArrayBufferView>;
 
 /**
  * Where a cell is, and which of its characters the next one has to decide.
@@ -36,18 +36,20 @@ type State = "start" | "plain" | "quoted" | "quoted-quote";
  * The source as the one async iterable the reader below reads from.
  *
  * A string is a single chunk rather than an iterable of its own characters, which would parse and mean
- * something else entirely, and a `Uint8Array` is handed over whole because iterating one directly
- * yields numbers rather than bytes.
+ * something else entirely. A typed array is handed over whole, because iterating one directly yields
+ * the numbers in it rather than the bytes, and it is asked about with `ArrayBuffer.isView` rather
+ * than with `instanceof`: a caller in another realm hands over a perfectly good `Uint8Array` that is
+ * not this realm's, and the check that says so is the difference between a file and a list of numbers.
  */
-function chunksOf(source: AdminCsvSource): AsyncIterable<string | Uint8Array> {
-  if (typeof source === "string" || source instanceof Uint8Array) {
+function chunksOf(source: AdminCsvSource): AsyncIterable<string | ArrayBufferView> {
+  if (typeof source === "string" || ArrayBuffer.isView(source)) {
     return (async function* () {
-      yield source as string | Uint8Array;
+      yield source as string | ArrayBufferView;
     })();
   }
-  if (Symbol.asyncIterator in source) return source as AsyncIterable<string | Uint8Array>;
+  if (Symbol.asyncIterator in source) return source as AsyncIterable<string | ArrayBufferView>;
   return (async function* () {
-    for (const chunk of source as Iterable<string | Uint8Array>) yield chunk;
+    for (const chunk of source as Iterable<string | ArrayBufferView>) yield chunk;
   })();
 }
 
@@ -125,8 +127,8 @@ export async function* adminCsvRecords(source: AdminCsvSource): AsyncGenerator<A
           continue;
         }
         line += 1;
-        if (broken === null) cells.push(cell);
-        cell = "";
+        // The cell is not pushed here: `record` appends it, and pushing it as well is how a row ends
+        // up with one more field than the file has.
         records.push(...flush());
         afterCr = char === "\r";
         continue;
@@ -197,8 +199,9 @@ export async function* adminCsvRecords(source: AdminCsvSource): AsyncGenerator<A
         },
       ];
     }
+    // A file whose last row has no line break after it is still a file with a last row, and `record`
+    // appends the cell the break would have ended.
     if (!touched) return [];
-    if (broken === null) cells.push(cell);
     return [record()];
   };
 
