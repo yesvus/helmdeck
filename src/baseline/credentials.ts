@@ -54,6 +54,27 @@ export type CredentialUser = {
   passwordHash: string;
   role?: string;
   name?: string;
+  /**
+   * An account that has been turned off. It is not a delete: the row stays, so it can be turned
+   * back on, and it holds no session, because both the sign-in and the read of a live session
+   * refuse it.
+   */
+  disabled?: boolean;
+};
+
+/**
+ * A user row as an operator-facing surface reports it.
+ *
+ * There is nowhere in this type to put a password hash, which is the point: a listing, a form or a
+ * log line built from one cannot leak a credential because there was nothing to leak.
+ */
+export type AccountRecord = {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+  disabled: boolean;
+  createdAt?: string;
 };
 
 /** A session row. The cookie carries the id; this row is the authority on whether it still means anything. */
@@ -67,9 +88,32 @@ export type CredentialSession = {
    * rather than trusted to have arrived as a number.
    */
   expiresAt: number;
+  /** When the row was written, for a list that shows it. Absent from a store that does not hold it. */
+  createdAt?: string;
 };
 
-/** Where the rows live. Four methods, because a host's schema is its own. */
+/** The write a caller asks for on an account. Absent keys are left alone rather than cleared. */
+export type AccountChanges = {
+  role?: string;
+  disabled?: boolean;
+};
+
+/** What a caller hands over to have an account written, with the password in the clear exactly once. */
+export type NewAccount = {
+  email: string;
+  passwordHash: string;
+  role?: string;
+  name?: string;
+};
+
+/**
+ * Where the rows live. Six methods, because a host's schema is its own.
+ *
+ * The four the account surface needs are optional, and absent means the surface says the store
+ * cannot do it rather than reporting an empty list or a success. A store written before this
+ * interface grew them is a working sign-in, and it is a sign-in that refuses to become a
+ * management surface without its owner adding the writes.
+ */
 export type CredentialStore = {
   findUserByEmail: (email: string) => Promise<CredentialUser | null>;
   findUserById: (id: string) => Promise<CredentialUser | null>;
@@ -79,6 +123,13 @@ export type CredentialStore = {
   deleteSession: (id: string) => Promise<void>;
   /** Ends every session an account holds, and says how many there were. */
   deleteSessionsForUser: (userId: string) => Promise<number>;
+
+  /** Every account, for the list a host renders. The hash is not among the fields it answers with. */
+  listUsers?: () => Promise<AccountRecord[]>;
+  createUser?: (account: NewAccount) => Promise<AccountRecord>;
+  updateUser?: (id: string, changes: AccountChanges) => Promise<AccountRecord>;
+  /** Live sessions, newest first, optionally narrowed to one account. A lapsed row is not one. */
+  listSessions?: (userId?: string) => Promise<CredentialSession[]>;
 };
 
 /**
@@ -91,8 +142,17 @@ export type CredentialStore = {
  *
  * Constraints live in the database rather than only in this adapter, because an adapter can be
  * bypassed by a hand-edited request and a constraint the database does not enforce is a comment.
- * The role list is a starting point for a host with no users yet; a host that already has an
- * accounts table keeps it and points `createPersistenceCredentialStore` at its own columns.
+ * The address is the one constraint on the users table, because a duplicate address is a fact
+ * rather than a policy.
+ *
+ * **The role column is unconstrained, which is a change from the first version of this schema.**
+ * That one carried `NOT NULL CHECK (role IN ('admin', 'editor'))`, which froze a two-role
+ * vocabulary into the package for every host that ran it, including hosts whose own rule has
+ * nothing to do with those two names. It is nullable now for the same reason it is unconstrained:
+ * a role is whatever string the host's rule switches on, and a role the rule does not define grants
+ * nothing, which is the answer an account with nothing on it already gets. A table created by the
+ * earlier schema keeps its constraint, because SQLite cannot drop a CHECK from a column, so a host
+ * wanting a role outside those two names recreates the table.
  */
 export const CREDENTIAL_USERS_SCHEMA = `CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -100,7 +160,12 @@ export const CREDENTIAL_USERS_SCHEMA = `CREATE TABLE IF NOT EXISTS users (
   -- scrypt$<salt>$<key>. The parameters travel with the hash, so they can be raised later
   -- without invalidating the rows already written.
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'editor')),
+  -- The host's own vocabulary, stored and never interpreted here. A null role is an account that
+  -- can sign in and may do nothing, which is what a role the rule does not define also gets.
+  role TEXT,
+  -- Turned off rather than removed. A disable has to be reversible, and a row that outlives the
+  -- person who held it is what the audit trail and every record they authored are attached to.
+  disabled INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -123,6 +188,12 @@ export type CredentialColumnOptions = {
   passwordHash?: string;
   role?: string;
   name?: string;
+  /**
+   * The disable flag. Defaults to `disabled`, and a host whose table has no such column reads
+   * `undefined`, which is an account that is not off rather than one that is.
+   */
+  disabled?: string;
+  createdAt?: string;
 };
 
 export type CredentialStoreOptions = {
@@ -154,6 +225,16 @@ export async function authenticate(
   const user = await store.findUserByEmail(normalizeEmail(email));
   if (!user) {
     await verifyPassword(password, await decoyHash());
+    return null;
+  }
+  // A disabled account answers exactly as a wrong password does, and that is deliberate. A distinct
+  // "this account is off" message is a second thing a public sign-in form can be asked, and it would
+  // turn the form into an account-existence oracle for the one state an operator is most likely to
+  // be asked about. The person signing in is told their credentials were not accepted, and whoever
+  // turned the account off sees `disabled` on the row, which is where the diagnosis belongs.
+  if (user.disabled) {
+    // The same work either way, because "faster than a real attempt" is itself an answer.
+    await verifyPassword(password, user.passwordHash);
     return null;
   }
   return (await verifyPassword(password, user.passwordHash)) ? user : null;
@@ -188,6 +269,8 @@ export function createPersistenceCredentialStore(
     passwordHash: "password_hash",
     role: "role",
     name: "name",
+    disabled: "disabled",
+    createdAt: "created_at",
     ...options.userColumns,
   };
   const sessionColumns = {
@@ -196,6 +279,21 @@ export function createPersistenceCredentialStore(
     expiresAt: "expires_at",
     ...options.sessionColumns,
   };
+
+  /**
+   * Whether a row has been turned off.
+   *
+   * `disabled INTEGER NOT NULL DEFAULT 0` is how a database spells false, and a host with a boolean
+   * column, a text column holding "true", or no column at all all have to land on the same answer.
+   * Only the literal zero and the literal false read as off; everything else that is not a string
+   * at all is treated as a number, so a column that arrived as `null` is off rather than unknown.
+   */
+  function isDisabled(row: Record<string, unknown>): boolean {
+    const value = row[userColumns.disabled];
+    if (value === undefined || value === null) return false;
+    if (typeof value === "string") return value !== "" && value !== "0" && value.toLowerCase() !== "false";
+    return Boolean(value);
+  }
 
   function toUser(row: Record<string, unknown> | null): CredentialUser | null {
     if (!row) return null;
@@ -215,6 +313,52 @@ export function createPersistenceCredentialStore(
       passwordHash,
       ...(typeof role === "string" ? { role } : {}),
       ...(typeof name === "string" ? { name } : {}),
+      ...(isDisabled(row) ? { disabled: true } : {}),
+    };
+  }
+
+  /**
+   * The same row as the account surface reports it, which is the row with the hash left off.
+   *
+   * A row the sign-in could not use at all is reported as no account rather than as an account with
+   * no hash, because there is nothing to turn off or hand a role to.
+   */
+  function toAccount(row: Record<string, unknown> | null): AccountRecord | null {
+    const user = toUser(row);
+    if (!user) return null;
+    const createdAt = row?.[userColumns.createdAt];
+    return {
+      id: user.id,
+      email: user.email,
+      ...(user.name !== undefined ? { name: user.name } : {}),
+      ...(user.role !== undefined ? { role: user.role } : {}),
+      disabled: user.disabled === true,
+      ...(typeof createdAt === "string" ? { createdAt } : {}),
+    };
+  }
+
+  /**
+   * A row that came back without an address or a hash in it is not an account, and a store that
+   * wrote one has a problem the caller needs to hear about rather than an `undefined` to render.
+   */
+  function unusableRow(resource: string, verb: string): never {
+    throw new Error(
+      `The ${resource} row ${verb} by this store cannot be read back as an account, because it has ` +
+        "no address or no password hash in it. A management surface cannot report a row it cannot sign in to.",
+    );
+  }
+
+  async function toSession(row: Record<string, unknown>): Promise<CredentialSession> {
+    return {
+      id: String(row.id),
+      userId: String(row[sessionColumns.userId]),
+      // Coerced because a host whose column is TEXT gets a number back as a string. A value
+      // that is not a number at all arrives here as NaN, which the expiry check treats as
+      // lapsed rather than as a session that never ends.
+      expiresAt: Number(row[sessionColumns.expiresAt]),
+      ...(typeof row[sessionColumns.createdAt] === "string"
+        ? { createdAt: row[sessionColumns.createdAt] as string }
+        : {}),
     };
   }
 
@@ -240,15 +384,7 @@ export function createPersistenceCredentialStore(
 
     readSession: async (id) => {
       const row = await persistence.read<Record<string, unknown>>(sessions, id);
-      if (!row) return null;
-      return {
-        id: String(row.id),
-        userId: String(row[sessionColumns.userId]),
-        // Coerced because a host whose column is TEXT gets a number back as a string. A value
-        // that is not a number at all arrives here as NaN, which the expiry check treats as
-        // lapsed rather than as a session that never ends.
-        expiresAt: Number(row[sessionColumns.expiresAt]),
-      };
+      return row ? toSession(row) : null;
     },
 
     deleteSession: async (id) => {
@@ -261,6 +397,52 @@ export function createPersistenceCredentialStore(
       });
       await Promise.all(rows.map((row) => persistence.delete(sessions, String(row.id))));
       return rows.length;
+    },
+
+    async listUsers() {
+      const rows = await persistence.query<Record<string, unknown>>(users);
+      // A half-written row is left out rather than reported, so a listing cannot show an account
+      // whose hash arrived as something other than a hash.
+      return rows.map(toAccount).filter((account): account is AccountRecord => account !== null);
+    },
+
+    async createUser(account) {
+      const row = await persistence.create<Record<string, unknown>>(users, {
+        [userColumns.email]: account.email,
+        [userColumns.passwordHash]: account.passwordHash,
+        ...(account.role === undefined ? {} : { [userColumns.role]: account.role }),
+        ...(account.name === undefined ? {} : { [userColumns.name]: account.name }),
+      });
+      return toAccount(row) ?? unusableRow(users, "written");
+    },
+
+    async updateUser(id, changes) {
+      const existing = await persistence.read<Record<string, unknown>>(users, id);
+      if (!existing) throw new Error(`No ${users} record with id ${id}`);
+      const row = await persistence.update<Record<string, unknown>>(users, id, {
+        ...existing,
+        ...(changes.role === undefined ? {} : { [userColumns.role]: changes.role }),
+        // Only written when the caller is changing it, so a host whose users table has no disable
+        // column can still change a role. `setDisabled` on such a table fails at the database,
+        // which is the honest answer: the table cannot hold what was asked of it.
+        ...(changes.disabled === undefined ? {} : { [userColumns.disabled]: changes.disabled ? 1 : 0 }),
+      });
+      return toAccount(row) ?? unusableRow(users, "updated");
+    },
+
+    async listSessions(userId) {
+      const rows = await persistence.query<Record<string, unknown>>(
+        sessions,
+        userId === undefined ? undefined : { [sessionColumns.userId]: userId },
+      );
+      const now = Math.floor(Date.now() / 1000);
+      const live = await Promise.all(rows.map(toSession));
+      // A lapsed row is not a live session, so a list of them would offer a revoke button for
+      // something that ended on its own. Newest first, which is the order a list of live sessions
+      // is read in and the only order a store of one is useful in.
+      return live
+        .filter((session) => Number.isFinite(session.expiresAt) && session.expiresAt > now)
+        .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""));
     },
   };
 }
@@ -276,6 +458,15 @@ export type CredentialAuthOptions = {
   sameSite?: "lax" | "strict" | "none";
   secure?: boolean;
   invalidMessage?: string;
+  /**
+   * Put the session row's id on the session this adapter resolves.
+   *
+   * Off by default, because the id is a revocation handle rather than something a shell needs to
+   * know who someone is, and a session the browser is handed should carry as little as it can. A
+   * host rendering a sessions list turns it on, so the list can mark the caller's own row and
+   * `createAccountAdmin`'s `endSession` can be called with a value the host is already holding.
+   */
+  includeSessionId?: boolean;
   /**
    * Whether the account resolved from the request may end every session it holds.
    *
@@ -369,7 +560,23 @@ export function createCredentialAuthAdapter(options: CredentialAuthOptions): Cre
       await store.deleteSession(row.id);
       return null;
     }
-    return { email: user.email, ...(user.name ? { name: user.name } : {}), ...(user.role ? { role: user.role } : {}) };
+
+    // The account was turned off while the row was live, which is the race a disable does not wait
+    // for: the disable ends the sessions it can see, and a sign-in already in flight writes its row
+    // afterwards. Without this the disabled account is signed in again for the full fourteen days.
+    // Checking on every read rather than only at the sign-in is what closes it, and the row goes
+    // with the answer, so the next read has nothing left to find.
+    if (user.disabled) {
+      await store.deleteSession(row.id);
+      return null;
+    }
+
+    return {
+      ...(options.includeSessionId ? { id: row.id } : {}),
+      email: user.email,
+      ...(user.name ? { name: user.name } : {}),
+      ...(user.role ? { role: user.role } : {}),
+    };
   }
 
   /**
