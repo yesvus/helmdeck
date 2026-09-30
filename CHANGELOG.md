@@ -38,6 +38,18 @@ every permission decision the package made was made in a browser.
 - **A decision carries the record the call names.** `read`, `update` and `delete` are decided per
   record; `query` is the collection question, and the host's own query does the row scoping. That
   last part is a deliberate limitation rather than an oversight, and it is stated where the code is.
+- **The sign-in bound covers attempts that arrive together.** `AdminLoginThrottle.check` was a read:
+  a client firing twenty attempts at once had all twenty of them read the count before any of them
+  had recorded a failure, so all twenty reached the password and the bound did nothing to the only
+  shape a fast attacker uses. It now takes a slot for the key when it lets an attempt through, and
+  `failed` and `succeeded` are how that slot comes back, so at most `limit` of a burst reach the
+  comparison. The three methods and their signatures are unchanged, so nothing fails to compile and
+  no call site changes. A host with its own throttle is the one this asks something of, and it is
+  written on the type: `check` has to take the slot in the same operation that refuses, so a Redis
+  implementation is a script or a conditional `UPDATE` rather than a `GET` and a `SET`, and it has
+  to age out a slot that is never reported back, or a request that dies between `check` and the
+  comparison holds the key below its limit for ever. `createLoginThrottle` ages one out with the
+  window by default and takes `reservationMs` for a host that wants it shorter.
 - **`endAllSessions` takes no account argument.** It resolves the caller from the signed cookie and
   acts on that account, and it refuses unless the host supplies `mayEndAllSessions`. There is no
   capability here that a caller can point at somebody else, which is the shape the previous version

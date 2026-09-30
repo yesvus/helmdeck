@@ -872,10 +872,10 @@ const CATALOG_META: Record<string, CatalogMeta> = {
   createLoginThrottle: {
     category: "Credentials and sessions",
     summary:
-      "The in-memory bound on failed sign-ins: eight per key per fifteen minutes, kept in one process. A host running more than one writes the same three methods over what the processes share.",
-    keywords: "throttle limit lockout attempts brute force guess rate",
+      "The in-memory bound on failed sign-ins: eight per key per fifteen minutes, kept in one process, with attempts arriving together sharing that eight. A host running more than one writes the same three methods over what the processes share.",
+    keywords: "throttle limit lockout attempts brute force guess rate concurrent burst",
     hostNote:
-      "Pass it as `throttle`. The refusal arrives before the password is compared and names itself, so a throttled visitor is not left guessing why. What it is not: a distributed limiter. Its counts live in one process and are lost on restart, so a scaled host needs its own implementation of `AdminLoginThrottle` over Redis or a table.",
+      "Pass it as `throttle`. The refusal arrives before the password is compared and names itself, so a throttled visitor is not left guessing why. What it is not: a distributed limiter. Its counts live in one process and are lost on restart, so a scaled host needs its own implementation of `AdminLoginThrottle` over Redis or a table, and has to make its `check` take a slot in the same operation that refuses rather than reading the count and then writing it.",
   },
   forwardedClientKey: {
     category: "Credentials and sessions",
