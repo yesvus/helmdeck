@@ -256,7 +256,7 @@ describe("the settings page offers the theme surface the package declares", () =
     expect((density as HTMLSelectElement).value).toBe(DEFAULT_SETTINGS.density);
   }, 30_000);
 
-  it("offers a theme control for each declared key and nothing beside them", async () => {
+  it("offers a control for every declared theme key and nothing beside them", async () => {
     await signIn();
     const { getByRole } = await openSettingsPage();
 
