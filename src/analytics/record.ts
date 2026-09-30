@@ -144,8 +144,10 @@ export function createAdminAnalyticsRecorder(
     try {
       options.onError(failure);
     } catch {
-      // A sink that throws is not a second write failure, and letting it out would be the page going
-      // down over a counter. It is left in `failures` where a host can still find it.
+      // A sink that throws is dropped rather than recorded. Recording it would call the sink again,
+      // and a sink that throws once throws again, so the counter would be the thing taking the
+      // process down. The failure it was told about is already in `failures`, which is the part a
+      // host can still read.
     }
   }
 
