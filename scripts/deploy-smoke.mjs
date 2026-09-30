@@ -74,7 +74,6 @@ async function request(fetchImpl, url, { method = "GET", headers = {}, body, tim
   return {
     status: response.status,
     location: response.headers.get("location"),
-    contentType: response.headers.get("content-type"),
     setCookie: readSetCookie(response.headers),
     body: text,
   };
@@ -170,10 +169,11 @@ async function checkLoginPage(fetchImpl, base, { timeoutMs }) {
     .filter(([pattern]) => !pattern.test(page.body))
     .map(([, label]) => label);
   const ok = page.status === 200 && missing.length === 0;
-  return {
-    ...result(`sign-in page ${LOGIN_PATH} renders a form`, ok, ok ? "200, with email, password and submit" : describe(page, missing)),
-    page,
-  };
+  return result(
+    `sign-in page ${LOGIN_PATH} renders a form`,
+    ok,
+    ok ? "200, with email, password and submit" : describe(page, missing),
+  );
 }
 
 /**
@@ -250,10 +250,20 @@ async function checkPublicRoute(fetchImpl, base, { path, timeoutMs }) {
  * body format this check guesses at is a way to fail a working deployment.
  */
 async function checkSignIn(fetchImpl, base, { credentials, actionName, timeoutMs }) {
+  const attempt = (detail, extra = {}) => ({
+    ...result("a real sign-in reaches the store", false, detail),
+    discovered: true,
+    ...extra,
+  });
+
   const discovery = await discoverSignInAction(fetchImpl, base, { name: actionName, timeoutMs });
   if (!discovery.id) {
     return {
-      ...result("a real sign-in reaches the store", false, `could not be driven: ${discovery.reason}. The store was not exercised at all, and that is a failure of this check rather than a pass.`),
+      ...result(
+        "a real sign-in reaches the store",
+        false,
+        `could not be driven: ${discovery.reason}. The store was not exercised at all, and that is a failure of this check rather than a pass.`,
+      ),
       discovered: false,
     };
   }
@@ -267,41 +277,26 @@ async function checkSignIn(fetchImpl, base, { credentials, actionName, timeoutMs
 
   const flightError = flightErrorRow(response.body);
   const cookieHeader = toCookieHeader(response.setCookie);
-  const refused = /"ok":false/.test(response.body);
 
   if (response.status >= 300 && response.status < 400) {
-    return {
-      ...result(
-        "a real sign-in reaches the store",
-        false,
-        `the action was redirected (${response.status} to ${response.location}), so the POST never reached the action. A route guard is answering a server action with a sign-in page.`,
-      ),
-      discovered: true,
-    };
+    return attempt(
+      `the action was redirected (${response.status} to ${response.location}), so the POST never reached the action. A route guard is answering a server action with a sign-in page.`,
+    );
   }
   if (flightError || response.status !== 200) {
-    return {
-      ...result(
-        "a real sign-in reaches the store",
-        false,
-        `the action threw: HTTP ${response.status}${flightError?.digest ? `, flight error digest ${flightError.digest}` : ""}. The action is where the seed and the migration runner run, so this is a failure in the persistence or credential path and the message is in the deployment log, not in this response.`,
-      ),
-      discovered: true,
-      threw: true,
-    };
+    return attempt(
+      `the action threw: HTTP ${response.status}${flightError?.digest ? `, flight error digest ${flightError.digest}` : ""}. The action is where the seed and the migration runner run, so this is a failure in the persistence or credential path and the message is in the deployment log, not in this response.`,
+      { threw: true },
+    );
   }
   if (!cookieHeader) {
-    return {
-      ...result(
-        "a real sign-in reaches the store",
-        false,
-        refused
-          ? `the action answered "ok": false, so it read the store and refused ${credentials.email}. Either the accounts are not seeded or the password published on the login page no longer matches. The response body names which.`
-          : `the action answered ${response.status} with no session cookie and no "ok": false, so the answer is one this check does not recognise. The body is the evidence: ${clip(response.body)}`,
-      ),
-      discovered: true,
-      refused: true,
-    };
+    const message = /"message":"([^"]*)"/.exec(response.body);
+    return attempt(
+      /"ok":false/.test(response.body)
+        ? `the action answered "ok": false${message ? `: ${message[1]}` : ""}. It read the store and refused ${credentials.email}, so either the accounts are not seeded or the password the login page publishes no longer matches.`
+        : `the action answered ${response.status} with no session cookie and no "ok": false, so the answer is one this check does not recognise. The body is the evidence: ${clip(response.body)}`,
+      { refused: true },
+    );
   }
 
   return {
