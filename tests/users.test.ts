@@ -452,14 +452,76 @@ describe("every operation is refused to a session that may not do it", () => {
   });
 
   it("never reaches the store for an operation the caller may not do, for any id it names", async () => {
+    // The property, stated as the absence of every store call rather than as the refusal message,
+    // because a caller who cannot manage accounts must not be able to ask which account and session
+    // ids exist. One refused call at a time is enough to enumerate with.
     const { admin, db, counts } = harness();
     const id = await seed(db);
+    const row = await createPersistenceCredentialStore(db).createSession(
+      id,
+      Math.floor(Date.now() / 1000) + 600,
+    );
     counts.clear();
 
-    expect(await admin.setRole(EDITOR_SESSION, id, "admin")).toMatchObject({ ok: false });
-    expect(await admin.setDisabled(EDITOR_SESSION, id, true)).toMatchObject({ ok: false });
-    expect(await admin.setDisabled(EDITOR_SESSION, "no-such-account", true)).toMatchObject({ ok: false });
+    for (const answer of [
+      await admin.setRole(EDITOR_SESSION, id, "admin"),
+      await admin.setRole(EDITOR_SESSION, "no-such-account", "admin"),
+      await admin.setDisabled(EDITOR_SESSION, id, true),
+      await admin.setDisabled(EDITOR_SESSION, "no-such-account", true),
+      await admin.endSession(EDITOR_SESSION, row.id),
+      await admin.endSession(EDITOR_SESSION, "no-such-session"),
+    ]) {
+      expect(answer).toEqual({ ok: false, message: "This account may not do that." });
+    }
+    // Not one call, of any method, for any of the six.
     expect([...counts.keys()]).toEqual([]);
+  });
+
+  it("reports a missing store method to a caller the policy does not permit, as a refusal", async () => {
+    // The policy is asked before the capability is, so a caller with no permission cannot learn what
+    // the store is able to do. Answering the other way round makes the store's shape a fact about
+    // the host that an unpermitted caller can read.
+    const store: CredentialStore = {
+      findUserByEmail: async () => null,
+      findUserById: async () => null,
+      createSession: async () => ({ id: "s1", userId: "u1", expiresAt: 0 }),
+      readSession: async () => null,
+      deleteSession: async () => {},
+      deleteSessionsForUser: async () => 0,
+    };
+    const admin = createAccountAdmin(store, { roles: ROLES });
+
+    expect(await admin.list(EDITOR_SESSION)).toEqual({
+      ok: false,
+      message: "This account may not do that.",
+    });
+    expect(await admin.create(EDITOR_SESSION, { email: "x@example.test", password: PASSWORD })).toEqual({
+      ok: false,
+      message: "This account may not do that.",
+    });
+    // And a permitted caller is told what to add, which is the other half of the same decision.
+    const permitted = createAccountAdmin(store, { may: { list: () => true, listSessions: () => true } });
+    expect((await permitted.list(ADMIN_SESSION) as { message: string }).message).toContain("listUsers");
+    // Every one of the six, not just the two that read a list, because the order inside each of them
+    // is a separate decision and each was written separately.
+    const sparse = createAccountAdmin(store, {
+      may: { setRole: () => true, setDisabled: () => true, create: () => true },
+    });
+    for (const answer of [
+      await sparse.create(ADMIN_SESSION, { email: "x@example.test", password: PASSWORD }),
+      await sparse.setRole(ADMIN_SESSION, "any", "editor"),
+      await sparse.setDisabled(ADMIN_SESSION, "any", true),
+    ]) {
+      expect((answer as { message: string }).message).toMatch(/does not implement/);
+    }
+    // And the same three to a caller with no permission, which is what the ordering buys.
+    for (const answer of [
+      await admin.create(EDITOR_SESSION, { email: "x@example.test", password: PASSWORD }),
+      await admin.setRole(EDITOR_SESSION, "any", "editor"),
+      await admin.setDisabled(EDITOR_SESSION, "any", true),
+    ]) {
+      expect(answer).toEqual({ ok: false, message: "This account may not do that." });
+    }
   });
 
   it("reports a missing account as a missing account rather than as a refusal", async () => {
