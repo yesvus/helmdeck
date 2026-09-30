@@ -171,3 +171,41 @@ describe("splitStatements", () => {
   });
 });
 
+
+describe("the deployed layout", () => {
+  // The bug this pins: `process.cwd()` is the repository root in development and `/var/task/fixtures`
+  // on Vercel, because the build sets `outputDirectory: fixtures/.next`. Joining `fixtures/lib/
+  // migrations` onto that produced `/var/task/fixtures/fixtures/lib/migrations`, and the deploy
+  // failed every request that reached the seed with a bare ENOENT.
+  it("refuses with the paths it tried rather than a bare ENOENT", async () => {
+    const original = process.cwd();
+    const empty = mkdtempSync(join(tmpdir(), "helmdeck-nowhere-"));
+    const escaped = empty.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    try {
+      process.chdir(empty);
+      // Async, so it rejects rather than throws, which is itself worth being explicit about: a
+      // caller who wrote `expect(() => ...).toThrow()` would be asserting nothing.
+      await expect(migrateDemo(clientFor(empty).sql)).rejects.toThrow(/the migrations directory is not at any of/);
+      await expect(migrateDemo(clientFor(empty).sql)).rejects.toThrow(new RegExp(escaped));
+    } finally {
+      process.chdir(original);
+    }
+  });
+
+  it("finds the migrations when the working directory is already the app root", async () => {
+    // What Vercel actually is: cwd is the app, so the path is `lib/migrations` relative to it.
+    const original = process.cwd();
+    const staged = mkdtempSync(join(tmpdir(), "helmdeck-staged-"));
+    // The deployed shape exactly: cwd is the app, so the files are at `lib/migrations` under it.
+    mkdirSync(join(staged, "lib", "migrations"), { recursive: true });
+    for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql"))) {
+      copyFileSync(join(MIGRATIONS, file), join(staged, "lib", "migrations", file));
+    }
+    try {
+      process.chdir(staged);
+      await expect(migrateDemo(clientFor(staged).sql)).resolves.toMatchObject({ applied: FILES });
+    } finally {
+      process.chdir(original);
+    }
+  }, 60_000);
+});

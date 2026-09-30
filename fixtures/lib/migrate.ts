@@ -21,11 +21,39 @@
  * file marked applied that never ran, on a database whose schema now claims something untrue.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SqlClient, SqlResult } from "./turso-persistence";
 
-const MIGRATIONS_DIR = join(process.cwd(), "fixtures", "lib", "migrations");
+/**
+ * Where the migration files are, resolved rather than assumed.
+ *
+ * `process.cwd()` is the repository root in development and **`/var/task/fixtures` on Vercel**,
+ * because the build sets `outputDirectory: fixtures/.next`. Joining `fixtures/lib/migrations` onto
+ * that yields `/var/task/fixtures/fixtures/lib/migrations`, which does not exist, and the deploy
+ * failed every request that touched the seed with a bare `ENOENT` on a path nobody had ever seen.
+ *
+ * So the candidates are tried and the first one that is a directory wins, and when none is, the error
+ * names every path that was tried. A missing file that says where it looked is a five-second fix; one
+ * that names a path the reader has no reason to believe in is the outage this runner was written to
+ * prevent.
+ */
+function migrationsDir(): string {
+  const candidates = [
+    join(process.cwd(), "fixtures", "lib", "migrations"),
+    join(process.cwd(), "lib", "migrations"),
+    join(process.cwd(), "migrations"),
+  ];
+  for (const dir of candidates) {
+    if (existsSync(dir)) return dir;
+  }
+  throw new Error(
+    `the migrations directory is not at any of: ${candidates.join(", ")}. ` +
+      "Working directory was " +
+      process.cwd() +
+      ".",
+  );
+}
 
 export type MigrationResult = {
   applied: string[];
@@ -95,7 +123,7 @@ async function rows(client: SqlClient, sql: string): Promise<string[]> {
  */
 export async function migrateDemo(
   client: SqlClient,
-  dir: string = MIGRATIONS_DIR,
+  dir: string = migrationsDir(),
 ): Promise<MigrationResult> {
   await client.execute({ sql: LEDGER });
 
