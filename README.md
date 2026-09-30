@@ -1343,11 +1343,26 @@ not the sum of the points' `visitors`: one person on three days is three views a
 tile that reported three would be the more flattering of the two numbers.
 
 `adminAnalyticsRead` is the same read on its own, for a host that wants the rows. The bounds are pushed
-into the store's query where it has a paged one, and the read is **refused** rather than truncated
-above `ADMIN_ANALYTICS_MAX_EVENTS_PER_READ`, which is `ADMIN_RESOURCE_MAX_LIMIT`: thirty points built
-from the first thousand views of a month is a chart reporting the month as those thousand views. A
-visitor table is the fastest growing table an admin has, and past that cap the answer is a store that
-sums in SQL.
+into the store's query where it has a paged one, and that read **pages until the range is covered**, so
+a store that hands back fewer rows than the window it was asked for cannot cost the answer its tail. A
+read is **refused** rather than truncated above `ADMIN_ANALYTICS_MAX_EVENTS_PER_READ`, which is
+`ADMIN_RESOURCE_MAX_LIMIT`: thirty points built from the first thousand views of a month is a chart
+reporting the month as those thousand views, and nothing on that chart would say so. A visitor table is
+the fastest growing table an admin has, and past that cap the answer is a store that sums in SQL.
+
+Paging costs one round trip per page, and the pages are read oldest first with the id as the tiebreak,
+which is the only order in which an offset stays correct while the table is being written to. A view
+recorded during the read carries the moment it was recorded and sorts after the pages already read, so
+it is simply left for the next read. A row with a *backdated* moment sorts into the gap instead, shifts
+the rows behind it, and arrives as an id seen twice; that is refused rather than absorbed, because a
+set with a repeat in it is missing a row and nothing downstream could tell. A store that counts more
+rows than it will hand over, or hands over more rows than it counted, is refused for the same reason.
+
+The cap is `ADMIN_RESOURCE_MAX_LIMIT` on purpose. That is the query contract's own window cap, and it is
+the number a store has already said it will serve, so reusing it means the analytics ceiling and the
+contract cannot drift apart. It is a ceiling on a whole answer rather than on one round trip. Raise it
+per query with `maxEvents`, which is also the knob to turn down for a dashboard that would rather
+refuse than spend twenty round trips.
 
 ## Dashboard tiles
 

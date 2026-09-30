@@ -217,7 +217,7 @@ describe("what a visitor key decides, and what it refuses to decide", () => {
 });
 
 describe("what a read refuses rather than cutting short", () => {
-  it("refuses a range holding more events than one read may return", async () => {
+  it("refuses a range holding more events than the cap, rather than reporting a page of it", async () => {
     const store = createMemoryPersistenceAdapter();
     for (let index = 0; index < 5; index += 1) {
       await adminAnalyticsRecord(store, view({ at: "2026-09-29T09:00:00.000Z" }), { now: CLOCK });
@@ -402,12 +402,18 @@ describe("top paths and sources over the events that were captured", () => {
   });
 });
 
-describe("the resource name the rows live under", () => {
-  it("is the one the demo's store is allowed to talk to", async () => {
+describe("the resource name the rows are written under", () => {
+  // The name the demo's store is allowed to talk to is the allowlist's half of the same question, and
+  // it is checked against a real migrated database in analytics-demo-store.test.ts rather than here.
+  // What this file owns is that a recorded event lands under the one name the package exports, since a
+  // write and a read naming different resources would be a layer that passes its own round trip by
+  // never taking it.
+  it("is the name an event is written to and read back from", async () => {
     expect(ADMIN_ANALYTICS_RESOURCE).toBe("analytics_events");
     const store = createMemoryPersistenceAdapter();
     await adminAnalyticsRecord(store, view(), { now: CLOCK });
     const rows: AdminAnalyticsEventRow[] = await store.query(ADMIN_ANALYTICS_RESOURCE);
     expect(rows).toHaveLength(1);
+    expect(rows[0]!.kind).toBe(ADMIN_ANALYTICS_PAGE_VIEW);
   });
 });

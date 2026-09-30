@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it, vi } from "vitest";
 import {
+  ADMIN_ANALYTICS_FAILURE_HISTORY,
   ADMIN_ANALYTICS_PAGE_VIEW,
   ADMIN_ANALYTICS_RESOURCE,
   AdminAnalyticsError,
@@ -276,17 +277,67 @@ describe("what a flush costs, and what batching changes", () => {
     }
     expect(recorder.failures).toHaveLength(2);
   });
+
+  it("caps that history at the documented default when a host names no bound", async () => {
+    const { store } = failingStore(new Error("the database is unreachable"));
+    const recorder = createAdminAnalyticsRecorder(store, { now: CLOCK });
+
+    for (let index = 0; index < ADMIN_ANALYTICS_FAILURE_HISTORY + 5; index += 1) {
+      recorder.record(view());
+      await recorder.flush();
+    }
+    // The default is a bound rather than the shape the history has, so the count follows the constant
+    // rather than the twenty it happens to be today.
+    expect(recorder.failures).toHaveLength(ADMIN_ANALYTICS_FAILURE_HISTORY);
+  });
+
+  it("lets a host raise that bound, so a default is not a ceiling it cannot get past", async () => {
+    const { store } = failingStore(new Error("the database is unreachable"));
+    // More failures than the default keeps, and a bound above them. A bound nobody can raise is a
+    // truncation, and truncation is what a failure history is not supposed to be.
+    const wanted = ADMIN_ANALYTICS_FAILURE_HISTORY + 10;
+    const recorder = createAdminAnalyticsRecorder(store, { now: CLOCK, failureHistory: wanted });
+
+    for (let index = 0; index < wanted; index += 1) {
+      recorder.record(view());
+      await recorder.flush();
+    }
+    expect(recorder.failures).toHaveLength(wanted);
+    // And the whole history is still readable, not just its length.
+    expect(recorder.failures[0]!.events).toHaveLength(1);
+    expect(recorder.failures[wanted - 1]!.error).toBeInstanceOf(Error);
+  });
 });
 
 describe("a recorder over a store that cannot be asked twice", () => {
-  it("still refuses an oversized read rather than truncating it", async () => {
+  it("refuses an oversized read on the rows-only path too, rather than truncating it", async () => {
     // The rows-only store shape, which is what a host with a plain adapter has: `queryPage` absent,
-    // so the read is made over the whole resource. The refusal is what keeps that honest.
-    const rowsOnly: AdminPersistenceAdapter = createMemoryPersistenceAdapter();
-    await adminAnalyticsRecord(rowsOnly, view(), { now: CLOCK });
+    // so the read is made over the whole resource and the cap is the only thing between a host and a
+    // chart built from a slice of it. This is the path the refusal had to be proved on, and it was
+    // not: the earlier version of this test seeded one row and read it back, so it would have passed
+    // against a read that silently returned nothing.
+    const inner = createMemoryPersistenceAdapter();
+    for (let index = 0; index < 5; index += 1) {
+      await adminAnalyticsRecord(inner, view({ path: `/p${index}` }), { now: CLOCK });
+    }
+    const rowsOnly: AdminPersistenceAdapter = {
+      read: inner.read,
+      query: inner.query,
+      create: inner.create,
+      update: inner.update,
+      delete: inner.delete,
+    };
+    expect("queryPage" in rowsOnly).toBe(false);
 
-    const read = await adminAnalyticsRead(rowsOnly, { maxEvents: 1 });
-    expect(read).toHaveLength(1);
+    // Five rows read whole, a cap of three, and a refusal that names both numbers.
+    await expect(adminAnalyticsRead(rowsOnly, { maxEvents: 3 })).rejects.toThrow(
+      /that range holds 5 events and one read returns at most 3/,
+    );
+    // And nothing came back, so there is no slice of it for a caller to render.
+    await expect(adminAnalyticsRead(rowsOnly, { maxEvents: 3 })).rejects.toBeInstanceOf(AdminAnalyticsError);
+    // A cap that fits is served, which is what stops the refusal being a blanket no.
+    expect(await adminAnalyticsRead(rowsOnly, { maxEvents: 5 })).toHaveLength(5);
+    // A cap that is not a count at all is refused for saying so, separately from being too small.
     await expect(adminAnalyticsRead(rowsOnly, { maxEvents: 0 })).rejects.toThrow(/whole number from one up/);
   });
 });

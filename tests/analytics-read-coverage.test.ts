@@ -230,21 +230,24 @@ describe("a range spanning more than one page is read in full", () => {
   it("keeps a view written between two pages from costing the read a seeded event", async () => {
     // Nine seeded and a store capped at five, so the read takes two pages and a tenth lands between.
     // Stamped now, which is after the last day in the range, so it sorts after every page read.
+    const seededIds = (await adminAnalyticsRead(await seeded(NINE), { range: RANGE })).map((row) => row.id);
+    expect(seededIds).toHaveLength(IN_RANGE);
     const growing = storeThatGrows(await seeded(NINE), 1, "2026-10-01T09:00:00.000Z");
     const { store } = cappedStore(growing.store, 5);
 
     const read = await adminAnalyticsRead(store, { range: RANGE });
-    const paths = read.map((row) => row.path);
 
-    // Every seeded event is present. The count is at least the nine and may be ten, because the row
-    // written mid-read is a real event in the range and is not worth a refusal to exclude; what it
-    // must never be is eight, which is a read that stepped over one to stay consistent with itself.
+    // Every seeded row is present, by identity rather than by count. A read that dropped one and
+    // picked up the late row would still hold nine rows and still hold every path, so counting and
+    // checking the paths would both pass on a read that had lost an event.
     expect(growing.pages()).toBeGreaterThan(1);
-    expect(read.length).toBeGreaterThanOrEqual(IN_RANGE);
-    for (const seeded of NINE.filter((event) => event.at?.startsWith("2026-09-3"))) {
-      expect(paths.filter((path) => path === seeded.path).length).toBeGreaterThan(0);
+    for (const id of seededIds) {
+      expect(read.map((row) => row.id)).toContain(id);
     }
     expect(new Set(read.map((row) => row.id)).size).toBe(read.length);
+    // Nine seeded plus at most the one written mid-read, and that one is in the range on the 1st.
+    expect(read.length).toBeGreaterThanOrEqual(IN_RANGE);
+    expect(read.length).toBeLessThanOrEqual(IN_RANGE + 1);
   });
 
   it("refuses rather than returning a set that stepped over an event", async () => {

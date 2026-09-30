@@ -38,11 +38,17 @@ every permission decision the package made was made in a browser.
   `record` never throws and never returns a rejected promise, and every failure reaches the host
   through the `onError` sink and the bounded `recorder.failures`. `adminAnalyticsRecord` is the
   strict half for a host that wants the rejection on the request.
-- **A range read is refused above a cap rather than truncated.** `ADMIN_ANALYTICS_MAX_EVENTS_PER_READ`
-  is `ADMIN_RESOURCE_MAX_LIMIT`, the query contract's own window cap, and the bounds are pushed into
-  the store's query where it has a paged one. Thirty points built from the first thousand views of a
-  month is a chart reporting the month as those thousand views, so the read stops rather than
-  answering. A store that can sum in SQL is the way past it.
+- **A range read covers its range or refuses, and never answers from part of one.** The bounds are
+  pushed into the store's query where it has a paged one, and that read pages until the range is
+  covered, because a store is free to return fewer rows than the window it was asked for and the first
+  version read one window and reported whatever came back. Four views of nine, a ranking that was not a
+  ranking, and nothing on the chart to say so. Paging is oldest first with the id as the tiebreak, so
+  an offset stays correct while the table is being written to; a row that arrives with a backdated
+  moment sorts into the gap and arrives as an id seen twice, which is refused rather than absorbed.
+  `ADMIN_ANALYTICS_MAX_EVENTS_PER_READ` is `ADMIN_RESOURCE_MAX_LIMIT`, the query contract's own window
+  cap, reused so the two cannot drift apart, and it is a ceiling on a whole answer rather than on one
+  round trip. Above it the read refuses and names itself. A store that can sum in SQL is the way past
+  it.
 
 ### Security
 
