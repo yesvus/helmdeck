@@ -11,18 +11,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { AdminLoginCredentials } from "@yesvus/helmdeck";
+import { adminReturnTo, type AdminLoginCredentials } from "@yesvus/helmdeck";
 import { demoAuth } from "../../lib/demo-session";
 import { demoRecovery } from "../../lib/demo-auth-recovery";
-import { DEFAULT_AFTER_LOGIN, readReturnTo } from "../../lib/demo-guard";
+import { DEFAULT_AFTER_LOGIN } from "../../lib/demo-guard";
 
 /**
  * Checks the credentials and writes the session cookie.
  *
  * `search` is the login page's own query string, handed back rather than read again, so the
- * destination is validated against what the visitor actually arrived with. Anything that is not a
- * plain same-site path is dropped, because a `next` that leaves the origin turns a sign-in page
- * into an open redirect.
+ * destination is validated against what the visitor actually arrived with, and validated by the
+ * package's own `adminReturnTo` rather than by a rule written beside it. Anything that is not a
+ * plain same-site path is dropped, because a `next` that leaves the origin turns a sign-in page into
+ * an open redirect. This is where the destination `fixtures/proxy.ts` carried in `next` is spent.
  */
 export async function signInAction(
   credentials: AdminLoginCredentials,
@@ -31,7 +32,10 @@ export async function signInAction(
   const result = await demoAuth().login(credentials);
   if (!result.ok) return { ok: false, message: result.message };
 
-  return { ok: true, next: readReturnTo(new URLSearchParams(search ?? "")) ?? DEFAULT_AFTER_LOGIN };
+  return {
+    ok: true,
+    next: adminReturnTo(new URLSearchParams(search ?? "")) ?? DEFAULT_AFTER_LOGIN,
+  };
 }
 
 export async function signOutAction(): Promise<{ ok: boolean; message: string; ended?: number }> {

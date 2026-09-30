@@ -16,6 +16,12 @@ import { readSiteSettingsAction } from "../../lib/demo-settings";
  * Resolution happens here, before anything renders, because a shell that paints and then discovers it
  * has no session is a flash of the wrong thing on every navigation.
  *
+ * The destination below is the fallback, not the redirect a visitor gets. A layout cannot read the
+ * path it is rendering, so the redirect for someone with no cookie at all is built in
+ * `fixtures/proxy.ts`, which can read the request, and `/shell/content` comes back from the sign-in
+ * page as itself rather than as this segment's root. What reaches the call here is a visitor
+ * carrying a cookie the guard refuses, and for those this is a real page of the segment they were in.
+ *
  * The accent is read here for the same reason. It used to be a constant in the client half, so the
  * settings page could offer a colour picker that changed nothing; it is now the stored value, and a
  * server component reads a row directly rather than through an action, because there is no client

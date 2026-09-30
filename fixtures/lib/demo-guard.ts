@@ -7,19 +7,25 @@
  * Both halves of the admin ask the rule in `demo-rules` and both do it through the package, so this
  * module hands out what the package built rather than deciding anything itself. The check is what
  * the views render against and the guard is what the server actions run, and they are two ends of
- * one decision rather than two decisions.
+ * one decision rather than two decisions. The sign-in URLs are the package's for the same reason:
+ * the destination in one is validated where the link is built, which is the only place where
+ * validating it is worth anything.
  */
 
 import { redirect } from "next/navigation";
 import {
+  adminLoginHref,
   createAdminPermissionCheck,
   createAdminPermissionGuard,
+  createAdminSessionGuard,
   type AdminSession,
+  type AdminSessionGuard,
 } from "@yesvus/helmdeck";
 import { demoCan } from "./demo-rules";
+import { LOGIN_PATH } from "./demo-sign-in";
 import { currentDemoSession, type DemoAuthOptions } from "./demo-session";
 
-export const LOGIN_PATH = "/login";
+export { LOGIN_PATH };
 
 /**
  * Where a visitor lands after signing in when nothing recorded where they were going.
@@ -34,19 +40,41 @@ export type DemoGuardOptions = DemoAuthOptions & {
 /**
  * No session, no page.
  *
- * This is the half that decides about a route rather than about a permission, so it is not the
- * package's guard: a page protected by nothing else has to be refused before it is served, which is
- * a redirect rather than a permission question. A page guarded only by a client component has
- * already been served to whoever asked for it, so the check that refuses a request runs here, where
- * the visitor's browser never receives the page at all.
+ * This is the half that decides about a route rather than about a permission, so it is the
+ * package's session guard: it resolves the session the same way the actions do, and it builds the
+ * sign-in URL the same way too, which means the destination is validated by the package's own rules
+ * on the way into the link rather than by anything written here.
+ *
+ * It stays a redirect rather than a permission question because a page protected by nothing else has
+ * to be refused before it is served, and a page guarded only by a client component has already been
+ * served to whoever asked for it, so the check that refuses a request runs here, where the visitor's
+ * browser never receives the page at all.
+ *
+ * The destination a caller passes is a fallback, not the answer to "where was this visitor going".
+ * A layout cannot read the path it is rendering, so the redirect for a visitor with no cookie at all
+ * is built in `fixtures/proxy.ts`, which can. What is left for this call is a visitor carrying a
+ * cookie the guard refuses, and for those the caller knows the segment.
  */
 export async function requireDemoSession({
   returnTo = DEFAULT_AFTER_LOGIN,
   ...auth
 }: DemoGuardOptions = {}): Promise<AdminSession> {
-  const session = await currentDemoSession(auth);
-  if (session) return session;
-  redirect(`${LOGIN_PATH}?next=${encodeURIComponent(returnTo)}`);
+  return sessionGuard(auth)({ returnTo });
+}
+
+/**
+ * The guard for one request's session options.
+ *
+ * Built per call rather than once at the module, because the cookie and the store are the seam the
+ * tests and anything outside Next's request scope read through, and a guard bound to one set of them
+ * at import time would fix the browser it was built for.
+ */
+function sessionGuard(auth: DemoAuthOptions): AdminSessionGuard {
+  return createAdminSessionGuard({
+    session: () => currentDemoSession(auth),
+    onUnauthenticated: ({ loginHref }) => redirect(loginHref),
+    loginHref: LOGIN_PATH,
+  });
 }
 
 /**
@@ -63,6 +91,9 @@ export const demoPermissionCheck = createAdminPermissionCheck({
 /** Where a visitor lands when an action refuses them for want of a session: the shell every action serves. */
 const ACTIONS_RETURN_TO = "/shell";
 
+/** The same URL, validated once, for a destination the demo itself chose rather than a request. */
+const ACTIONS_LOGIN_HREF = adminLoginHref(LOGIN_PATH, ACTIONS_RETURN_TO);
+
 /**
  * The same decision, for the server path, where it either returns the session or refuses.
  *
@@ -74,51 +105,5 @@ const ACTIONS_RETURN_TO = "/shell";
 export const requireDemoPermission = createAdminPermissionGuard({
   rule: demoCan,
   session: () => currentDemoSession(),
-  onUnauthenticated: () => redirect(`${LOGIN_PATH}?next=${encodeURIComponent(ACTIONS_RETURN_TO)}`),
+  onUnauthenticated: () => redirect(ACTIONS_LOGIN_HREF),
 });
-
-/**
- * Control characters, refused because a URL parser strips them before resolving, so
- * "/%0D%0A/evil.example" passes every other check below and still resolves to another origin.
- */
-// eslint-disable-next-line no-control-regex -- the point is to reject these, not to match them
-const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F]/;
-
-function isSameSitePath(value: string): boolean {
-  if (CONTROL_CHARACTERS.test(value)) return false;
-  if (!value.startsWith("/")) return false;
-  if (value.startsWith("//") || value.startsWith("/\\")) return false;
-  return !value.includes("\\");
-}
-
-/**
- * The destination a guard recorded, read back where the redirect is actually made.
- *
- * The package exports `adminReturnTo` for this, from a module marked `"use client"` because the
- * hook beside it reads the browser's search params. That makes the function unreachable from a
- * server component or a server action, which is the only place a destination may be read: a value
- * the client checked is a value the client chose. The rules are the package's own, so what this
- * accepts and what `adminReturnTo` accepts are the same set, and three layers of encoding are
- * peeled before the path is believed, so an obfuscated one is refused rather than guessed at.
- */
-export function readReturnTo(search: URLSearchParams | null | undefined): string | null {
-  const raw = search?.get("next");
-  if (!raw || !isSameSitePath(raw)) return null;
-
-  let current = raw;
-  for (let round = 0; round < 3; round += 1) {
-    let decoded: string;
-    try {
-      decoded = decodeURIComponent(current);
-    } catch {
-      // A malformed escape is not a path anyone meant to visit.
-      return null;
-    }
-    if (decoded === current) return current;
-    if (!isSameSitePath(decoded)) return null;
-    current = decoded;
-  }
-  // Still changing after three rounds, so the value is obfuscated past the point of being read
-  // safely. Refuse rather than choose a layer.
-  return null;
-}
