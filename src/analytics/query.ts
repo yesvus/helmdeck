@@ -15,11 +15,11 @@
  * What a read costs is the same thing the aggregation already says about orders, and it is worse here
  * rather than better: a visitor table is the fastest growing table an admin has, and one row per page
  * view is a row per request. The bounds are pushed into the store's own query where the store has a
- * paged one, and a read is refused rather than truncated when the range holds more rows than one
- * read may return, because thirty points built from the first thousand views of a month is a chart
- * reporting the month as those thousand views. The cap is `ADMIN_RESOURCE_MAX_LIMIT`, the query
- * contract's own window cap, not a number chosen here. Past it the answer is a store that sums in
- * SQL, and until a host has one this is the whole of it.
+ * paged one, and that read **pages until the range is covered or the cap is reached, and refuses
+ * rather than answering from a partial range**. Thirty points built from the first thousand views of a
+ * month is a chart reporting the month as those thousand views, and a chart cannot show that anything
+ * is missing, which is why there is no way to ask for one. Past the cap the answer is a store that
+ * sums in SQL, and until a host has one this is the whole of it.
  */
 
 import { adminAggregate } from "../aggregate/aggregate.js";
@@ -29,10 +29,12 @@ import type { AdminPersistenceAdapter } from "../adapters/host.js";
 import { ADMIN_ANALYTICS_RESOURCE, AdminAnalyticsError, type AdminAnalyticsEventRow } from "./events.js";
 
 /**
- * The most events one read may return.
+ * The most events one read may return, across every page it takes to cover a range.
  *
- * The query contract's own window cap rather than a figure of its own, so a host that wants more has
- * to raise the contract first and finds out that it cannot.
+ * The query contract's own window cap rather than a figure of its own, and the coupling is
+ * deliberate: the number a store will serve in one window is the number this must not pretend to
+ * exceed, and a cap the two could disagree about would be a cap nobody could reason about. It is
+ * therefore the ceiling on a whole answer, not on one round trip, and the read pages up to it.
  */
 export const ADMIN_ANALYTICS_MAX_EVENTS_PER_READ = ADMIN_RESOURCE_MAX_LIMIT;
 
@@ -92,11 +94,18 @@ function refuseRange(range: readonly string[]): never {
 }
 
 /**
- * The events a range covers, newest first.
+ * The events a range covers, newest first, or a refusal.
  *
  * The bounds are pushed down so a store with a paged query never reads the rest of the table, and
  * then applied again through `adminChartDayKey` on the rows that came back, so a store that has no
  * paged query and one that does return the same set rather than two answers to one question.
+ *
+ * A store with a paged query is read **page by page until the range is covered**, because asking for
+ * one window the size of the cap and reading one page back is how a range silently loses its tail: a
+ * store is free to return fewer rows than the window asked for, and one that does so hands over a
+ * total that fits under the cap along with a page that does not cover it. Both are counted here and
+ * the answer is refused unless they agree. A store that keeps answering with rows, or reports a total
+ * its rows contradict, stops the read rather than looping on a store that will never cover it.
  *
  * Newest first is not cosmetic: `adminAggregate` keeps the first row it files in a bucket, so
  * ordering by time is what turns its `label` hook into the most recent view of a path without this
@@ -126,16 +135,8 @@ export async function adminAnalyticsRead(
   }
   if (options.kind !== undefined) filters.push({ field: "kind", operator: "eq", value: options.kind });
 
-  const sort = [{ field: OCCURRED_AT, direction: "desc" as const }];
-
   if (store.queryPage !== undefined) {
-    const page = await store.queryPage<AdminAnalyticsEventRow>(ADMIN_ANALYTICS_RESOURCE, {
-      filter: filters.length > 0 ? filters : undefined,
-      sort,
-      window: { offset: 0, limit },
-    });
-    if (page.total > limit) oversize(page.total, limit);
-    return page.rows.filter(within);
+    return pageThrough(store.queryPage, { filters, within, limit });
   }
 
   // A store with no paged query is read whole, and the whole read is paid before the refusal below
@@ -145,16 +146,110 @@ export async function adminAnalyticsRead(
   const rows = all
     .filter(within)
     .filter((row) => (options.kind === undefined ? true : row.kind === options.kind))
-    .sort((left, right) => right.occurred_at.localeCompare(left.occurred_at));
+    .sort(newestFirst);
   if (rows.length > limit) oversize(rows.length, limit);
   return rows;
 }
 
+type PageThrough = {
+  filters: readonly AdminResourceFilter[];
+  within: (row: AdminAnalyticsEventRow) => boolean;
+  limit: number;
+};
+
+/**
+ * Every row a query matches, in as many pages as that takes, or a refusal.
+ *
+ * The refusal is the point. A `queryPage` answer carries the store's own count of what matched before
+ * the window, so a short page against a larger total is a store saying "there is more than I am
+ * showing you", and reporting the page as if it were the range is the one answer a host cannot detect
+ * from a rendered chart.
+ *
+ * Paged **oldest first**, and the id breaks the tie, because that is the only order in which paging
+ * by offset can be made safe while the table is being written to. A row written during the read
+ * carries the moment it was written, which is the newest, so it lands after everything already read
+ * and leaves the prefix intact. A row written with a *backdated* moment sorts into the middle instead,
+ * shifting the rows behind it and making the offset step over one, and that arrives as an id seen
+ * twice. It is refused rather than absorbed, because a set with a repeat in it is missing a row and
+ * nothing downstream could tell.
+ *
+ * The first page's total is what this read aims to cover, so the answer is the range as it stood when
+ * the read began, plus anything that arrived afterwards and sorted after it. The rows go back into
+ * newest-first order at the end, so this and the rows-only path return the same sequence and a
+ * ranking cannot depend on which store shape the host has.
+ */
+async function pageThrough(
+  queryPage: NonNullable<AdminPersistenceAdapter["queryPage"]>,
+  { filters, within, limit }: PageThrough,
+): Promise<AdminAnalyticsEventRow[]> {
+  const collected: AdminAnalyticsEventRow[] = [];
+  const seen = new Set<string>();
+  const oldest = [
+    { field: OCCURRED_AT, direction: "asc" as const },
+    { field: "id", direction: "asc" as const },
+  ];
+  let offset = 0;
+  let target = 0;
+
+  for (;;) {
+    const window = Math.min(ADMIN_RESOURCE_MAX_LIMIT, limit - collected.length);
+    if (window < 1) break;
+
+    const page = await queryPage<AdminAnalyticsEventRow>(ADMIN_ANALYTICS_RESOURCE, {
+      filter: filters.length > 0 ? [...filters] : undefined,
+      sort: oldest,
+      window: { offset, limit: window },
+    });
+
+    // A count smaller than the page beside it describes nothing, so nothing says which rows were left
+    // out. Refusing is the honest answer and picking is not available.
+    if (page.total < page.rows.length) refuseIncoherent(page.rows.length, page.total);
+    // A count above what a read may return is the refusal this function exists for, taken from the
+    // store's own number rather than from the rows that happened to arrive.
+    if (page.total > limit) oversize(page.total, limit);
+    if (target === 0) target = page.total;
+
+    for (const row of page.rows) {
+      if (seen.has(row.id)) refuseMoved();
+      seen.add(row.id);
+    }
+    collected.push(...page.rows);
+
+    if (collected.length >= target) return collected.filter(within).sort(newestFirst);
+    if (page.rows.length === 0) break;
+    offset += page.rows.length;
+  }
+
+  oversize(target > collected.length ? target : collected.length, limit);
+}
+
+function refuseMoved(): never {
+  throw new AdminAnalyticsError(
+    "an event arrived between two pages of this read with a moment older than the pages already read, " +
+      "so the range shifted under the offset and at least one event was stepped over. Read a range that " +
+      "is closed, such as one ending yesterday, or a store that can serve the range in one window.",
+  );
+}
+
+/** Newest first, with the id breaking the tie so two events on one moment hold still. */
+function newestFirst(left: AdminAnalyticsEventRow, right: AdminAnalyticsEventRow): number {
+  return right.occurred_at.localeCompare(left.occurred_at) || left.id.localeCompare(right.id);
+}
+
+function refuseIncoherent(rows: number, total: number): never {
+  throw new AdminAnalyticsError(
+    `the store reported ${total} events and handed over ${rows} of them, so the rows it returned do ` +
+      "not describe the range, and neither a count nor a ranking can be built from rows whose place in " +
+      "it is unknown.",
+  );
+}
+
 function oversize(found: number, limit: number): never {
   throw new AdminAnalyticsError(
-    `that range holds ${found} events and one read returns at most ${limit}. Narrow the range, or ` +
-      "give the host a store that sums in SQL, because a chart built from the first rows of a range " +
-      "is a chart reporting the range as those rows.",
+    `that range holds ${found} events and one read returns at most ${limit} (` +
+      "ADMIN_ANALYTICS_MAX_EVENTS_PER_READ). Narrow the range, or give the host a store that sums " +
+      "in SQL, because a chart built from the first rows of a range is a chart reporting the range as " +
+      "those rows, and nothing on that chart would say so.",
   );
 }
 
@@ -460,6 +555,9 @@ async function readExpired(
       sort: oldest,
       window,
     });
+    // A count smaller than the rows beside it is a store that cannot answer, and this one is read
+    // again from the start, so taking the page would delete rows whose place in the range is unknown.
+    if (page.total < page.rows.length) refuseIncoherent(page.rows.length, page.total);
     return { rows: page.rows, total: page.total };
   }
 
@@ -503,11 +601,19 @@ export async function adminAnalyticsRetain(
   let more = false;
 
   // Always from the first row rather than from an offset, because the rows a page held are gone by
-  // the time the next one is asked for, and an offset would step over whatever replaced them.
+  // the time the next one is asked for, and an offset would step over whatever replaced them. The
+  // total falls as the loop goes, which is the point rather than a store moving under the read, so
+  // the coherence check on the way out is the only one that applies here.
   while (removed < limit) {
     const wanted = Math.min(ADMIN_ANALYTICS_MAX_EVENTS_PER_READ, limit - removed);
     const page = await readExpired(store, cutoff, { offset: 0, limit: wanted });
-    if (page.rows.length === 0) break;
+    if (page.rows.length === 0) {
+      // Rows left behind by a store that counts them and will not hand them over. Reported rather
+      // than reported as a clean table, which is what a zero-length page with a non-zero total
+      // otherwise reads as.
+      more = page.total > 0;
+      break;
+    }
 
     examined += page.rows.length;
     const settled = await Promise.allSettled(
