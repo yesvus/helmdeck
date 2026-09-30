@@ -11,6 +11,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - Six ready dashboard tiles (stat, table, list, time-series chart, ranked chart, activity feed) that render the engine's four states themselves, so a host registers a tile rather than writing one.
 - Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
 - CSV export and import over the resource seam: the list a query names as a downloadable file, and a file read into the store a row at a time.
+- Visitor analytics over the same persistence seam: record a page view or a named event, and read back views, unique visitors, top paths and sources per day. The visitor key and the retention window are the host's, and nothing here derives or defaults either.
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
 - A static bilingual fixture app for the hosted demo.
 - A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
@@ -1243,6 +1244,110 @@ without a chart knowing either. The default palette is a list of complete class 
 Tailwind generates a utility only when it can read the whole class in the source, so a composed
 `fill-${color}` produces nothing. The second series is the muted grey on purpose: a comparison series
 quieter than the one it is compared against reads as context. Override it with `seriesClasses`.
+
+## Visitor analytics
+
+Business metrics and visitor analytics are two different things, and only the first is what the
+charts above are for. Revenue, orders and stock are rows a host already has, and `adminAggregate`
+buckets them. A page view is a row nobody has yet, and capturing one is a different job: it runs on
+every request rather than on every sale, and the two decisions it needs are the host's.
+
+Both halves read and write through `AdminPersistenceAdapter`, so the capture layer is the same seam
+as everything else and needs no new dependency.
+
+### Recording an event
+
+```ts
+import { adminAnalyticsRecord, ADMIN_ANALYTICS_PAGE_VIEW } from "@yesvus/helmdeck";
+
+await adminAnalyticsRecord(store, {
+  kind: ADMIN_ANALYTICS_PAGE_VIEW,
+  path: "/pricing",
+  visitorKey: await readVisitorKey(request),   // yours, or null
+  source: refererHost(request),                // yours, or null
+  at: new Date().toISOString(),                // or left out, for the caller's clock
+});
+```
+
+That is one `create`, so it is one round trip to the store, awaited by whoever awaits it. A counter a
+site can afford on every view needs the round trip held off the request, which is what
+`createAdminAnalyticsRecorder` is for:
+
+```ts
+const recorder = createAdminAnalyticsRecorder(store, { onError: (failure) => log.warn(failure.error) });
+
+recorder.record({ kind: ADMIN_ANALYTICS_PAGE_VIEW, path: "/pricing", visitorKey: key });
+// later, from wherever the host already batches:
+await recorder.flush();
+```
+
+`record` never throws and never returns a promise that rejects. A view counter that can 500 a page is
+worse than no counter, and a swallowed error is worse than both, so every failure lands in two places
+a host can read: the `onError` sink and the bounded `recorder.failures`. A field this package refuses
+arrives there too, as an `AdminAnalyticsError`, so a typo and a store that is down are told apart.
+
+What a flush costs depends on the store. One with a `createMany` takes the whole batch as one
+statement. One without takes one `create` per row, overlapping rather than serial. Buffering changes
+when the write happens and whether one statement carries it, never how many rows are written, so a
+store that can batch is the difference between a counter on every view and one on a cron.
+
+### The visitor key is the host's value
+
+Nothing here derives a key. A key built out of headers and cookies is a fingerprinting decision and a
+consent decision at once, and both belong to whoever runs the site, so the only way to get one into
+this table is to pass one in. It is stored exactly as passed, and not hashed: a host that wants a hash
+in the table hashes before it calls.
+
+**An event with no key counts as a view and as no visitor**, and the answer says how many there were in
+`totals.unattributed`. The two wrong answers are both worse than the right one:
+
+- Every unkeyed event treated as one shared visitor reports a unique count of 1 for a day a hundred
+  people arrived on, and there is nothing on the page that looks wrong.
+- Every unkeyed event treated as its own visitor makes "unique visitors" a synonym for "views", which
+  is the failure a reader cannot detect, because the number is always plausible.
+
+So a view survives a host that has decided not to identify anybody, and the unique count is the number
+of keys the host actually supplied. A host that has decided no row may be written without a key passes
+`unkeyed: "drop"`, and the layer asks for the key rather than inventing one.
+
+### Retention is the host's number
+
+```ts
+await adminAnalyticsRetain(store, { days: 90, now: () => new Date() });
+```
+
+There is no default window, because how long a table of visits is allowed to grow is a decision about
+the people in it. The comparison is exclusive of the cutoff, a call that stops at `maxRemovals` says
+`more: true` rather than reporting a clean table, and a failed deletion throws rather than counting as
+removed. Running it twice removes what is left, since a prune of the same cutoff removes the same rows.
+
+### Querying what was captured
+
+```ts
+const range = adminChartDayRange(30, new Date());
+
+const series = await adminAnalyticsSeries(store, { range });
+// series.points: one per day, holding a zero where nothing landed
+//   { key, label, views, visitors, unattributed }
+// series.totals: { views, visitors, unattributed, unkeyed }
+
+const top = await adminAnalyticsTopPaths(store, { range, limit: 10 });
+const from = await adminAnalyticsSources(store, { range, limit: 10, label: nameForCampaign });
+```
+
+Every figure is `adminAggregate` over the rows the store returned, so the range discipline is that
+function's: a day with nothing on it is a zero, an event outside the range is in neither the points
+nor the totals, and a total is summed off the buckets it was read from. A row carrying no moment is
+counted in `totals.unkeyed` rather than filed under a guessed day. `totals.visitors` is deliberately
+not the sum of the points' `visitors`: one person on three days is three views and one visitor, and a
+tile that reported three would be the more flattering of the two numbers.
+
+`adminAnalyticsRead` is the same read on its own, for a host that wants the rows. The bounds are pushed
+into the store's query where it has a paged one, and the read is **refused** rather than truncated
+above `ADMIN_ANALYTICS_MAX_EVENTS_PER_READ`, which is `ADMIN_RESOURCE_MAX_LIMIT`: thirty points built
+from the first thousand views of a month is a chart reporting the month as those thousand views. A
+visitor table is the fastest growing table an admin has, and past that cap the answer is a store that
+sums in SQL.
 
 ## Dashboard tiles
 

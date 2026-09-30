@@ -18,6 +18,32 @@ them, a host that installed this package and wanted a person to sign in had to w
 store, the session store, the expiry and the revocation, and had to write the refusal itself, because
 every permission decision the package made was made in a browser.
 
+### Added
+
+- **Visitor analytics: capture and query, over the persistence seam.** `adminAnalyticsRecord` and
+  `createAdminAnalyticsRecorder` write a page view or a named event; `adminAnalyticsSeries`,
+  `adminAnalyticsTopPaths` and `adminAnalyticsSources` read them back as views, unique visitors, top
+  paths with a last-viewed time, and sources, per day. `adminAnalyticsRetain` prunes to a window the
+  host names, and `adminAnalyticsRead` is the bounded read underneath. No new runtime dependency, and
+  no second implementation of bucketing: every figure is `adminAggregate` over the rows the store
+  returned, so the range discipline and the zero for a day nothing landed on are that function's
+  rather than a second copy of it.
+- **The two decisions on that path are the host's, and the API makes them so rather than saying so.**
+  The visitor key is the only way an identity reaches the table, nothing derives or hashes one, and
+  there is no default retention window. An event with no key counts as a view and as no visitor, and
+  is reported in `totals.unattributed`, because folding unkeyed events into one shared visitor reports
+  a unique count of 1 for a busy day and counting each as its own makes "unique" a synonym for
+  "views". A host that has decided no row may be written without a key passes `unkeyed: "drop"`.
+- **A failed write does not fail the page, and is not swallowed.** `createAdminAnalyticsRecorder`'s
+  `record` never throws and never returns a rejected promise, and every failure reaches the host
+  through the `onError` sink and the bounded `recorder.failures`. `adminAnalyticsRecord` is the
+  strict half for a host that wants the rejection on the request.
+- **A range read is refused above a cap rather than truncated.** `ADMIN_ANALYTICS_MAX_EVENTS_PER_READ`
+  is `ADMIN_RESOURCE_MAX_LIMIT`, the query contract's own window cap, and the bounds are pushed into
+  the store's query where it has a paged one. Thirty points built from the first thousand views of a
+  month is a chart reporting the month as those thousand views, so the read stops rather than
+  answering. A store that can sum in SQL is the way past it.
+
 ### Security
 
 - **Column names arriving from the browser are checked against the schema on writes, not only on
