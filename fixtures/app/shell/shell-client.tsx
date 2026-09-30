@@ -7,6 +7,7 @@ import { AdminShell, AdminPermissionsProvider, type AdminNavGroup, type AdminSes
 import { useShellTheme } from "../../components/shell-theme-provider";
 import { signOutAction } from "./sign-out-action";
 import { demoPermissionsAdapter } from "../../lib/demo-permissions";
+import { ShellVersionReadout } from "./version-readout";
 
 // Module scope, not inside the component: the provider watches for the adapter to change and
 // invalidates every cached answer when it does, so a fresh object per render would re-run that
@@ -76,6 +77,7 @@ export function ShellClient({
         profileHref="/shell/profile"
         onLogout={signOutAction}
         topbarExtra={<ThemeSelector />}
+        sidebarExtra={<ShellVersionReadout />}
         profileMenuExtra={
           <Link
             className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
