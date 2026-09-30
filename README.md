@@ -592,6 +592,41 @@ export const deleteResource = async (resource: string, id: string) => store.dele
 
 `AdminResourceList` and `AdminResourceForm` take an object of those as their `persistence` prop, so the reads a list performs are the ones that were refused, and a delete reaches the store only after the rule allows it. A resource name arrives from the browser as a string the caller chose, so `expose` is a closed set of names and is checked before the session is resolved. `before` runs after the refusal and before the effect, for a store that has to be prepared first. Passing no guard throws at construction rather than handing back calls that decide nothing. The set carries a sixth call, `queryPage`, when the host's adapter has one, and omits it when it does not.
 
+### Recording the writes and dropping the caches
+
+`AdminAuditAdapter` and `AdminCacheInvalidationAdapter` are two more options on the same call, so a host hands them where it already hands the guard:
+
+```ts
+import { createAuditAdapter, createCacheAdapter } from "@yesvus/helmdeck/baseline";
+
+export const store = createAdminResourceActions({
+  guard: requirePermission,
+  persistence,
+  expose: exposedResource,
+  audit: createAuditAdapter({ sink: (event) => log.write(event), onError: report }),
+  cache: createCacheAdapter({ invalidate: (keys) => Promise.all(keys.map(dropKey)) }),
+});
+```
+
+Both are optional and independent. A host that wires neither gets exactly the behaviour it had before, and a host that wires one is never asked about the other.
+
+**A write is recorded after it happened, not before.** The seam makes that decision, and it is not symmetric:
+
+- An event written first and left behind when the write failed claims a change that did not happen, and nothing in the event tells a reader to doubt it. That is the dishonest direction, and it is the one this seam cannot produce.
+- The price of that choice is a process that dies between the write and the record, which leaves a change nobody wrote down. Closing that window is a transactional outbox in your own store, in the same transaction as the write, which is a schema question rather than a seam one. A host that needs it wraps `persistence` rather than these calls.
+
+A refused call records nothing, because nothing happened to record: a permission the rule withheld, a name outside the exposed set, and a store that refused the write all leave the trail as it was. A read records nothing either. If you want refused attempts in your trail, `onDenied` on the guard already holds the permission and the record, and that is where they belong.
+
+**The event says what happened.** `action` is the operation (`create`, `update`, `delete`), `resource` and `resourceId` name the record, `actor` is the session the guard decided for, and `occurredAt` is an ISO timestamp. A create names the id **the store assigned**, which is the other reason the event is built after the write: before it, a create has no record to name, and a trail that cannot name a new record is not the history of anything. `metadata.fields` holds the field names of the record the store now holds, which is the shape of the write and not a diff. Names rather than values on purpose: a trail holding every value a record ever had is a second copy of every secret in the table. A host that wants the values keeps them where a change is reversible from, which is its own revision store.
+
+Reading the trail is the host's sink: the events carry the resource and the record, so the history of one record is a query against your own table. A diff, a restore, and a shipped place to read a trail are not part of this contract.
+
+**A create invalidates the resource, not the record.** A record no read has returned yet has no key in your cache, so what a create invalidates is the collection it joined. An update and a delete name the record, because that is the key a read of it cached.
+
+**A rejected adapter does not fail the write.** The change has already happened by the time either runs, so raising would report an error on a save that worked, which is how a person stops trusting the thing they were protecting. `onAdapterError(cause, { adapter, operation, resource, resourceId })` is where the failure goes: swallowed failures are invisible failures, and a host whose trail stopped being written is a host that cannot tell. One half failing does not stop the other, so a broken log still lets a stale read be dropped. `createAuditAdapter` and `createCacheAdapter` take their own `onError` and swallow before this seam ever sees the rejection, which is why the shipped defaults need nothing further.
+
+**Hand-rolled instead:** call `audit.record` and `cache.invalidate` from your own write boundary. This package cannot record an intent whose outcome it does not know, and a host that wants one transaction around both the write and the record has to own the transaction.
+
 **A decision carries the record the call names, and the view asks it the same way.** `read`, `update` and `delete` are decided for the record they are given, so a rule that withholds one record refuses that record and nothing else. `query` and `queryPage` name no record, so they ask the collection question the list asks. Two halves asking different questions get different answers from a per-record rule, which is a button that renders and then fails, or one that does not render and succeeds anyway.
 
 Which rows a read returns is your own row scoping, alongside whatever else filters it. A rule asked once per returned row would be a second row filter in a place that cannot compose with the first, so a host with per-record read rules narrows inside the query it hands to `persistence`, and every record a `read` or a `write` names is enforced at the boundary.
@@ -660,7 +695,7 @@ This is the adapter to start on. A filter runs through `json_extract`, which SQL
 
 `AdminLocaleAdapter` distinguishes interface locale from content locale. Interface dictionaries are provided by Helmdeck, while the host chooses locale policy and owns translations and localized content. Optional content-locale selection persists through the host callback.
 
-`AdminAuditAdapter` accepts host audit events. `AdminPreviewAdapter` generates preview URLs for host routes. `AdminCacheInvalidationAdapter` receives resource operations so the host can invalidate its own caches. Route paths, schemas, content, and cache tags remain in the host; these contracts intentionally do not define or expose them.
+`AdminAuditAdapter` accepts the events a resource write leaves behind, and `AdminCacheInvalidationAdapter` receives the same writes so the host can invalidate its own caches. These two are not free-standing: `createAdminResourceActions` calls them, after the store has answered, and only for the calls that were allowed to reach it. [Recording the writes and dropping the caches](#recording-the-writes-and-dropping-the-caches) is the whole of what they are told and when. `AdminPreviewAdapter` generates preview URLs for host routes. Route paths, schemas, content, and cache tags remain in the host; these contracts intentionally do not define or expose them.
 
 Compose the optional host services independently and pass the existing auth and media adapters to components that consume them:
 

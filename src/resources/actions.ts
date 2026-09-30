@@ -237,10 +237,6 @@ export function createAdminResourceActions({
     return session;
   }
 
-  // Decided once, so a host that wired neither adapter pays one comparison per write rather than
-  // building an event nobody reads.
-  const observesWrites = audit !== undefined || cache !== undefined;
-
   /**
    * The two optional halves of a write that has already happened, in the order they happen.
    *
@@ -248,6 +244,9 @@ export function createAdminResourceActions({
    * invalidated is stale until something invalidates it, and a change nobody wrote down is gone. The
    * cost of this order is the mirror image, which is that a process dying between the two leaves a
    * read that can still be served the old value while the trail already says the record changed.
+   *
+   * A host that wired neither reaches only the two conditions below and nothing else, so no event is
+   * built and no clock is read for a trail nobody receives.
    */
   async function reported(input: {
     operation: AdminWriteOperation;
@@ -308,21 +307,21 @@ export function createAdminResourceActions({
     async create<T>(resource: string, value: unknown): Promise<T> {
       const session = await permit(resource, "create");
       const created = await persistence.create<T>(resource, value);
-      if (observesWrites) await reported({ operation: "create", resource, session, record: created });
+      await reported({ operation: "create", resource, session, record: created });
       return created;
     },
 
     async update<T>(resource: string, id: string, value: unknown): Promise<T> {
       const session = await permit(resource, "update", id);
       const updated = await persistence.update<T>(resource, id, value);
-      if (observesWrites) await reported({ operation: "update", resource, resourceId: id, session, record: updated });
+      await reported({ operation: "update", resource, resourceId: id, session, record: updated });
       return updated;
     },
 
     async delete(resource: string, id: string): Promise<void> {
       const session = await permit(resource, "delete", id);
       await persistence.delete(resource, id);
-      if (observesWrites) await reported({ operation: "delete", resource, resourceId: id, session });
+      await reported({ operation: "delete", resource, resourceId: id, session });
     },
 
     // Only where the host's adapter has it, so a list mounted on these actions sees the same
