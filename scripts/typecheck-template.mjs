@@ -13,6 +13,10 @@
  *   names the package, never a path into `src/`, and this link is what makes that name resolve
  *   without an install. Every other dependency the template declares is a peer of the root package
  *   and resolves by walking up to the root `node_modules`, which the root install provides.
+ * - `tsconfig.test.json` sets `allowJs`, because a test imports a `.mjs` from a `.ts` and that is an
+ *   error without it. The template is JavaScript at two edges: a `.mjs` holding the database URL,
+ *   shared with the command that creates an account, and this file. That config carries no comment
+ *   explaining it, because `tests/tone-vocabulary.test.tsx` reads it with `JSON.parse`.
  * - The root `dist` is built, because the package resolves its own types through it. A typecheck
  *   against a stale `dist` reports on the previous release.
  */

@@ -2,10 +2,6 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    // The starter template is JavaScript at its edges: a `.mjs` holding the database URL, shared
-    // with the command that creates an account, and the gate script itself. A test that imports
-    // either reaches a `.mjs` from a `.ts`, which is an error without this, and the URL is one fact
-    // read from one file rather than a copy written on each side.
     "allowJs": true,
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
