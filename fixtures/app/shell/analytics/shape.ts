@@ -4,12 +4,16 @@
  * Turning store rows into chart points, as pure functions.
  *
  * Split from the server actions so the arithmetic can be checked against rows that were written
- * down, rather than only against a database that happens to agree. The one thing this file is careful
- * about is that a day with no rows is a zero rather than a missing point: a chart that skips a gap
- * draws a straight line across it and the reader concludes it is a trend.
+ * down, rather than only against a database that happens to agree. The bucketing itself is the
+ * package's, since a host installing it gets no other way to get it: what is left here is the part
+ * that is about these two tables, which rows count as money and which product carries a name.
+ *
+ * The one thing this file is careful about is that a day with no rows is a zero rather than a missing
+ * point: a chart that skips a gap draws a straight line across it and the reader concludes it is a
+ * trend. `adminAggregate` holds that for the range, and the test below holds it for the rows.
  */
 
-import { adminChartDayKey } from "@yesvus/helmdeck";
+import { adminAggregate, adminAggregateTotals, adminChartDayKey, adminWholeNumber } from "@yesvus/helmdeck";
 
 /** The fields the charts read out of a row, which is not the whole row. */
 export type AnalyticsProductRow = { id: string; name: string; sku: string; stock: number; price_cents: number };
@@ -21,71 +25,74 @@ export type RankedProduct = { key: string; label: string; units: number; cents: 
 
 export const EARNED_STATUSES: ReadonlySet<string> = new Set(["paid", "shipped"]);
 
-/**
- * A column a total is built from, refused rather than coerced.
- *
- * The store holds integers, and a total computed from anything else is wrong in a way that reads
- * correctly on screen. Refusing puts it in the chart's error state, where the reason is visible.
- * A bigint is accepted because a driver configured to return 64-bit integers is still an integer.
- */
-export function wholeNumber(row: Record<string, unknown>, column: string): number {
-  const value = row[column];
-  if (typeof value === "bigint") return Number(value);
-  if (typeof value === "number" && Number.isInteger(value)) return value;
-  throw new Error(`${column} is not a whole number: ${JSON.stringify(value)}`);
-}
+/** The cents one order is worth, read through the package's guard so both this and a host's tile refuse alike. */
+export const wholeNumber = adminWholeNumber;
 
 export function earnedOrders(rows: readonly AnalyticsOrderRow[]): AnalyticsOrderRow[] {
   return rows.filter((order) => EARNED_STATUSES.has(order.status));
 }
 
 /**
- * Cents per day, summed as integers.
+ * Cents per day, summed as integers, over a stated range.
  *
- * A row whose `created_at` is not a timestamp is dropped rather than filed under a guessed day: it
- * would otherwise land in a bucket that never appears on the axis, which is a total that does not
- * add up on screen. `from` bounds the range at the start only. A row dated after the last day is
- * only reachable when the caller asks for a range ending in the future, and excluding it would be a
- * rule with no failure it could cause.
+ * The range is required rather than optional, which is what makes a day with no rows come back as a
+ * zero: the periods the answer covers are named by the caller and every one of them is emitted, so a
+ * gap reads as a gap. A row whose `created_at` is not a timestamp, and a row dated outside the range,
+ * are in neither the buckets nor the total, and the caller is told how many of each there were.
  */
 export function revenueByDay(
   rows: readonly AnalyticsOrderRow[],
-  from?: string,
+  range: readonly string[],
 ): Map<string, number> {
-  const totals = new Map<string, number>();
-  for (const order of rows) {
-    const day = adminChartDayKey(order.created_at ?? "");
-    if (!day || (from !== undefined && day < from)) continue;
-    totals.set(day, (totals.get(day) ?? 0) + wholeNumber(order, "total_cents"));
-  }
-  return totals;
+  const totals = adminAggregate({
+    rows,
+    range,
+    key: (order) => adminChartDayKey(order.created_at ?? ""),
+    measures: { cents: (order) => wholeNumber(order.total_cents, "total_cents") },
+  });
+  return new Map(totals.buckets.map((bucket) => [bucket.key, bucket.values.cents]));
 }
 
 export function sumCents(rows: readonly AnalyticsOrderRow[]): number {
-  return rows.reduce((total, order) => total + wholeNumber(order, "total_cents"), 0);
+  return adminAggregateTotals({
+    rows,
+    measures: { cents: (order) => wholeNumber(order.total_cents, "total_cents") },
+  }).cents;
 }
 
 /** The retail value of what is on the shelves: unit price times units held, in cents throughout. */
 export function catalogValueCents(rows: readonly AnalyticsProductRow[]): number {
-  return rows.reduce(
-    (total, product) => total + wholeNumber(product, "price_cents") * wholeNumber(product, "stock"),
-    0,
-  );
+  return adminAggregateTotals({
+    rows,
+    measures: {
+      cents: (product) => wholeNumber(product.price_cents, "price_cents") * wholeNumber(product.stock, "stock"),
+    },
+  }).cents;
 }
 
 /**
  * Products by units held.
  *
  * Sorted on the ranked measure and then on the name, so two products with the same stock do not
- * swap places between loads and the chart does not appear to shuffle on its own.
+ * swap places between loads and the chart does not appear to shuffle on its own. The grouping is by
+ * id, so each bucket holds one product and the label is that product's own name rather than a key.
  */
 export function rankByStock(rows: readonly AnalyticsProductRow[], limit: number): RankedProduct[] {
-  return rows
-    .map((product) => ({
-      key: product.id,
-      label: product.name,
-      units: wholeNumber(product, "stock"),
-      cents: wholeNumber(product, "price_cents"),
+  const products = adminAggregate({
+    rows,
+    key: (product) => product.id,
+    label: (_key, product) => product?.name ?? "",
+    measures: {
+      units: (product) => wholeNumber(product.stock, "stock"),
+      cents: (product) => wholeNumber(product.price_cents, "price_cents"),
+    },
+  });
+  return products.buckets
+    .map((bucket) => ({
+      key: bucket.key,
+      label: bucket.label,
+      units: bucket.values.units,
+      cents: bucket.values.units * bucket.values.cents,
     }))
     .sort((left, right) => right.units - left.units || left.label.localeCompare(right.label))
     .slice(0, Math.max(0, limit));

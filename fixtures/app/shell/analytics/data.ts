@@ -75,9 +75,10 @@ export async function loadDailyRevenueAction(
   days: number = DEFAULT_RANGE_DAYS,
 ): Promise<{ cents: number; days: Array<{ key: string; label: string; value: number }> }> {
   const dayKeys = adminChartDayRange(days, end);
-  const firstDay = dayKeys[0] ?? "";
 
-  const totals = revenueByDay(earnedOrders(await readOrders()), firstDay === "" ? undefined : firstDay);
+  // Both ends of the range are given to the bucketing, not just the first, so a row dated after the
+  // last day is in neither the points nor the total the tile reads aloud beside them.
+  const totals = revenueByDay(earnedOrders(await readOrders()), dayKeys);
 
   return {
     cents: [...totals.values()].reduce((total, value) => total + value, 0),
