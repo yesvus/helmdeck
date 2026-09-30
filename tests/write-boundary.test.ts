@@ -50,6 +50,7 @@ function host(definitions: readonly AdminResourceDefinition[] = [products]) {
       reached.push(`update:${resource}:${JSON.stringify(value)}`);
       return base.update(resource, id, value);
     },
+    query: (resource, query) => base.query(resource, query),
     read: (resource, id) => base.read(resource, id),
     delete: (resource, id) => base.delete(resource, id),
   };
@@ -229,8 +230,8 @@ describe("the order the refusals are decided in", () => {
     });
     const base = createMemoryPersistenceAdapter();
     const actions = createAdminResourceActions({
-      guard: async (_resource, operation) => {
-        if (operation === "read") throw new Error("denied: orders.read");
+      guard: async (permission) => {
+        if (permission === "orders.read") throw new Error("denied: orders.read");
         return SESSION;
       },
       persistence: base,
@@ -246,8 +247,9 @@ describe("the order the refusals are decided in", () => {
 
     // The permission answer, not the field answer. A caller must not be able to ask which columns a
     // definition declares by watching which refusal it gets.
-    expect(refused?.message).toMatch(/orders\.read/);
-    expect(refused).not.toBeInstanceOf(AdminResourceFieldError);
+    expect(refused).toBeInstanceOf(Error);
+    expect((refused as Error).message).toMatch(/orders\.read/);
+    expect((refused as Error).name).not.toBe("AdminResourceFieldError");
   });
 
   it("still refuses the undeclared key once the permissions have allowed it", async () => {
@@ -297,7 +299,6 @@ describe("what a refused write left behind", () => {
       actions.create("products", { name: "Widget", role: "admin" }),
     ).rejects.toBeInstanceOf(AdminResourceFieldError);
 
-    const page = await persistence.query("products");
-    expect(page.rows).toHaveLength(0);
+    expect(await persistence.query("products")).toHaveLength(0);
   });
 });
