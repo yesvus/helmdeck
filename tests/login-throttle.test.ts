@@ -8,6 +8,7 @@ import {
   createMemoryPersistenceAdapter,
   createPersistenceCredentialStore,
   createSessionAuthAdapter,
+  DEFAULT_THROTTLE_LIMIT,
   DEFAULT_THROTTLED_MESSAGE,
   forwardedClientKey,
   hashPassword,
@@ -17,6 +18,8 @@ import type {
   AdminLoginAttempt,
   AdminLoginThrottle,
   AdminSessionCookieIO,
+  LoginReservation,
+  LoginThrottleDecision,
 } from "../src/baseline";
 
 /**
@@ -74,12 +77,95 @@ function attempt(email = EMAIL, forwarded?: string): AdminLoginAttempt {
   };
 }
 
+/** A reservation handle, for the tests that report for an attempt rather than drive a login. */
+const HELD = "held-by-the-test" as const;
+
+/** Asserts an attempt was let through, and returns the reservation it now holds. */
+function allowed(decision: LoginThrottleDecision): LoginReservation {
+  if (!decision.ok) throw new Error(`expected the attempt to be allowed, got: ${decision.message}`);
+  return decision.reservation;
+}
+
+/** Asserts an attempt was refused, and returns the message it was refused with. */
+function refused(decision: LoginThrottleDecision): string {
+  if (decision.ok) throw new Error(`expected a refusal, got reservation ${decision.reservation}`);
+  return decision.message;
+}
+
+/** How many more attempts a throttle would let through, asked rather than read. */
+async function remainingBudget(bound: AdminLoginThrottle, key = EMAIL): Promise<number> {
+  let through = 0;
+  for (let i = 0; i < 40; i += 1) {
+    if ((await bound.check(attempt(key))).ok) through += 1;
+  }
+  return through;
+}
+
+/**
+ * How many charges a key is carrying, as the budget a limit of 8 no longer has.
+ *
+ * Asking a throttle what it would allow takes a reservation for every attempt it admits, and this
+ * one never reports them, so a probe leaves the key it measured holding up to `limit` reservations
+ * of its own. The clock is advanced past the lease afterwards so the probe's reservations age out
+ * and the next measurement starts from the key's own state. A failure is not dropped by ageing,
+ * so what is being measured survives it. Reading the count out of the entry instead would not
+ * measure the thing: the defect in round four was between what the bookkeeping said and what the
+ * sign-in form gave away.
+ */
+async function charges(bound: AdminLoginThrottle, time: { advance: (ms: number) => void }): Promise<number> {
+  const spent = 8 - (await remainingBudget(bound));
+  time.advance(1000);
+  return spent;
+}
+
 /** A throttle whose counts are per attempt email, so a test means one key when it says one. */
-function throttle(options: { limit?: number; now?: () => number } = {}) {
+function throttle(options: { limit?: number; now?: () => number; windowMs?: number; reservationMs?: number } = {}) {
   return createLoginThrottle({
     clientKey: (a) => a.credentials.email,
     ...options,
   });
+}
+
+/**
+ * The credential adapter with its password comparisons counted at the row carrying the hash.
+ *
+ * The count is what a host actually experiences: the number of wrong answers the sign-in form
+ * gives before it starts naming the throttle. A throttle whose own bookkeeping said one charge
+ * while the form had answered eight would refuse on the bookkeeping and look correct.
+ */
+async function passwordCounter(bound: AdminLoginThrottle) {
+  const db = createMemoryPersistenceAdapter();
+  const store = createPersistenceCredentialStore(db);
+  await db.create<Record<string, unknown>>("users", {
+    email: EMAIL,
+    password_hash: await hashPassword(PASSWORD),
+    role: "admin",
+  });
+  let comparisons = 0;
+  const counted = {
+    ...store,
+    findUserByEmail: async (...args: Parameters<typeof store.findUserByEmail>) => {
+      const found = await store.findUserByEmail(...args);
+      if (found) comparisons += 1;
+      return found;
+    },
+  };
+  const auth = createCredentialAuthAdapter({
+    secret: SECRET,
+    store: counted,
+    cookie: jar().io,
+    throttle: bound,
+  });
+  return { auth, comparisons: () => comparisons };
+}
+
+/** How many attempts a key of `limit` has left, counted however large the limit is. */
+async function budget(bound: AdminLoginThrottle, limit: number, key = EMAIL): Promise<number> {
+  let through = 0;
+  for (let i = 0; i < limit; i += 1) {
+    if ((await bound.check(attempt(key))).ok) through += 1;
+  }
+  return through;
 }
 
 /** A session adapter over a spy, which is how a test proves the password was never read. */
@@ -172,7 +258,7 @@ describe("property 1: the refusal comes before the credential check", () => {
     const bound: AdminLoginThrottle = {
       check: () => {
         order.push("check");
-        return "no";
+        return { ok: false, message: "no" };
       },
       failed: () => {
         order.push("failed");
@@ -250,7 +336,7 @@ describe("property 2: a refusal names the throttle, and is not the credentials m
     });
   });
 
-  it("does not extend the window, so a held-down button cannot lock an account out for ever", async () => {
+  it("does not extend the window, so a held-down button cannot lock a key out for good", async () => {
     const time = clock();
     const bound = throttle({ limit: 1, now: time.now });
     const target = adapter({ throttle: bound });
@@ -267,6 +353,30 @@ describe("property 2: a refusal names the throttle, and is not the credentials m
     // The window ran from the failure that filled it, so a refused attempt pushing it forward
     // would be the lockout itself rather than a bound on guessing.
     time.advance(WINDOW);
+    expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
+  });
+
+  it("starts the window at the first failure, so a later one cannot push it out", async () => {
+    // The test above only reaches `failed` once, so it holds against a refused attempt reaching
+    // the window and says nothing about a *recorded* failure doing it. This is the same property
+    // from the other side: two failures a full window apart, and the key is served as soon as the
+    // first one's window closes rather than a window after the second.
+    const time = clock();
+    const bound = throttle({ limit: 2, now: time.now });
+    const target = adapter({ throttle: bound });
+
+    await target.auth.login({ email: EMAIL, password: "wrong-0" });
+    // Inside the first window, so this failure lands on a live entry rather than opening a new one.
+    time.advance(WINDOW - 1);
+    await target.auth.login({ email: EMAIL, password: "wrong-1" });
+    // Two failures on a limit of two, so the key is at its bound and refuses.
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+
+    // One millisecond after the first failure's window, not a window after the second.
+    time.advance(1);
     expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
   });
 });
@@ -414,7 +524,7 @@ describe("property 4: the window lapses with no timer and no sweep", () => {
     const time = clock();
     const bound = throttle({ now: time.now });
     for (let i = 0; i < 20; i += 1) {
-      await bound.failed(attempt(`visitor-${i}@demo.helmdeck.dev`));
+      await bound.failed(attempt(`visitor-${i}@demo.helmdeck.dev`), HELD);
     }
     const seen: string[] = [];
     const sized = {
@@ -429,7 +539,7 @@ describe("property 4: the window lapses with no timer and no sweep", () => {
     // moment anything reads it, so none of them may still be in force.
     time.advance(WINDOW * 2);
     for (let i = 0; i < 20; i += 1) {
-      expect(await sized.check(attempt(`visitor-${i}@demo.helmdeck.dev`))).toBeNull();
+      expect((await sized.check(attempt(`visitor-${i}@demo.helmdeck.dev`))).ok).toBe(true);
     }
     expect(seen).toHaveLength(20);
   });
@@ -463,18 +573,376 @@ describe("property 5: keys do not share a count", () => {
 
     // The same client, adding hops, is still one client. Reading the last hop instead would let
     // anyone past the first proxy present a new key per attempt.
-    await bound.failed({
-      credentials: { email: EMAIL, password: "x" },
-      headers: headers({ "x-forwarded-for": "198.51.100.7, 10.0.0.1" }),
-    });
+    await bound.failed(
+      {
+        credentials: { email: EMAIL, password: "x" },
+        headers: headers({ "x-forwarded-for": "198.51.100.7, 10.0.0.1" }),
+      },
+      HELD,
+    );
     const second = await bound.check({
       credentials: { email: EMAIL, password: "x" },
       headers: headers({ "x-forwarded-for": "198.51.100.7, 10.0.0.9, 10.0.0.1" }),
     });
 
-    expect(second).toBe(DEFAULT_THROTTLED_MESSAGE);
+    expect(refused(second)).toBe(DEFAULT_THROTTLED_MESSAGE);
+  });
+});
+
+describe("property 11: the number a host configures is the number the bound enforces", () => {
+  /**
+   * Twenty attempts at one limit, counting the ones that got as far as the password comparison.
+   * A refusal count would not do: a throttle that refuses everything also refuses twenty times.
+   */
+  async function burstAt(limit?: number) {
+    const bound = createLoginThrottle({ limit, clientKey: (a) => a.credentials.email });
+    let reached = 0;
+    let refusedCount = 0;
+    await Promise.all(
+      Array.from({ length: BURST }, async (_, i) => {
+        const one = { credentials: { email: EMAIL, password: `wrong-${i}` }, headers: headers({}) };
+        const decision = await bound.check(one);
+        if (!decision.ok) {
+          refusedCount += 1;
+          return;
+        }
+        reached += 1;
+        await bound.failed(one, decision.reservation);
+      }),
+    );
+    return { reached, refused: refusedCount };
+  }
+
+  it("admits nothing at a limit of zero, rather than one attempt", async () => {
+    // The defect. `check` created the entry for a key it had never seen and admitted the attempt
+    // that arrived first, so a limit of zero still let one password comparison happen. One is the
+    // whole difference between a bound of zero and a bound of one, and it was the one a host
+    // turning a form off could not see.
+    const { reached, refused: refusedCount } = await burstAt(0);
+
+    expect(reached).toBe(0);
+    expect(refusedCount).toBe(BURST);
   });
 
+  it("says the same thing at a limit of zero as at any other limit", async () => {
+    // A limit of zero is a bound, so it refuses in the throttle's own words rather than with a
+    // sign-in form that silently fails. A host that turned a form off can tell from the response
+    // that the bound is what stopped it.
+    const bound = throttle({ limit: 0 });
+    const target = adapter({ throttle: bound });
+
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+    expect(target.verify).not.toHaveBeenCalled();
+  });
+
+  it("defaults to eight, as a count of comparisons rather than an assumption about refusals", async () => {
+    // The number a host gets for free, pinned as a number. "Attempts were refused" would pass for
+    // any limit at or below twenty.
+    const { reached, refused: refusedCount } = await burstAt(undefined);
+
+    expect(reached).toBe(DEFAULT_THROTTLE_LIMIT);
+    expect(reached).toBe(8);
+    expect(refusedCount).toBe(BURST - DEFAULT_THROTTLE_LIMIT);
+  });
+
+  it("tells an absent limit apart from a limit of zero", async () => {
+    // The pair that must not share a code path. `limit: undefined` is the default and gets eight;
+    // `limit: 0` is a configuration and gets none. A `||` where a `??` belongs collapses them,
+    // and a host that passed an unset value through a config object would have found their form
+    // either unbounded or shut, with nothing to say which.
+    expect((await burstAt(undefined)).reached).toBe(8);
+    expect((await burstAt(0)).reached).toBe(0);
+    expect(DEFAULT_THROTTLE_LIMIT).toBe(8);
+  });
+
+  it("refuses to build at a limit that is not a whole number of attempts", async () => {
+    // The values with no reading at all, refused where the misconfiguration is rather than
+    // reinterpreted at runtime. `NaN` is the sharp one: every comparison against it is false, so
+    // a throttle built with it refuses nothing and bounds nothing, and the host would find that
+    // out from an incident rather than from a stack trace.
+    for (const bad of [Number.NaN, -1, 1.5]) {
+      expect(() => createLoginThrottle({ limit: bad })).toThrow(/limit/);
+    }
+  });
+
+  it("refuses to build at a window or a reservation lease that is not a positive number", async () => {
+    // The same defect on the two numbers beside the limit, and the same reason. A window of zero
+    // lapses every key on the next read, so nothing is ever charged, and a lease of zero lapses
+    // every reservation on the next read, so a burst stops being bounded at all.
+    expect(() => createLoginThrottle({ windowMs: 0 })).toThrow(/windowMs/);
+    expect(() => createLoginThrottle({ reservationMs: 0 })).toThrow(/reservationMs/);
+    expect(() => createLoginThrottle({ windowMs: Number.NaN })).toThrow(/windowMs/);
+  });
+
+  it("keeps the burst bound at the limits it has always enforced", async () => {
+    // The off-by-one is invisible at a positive limit, because the second attempt onwards is
+    // refused correctly, so these two numbers are the regression guard for a change that moves
+    // the budget check. Twenty at eight and twenty at three, counted at the comparison.
+    expect((await burstAt(8)).reached).toBe(8);
+    expect((await burstAt(3)).reached).toBe(3);
+  });
+});
+
+describe("property 12: a reservation is charged at most once, whichever path it arrives by", () => {
+  /**
+   * The invariant, as one reservation walked through every way a report can reach the accounting.
+   *
+   * A report arrives as a reservation that is still reserved, as one whose lease has lapsed, as a
+   * repeat of either, as one this process never minted, or as one whose key has been forgotten.
+   * Five paths, and each of them is a place where a charge could be taken twice. The rounds that
+   * found this accounting wrong found it four times, one path at a time, because the invariant
+   * was never written down and each case was a patch on its own. So it is asserted here as a
+   * property over the paths rather than as a test per path.
+   */
+  it("charges one reservation once and charges it nothing more, on each of the five paths", async () => {
+    const seen: string[] = [];
+    const note = (path: string, count: number) => seen.push(`${path}:${count}`);
+
+    // One: reported while its lease is still live. The ordinary case, and the only one that was
+    // ever charged once.
+    {
+      const time = clock();
+      const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+      const one = allowed(await bound.check(attempt()));
+      await bound.failed(attempt(), one);
+      note("live", await charges(bound, time));
+      // Three: the same reservation reported again, now that it is no longer reserved.
+      await bound.failed(attempt(), one);
+      note("live-then-again", await charges(bound, time));
+    }
+
+    // Two: reported after its own lease lapsed, so the throttle has no record of the attempt.
+    {
+      const time = clock();
+      const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+      const two = allowed(await bound.check(attempt()));
+      time.advance(1000);
+      await bound.failed(attempt(), two);
+      note("lapsed", await charges(bound, time));
+      // Three again, from the other direction.
+      await bound.failed(attempt(), two);
+      note("lapsed-then-again", await charges(bound, time));
+    }
+
+    // Four: a handle from a process that restarted, so this throttle never minted it.
+    {
+      const time = clock();
+      const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+      await bound.failed(attempt(), "minted-elsewhere");
+      note("never-seen", await charges(bound, time));
+      await bound.failed(attempt(), "minted-elsewhere");
+      note("never-seen-then-again", await charges(bound, time));
+    }
+
+    // Five: a key the throttle has forgotten entirely, because its window lapsed.
+    {
+      const time = clock();
+      const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+      const five = allowed(await bound.check(attempt()));
+      await bound.failed(attempt(), five);
+      time.advance(WINDOW);
+      // The window is what drops the key, so the report below finds nothing at all.
+      await bound.failed(attempt(), five);
+      note("forgotten", await charges(bound, time));
+      await bound.failed(attempt(), five);
+      note("forgotten-then-again", await charges(bound, time));
+    }
+
+    // One charge on the first report of each, and the same charge after any number of repeats. The
+    // direction matters and it is the safe one: this is about a slow visitor being charged for
+    // requests they did not make, never about a visitor being charged less than they guessed.
+    expect(seen).toEqual([
+      "live:1",
+      "live-then-again:1",
+      "lapsed:1",
+      "lapsed-then-again:1",
+      "never-seen:1",
+      "never-seen-then-again:1",
+      "forgotten:1",
+      "forgotten-then-again:1",
+    ]);
+  });
+
+  it("charges one reservation once through the credential path, where the charge is observable", async () => {
+    // The same invariant seen the way a host sees it: as how many wrong passwords the sign-in form
+    // answers before it starts refusing. A throttle whose own bookkeeping said one charge while
+    // the form had given up three would pass a test that only asked the bookkeeping, so the two are
+    // measured on two throttles driven identically and have to agree.
+    //
+    // Two and not one because asking a throttle what it would allow takes a reservation for every
+    // attempt it admits, and a probe cannot be run against the same key the logins go through
+    // without measuring the probe.
+    const time = clock();
+    const byState = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+    const held = allowed(await byState.check(attempt()));
+    await byState.failed(attempt(), held);
+    await byState.failed(attempt(), held);
+    await byState.failed(attempt(), held);
+    const chargedOnce = await charges(byState, time);
+
+    const db = createMemoryPersistenceAdapter();
+    const store = createPersistenceCredentialStore(db);
+    await db.create<Record<string, unknown>>("users", {
+      email: EMAIL,
+      password_hash: await hashPassword(PASSWORD),
+      role: "admin",
+    });
+    const byForm = throttle({ limit: 8 });
+    const auth = createCredentialAuthAdapter({
+      secret: SECRET,
+      store,
+      cookie: jar().io,
+      throttle: byForm,
+    });
+    // One attempt, reported three times, which is what a host's transport retrying a report looks
+    // like. The reservation is the same value each time because it is the same attempt.
+    const live = allowed(await byForm.check(attempt()));
+    await byForm.failed(attempt(), live);
+    await byForm.failed(attempt(), live);
+    await byForm.failed(attempt(), live);
+
+    // Counted at the answer rather than at the throttle's state.
+    let wrongPasswords = 0;
+    for (let i = 0; i < 40; i += 1) {
+      const result = await auth.login({ email: EMAIL, password: `probe-${i}` });
+      if (result.ok) break;
+      if (result.message === "Those credentials were not accepted.") wrongPasswords += 1;
+      else break;
+    }
+
+    expect(chargedOnce).toBe(1);
+    // One charge means seven wrong passwords still get through before the bound starts refusing.
+    // Three charges would mean five, and a person who typed one wrong password would have been
+    // three closer to a lockout than anything they did.
+    expect(wrongPasswords).toBe(7);
+    expect(chargedOnce + wrongPasswords).toBe(8);
+  });
+
+  it("keeps charging a different reservation for a different attempt", async () => {
+    // The other half of the invariant, because an idempotent charge is easy to write by ignoring
+    // the reservation altogether. Two attempts, two charges, whether or not either repeats.
+    const time = clock();
+    const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+    const first = allowed(await bound.check(attempt()));
+    const second = allowed(await bound.check(attempt()));
+
+    await bound.failed(attempt(), first);
+    await bound.failed(attempt(), first);
+    await bound.failed(attempt(), second);
+    await bound.failed(attempt(), second);
+    await bound.failed(attempt(), second);
+
+    expect(await charges(bound, time)).toBe(2);
+  });
+
+  it("charges a report for a reservation it did not mint, once per reservation rather than once per report", async () => {
+    // Four paths, four handles, and none of them from this process. An attacker holding this many
+    // connections open gets this many charges, which is the reason an unrecognised reservation is
+    // charged at all: they are still guesses, and a guess that costs nothing is a free attempt.
+    const time = clock();
+    const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+    for (const handle of ["h1", "h2", "h3", "h4"]) {
+      await bound.failed(attempt(), handle);
+      await bound.failed(attempt(), handle);
+    }
+
+    expect(await charges(bound, time)).toBe(4);
+  });
+
+  it("keeps a late report charged when a different attempt signs in", async () => {
+    // The defect the review found. A report for a reservation whose lease lapsed has no position
+    // of its own, so the throttle had to invent one, and the serial it invented was the serial the
+    // next attempt was about to be given. The sign-in below belongs to that next attempt and knows
+    // nothing about the hung one, but it forgives every failure at or below its own position, so
+    // it forgave the hung attempt's failure too: a guess that really happened, against a slot that
+    // had already been handed back, stopped counting.
+    const time = clock();
+    const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+    const form = await passwordCounter(bound);
+
+    // One attempt that takes a slot and reports nothing inside its lease.
+    const hung = allowed(await bound.check(attempt()));
+    time.advance(1000);
+
+    // The lease has lapsed and the slot is back, so a second attempt is admitted.
+    const live = allowed(await bound.check(attempt()));
+
+    // Only now does the first one report. Nothing in the throttle holds that reservation any more.
+    await bound.failed(attempt(), hung);
+
+    // A third attempt, admitted on the serial the late report had to invent, and a sign-in from it.
+    const next = allowed(await bound.check(attempt()));
+    await bound.succeeded(attempt(), next);
+    // The second attempt finishes too, so what is left on the key is recorded failures and nothing
+    // in flight, and the number below is a number of charges rather than of slots held.
+    await bound.succeeded(attempt(), live);
+
+    // Asked of the bookkeeping first, because it is the exact number and it is free.
+    expect(await charges(bound, time)).toBe(1);
+
+    // Then asked of the sign-in form, where a charge is a wrong password somebody got to answer.
+    // One surviving charge on a limit of eight leaves seven wrong answers, and the eighth attempt
+    // is refused. A forgiven late report leaves the key whole, so all eight are answered and only
+    // the ninth is refused, which is the bound one guess further out than it was configured to be.
+    for (let i = 0; i < 8; i += 1) {
+      await form.auth.login({ email: EMAIL, password: `probe-${i}` });
+    }
+    expect(form.comparisons()).toBe(7);
+    expect(await form.auth.login({ email: EMAIL, password: `probe-8` })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+    expect(form.comparisons()).toBe(7);
+  });
+
+  it("cannot be given a position a live reservation holds, however many serials have gone by", async () => {
+    // The same defect over a long run rather than one arrangement. Any position a late report can
+    // be given is either a serial some attempt already holds or one the next attempt is about to
+    // be given, so every lapsed report is a chance for one to be forgiven, and the answer is only
+    // worth having if it is the same two hundred times. The serials are burnt far ahead of the
+    // rounds below, so the counter is thousands past anywhere a counter would have wrapped and the
+    // positions in play are ones this test cannot have chosen by taking the right number of
+    // reservations first.
+    const LAPSED = 200;
+    const LIMIT = 512;
+    const time = clock();
+    const bound = throttle({ limit: LIMIT, now: time.now, windowMs: WINDOW, reservationMs: 1000 });
+
+    // A second key, filled to its limit and then five thousand attempts deeper, which is five
+    // thousand serials a test could not have arranged by taking reservations itself. Every `check`
+    // mints a serial whether or not it hands a slot back, so the counter is thousands past
+    // anything the rounds below could reach.
+    const burner = "burner@demo.helmdeck.dev";
+    allowed(await bound.check(attempt(burner)));
+    let admitted = 0;
+    for (let i = 0; i < 5000; i += 1) {
+      if ((await bound.check(attempt(burner))).ok) admitted += 1;
+    }
+    expect(admitted).toBe(LIMIT - 1);
+
+    for (let round = 0; round < LAPSED; round += 1) {
+      const hung = allowed(await bound.check(attempt()));
+      time.advance(1000);
+      // The lease lapses, the slot comes back, and the next attempt is admitted on the serial the
+      // late report below is about to want for itself.
+      const live = allowed(await bound.check(attempt()));
+      await bound.failed(attempt(), hung);
+      const next = allowed(await bound.check(attempt()));
+      // Both sign-ins the throttle has a position for, neither of which is the hung attempt's.
+      await bound.succeeded(attempt(), next);
+      await bound.succeeded(attempt(), live);
+    }
+
+    // One charge per hung attempt, none of them forgiven by a sign-in that belonged to somebody
+    // else, so two hundred of this key's five hundred and twelve attempts are spent.
+    expect(await budget(bound, LIMIT)).toBe(LIMIT - LAPSED);
+  });
+});
+
+describe("property 5: keys do not share a count", () => {
   it("falls back to the account when nothing identifies the client, rather than to nothing", async () => {
     // A key that resolved to `undefined` would put every key in one bucket and throttle everyone
     // together, or worse, throw. Both are worse than a per-account bound, which is at least real.
@@ -495,6 +963,583 @@ describe("property 5: keys do not share a count", () => {
     expect(attemptOn({ "x-forwarded-for": ["203.0.113.9", "10.0.0.1"] })).toBe("203.0.113.9");
     expect(attemptOn({ "x-real-ip": "203.0.113.10" })).toBe("203.0.113.10");
     expect(attemptOn({})).toBe(EMAIL);
+  });
+});
+
+/** Twenty at once, which is the shape a script sends and a person typing cannot. */
+const BURST = 20;
+
+describe("property 7: attempts arriving together share one budget", () => {
+  it("stops a burst at the limit, so the comparisons stay within it", async () => {
+    // The count that matters is the one at the row carrying the hash. A throttle that refused all
+    // twenty would also report twenty refusals, so refusals are counted separately below and the
+    // assertion here is on the attempts that got as far as being checked.
+    const db = createMemoryPersistenceAdapter();
+    const store = createPersistenceCredentialStore(db);
+    await db.create<Record<string, unknown>>("users", {
+      email: EMAIL,
+      password_hash: await hashPassword(PASSWORD),
+      role: "admin",
+    });
+
+    let comparisons = 0;
+    const counted = { ...store, findUserByEmail: async (...args: Parameters<typeof store.findUserByEmail>) => {
+      const found = await store.findUserByEmail(...args);
+      if (found) comparisons += 1;
+      return found;
+    }};
+    const auth = createCredentialAuthAdapter({
+      secret: SECRET,
+      store: counted,
+      cookie: jar().io,
+      throttle: throttle(),
+    });
+
+    // Started together rather than awaited one by one. Sequentially the first failure is recorded
+    // before the ninth check runs, which is the case the bound always held and the reason this
+    // test exists: with `await` inside the loop the burst cannot happen and the bug cannot show.
+    const results = await Promise.all(
+      Array.from({ length: BURST }, (_, i) =>
+        auth.login({ email: EMAIL, password: `wrong-${i}` }),
+      ),
+    );
+
+    expect(comparisons).toBeLessThanOrEqual(DEFAULT_THROTTLE_LIMIT);
+    // The other end of the bound, because a throttle refusing everything also satisfies the
+    // assertion above while letting nobody in at all.
+    expect(comparisons).toBeGreaterThan(0);
+    expect(results.filter((r) => r.ok)).toHaveLength(0);
+
+    const refused = results.filter((r) => !r.ok && r.message === DEFAULT_THROTTLED_MESSAGE);
+    const wrong = results.filter((r) => !r.ok && r.message === "Those credentials were not accepted.");
+    expect(refused).toHaveLength(BURST - comparisons);
+    expect(refused.length + wrong.length).toBe(BURST);
+  });
+
+  it("measures the burst against the limit a host set, not against a fixed eight", async () => {
+    // The bound is per key, so a raised limit raises the number that gets through rather than
+    // leaving a fixed eight: three is a limit, twenty is not.
+    const bound = throttle({ limit: 3 });
+    const target = adapter({ throttle: bound });
+
+    await Promise.all(
+      Array.from({ length: BURST }, (_, i) =>
+        target.auth.login({ email: EMAIL, password: `wrong-${i}` }),
+      ),
+    );
+
+    expect(target.verify).toHaveBeenCalledTimes(3);
+  });
+
+  it("reaches the password exactly `limit` times, at each limit a host can configure", async () => {
+    // The numbers above are held at the host's `verify`, which is a spy. This one holds them where
+    // a host's users are actually affected, at the row carrying the hash, and holds all four limits
+    // as equalities rather than as bounds: a bound of `<= 8` is also what a throttle that refuses
+    // everything does, so only the exact number says that eight is eight.
+    //
+    // Pinned here rather than only above because the budget arithmetic is what this file's later
+    // rounds keep changing, and a change that moved it would show up as a number rather than as a
+    // stack trace.
+    const measured: Record<string, number> = {};
+    for (const [label, limit] of [["eight", 8], ["three", 3], ["zero", 0], ["unset", undefined]] as const) {
+      const form = await passwordCounter(createLoginThrottle({ limit, clientKey: (a) => a.credentials.email }));
+      await Promise.all(
+        Array.from({ length: BURST }, (_, i) => form.auth.login({ email: EMAIL, password: `wrong-${i}` })),
+      );
+      measured[label] = form.comparisons();
+    }
+
+    expect(measured).toEqual({ eight: 8, three: 3, zero: 0, unset: 8 });
+  });
+
+  it("counts a burst of failures the way it counts the same failures one at a time", async () => {
+    // Concurrency must not change the accounting, only the moment it happens. Ten wrong answers
+    // sent together and ten sent one after another have to leave the key in the same place.
+    const together = adapter({ throttle: throttle({ limit: 5 }) });
+    await Promise.all(
+      Array.from({ length: 10 }, (_, i) =>
+        together.auth.login({ email: EMAIL, password: `wrong-${i}` }),
+      ),
+    );
+
+    const oneAtATime = adapter({ throttle: throttle({ limit: 5 }) });
+    for (let i = 0; i < 10; i += 1) {
+      await oneAtATime.auth.login({ email: EMAIL, password: `wrong-${i}` });
+    }
+
+    const burst = await together.auth.login({ email: EMAIL, password: PASSWORD });
+    const serial = await oneAtATime.auth.login({ email: EMAIL, password: PASSWORD });
+    expect(burst).toEqual(serial);
+    expect(burst).toEqual({ ok: false, message: DEFAULT_THROTTLED_MESSAGE });
+  });
+
+  it("clears a reservation a successful sign-in was holding", async () => {
+    // Three in flight on a limit of four, one of which signs in. The failure that follows is
+    // counted from a clean key, so a person who got in is not left one typo from a refusal.
+    const bound = throttle({ limit: 4 });
+    const target = adapter({ throttle: bound });
+
+    await Promise.all([
+      target.auth.login({ email: EMAIL, password: "wrong-0" }),
+      target.auth.login({ email: EMAIL, password: "wrong-1" }),
+      target.auth.login({ email: EMAIL, password: "wrong-2" }),
+    ]);
+    // Three failures, and the fourth slot is what a concurrent attempt would have needed. A sign-in
+    // resets the key rather than leaving those three behind it.
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toMatchObject({ ok: true });
+
+    for (let i = 0; i < 4; i += 1) {
+      expect(await target.auth.login({ email: EMAIL, password: `wrong-after-${i}` })).toEqual({
+        ok: false,
+        message: "Those credentials were not accepted.",
+      });
+    }
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+  });
+
+  it("gives a person who fumbled and then signed in a whole budget again", async () => {
+    // The scenario the review named. Five slots in flight on a limit of eight, five of them refused
+    // and one accepted, and the accepted one is the person getting in. What is left behind decides
+    // whether their next typo is refused, so it has to be nothing.
+    const bound = throttle({ limit: 8 });
+    const target = adapter({ throttle: bound });
+
+    await Promise.all([
+      target.auth.login({ email: EMAIL, password: "wrong-0" }),
+      target.auth.login({ email: EMAIL, password: "wrong-1" }),
+      target.auth.login({ email: EMAIL, password: "wrong-2" }),
+      target.auth.login({ email: EMAIL, password: "wrong-3" }),
+      target.auth.login({ email: EMAIL, password: "wrong-4" }),
+      target.auth.login({ email: EMAIL, password: PASSWORD }),
+    ]);
+
+    // A fresh budget rather than whatever the six attempts left. A key that still held five
+    // failures or five reservations would refuse somewhere inside the next eight, and the person
+    // who just signed in correctly would be one typo from being told to wait.
+    for (let i = 0; i < 7; i += 1) {
+      expect(await target.auth.login({ email: EMAIL, password: `typo-${i}` })).toEqual({
+        ok: false,
+        message: "Those credentials were not accepted.",
+      });
+    }
+    expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
+  });
+});
+
+describe("property 8: a request that reports back late does not hold the key for ever", () => {
+  it("serves a key again once a reservation's window has passed, with nothing reporting back", async () => {
+    // The request died between `check` and `failed`, which is the whole point: nothing calls
+    // `failed`, nothing calls `succeeded`, and the slot it took is still taken. A reservation with
+    // no expiry is a lockout nobody chose and nobody can undo.
+    const time = clock();
+    const bound = throttle({ limit: 2, now: time.now });
+    const target = adapter({ throttle: bound });
+
+    // `check` and nothing else, twice, which is what an abandoned request leaves behind.
+    allowed(await bound.check(attempt()));
+    allowed(await bound.check(attempt()));
+    // The key is at its limit from reservations alone, so this is refused before any comparison.
+    expect(refused(await bound.check(attempt()))).toBe(DEFAULT_THROTTLED_MESSAGE);
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+
+    time.advance(WINDOW);
+
+    // A later attempt with the right password gets in, so the cost of a dead request is one
+    // window and not a key that is refused until somebody restarts the process.
+    expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
+  });
+
+  it("serves a key again once the reservation window a host chose has passed", async () => {
+    // The shipped default is a window, which is what the failures get and what the pre-existing
+    // bound cost. A host that would rather a browser that gave up recover in seconds than in
+    // minutes sets `reservationMs`, and that choice is its own because a shorter lease is also a
+    // faster way for an attacker holding connections open to have the slots handed back.
+    const time = clock();
+    const bound = throttle({ limit: 2, now: time.now, windowMs: WINDOW, reservationMs: 1000 });
+    const target = adapter({ throttle: bound });
+
+    await bound.check(attempt());
+    await bound.check(attempt());
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+
+    time.advance(999);
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+
+    time.advance(1);
+    expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
+  });
+
+  it("returns one named slot, and no recorded failure, when one attempt of a burst goes missing", async () => {
+    // Three attempts in flight on a limit of three, admitted at three different moments so their
+    // leases lapse at three different times. The middle one reports a failure, the first never
+    // reports, and the third is still running when the clock reaches the first one's deadline.
+    // Ageing out then has to return the first and nothing else, which a shared list of leases
+    // cannot promise: the failure filed against the middle attempt would have shifted the front off
+    // the first, and the first's own silence would have shifted the middle's lease off the second.
+    const time = clock();
+    const bound = throttle({ limit: 3, now: time.now, reservationMs: 1000 });
+
+    const first = allowed(await bound.check(attempt()));
+    time.advance(400);
+    const second = allowed(await bound.check(attempt()));
+    time.advance(400);
+    const third = allowed(await bound.check(attempt()));
+
+    await bound.failed(attempt(), second);
+    // One failure and two still running on a limit of three, so the next attempt is refused.
+    expect(refused(await bound.check(attempt()))).toBe(DEFAULT_THROTTLED_MESSAGE);
+
+    // Past the first attempt's lease, short of the third's.
+    time.advance(600);
+
+    // One recorded failure, one running attempt, and the first attempt's slot back, so a limit of
+    // three has exactly one attempt left to give. A lease list that dropped the wrong entry would
+    // leave two or none.
+    expect(await remainingBudget(bound)).toBe(1);
+    // And the reservations that came back are the silent first one only, which is what a report
+    // for the third would still find in place.
+    await bound.failed(attempt(), third);
+    expect(await remainingBudget(bound)).toBe(0);
+    expect(first).not.toBe(second);
+  });
+
+  it("counts a report for a reservation whose lease already lapsed", async () => {
+    // The decision the contract makes about a report naming a reservation the store no longer
+    // holds, and the attack it exists to stop. An attacker who can hold a connection open would
+    // otherwise take a slot, let the lease lapse, get the slot back, and then report: the attempt
+    // reached the password and cost the key nothing. Counted here, so the free attempt is not
+    // free.
+    const time = clock();
+    const bound = throttle({ limit: 2, now: time.now, reservationMs: 1000 });
+
+    const hung = allowed(await bound.check(attempt()));
+    time.advance(1000);
+    // The lease has lapsed, so the slot is back and the key can serve a second attempt.
+    allowed(await bound.check(attempt()));
+    // The hung request now finishes and reports. The failure stands even though the slot it was
+    // holding is long gone, so this attempt and the hung one are both charged.
+    await bound.failed(attempt(), hung);
+
+    // One failure and one live reservation on a limit of two, so nothing gets through.
+    expect(refused(await bound.check(attempt()))).toBe(DEFAULT_THROTTLED_MESSAGE);
+  });
+
+  it("does not charge a key twice for one hung attempt that reports after a restart", async () => {
+    // The other way a report arrives for a reservation the store does not hold: a handle from a
+    // process that has since restarted, so the key is not in the map at all. Charged, and once.
+    //
+    // This asserted two charges from two reports of the same handle while its own comment said
+    // "counted, and once", so it was holding the defect in place rather than the property. The
+    // limit of four is what let it pass: the second charge was visible but not yet a lockout.
+    const time = clock();
+    const bound = throttle({ limit: 4, now: time.now, reservationMs: 1000 });
+    const gone = "a-handle-from-a-process-that-is-gone";
+
+    await bound.failed(attempt(), gone);
+    await bound.failed(attempt(), gone);
+    await bound.failed(attempt(), gone);
+
+    // One charge, so three attempts of a four-limit key are left. Two reports would leave two.
+    expect(await remainingBudget(bound)).toBe(3);
+    // Asking took three reservations this throttle now holds and nobody will report, and a second
+    // probe would read those rather than the key, so they are aged out before the next question.
+    time.advance(1000);
+
+    // And a different handle is a different attempt, so it is charged as one of its own rather
+    // than swallowed by the first one's memory.
+    await bound.failed(attempt(), "another-handle-that-is-gone");
+    expect(await remainingBudget(bound)).toBe(2);
+  });
+
+  it("forgives nothing when the success lands on a reservation that already lapsed", async () => {
+    // A success whose own reservation aged out cannot say what it was preceded by, so it forgives
+    // nothing rather than guessing a position. The recorded failure stands, which is the
+    // conservative direction: under-counting is what a bound cannot afford.
+    const time = clock();
+    const bound = throttle({ limit: 4, now: time.now, reservationMs: 1000 });
+    const lapsed = allowed(await bound.check(attempt()));
+    await bound.failed(attempt(), HELD);
+    time.advance(1000);
+
+    await bound.succeeded(attempt(), lapsed);
+
+    expect(await remainingBudget(bound)).toBe(3);
+  });
+});
+
+describe("property 10: two attempts from one key, completing in either order, agree", () => {
+  it("records the same thing whichever report lands first", async () => {
+    // The defect the review found. One attempt succeeds and one is refused, from the same key, and
+    // the two reports arrive in whichever order the network delivered them. A throttle whose
+    // reports address the key gives two different answers for the same two attempts, and which
+    // one a caller gets is decided by a race rather than by what happened.
+    const budgets: number[] = [];
+    for (const successIsFirst of [true, false]) {
+      const bound = throttle({ limit: 4 });
+      const held = [allowed(await bound.check(attempt())), allowed(await bound.check(attempt()))];
+      const succeeded = () => bound.succeeded(attempt(), held[1]);
+      const failed = () => bound.failed(attempt(), held[0]);
+      await (successIsFirst ? succeeded() : failed());
+      await (successIsFirst ? failed() : succeeded());
+      budgets.push(await remainingBudget(bound));
+    }
+
+    expect(budgets[0]).toBe(budgets[1]);
+  });
+
+  it("forgives a failure from the attempt the successful one was preceded by", async () => {
+    // The first attempt is refused and the second is accepted, so the success is preceded by the
+    // failure and forgives it. The budget is whole, and it is whole in both report orders, which
+    // is what "forgives" has to mean before it means anything.
+    for (const successIsFirst of [true, false]) {
+      const bound = throttle({ limit: 4 });
+      const held = [allowed(await bound.check(attempt())), allowed(await bound.check(attempt()))];
+      const succeeded = () => bound.succeeded(attempt(), held[1]);
+      const failed = () => bound.failed(attempt(), held[0]);
+      await (successIsFirst ? succeeded() : failed());
+      await (successIsFirst ? failed() : succeeded());
+
+      expect(await remainingBudget(bound)).toBe(4);
+    }
+  });
+
+  it("leaves a failure from an attempt admitted after the successful one", async () => {
+    // The narrow claim, and the one the old "a success clears the key's count" got wrong. The
+    // first attempt is accepted and the second is refused, so the failure came after the sign-in
+    // and is a later guess rather than one of the typos that sign-in forgives.
+    for (const successIsFirst of [true, false]) {
+      const bound = throttle({ limit: 4 });
+      const held = [allowed(await bound.check(attempt())), allowed(await bound.check(attempt()))];
+      const succeeded = () => bound.succeeded(attempt(), held[0]);
+      const failed = () => bound.failed(attempt(), held[1]);
+      await (successIsFirst ? succeeded() : failed());
+      await (successIsFirst ? failed() : succeeded());
+
+      // One failure on the record on a limit of four.
+      expect(await remainingBudget(bound)).toBe(3);
+    }
+  });
+
+  it("keeps a concurrent attempt's slot when a different one succeeds", async () => {
+    // A success retires its own slot. Handing out the slots of attempts still running is a burst
+    // through the back door, and it is what a success that cleared the whole entry did.
+    const bound = throttle({ limit: 4 });
+    const held = [
+      allowed(await bound.check(attempt())),
+      allowed(await bound.check(attempt())),
+      allowed(await bound.check(attempt())),
+    ];
+
+    await bound.succeeded(attempt(), held[0]);
+
+    // Two still running, nothing charged against them, so two attempts are left.
+    expect(await remainingBudget(bound)).toBe(2);
+  });
+
+  it("forgives the typos a person made before signing in", async () => {
+    // The property the whole clear exists for, and it is still true through a real login: two
+    // failures and then the right password leaves the key whole rather than one typo from a
+    // lockout.
+    const forgiving = adapter({ throttle: throttle({ limit: 3 }) });
+    await forgiving.auth.login({ email: EMAIL, password: "typo-0" });
+    await forgiving.auth.login({ email: EMAIL, password: "typo-1" });
+    expect((await forgiving.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
+    for (let i = 0; i < 2; i += 1) {
+      expect(await forgiving.auth.login({ email: EMAIL, password: `after-${i}` })).toEqual({
+        ok: false,
+        message: "Those credentials were not accepted.",
+      });
+    }
+  });
+
+  it("charges a failure that arrived after the person signed in, rather than forgiving it", async () => {
+    // The same key, a sign-in and then a wrong password, in that order. A success forgives the
+    // typos it was preceded by, and this is not one: it is the next guess, and counting it is what
+    // keeps an attacker from spending a free attempt per legitimate sign-in.
+    const bound = throttle({ limit: 4 });
+    const signedIn = allowed(await bound.check(attempt()));
+    await bound.succeeded(attempt(), signedIn);
+
+    const after = allowed(await bound.check(attempt()));
+    await bound.failed(attempt(), after);
+
+    expect(await remainingBudget(bound)).toBe(3);
+  });
+});
+
+describe("property 9: a host's own throttle can meet the contract", () => {
+  /**
+   * A second implementation of `AdminLoginThrottle` over a shared store, written the way a Redis
+   * one has to be: the read and the take in one statement, because a `GET` followed by a `SET` is
+   * the defect this closes and would reintroduce it a process away.
+   *
+   * The reservation is a row id from a store-wide counter, which is the whole answer to what a
+   * host can mint: the package's type is a string, so a host uses whatever its store makes
+   * cheaply and uniquely, and nothing here is a class the package owns.
+   *
+   * **The counter's value is also the position, and that is what a host's own store gets for free.**
+   * A row id is already an ordering every process agrees on, so the two rules a success has to keep
+   * cost a host nothing beyond the row: forgive the failures at or below the position of the row it
+   * signed in on, and file a report for a row the store does not hold where no row can reach it.
+   */
+  function sharedStoreThrottle(limit: number, now: () => number) {
+    // A hash of charged reservations beside the row, which is the shape a host's store takes: one
+    // field per reservation, so a repeat finds the field and stops. The invariant is the same one
+    // the shipped throttle keeps, and a host that does not keep it does not meet the contract.
+    const rows = new Map<
+      string,
+      { failures: Map<string, number>; inFlight: Map<string, number>; cleared: number; until: number }
+    >();
+    let serial = 0;
+    const charged = (entry: { failures: Map<string, number>; cleared: number }): number => {
+      let count = 0;
+      for (const position of entry.failures.values()) if (position > entry.cleared) count += 1;
+      return count;
+    };
+    return (): AdminLoginThrottle => ({
+      check: (a) => {
+        const key = a.credentials.email;
+        const entry = rows.get(key);
+        const live = entry && entry.until > now() ? entry : null;
+        if (live && charged(live) + live.inFlight.size >= limit) {
+          return { ok: false, message: "refused by the shared store" };
+        }
+        serial += 1;
+        const reservation = `row-${serial}`;
+        const inFlight = new Map(live?.inFlight ?? []);
+        inFlight.set(reservation, serial);
+        rows.set(key, {
+          failures: new Map(live?.failures ?? []),
+          cleared: live?.cleared ?? 0,
+          inFlight,
+          until: now() + WINDOW,
+        });
+        return { ok: true, reservation };
+      },
+      failed: (a, reservation) => {
+        const entry = rows.get(a.credentials.email);
+        if (!entry || entry.until <= now()) {
+          rows.set(a.credentials.email, {
+            // A row this store never issued, or one it has already forgotten. Charged, and out of
+            // reach of every sign-in: a row id is the one ordering here, so a position drawn from
+            // the counter is the id of a row some attempt already holds or is about to be given.
+            failures: new Map([[reservation, Number.POSITIVE_INFINITY]]),
+            inFlight: new Map(),
+            cleared: 0,
+            until: now() + WINDOW,
+          });
+          return;
+        }
+        if (entry.failures.has(reservation)) return;
+        entry.failures.set(reservation, entry.inFlight.get(reservation) ?? Number.POSITIVE_INFINITY);
+        entry.inFlight.delete(reservation);
+      },
+      succeeded: (a, reservation) => {
+        const entry = rows.get(a.credentials.email);
+        if (!entry) return;
+        const position = entry.inFlight.get(reservation);
+        entry.inFlight.delete(reservation);
+        // Only the failures this row was admitted after, and nothing for a row it no longer holds.
+        if (position !== undefined) entry.cleared = Math.max(entry.cleared, position);
+      },
+    });
+  }
+
+  it("charges a reservation once, on the host's own implementation as well", async () => {
+    // The contract is a property rather than a suggestion, and the second implementation is the
+    // proof a host can meet it: a repeat of a report it was given, on a key it has already
+    // recorded, changes nothing.
+    const bound = sharedStoreThrottle(8, Date.now)();
+    const held = allowed(await bound.check(attempt()));
+
+    await bound.failed(attempt(), held);
+    await bound.failed(attempt(), held);
+    await bound.failed(attempt(), held);
+    await bound.failed(attempt(), "a-row-this-store-never-issued");
+    await bound.failed(attempt(), "a-row-this-store-never-issued");
+
+    // One charge for the row it issued and one for the row it did not, and no more, so six of an
+    // eight-limit key's attempts are left. Five reports for two attempts would leave four.
+    let through = 0;
+    for (let i = 0; i < 40; i += 1) {
+      if ((await bound.check(attempt())).ok) through += 1;
+    }
+    expect(through).toBe(6);
+  });
+
+  it("holds the same burst bound with nothing but the three methods", async () => {
+    const target = adapter({ throttle: sharedStoreThrottle(4, Date.now)() });
+
+    const results = await Promise.all(
+      Array.from({ length: BURST }, (_, i) =>
+        target.auth.login({ email: EMAIL, password: `wrong-${i}` }),
+      ),
+    );
+
+    expect(target.verify).toHaveBeenCalledTimes(4);
+    expect(results.filter((r) => r.ok)).toHaveLength(0);
+  });
+
+  it("refuses a host's own wording and lets the key through again once the count is spent", async () => {
+    // The three methods are the whole contract, and a refusal is whatever the host's says. What
+    // the package asks of a host is the bound, not the sentence.
+    const bound = sharedStoreThrottle(1, Date.now)();
+    const target = adapter({ throttle: bound });
+
+    await target.auth.login({ email: EMAIL, password: "wrong" });
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: "refused by the shared store",
+    });
+  });
+
+  it("agrees with the shipped throttle on the same out-of-order pair", async () => {
+    // The contract is what two implementations are held to, so the second one has to reach the
+    // same answer as the first on the case that separated the old throttle from a correct one.
+    const bound = sharedStoreThrottle(4, Date.now)();
+    const held = [allowed(await bound.check(attempt())), allowed(await bound.check(attempt()))];
+
+    await bound.succeeded(attempt(), held[0]);
+    await bound.failed(attempt(), held[1]);
+
+    let through = 0;
+    for (let i = 0; i < 40; i += 1) {
+      if ((await bound.check(attempt())).ok) through += 1;
+    }
+    expect(through).toBe(3);
+  });
+
+  it("keeps a report for a row it no longer holds charged, on the host's own implementation too", async () => {
+    // The rule the shipped throttle had to be corrected to, held against the host's own three
+    // methods as well: it is a rule and not an implementation detail, so a host that files a late
+    // report at the next row id has the defect, and this is what says so without this code in it.
+    const bound = sharedStoreThrottle(4, Date.now)();
+
+    // A row this store never issued, which is what a report looks like after a restart, then a row
+    // it did issue and a sign-in from it.
+    await bound.failed(attempt(), "a-row-this-store-never-issued");
+    const signedIn = allowed(await bound.check(attempt()));
+    await bound.succeeded(attempt(), signedIn);
+
+    let through = 0;
+    for (let i = 0; i < 40; i += 1) {
+      if ((await bound.check(attempt())).ok) through += 1;
+    }
+    // One of four spent on a guess that really happened, so three are left. A store that filed the
+    // late report at the sign-in's own row id would clear it and leave four.
+    expect(through).toBe(3);
   });
 });
 
@@ -547,11 +1592,18 @@ describe("property 6: a host that supplies no throttle gets what it has today", 
     // jsdom has no request scope, so the header read returns nothing rather than throwing. A
     // throttle that made a login attempt depend on the platform having headers would take the
     // login page down on exactly the host that needs it most.
-    const bound = throttle();
+    //
+    // The shipped key function, not the email-keying one the rest of this file uses, because the
+    // claim is about the header read and a key that never reads a header cannot fail on one. The
+    // adapter's own `getUser` is bypassed here, so nothing else is standing between the read and
+    // the result.
+    const bound = createLoginThrottle();
     const target = adapter({ throttle: bound });
 
     expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
     await target.auth.login({ email: EMAIL, password: "wrong" });
+    // A key built from a request that had no headers is the account, which is a real bound and
+    // does not throw, so the sign-in after a failure still works.
     expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
   });
 
@@ -559,7 +1611,7 @@ describe("property 6: a host that supplies no throttle gets what it has today", 
     // The seam is the host's to write, so the package does not second-guess it: three methods,
     // whatever they do.
     const bound: AdminLoginThrottle = {
-      check: () => "the host said no",
+      check: () => ({ ok: false, message: "the host said no" }),
       failed: () => {},
       succeeded: () => {},
     };

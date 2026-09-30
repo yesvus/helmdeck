@@ -38,6 +38,79 @@ every permission decision the package made was made in a browser.
 - **A decision carries the record the call names.** `read`, `update` and `delete` are decided per
   record; `query` is the collection question, and the host's own query does the row scoping. That
   last part is a deliberate limitation rather than an oversight, and it is stated where the code is.
+- **The sign-in bound covers attempts that arrive together, and a report names its own attempt.**
+  `AdminLoginThrottle.check` was a read: a client firing twenty attempts at once had all twenty of
+  them read the count before any of them had recorded a failure, so all twenty reached the password
+  and the bound did nothing to the only shape a fast attacker uses. `check` now answers with either
+  a refusal and its message or the **reservation** the attempt holds, and `failed` and `succeeded`
+  name the reservation they are reporting about, so at most `limit` of a burst reach the comparison
+  and a report retires one named attempt rather than a slot off the key's shared count. Naming it
+  is what makes the accounting order-independent: without it, two attempts from one key whose
+  reports arrived in either order left it in two different states, because a success arriving last
+  erased a failure that really happened and a success arriving first left that failure counted
+  against a key it had just cleared. Ageing out now retires one named reservation and cannot
+  discard a recorded failure filed against a different one, and a report for a reservation the
+  store no longer holds is still counted, because the slot it was holding has already been handed
+  back and ignoring the report is a free attempt for anyone who can hold a connection open. A
+  success forgives the failures recorded before its own attempt was admitted and not the ones after
+  it, and retires only its own reservation, so a concurrent attempt still running keeps its slot.
+
+  **This changes the interface, and it is a breaking change to a preview shape rather than to a
+  released one.** `check` returns `{ ok: true; reservation } | { ok: false; message }` instead of
+  `string | null`, and `failed` and `succeeded` take a second argument. A host with its own
+  throttle gets a compile error at `check` naming the union, which is the point: an implementation
+  that counts correctly but does not reserve and does not name what it reserved is silently the
+  throttle that bounds nothing, and nothing but a type error was ever going to say so. `failed` and
+  `succeeded` do not produce one on their own, because TypeScript accepts a function of fewer
+  parameters, so a host that fixes only `check` still compiles; the requirement is written on the
+  type, and a host whose reports ignore the reservation is the one that has to read it. A
+  reservation is an opaque `string`, so a host mints one from whatever its store makes cheaply and
+  unique: a row id, a UUID, a Redis `INCR`. Nothing in the package interprets it, and it never
+  leaves the server, so it does not have to be unguessable. `createLoginThrottle` ages a
+  reservation out with the window by default and takes `reservationMs` for a host that wants it
+  shorter.
+- **A configured limit is the limit that is enforced, including at zero.** `check` created the
+  entry for a key it had never seen and admitted the attempt that arrived first, comparing against
+  the limit only from the second attempt onwards, so `limit: 0` still let one password comparison
+  happen. A key nobody has looked at yet has spent nothing, so the same comparison now decides the
+  first attempt as every one after it, and a limit of zero is zero attempts. `0` is legal and means
+  refuse everything, so a form a host has turned off says so through the throttle's own named
+  refusal rather than admitting one guess. A limit that is not a whole number is refused at
+  construction with a message naming the field, and `NaN` is the reason that check exists: every
+  comparison against it is false, so a throttle built with one refuses nothing and bounds nothing.
+  `windowMs` and `reservationMs` get the same rule, since a window of zero lapses every key on the
+  next read and a lease of zero lapses every reservation on the next read. Hosts that pass a
+  mis-sourced number now see a throw at startup rather than a bound that quietly does not exist.
+- **A reservation is charged at most once, whichever path its report arrives by.** A report reaches
+  the accounting in five states: still reserved, past its lease, a repeat of either, one this
+  process never minted, and one whose key has been forgotten. Only the first charged once, and every
+  repeat after that charged again, so a request whose report was delivered three times cost a
+  visitor three guesses' worth of budget. That charges **more**, not less, so it cannot be used to
+  bypass the bound; it locks a slow honest visitor out on the strength of requests they did not make.
+  The failures are now keyed by the reservation that reported them rather than held as a list of
+  positions, so the record of what has been charged and the failures are one structure and a repeat
+  finds it and stops there. The invariant is written on `failed`. It is exact for as long as the
+  store remembers the reservation, which is to the end of the key's window, and approximate past
+  that: a report more than one `windowMs` after its attempt is charged again, because it cannot be
+  told from a first report for a handle from a process that restarted. Making it exact past the
+  window would mean remembering every reservation for ever, which is what a window exists to avoid.
+  A host with a shared store holds the same map in a hash and gets the same property with the same
+  bound, so `reservation` doubles as the key the charged failures are indexed by.
+- **A late report is charged where no sign-in can forgive it.** A success forgives the failures
+  recorded before its own attempt was admitted, which are compared by the position the attempt was
+  admitted at, so a report for a reservation the store no longer holds had to be given a position
+  to be filed under. It was given the next value of the same counter the reservations come from,
+  which is the reservation the following attempt is about to be handed: the failure and a live
+  attempt shared a position, and the next correct password on that key forgave a guess it had
+  nothing to do with, so an attacker could take a slot, let its lease lapse, get the slot back, and
+  have the resulting failure forgiven by the victim's own sign-in. A late report is now filed above
+  every position the throttle can hand out, so it is charged once, stands until the window closes,
+  and no `succeeded` forgives it, whichever attempt signed in. A reservation's own serial is the
+  ordering, so a host's store has the rule for free: file the report for a row it does not hold at
+  one number the store never mints as a row id, and do not draw it from the row counter, whose next
+  value belongs to the next attempt. Both halves are written on `failed` and `succeeded`, and the
+  invariant itself is unchanged: a reservation is charged at most once whichever path its report
+  arrives by, and a charge is charged.
 - **`endAllSessions` takes no account argument.** It resolves the caller from the signed cookie and
   acts on that account, and it refuses unless the host supplies `mayEndAllSessions`. There is no
   capability here that a caller can point at somebody else, which is the shape the previous version
