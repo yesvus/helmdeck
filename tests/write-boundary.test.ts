@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createMemoryPersistenceAdapter } from "../src/baseline";
 import {
   AdminResourceFieldError,
+  AdminResourceReferenceError,
   createAdminResourceActions,
   defineAdminResource,
   type AdminPersistenceAdapter,
@@ -276,9 +277,41 @@ describe("the order the refusals are decided in", () => {
       definitions: [withReference],
     });
 
+    // No reference in the payload, so the reference check has nothing to decide and the field refusal
+    // is the one that answers. With a reference in it, that check speaks first, which is the ordering
+    // the test above pins.
     await expect(
-      actions.create("shipments", { tracking: "T-1", order_id: "ord_1", role: "admin" }),
+      actions.create("shipments", { tracking: "T-1", role: "admin" }),
     ).rejects.toBeInstanceOf(AdminResourceFieldError);
+  });
+
+  it("lets a dangling reference be refused in preference to an undeclared column", async () => {
+    // Both refusals are the write's own, and neither is a permission answer, so the order between them
+    // is a statement about which is more specific. A reference names the row that is not there; an
+    // undeclared column names a key the resource does not have. The first is the more precise account
+    // of what is wrong, and a caller who fixes only the column would still have a dangling reference.
+    const withReference = defineAdminResource({
+      resource: "shipments",
+      label: "Shipments",
+      columns: [
+        { key: "tracking", header: "Tracking" },
+        { key: "order_id", header: "Order", reference: { resource: "orders" } },
+      ],
+      fields: [
+        { name: "tracking", label: "Tracking", type: "text" },
+        { name: "order_id", label: "Order", type: "text", reference: { resource: "orders" } },
+      ],
+    });
+    const base = createMemoryPersistenceAdapter();
+    const actions = createAdminResourceActions({
+      guard: async () => SESSION,
+      persistence: base,
+      definitions: [withReference],
+    });
+
+    await expect(
+      actions.create("shipments", { tracking: "T-1", order_id: "ord_not_there", role: "admin" }),
+    ).rejects.toBeInstanceOf(AdminResourceReferenceError);
   });
 });
 
