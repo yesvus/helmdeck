@@ -270,6 +270,30 @@ describe("property 2: a refusal names the throttle, and is not the credentials m
     time.advance(WINDOW);
     expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
   });
+
+  it("starts the window at the first failure, so a later one cannot push it out", async () => {
+    // The test above only reaches `failed` once, so it holds against a refused attempt reaching
+    // the window and says nothing about a *recorded* failure doing it. This is the same property
+    // from the other side: two failures a full window apart, and the key is served as soon as the
+    // first one's window closes rather than a window after the second.
+    const time = clock();
+    const bound = throttle({ limit: 2, now: time.now });
+    const target = adapter({ throttle: bound });
+
+    await target.auth.login({ email: EMAIL, password: "wrong-0" });
+    // Inside the first window, so this failure lands on a live entry rather than opening a new one.
+    time.advance(WINDOW - 1);
+    await target.auth.login({ email: EMAIL, password: "wrong-1" });
+    // Two failures on a limit of two, so the key is at its bound and refuses.
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+
+    // One millisecond after the first failure's window, not a window after the second.
+    time.advance(1);
+    expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
+  });
 });
 
 describe("property 3: an address with no account is refused exactly as one that has one", () => {
@@ -503,7 +527,7 @@ describe("property 5: keys do not share a count", () => {
 const BURST = 20;
 
 describe("property 7: attempts arriving together share one budget", () => {
-  it("keeps a burst from reaching the password comparison more than the limit allows", async () => {
+  it("stops a burst at the limit, so the comparisons stay within it", async () => {
     // The count that matters is the one at the row carrying the hash. A throttle that refused all
     // twenty would also report twenty refusals, so refusals are counted separately below and the
     // assertion here is on the attempts that got as far as being checked.
@@ -549,7 +573,7 @@ describe("property 7: attempts arriving together share one budget", () => {
     expect(refused.length + wrong.length).toBe(BURST);
   });
 
-  it("refuses the rest of the burst on the count, not by having a smaller limit", async () => {
+  it("measures the burst against the limit a host set, not against a fixed eight", async () => {
     // The bound is per key, so a raised limit raises the number that gets through rather than
     // leaving a fixed eight: three is a limit, twenty is not.
     const bound = throttle({ limit: 3 });
