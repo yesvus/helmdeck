@@ -50,6 +50,7 @@ export type AdminLocaleAdapter = {
 };
 
 export type AdminAuditEvent = {
+  /** The operation that happened, which is the write's own vocabulary: create, update or delete. */
   action: string;
   resource: string;
   resourceId?: string;
@@ -58,6 +59,18 @@ export type AdminAuditEvent = {
   metadata?: Record<string, unknown>;
 };
 
+/**
+ * Where a write is recorded.
+ *
+ * `createAdminResourceActions` is the only thing that calls this, once per write that reached the
+ * store, and it calls it after the store answered: an event recorded before the effect is left behind
+ * claiming a change that failed. A refused call records nothing, so what collects here is a trail of
+ * what happened rather than a list of what was asked for.
+ *
+ * Recording is not the same as reading. The host's sink owns where these go and how they are read
+ * back; the events carry the resource and the record, so the history of one record is a query rather
+ * than a guess.
+ */
 export type AdminAuditAdapter = {
   record: (event: AdminAuditEvent) => Promise<void>;
 };
@@ -66,6 +79,14 @@ export type AdminPreviewAdapter = {
   getUrl: (input: { resource: string; resourceId: string; locale?: string }) => string | Promise<string>;
 };
 
+/**
+ * Where a write asks the host to drop what it cached.
+ *
+ * `createAdminResourceActions` calls this for the three write operations, after the audit record and
+ * after the store answered. A create names the resource rather than the record, because a record no
+ * read has returned yet has no key in the host's cache and what a create invalidates is the
+ * collection it joined. A rejection here does not fail the write that already happened.
+ */
 export type AdminCacheInvalidationAdapter = {
   invalidate: (input: { resource: string; resourceId?: string; operation: "create" | "update" | "delete" }) => Promise<void>;
 };
