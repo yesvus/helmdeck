@@ -30,5 +30,10 @@ jobs:
       # the previous release. That is exactly how a real staleness would have been found: by noticing
       # a version that was not the one it claimed.
       - run: pnpm typecheck:example
+      # The starter template is the one thing in this repository that gets copied rather than read, so
+      # nothing else may be the only place it is checked. Its script links the package into
+      # `template/node_modules` itself, which is why this step needs no install of the template's own
+      # dependencies the way the example's does.
+      - run: pnpm typecheck:template
       - run: pnpm build:fixtures
       - run: pnpm audit --prod

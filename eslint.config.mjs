@@ -35,4 +35,15 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
     },
   },
+  {
+    // The Node-side modules: the typecheck gate, the database URL, and the command that creates an
+    // account. Without this they lint as files in no environment at all, which is what `process` and
+    // `console` being undefined means.
+    files: ["**/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 );

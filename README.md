@@ -13,6 +13,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - CSV export and import over the resource seam: the list a query names as a downloadable file, and a file read into the store a row at a time.
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
 - A static bilingual fixture app for the hosted demo.
+- A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
 
 ## Install
 
@@ -48,6 +49,32 @@ The `@source` line is what makes the components lay out. Helmdeck's own componen
 Tailwind utilities, and Tailwind only generates a utility it finds in scanned source, so without this
 line a host gets the design tokens and none of the layout: cards with no padding, grids that do not
 grid, modals that do not centre. The path is relative to the stylesheet that declares it.
+
+## Starter template
+
+`template/` is a Next.js App Router project that runs before you have written any of it. Copy it, install, create one account, and you have a sign-in that checks a password against a stored hash, a resource whose list searches, sorts, filters and pages, a form generated from the same description, and a shell around both. There is no database to configure, no schema to design, and no migration to plan: the store is a SQLite file created on the first query, and moving it to a hosted one is two environment variables.
+
+```sh
+cp -r path/to/helmdeck/template my-admin && cd my-admin
+npm install
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"   # into .env.local as HELMDECK_SESSION_SECRET
+node scripts/create-user.mjs you@example.com admin
+npm run dev
+```
+
+Read [`template/README.md`](./template/README.md) before building on it, because the list of what the template deliberately does not include is the part it cannot do for you.
+
+**It exists because an example cannot do this job.** [`examples/independent-host/`](./examples/independent-host) is the working reference: 18 files that show the package's public exports and nothing else. What it cannot show is which parts are load-bearing, because an example is allowed to inline a rule to keep itself short, and a host that copies the inline rule has copied the shortcut rather than the seam. The template's one deliberate difference is that it has exactly one authorization rule, in `lib/rules.ts`, with no inlined shortcut anywhere else, and `tests/starter-template.test.ts` fails if a second one appears.
+
+Three things in it are arranged so that the shortcuts are hard to write by accident, and each is worth knowing about on its own:
+
+- The permission names live in `lib/resources.ts`, once, and the guard derives the name it asks about from a resource and an operation, so adding a resource cannot add a permission nothing decides.
+- The exposed set of resource names is built from those definitions rather than listed again, so a resource cannot be reachable through the store and invisible to the rule.
+- The accounts and the sessions are in the store and in no definition, which keeps a password hash out of a table browser that exists for everything else. That is a property of what is absent, not of a rule somebody has to remember.
+
+The template ships no records, no fixture account and no password. The first row is created through the form, which is also how you find out the form works, and `scripts/create-user.mjs` is the only thing that writes an account: a registration route would be an unauthenticated write path you have to remember to close, and a printed password is a published credential.
+
+`pnpm typecheck:template` compiles it after linking this repository into `template/node_modules`, which is what keeps a template nobody compiles from being copied stale. `examples/independent-host` is checked the same way by `pnpm typecheck:example`, and the two are separate scripts on purpose: a host copying the template gets a dependency manifest that resolves against an installed package rather than a link, and a single script that grew a second mode would have a failure message that could not say which tree broke.
 
 ## Themes and design tokens
 
