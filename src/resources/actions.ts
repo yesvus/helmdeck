@@ -1,11 +1,21 @@
 // SPDX-License-Identifier: MIT
-import type { AdminPermission, AdminPersistenceAdapter } from "../adapters/index.js";
+import type {
+  AdminAuditAdapter,
+  AdminAuditEvent,
+  AdminCacheInvalidationAdapter,
+  AdminPermission,
+  AdminPersistenceAdapter,
+  AdminSession,
+} from "../adapters/index.js";
 import { parseAdminResourceQuery } from "../adapters/query.js";
 import type { AdminResourcePage, AdminResourceQuery } from "../adapters/query.js";
 import type { AdminPermissionGuard } from "../shell/permission-rule.js";
 import type { AdminResourceRecord } from "./registry.js";
 
 export type AdminResourceOperation = "read" | "create" | "update" | "delete";
+
+/** The operations that change something, which is the set the audit and cache halves are told about. */
+type AdminWriteOperation = Exclude<AdminResourceOperation, "read">;
 
 /**
  * The five calls a client component makes, each one refusing on the server before its effect.
@@ -43,6 +53,68 @@ export class AdminResourceNotExposedError extends Error {
 }
 
 /**
+ * The id the store settled on, or nothing.
+ *
+ * A write that succeeded cannot be turned back into a failure by a record that happens to carry no
+ * id, so this reads the id rather than demanding one the way a route building a link from a record
+ * has to.
+ */
+function storedId(record: unknown): string | undefined {
+  const id = record && typeof record === "object" ? (record as { id?: unknown }).id : undefined;
+  if (typeof id === "string" && id.length > 0) return id;
+  if (typeof id === "number" && Number.isFinite(id)) return String(id);
+  return undefined;
+}
+
+/**
+ * The names of the fields the stored record holds, which is the shape of the write and not a diff.
+ *
+ * Names rather than values on purpose: an audit log holding every value a record ever had is a second
+ * copy of every secret in the table. A host that wants the values keeps them where the change is
+ * reversible from, which is the host's own revision store rather than this event.
+ */
+function storedFields(record: unknown): string[] | undefined {
+  if (!record || typeof record !== "object") return undefined;
+  const fields = Object.keys(record as Record<string, unknown>)
+    .filter((key) => key !== "id")
+    .sort();
+  return fields.length > 0 ? fields : undefined;
+}
+
+/**
+ * The event one write leaves, describing the write that happened.
+ *
+ * A create names the id the store assigned, which is the other reason the event is built after the
+ * effect: before it, a create has no record to name, and a trail that cannot name a new record is not
+ * the history of anything. A delete names the record it removed and no fields, because what it held
+ * is not in the store any more and reading it first is a choice left to the host.
+ */
+function writeEvent({
+  operation,
+  resource,
+  resourceId,
+  session,
+  record,
+}: {
+  operation: AdminWriteOperation;
+  resource: string;
+  resourceId?: string;
+  session: AdminSession;
+  record?: unknown;
+}): AdminAuditEvent {
+  const named = resourceId ?? storedId(record);
+  const fields = storedFields(record);
+  return {
+    action: operation,
+    resource,
+    ...(named === undefined ? {} : { resourceId: named }),
+    actor: session,
+    occurredAt: new Date().toISOString(),
+    ...(fields === undefined ? {} : { metadata: { fields } }),
+  };
+}
+
+/**
  * Resource calls that decide on the server, in front of the persistence adapter.
  *
  * `AdminResourceList` and `AdminResourceForm` read and write through a `persistence` prop from the
@@ -52,7 +124,8 @@ export class AdminResourceNotExposedError extends Error {
  * name becomes a capability.
  *
  * These wrap that boundary once. Every call refuses before touching the store, so a denial is a
- * refusal of the request rather than a button that was never drawn.
+ * refusal of the request rather than a button that was never drawn. A write that gets through is
+ * then reported to whichever of `audit` and `cache` the host wired, after the store has answered.
  *
  * ```ts
  * export const actions = createAdminResourceActions({
@@ -60,6 +133,8 @@ export class AdminResourceNotExposedError extends Error {
  *   persistence,
  *   expose: exposedResource,
  *   permission: (resource, operation) => `${resource}.${operation}` as AdminPermission,
+ *   audit,
+ *   cache,
  * });
  * ```
  */
@@ -69,6 +144,9 @@ export function createAdminResourceActions({
   expose,
   permission = (resource, operation) => `${resource}.${operation}` as AdminPermission,
   before,
+  audit,
+  cache,
+  onAdapterError,
 }: {
   /** Decides. Required, because an action with nothing deciding it is a capability, not a feature. */
   guard: AdminPermissionGuard;
@@ -86,6 +164,46 @@ export function createAdminResourceActions({
     operation: AdminResourceOperation;
     resourceId?: string;
   }) => Promise<void> | void;
+  /**
+   * Told about every write that reached the store, and told about it afterwards.
+   *
+   * After the effect, because that is the only order in which the event can be true. A record written
+   * first and left behind when the write failed claims a change that did not happen, and nothing in
+   * the event tells a reader to doubt it. The price of this choice is the other one: a process that
+   * dies between the write and the record leaves a change nobody wrote down, and closing that window
+   * is a transactional outbox in the host's own store, which is a schema question rather than a seam
+   * one.
+   *
+   * A refused call records nothing, because nothing happened to record. A store that refused the
+   * write records nothing either, which is the same claim from the other direction.
+   */
+  audit?: AdminAuditAdapter;
+  /**
+   * Told about the same writes, once the audit record exists, so the trail is complete before
+   * anything can read the resource again.
+   *
+   * A create is told about the resource rather than about the record it made: a record no read has
+   * returned yet has no key in the host's cache, and what a create invalidates is the collection it
+   * joined. The record a call named is the one passed, because that is the key a read of it cached.
+   */
+  cache?: AdminCacheInvalidationAdapter;
+  /**
+   * Where a rejected adapter goes.
+   *
+   * The rejection is not raised at the caller. The write has already happened, so failing here would
+   * report an error on a save that worked, which is how a person loses confidence in the very thing
+   * they were protecting. Swallowed failures are invisible failures, so this is how a host notices
+   * that its own audit log has stopped being written.
+   */
+  onAdapterError?: (
+    cause: unknown,
+    input: {
+      adapter: "audit" | "cache";
+      operation: AdminWriteOperation;
+      resource: string;
+      resourceId?: string;
+    },
+  ) => void;
 }): AdminResourceActions {
   if (typeof guard !== "function") {
     throw new Error(
@@ -95,7 +213,11 @@ export function createAdminResourceActions({
     );
   }
 
-  async function permit(resource: string, operation: AdminResourceOperation, resourceId?: string) {
+  async function permit(
+    resource: string,
+    operation: AdminResourceOperation,
+    resourceId?: string,
+  ): Promise<AdminSession> {
     // Refused before the session is even resolved: a name outside the set is not a permission
     // question, and the answer would tell a caller which names are worth asking about.
     if (expose && !expose(resource)) throw new AdminResourceNotExposedError(resource);
@@ -108,8 +230,49 @@ export function createAdminResourceActions({
     // row controls carry the row's, so a call that names a record and a call that does not are
     // two different questions and the rule answers each of them.
     const context = resourceId === undefined ? undefined : { resourceId };
-    await guard(name, context);
+    const session = await guard(name, context);
     await before?.({ resource, operation, resourceId });
+    // The session travels back so the write that follows can be recorded against the person the
+    // guard decided for, rather than against a resolver the seam would have to ask a second time.
+    return session;
+  }
+
+  // Decided once, so a host that wired neither adapter pays one comparison per write rather than
+  // building an event nobody reads.
+  const observesWrites = audit !== undefined || cache !== undefined;
+
+  /**
+   * The two optional halves of a write that has already happened, in the order they happen.
+   *
+   * The record goes first because it is the half that cannot be redone: a cache that was not
+   * invalidated is stale until something invalidates it, and a change nobody wrote down is gone. The
+   * cost of this order is the mirror image, which is that a process dying between the two leaves a
+   * read that can still be served the old value while the trail already says the record changed.
+   */
+  async function reported(input: {
+    operation: AdminWriteOperation;
+    resource: string;
+    /** The record the call named, which is none at all for a create. */
+    resourceId?: string;
+    session: AdminSession;
+    /** What the store returned, which for a create is the only place its id exists. */
+    record?: unknown;
+  }): Promise<void> {
+    const { operation, resource, resourceId } = input;
+    if (audit) {
+      try {
+        await audit.record(writeEvent(input));
+      } catch (cause) {
+        onAdapterError?.(cause, { adapter: "audit", operation, resource, resourceId });
+      }
+    }
+    if (cache) {
+      try {
+        await cache.invalidate({ resource, resourceId, operation });
+      } catch (cause) {
+        onAdapterError?.(cause, { adapter: "cache", operation, resource, resourceId });
+      }
+    }
   }
 
   /**
@@ -143,18 +306,23 @@ export function createAdminResourceActions({
     },
 
     async create<T>(resource: string, value: unknown): Promise<T> {
-      await permit(resource, "create");
-      return persistence.create<T>(resource, value);
+      const session = await permit(resource, "create");
+      const created = await persistence.create<T>(resource, value);
+      if (observesWrites) await reported({ operation: "create", resource, session, record: created });
+      return created;
     },
 
     async update<T>(resource: string, id: string, value: unknown): Promise<T> {
-      await permit(resource, "update", id);
-      return persistence.update<T>(resource, id, value);
+      const session = await permit(resource, "update", id);
+      const updated = await persistence.update<T>(resource, id, value);
+      if (observesWrites) await reported({ operation: "update", resource, resourceId: id, session, record: updated });
+      return updated;
     },
 
     async delete(resource: string, id: string): Promise<void> {
-      await permit(resource, "delete", id);
+      const session = await permit(resource, "delete", id);
       await persistence.delete(resource, id);
+      if (observesWrites) await reported({ operation: "delete", resource, resourceId: id, session });
     },
 
     // Only where the host's adapter has it, so a list mounted on these actions sees the same
