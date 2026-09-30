@@ -220,13 +220,30 @@ describe("the shipped tiles route", () => {
     const dashboard = buildShippedTileDashboard();
     const registered = shippedTileRegistry.list().map((definition) => definition.id);
 
-    // Read off the registry rather than from a list written here, so dropping a widget from the
-    // registry fails this rather than passing against a hardcoded expectation of six.
     expect(dashboard.placements.map((placement) => placement.widget).sort()).toEqual(
       [...registered].sort(),
     );
     expect(dashboard.placements).toHaveLength(registered.length);
     expect(adminDashboardValidate(shippedTileRegistry, dashboard.placements).size).toBe(0);
+  });
+
+  it("registers the six tiles the route is for, so a tile the registry loses cannot pass as a route with fewer", () => {
+    const registered = shippedTileRegistry.list().map((definition) => definition.id).sort();
+
+    // The six are named here on purpose. Comparing the arrangement against the registry proves only
+    // that the two agree, which a registry that quietly lost a tile would still satisfy: dropping one
+    // leaves five placements for five registered widgets and every agreement still holds. A tile going
+    // missing is only visible against the claim the route makes, and the claim is six named tiles.
+    expect(registered).toEqual([
+      "contentActivity",
+      "lowStockList",
+      "ordersTable",
+      "revenueChart",
+      "revenueStat",
+      "stockValueRank",
+    ]);
+    // The arrangement is built from the registry, so the count on the page follows from this one.
+    expect(buildShippedTileDashboard().placements).toHaveLength(6);
   });
 
   it("places each tile at a size its own definition declares, rather than one this file chose", () => {
@@ -246,10 +263,22 @@ describe("the shipped tiles route", () => {
     render(<ShippedTilesPage />);
 
     await waitFor(() => expect(stateOf("revenueStat")).toBe("ready"));
-    const dashboard: AdminDashboard = buildShippedTileDashboard();
-    expect(renderedTiles().sort()).toEqual(
-      dashboard.placements.map((placement) => placement.widget).sort(),
-    );
+
+    // Compared against the registry, not against the arrangement. An arrangement that quietly dropped a
+    // widget would satisfy a test that reads its expectations from the same arrangement, because both
+    // sides would be short the same tile. The registry is the thing a widget has to be registered in to
+    // be rendered at all, so it is the side that cannot move with the mutation.
+    const registered = shippedTileRegistry.list().map((definition) => definition.id);
+    expect(renderedTiles().sort()).toEqual([...registered].sort());
+    expect(registered).toHaveLength(6);
+
+    // And each rendered tile is a placement the arrangement made, so a tile the engine could not place
+    // is visible as a hole rather than passing for a tile.
+    const placed = buildShippedTileDashboard().placements.map((placement) => placement.widget);
+    for (const widget of renderedTiles()) {
+      expect(placed, `${widget} rendered without a placement`).toContain(widget);
+      expect(shippedTileRegistry.resolve(widget), `${widget} is not a registered widget`).toBeDefined();
+    }
   });
 
   it("shows the store's own figures, formatted from the integer cents the sum produced", async () => {

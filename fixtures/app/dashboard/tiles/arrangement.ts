@@ -53,8 +53,23 @@ export function buildShippedTileDashboard(): AdminDashboard {
     );
 
   // In the reading order rather than in registration order, so the grid reads the way the page means
-  // it to. Keyed by widget so a tile that cannot be placed is absent from the order rather than
-  // rendering a hole, and the layout reports the placement the engine could not build.
+  // it to. Keyed by widget so the order is the reading order and the placements are the engine's, and
+  // the two are checked against each other in both directions before anything is rendered: a name this
+  // list holds that the registry did not place would be a tile the reader was told to expect that
+  // silently never appears, and a registered tile the order never names would be a widget the page
+  // shipped and then did not show. Both are the same silence from opposite ends.
+  const placedWidgets = placed.placements.map((placement) => placement.widget);
+  const missing = READING_ORDER.filter((widget) => !placedWidgets.includes(widget));
+  if (missing.length > 0) {
+    throw new Error(`The reading order names widgets the registry did not place: ${missing.join(", ")}`);
+  }
+  const unread = placedWidgets.filter(
+    (widget) => !READING_ORDER.includes(widget as (typeof READING_ORDER)[number]),
+  );
+  if (unread.length > 0) {
+    throw new Error(`The registry placed tiles the reading order never names: ${unread.join(", ")}`);
+  }
+
   const ordered = READING_ORDER.flatMap((widget) =>
     placed.placements.filter((placement) => placement.widget === widget),
   );
