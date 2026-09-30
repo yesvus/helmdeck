@@ -67,6 +67,14 @@ const DOCUMENTED_FUNCTIONS = [
   "readAdminSession",
   "AdminSessionRequiredError",
   "evaluateAdminPermission",
+  "adminResourceExport",
+  "adminResourceExportResponse",
+  "adminResourceImport",
+  "adminResourceImportResult",
+  "adminCsvRecords",
+  "adminCsvCell",
+  "adminCsvText",
+  "adminCsvCellValue",
 ];
 
 const ALL = [...DOCUMENTED_COMPONENTS, ...DOCUMENTED_FUNCTIONS, ...DOCUMENTED_BASELINE];
