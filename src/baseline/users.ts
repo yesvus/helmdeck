@@ -142,7 +142,12 @@ export type AccountAdmin = {
     session: AdminSession | null,
     input: CreateAccountInput,
   ) => Promise<AccountResult<{ account: AccountRecord }>>;
-  /** Puts a role on an account, or takes it away with an empty string. */
+  /**
+   * Puts a role on an account, or takes it away with an empty string.
+   *
+   * An empty role is written as no role at all rather than as an empty one, which is the answer an
+   * account with nothing on it gets: the rule decides what no role may do, and that is nothing.
+   */
   setRole: (
     session: AdminSession | null,
     accountId: string,
@@ -202,9 +207,16 @@ export function createAccountAdmin(
   const notPermitted = policy.notPermittedMessage ?? "This account may not do that.";
   const noAccount = policy.noAccountMessage ?? "There is no such account.";
 
-  /** A role outside the declared vocabulary, refused with the name and the list, because a refusal a host cannot act on is a support ticket. */
-  function unknownRole(role: string): AccountRefusal | null {
-    if (policy.roles === undefined || roles.includes(role)) return null;
+  /**
+   * A role outside the declared vocabulary, refused with the name and the list, because a refusal a
+   * host cannot act on is a support ticket.
+   *
+   * An absent or empty role is not one of these. It is the same answer an account with nothing on
+   * it gets, which is that the rule decides and grants nothing, and it is how a role is taken away
+   * rather than replaced.
+   */
+  function unknownRole(role: string | undefined): AccountRefusal | null {
+    if (policy.roles === undefined || !role || roles.includes(role)) return null;
     const known = roles.length === 0 ? "none" : roles.map((name) => `"${name}"`).join(", ");
     return { ok: false, message: `This host has no role called "${role}". It has ${known}.` };
   }
@@ -242,7 +254,7 @@ export function createAccountAdmin(
           message: `That password is shorter than ${minPasswordLength} characters. Choose a longer one.`,
         };
       }
-      const roleRefusal = unknownRole(input.role ?? "");
+      const roleRefusal = unknownRole(input.role);
       if (roleRefusal) return roleRefusal;
 
       // Normalised here rather than by the store, so a pasted or capitalised address cannot become
@@ -274,7 +286,9 @@ export function createAccountAdmin(
       const roleRefusal = unknownRole(role);
       if (roleRefusal) return roleRefusal;
       if (!(await store.findUserById(accountId))) return { ok: false, message: noAccount };
-      return { ok: true, account: await store.updateUser(accountId, { role }) };
+      // An empty role is written as a null, so a column a listing reads comes back as no role rather
+      // than as a role nobody defined.
+      return { ok: true, account: await store.updateUser(accountId, { role: role || null }) };
     },
 
     async setDisabled(session, accountId, disabled) {

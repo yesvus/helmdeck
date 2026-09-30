@@ -92,9 +92,15 @@ export type CredentialSession = {
   createdAt?: string;
 };
 
-/** The write a caller asks for on an account. Absent keys are left alone rather than cleared. */
+/**
+ * The write a caller asks for on an account.
+ *
+ * An absent key is left alone. `role: null` is the one value that clears rather than sets, because
+ * "no role" and "leave the role as it is" are two different requests and a surface that could only
+ * say one of them would make taking a role away impossible.
+ */
 export type AccountChanges = {
-  role?: string;
+  role?: string | null;
   disabled?: boolean;
 };
 
@@ -311,7 +317,9 @@ export function createPersistenceCredentialStore(
       id: String(row.id),
       email,
       passwordHash,
-      ...(typeof role === "string" ? { role } : {}),
+      // A null role and an empty string are both no role, because the rule grants an empty role
+      // nothing and a listing should not show one as a role called "".
+      ...(typeof role === "string" && role !== "" ? { role } : {}),
       ...(typeof name === "string" ? { name } : {}),
       ...(isDisabled(row) ? { disabled: true } : {}),
     };
@@ -421,6 +429,8 @@ export function createPersistenceCredentialStore(
       if (!existing) throw new Error(`No ${users} record with id ${id}`);
       const row = await persistence.update<Record<string, unknown>>(users, id, {
         ...existing,
+        // A null role is written as a null rather than skipped, so clearing a role and not mentioning
+        // it are the two different writes they are.
         ...(changes.role === undefined ? {} : { [userColumns.role]: changes.role }),
         // Only written when the caller is changing it, so a host whose users table has no disable
         // column can still change a role. `setDisabled` on such a table fails at the database,

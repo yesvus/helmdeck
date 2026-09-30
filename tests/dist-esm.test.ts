@@ -92,6 +92,7 @@ describe("published package under Node ESM", () => {
           "CREDENTIAL_SESSIONS_SCHEMA",
           "CREDENTIAL_USERS_SCHEMA",
           "authenticate",
+          "createAccountAdmin",
           "createAuditAdapter",
           "createCacheAdapter",
           "createCredentialAuthAdapter",

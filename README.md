@@ -138,7 +138,7 @@ function toneForStatus(status: "healthy" | "degraded" | "failed"): AdminTone {
 <AdminProfilePage session={session} settingsHref="/admin/settings" onSignOut={signOut} />
 ```
 
-Sessions and the sign-out-everywhere control are yours to supply, because `AdminSession` carries no timestamps and the auth contract cannot revoke other sessions. Where you cannot honour one, the page leaves it out rather than rendering a control that does nothing.
+The sign-out-everywhere control is yours to supply, because the auth contract decides what ending one account's own sessions means. Where you cannot honour one, the page leaves it out rather than rendering a control that does nothing. [Who may end every session](#who-may-end-every-session) and [Managing accounts](#managing-accounts) cover the two that ship.
 
 ### Dialog layout
 
@@ -343,7 +343,49 @@ export const auth = createCredentialAuthAdapter({
 
 The session it is given is the one the cookie named, and its role is read from the user row, so a request cannot write it. **Omit the option and the capability is refused**, so a host that has not thought about who may revoke does not ship it by accident. A refusal is reported as a refusal rather than as a count of zero, and it happens before any session row is looked up or deleted, so a refused call cannot be used to learn which accounts exist.
 
-This method is about ending your own sessions everywhere. Ending a *different* account's sessions is a different capability, and the demo shows how to authorize it in its own action, where the target and the authority are resolved together rather than one being handed to the other.
+This method is about ending your own sessions everywhere. Ending *other* accounts' sessions, and everything else an operator does with other people's accounts, is [the account surface](#managing-accounts).
+
+### Managing accounts
+
+A sign-in is the hard half of operator onboarding and the store already had it. The easy half is six operations over the same store, which is what `createAccountAdmin` is:
+
+```ts
+import { createAccountAdmin } from "@yesvus/helmdeck/baseline";
+
+export const accounts = createAccountAdmin(store, {
+  roles: ["admin", "editor"],
+  may: {
+    list: (session) => session.role === "admin",
+    create: (session) => session.role === "admin",
+    setRole: (session, accountId) => session.role === "admin",
+    setDisabled: (session, accountId) => session.role === "admin",
+    listSessions: (session) => session.role === "admin",
+    endSession: (session) => session.role === "admin",
+  },
+});
+```
+
+`list`, `create`, `setRole`, `setDisabled`, `listSessions` and `endSession` each take the caller's session and return `{ ok: true, ... }` or `{ ok: false, message }`. The two predicates that need to decide about one record are handed its id rather than the row, so the question is asked before the store is reached; a host that wants to decide on the record looks it up in its own rule, which is where a store read belongs. **Every predicate is a host policy and absent means refused**, for the same reason as `mayEndAllSessions`. The package has no vocabulary for roles, so `may` is the only thing that knows what one is.
+
+Three decisions are worth stating, because each is the other answer too.
+
+**A role the host's rule does not define still signs in, and the rule is what refuses it.** The package stores a role as a string and never interprets one, so there is nothing here to refuse a sign-in with, and a rule that does not define a role grants it nothing anyway. The `roles` list is a typo-catcher consulted on the two writes that name a role, refused with the name and the list; it is not a gate on signing in. The alternative costs the person at the keyboard a login failure with a reason they cannot see, where a login that succeeds into an admin showing nothing is a rule the host can be asked about. A host that has declared no `roles` at all has said what none of its roles are, so any string is written and its own rule decides.
+
+**Turning an account off is a flag, and it ends the sessions that account holds.** Not a delete, which orphans every row the account authored and the trail describing what it did, and which cannot be undone. The sessions go in the same operation, because a disabled account whose live session keeps working is a disabled account with a hole in it. The check is on the read as well as on the sign-in, since a sign-in already in flight writes its row after the disable has run, and the row is deleted with the refusal. A disabled account answers the sign-in exactly as a wrong password does, in message and in cost, so the form is not an oracle for which accounts are turned off. Turning it back on ends nothing and says so with a count of zero.
+
+**`AdminSession` gained an optional `id`, and it is off unless you ask.** The id is the session row's, read from the row the signed cookie names, so a request cannot write it. Pass `includeSessionId` to `createCredentialAuthAdapter` and the session your server action already resolved carries it, which is what lets a sessions list mark the caller's own row and lets `endSession` be called with an id you are already holding:
+
+```ts
+export const auth = createCredentialAuthAdapter({ secret, store, includeSessionId: true });
+```
+
+It is optional because a host with no session table has no id to have, so widening the type is what lets a host that does have one address a session at all. The migration is that option: a host that turns it on gets an `id` on its session and marks one row current; a host that does not is unaffected, because the field is absent rather than present and empty, so a session that was `{ email, role }` is still exactly that.
+
+A session that has already ended is a success with `ended: false`, not a refusal. Two browsers pressing the same button is the ordinary case and neither of them did anything wrong, and a refusal would train a host to retry and to show an error for a revoke that worked.
+
+Four store methods are optional: `listUsers`, `createUser`, `updateUser` and `listSessions`. A store written before them is a working sign-in, and a surface that reported an empty account list would be the one answer that cannot be told apart from an admin with nobody in it, so it names the method to add instead.
+
+**Hand-rolled instead:** six methods on your own `CredentialStore` and pass it to `createAccountAdmin`, or skip it and build the actions yourself. Nothing requires it, and the schema does not gain a table.
 
 ### The secret
 

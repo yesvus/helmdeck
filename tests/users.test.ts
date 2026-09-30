@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  authenticate,
   createAccountAdmin,
   createCredentialAuthAdapter,
   createMemoryPersistenceAdapter,
@@ -524,6 +525,27 @@ describe("ending a session works by the id the host has", () => {
     expect(ended).toEqual({ ok: true, ended: true });
     expect(await desktop.getSession()).toBeNull();
     expect(await laptop.getSession()).toMatchObject({ email: OWNER });
+  });
+
+  it("refuses the disabled account from authenticate itself, and at the same cost", async () => {
+    // `authenticate` is its own export, and a host calling it directly gets no second chance: the
+    // read path is not in that call. The login path alone would not hold this up, because a refused
+    // verify is caught again by the session read that follows it, so the sign-in answer would stay
+    // correct with the check here removed.
+    const db = createMemoryPersistenceAdapter();
+    await seed(db, { disabled: 1 });
+    const store = createPersistenceCredentialStore(db);
+
+    expect(await authenticate(store, OWNER, PASSWORD)).toBeNull();
+    // And at the same cost as a wrong password, because an attempt that answers sooner is an answer.
+    const timeFor = async (password: string) => {
+      const started = process.hrtime.bigint();
+      await authenticate(store, OWNER, password);
+      return Number(process.hrtime.bigint() - started) / 1e6;
+    };
+    const wrong = await timeFor("not-the-password");
+    const disabled = await timeFor(PASSWORD);
+    expect(disabled).toBeGreaterThan(wrong * 0.2);
   });
 
   it("answers a session that has already ended as a success, not a refusal", async () => {
