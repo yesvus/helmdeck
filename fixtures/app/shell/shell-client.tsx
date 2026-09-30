@@ -7,6 +7,7 @@ import {
   AdminShell,
   AdminThemeSettingsProvider,
   AdminPermissionsProvider,
+  DEFAULT_ADMIN_DENSITY,
   type AdminDensity,
   type AdminNavGroup,
   type AdminSession,
@@ -66,6 +67,11 @@ function ThemeSelector() {
  * spacing scale through `--admin-density`, and a value set on one element would leave every other
  * element at the default.
  *
+ * The density prop is optional and falls back to the package's `DEFAULT_ADMIN_DENSITY`, so a shell
+ * mounted without one renders what a host that stored nothing renders. The fallback is the
+ * contract's value rather than a constant written here, which is what keeps the demo from becoming
+ * the place the default is decided.
+ *
  * No colour mode is passed, so the provider derives the brand text the same way `AdminShell` derives
  * it for its own sidebar. Passing the mode would give the root a dark-correct value that the shell's
  * inline one overrides anyway, which is two behaviours where one is better.
@@ -74,14 +80,14 @@ export function ShellClient({
   nav,
   session,
   accent,
-  density,
+  density = DEFAULT_ADMIN_DENSITY,
   siteName,
   children,
 }: {
   nav: AdminNavGroup[];
   session: AdminSession;
   accent: string;
-  density: AdminDensity;
+  density?: AdminDensity;
   siteName: string;
   children: ReactNode;
 }) {
@@ -89,31 +95,31 @@ export function ShellClient({
     <SettingsContext.Provider value={{ accent, density, siteName }}>
       <AdminPermissionsProvider adapter={permissions}>
         <AdminThemeSettingsProvider settings={{ accent, density }}>
-        <AdminShell
-        nav={nav}
-        session={session}
-        homeHref="/shell"
-        viewSiteHref="/"
-        profileHref="/shell/profile"
-        onLogout={signOutAction}
-        topbarExtra={<ThemeSelector />}
-        sidebarExtra={<ShellVersionReadout />}
-        profileMenuExtra={
-          <Link
-            className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            href="/dashboard"
+          <AdminShell
+            nav={nav}
+            session={session}
+            homeHref="/shell"
+            viewSiteHref="/"
+            profileHref="/shell/profile"
+            onLogout={signOutAction}
+            topbarExtra={<ThemeSelector />}
+            sidebarExtra={<ShellVersionReadout />}
+            profileMenuExtra={
+              <Link
+                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                href="/dashboard"
+              >
+                Engine dashboard
+              </Link>
+            }
+            brand={{
+              label: siteName,
+              accent,
+              logo: <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">{siteName.slice(0, 1).toUpperCase()}</span>,
+            }}
           >
-            Engine dashboard
-          </Link>
-        }
-        brand={{
-          label: siteName,
-          accent,
-          logo: <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm font-bold text-white">{siteName.slice(0, 1).toUpperCase()}</span>,
-        }}
-      >
-        {children}
-      </AdminShell>
+            {children}
+          </AdminShell>
         </AdminThemeSettingsProvider>
       </AdminPermissionsProvider>
     </SettingsContext.Provider>
