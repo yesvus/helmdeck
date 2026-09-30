@@ -12,4 +12,5 @@ export type {
   AdminResourceExportFinished,
   AdminResourceExportOptions,
   AdminResourceExportOptionsWithName,
+  AdminResourceExportSource,
 } from "./export.js";

@@ -33,6 +33,15 @@ const editor: AdminSession = { email: "editor@demo.helmdeck.dev", role: "editor"
 
 const persistence = demoPersistence().adapter;
 
+/** The paged query, which the interface calls optional and this store answers. */
+function paged(): NonNullable<typeof persistence.queryPage> {
+  const answer = persistence.queryPage;
+  if (typeof answer !== "function") {
+    throw new Error("the demo's store has to answer a paged query for a test that asks for one");
+  }
+  return answer;
+}
+
 type Product = { id: string; name: string; sku: string; price_cents: number; stock: number; note?: string | null };
 
 /**
@@ -108,7 +117,7 @@ describe("a filtered, sorted product list, exported", () => {
 
     // Asked of the store through the same contract, so the file is compared against the store's own
     // answer for the same query rather than against a list written out beside it.
-    const asked = await persistence.queryPage<Product>("products", lamps);
+    const asked = await paged()<Product>("products", lamps);
     const bySku = [...asked.rows].sort((left, right) => (left.sku < right.sku ? -1 : 1));
 
     // The store's own count, which is what the list beside it shows and what the file holds. The table

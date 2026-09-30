@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { ADMIN_RESOURCE_MAX_LIMIT, parseAdminResourceQuery } from "../adapters/query.js";
-import type { AdminResourceQuery } from "../adapters/query.js";
-import type { AdminResourceActions } from "../resources/actions.js";
+import type { AdminResourcePage, AdminResourceQuery } from "../adapters/query.js";
 import type { AdminResourceColumnFormat, AdminResourceRecord } from "../resources/registry.js";
 import { adminFormatCents, adminFormatCount } from "../charts/money.js";
 import { adminCsvCell } from "./csv.js";
@@ -68,6 +67,18 @@ const SHIPPED_TEXT: Record<"money" | "count", (value: unknown) => string> = {
 /** A cell's text, before it is spelled. `adminCsvCell` is what turns a value into one. */
 type CellText = (value: unknown, row: AdminResourceRecord) => unknown;
 
+/**
+ * The half of the actions an export reads through: the paged query, when the host's store has one.
+ *
+ * The same shape `createAdminResourceActions` returns, written out rather than picked, because the
+ * call is generic over the records it returns and an export has no use for that: it reads the rows as
+ * records and the count as a number. The member is optional because it is optional on the actions, and
+ * its absence is refused rather than worked around.
+ */
+export type AdminResourceExportSource = {
+  queryPage?: (resource: string, query?: AdminResourceQuery) => Promise<AdminResourcePage<AdminResourceRecord>>;
+};
+
 export type AdminResourceExportOptions = {
   /**
    * The resource actions, and the paged query among them.
@@ -75,10 +86,10 @@ export type AdminResourceExportOptions = {
    * The actions rather than a persistence adapter, because the read has to be the one a list is
    * refused or allowed: an export that reached a store directly would hand a session that may read
    * forty rows a file of the whole table, which is the same shape of leak as a row-scoped rule
-   * bypassed once per page. `queryPage` is optional on the type because it is optional on the
-   * actions, and its absence is refused below rather than worked around.
+   * bypassed once per page. A store that has no paged query is refused below rather than exported
+   * through the rows-only read, which cannot say how many there are.
    */
-  actions: Pick<AdminResourceActions, "queryPage">;
+  actions: AdminResourceExportSource;
   /** The resource to read, as the list names it. */
   resource: string;
   columns: readonly AdminResourceExportColumn[];

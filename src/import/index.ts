@@ -14,4 +14,5 @@ export type {
   AdminResourceImportOutcome,
   AdminResourceImportResult,
   AdminResourceImportStop,
+  AdminResourceImportWriter,
 } from "./import.js";

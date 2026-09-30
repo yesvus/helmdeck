@@ -28,6 +28,7 @@ export const CATALOG_CATEGORIES = [
   "Collections",
   "Media",
   "Resources",
+  "Import and export",
   "Internationalisation",
   "Theme and colour",
   "Adapters",
@@ -1302,6 +1303,74 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Resources",
     summary: "The words a reference draws, one object shared by a form and the list that filters it.",
     keywords: "reference labels i18n copy translate",
+  },
+
+  adminResourceExport: {
+    category: "Import and export",
+    summary:
+      "The list a query names, as a CSV read through the resource actions and handed back one row at a time.",
+    keywords: "export csv download spreadsheet query list file",
+  },
+  adminResourceExportResponse: {
+    category: "Import and export",
+    summary: "The same export as a download response, for a route handler to return as it is.",
+    keywords: "export response download attachment route csv",
+  },
+  ADMIN_RESOURCE_EXPORT_MAX_ROWS: {
+    category: "Import and export",
+    summary:
+      "How many records one export writes, above which it is refused rather than served with a truncated file.",
+    keywords: "limit export rows ceiling cap refuse",
+  },
+  AdminResourceExportError: {
+    category: "Import and export",
+    summary:
+      "Thrown before a byte is written, when the query cannot be read or the store cannot answer it with a count.",
+    keywords: "export error refuse query count store",
+    hostNote:
+      "An error an export throws while it is being set up, before any row is read. There is nothing to draw here: let it reach the route, which turns it into a 400.",
+  },
+  adminCsvCell: {
+    category: "Import and export",
+    summary: "One value as a CSV cell, quoted where it has to be and marked where a spreadsheet would run it.",
+    keywords: "csv cell quote escape formula inject",
+  },
+  adminCsvText: {
+    category: "Import and export",
+    summary: "The value a cell carries, with the mark an export put on it taken off again.",
+    keywords: "csv cell read unmark parse text",
+  },
+  adminResourceImport: {
+    category: "Import and export",
+    summary: "A file read into the store a row at a time, reporting what happened to each row as it goes.",
+    keywords: "import csv upload rows create seed",
+  },
+  adminResourceImportResult: {
+    category: "Import and export",
+    summary: "The same import read to the end, and the counts a response about it needs.",
+    keywords: "import result counts failures report",
+  },
+  ADMIN_RESOURCE_IMPORT_MAX_FAILURES: {
+    category: "Import and export",
+    summary: "How many failures one run's report holds, with the count of the ones it left out.",
+    keywords: "limit import failures cap report",
+  },
+  AdminResourceImportError: {
+    category: "Import and export",
+    summary: "Thrown when a file's header cannot be read, before a single row of it is written.",
+    keywords: "import error header refuse columns csv",
+    hostNote:
+      "An error an import throws before it writes anything. There is nothing to draw here: let it reach the route, which turns it into a 400 naming the line.",
+  },
+  adminCsvRecords: {
+    category: "Import and export",
+    summary: "A file read as records, one at a time, whether it arrives whole or a character at a time.",
+    keywords: "csv parse records reader stream chunks",
+  },
+  adminCsvCellValue: {
+    category: "Import and export",
+    summary: "The value a cell of a file being read carries, which is its text with any mark removed.",
+    keywords: "csv cell value read mark unmark",
   },
 
   AdminI18nProvider: {

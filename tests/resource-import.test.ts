@@ -6,7 +6,6 @@ import {
   adminCsvRecords,
   adminResourceImport,
   adminResourceImportResult,
-  type AdminResourceImportOutcome,
 } from "@yesvus/helmdeck";
 import { createAdminPermissionGuard } from "../src/shell/permission-rule";
 import { createAdminResourceActions } from "../src/resources/actions";
@@ -24,19 +23,24 @@ import type { AdminSession } from "../src/adapters/index";
  * worth anything if the rule being asked is the one that governs.
  */
 
-type Outcome = AdminResourceImportOutcome;
-
 const columns = [
   { name: "name" },
   { name: "sku" },
   { name: "price_cents", parse: (text: string | null) => (text === null ? null : Number(text)) },
 ];
 
-/** A store the importer writes through, recording what reached it. */
+/**
+ * A store the importer writes through, recording what reached it.
+ *
+ * `create` takes `unknown` because that is the seam's own signature: the importer hands a write the
+ * values it read, and a host's `create` has to accept whatever a value is rather than a shape this
+ * package decided.
+ */
 function writing() {
   const written: Array<Record<string, unknown>> = [];
   const actions = {
-    create: async (_resource: string, values: Record<string, unknown>) => {
+    create: async (_resource: string, value: unknown) => {
+      const values = value as Record<string, unknown>;
       written.push(values);
       return { id: `r${written.length}`, ...values };
     },
@@ -49,8 +53,8 @@ async function* pieces(text: string, size: number): AsyncGenerator<string> {
   for (let at = 0; at < text.length; at += size) yield text.slice(at, at + size);
 }
 
-async function collect(outcomes: AsyncIterable<Outcome>): Promise<Outcome[]> {
-  const seen: Outcome[] = [];
+async function collect<T>(outcomes: AsyncIterable<T>): Promise<T[]> {
+  const seen: T[] = [];
   for await (const outcome of outcomes) seen.push(outcome);
   return seen;
 }
@@ -152,7 +156,8 @@ describe("a row written", () => {
     const order: string[] = [];
     const file = ["name,sku", ...Array.from({ length: 5 }, (_, index) => `Product ${index},SKU-${index}`)].join("\n");
     const actions = {
-      create: async (_resource: string, values: Record<string, unknown>) => {
+      create: async (_resource: string, value: unknown) => {
+        const values = value as Record<string, unknown>;
         order.push(`write ${String(values.name)}`);
         return values;
       },
@@ -254,7 +259,8 @@ describe("a row that cannot be written", () => {
   function refusing() {
     const written: string[] = [];
     const actions = {
-      create: async (_resource: string, values: Record<string, unknown>) => {
+      create: async (_resource: string, value: unknown) => {
+        const values = value as Record<string, unknown>;
         if (values.sku === null) throw new Error("sku is required");
         written.push(String(values.sku));
         return values;
@@ -491,7 +497,8 @@ describe("a file a route hands over", () => {
     // The primitive under the aggregate: a caller that wants to show progress, or to stop on the tenth
     // failure of its own, reads the same stream the count is built from.
     const actions = {
-      create: async (_resource: string, values: Record<string, unknown>) => {
+      create: async (_resource: string, value: unknown) => {
+        const values = value as Record<string, unknown>;
         if (values.sku === null) throw new Error("no sku");
         return values;
       },

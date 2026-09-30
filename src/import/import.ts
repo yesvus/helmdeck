@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-import type { AdminResourceActions } from "../resources/actions.js";
 import { adminCsvCellValue, adminCsvRecords, type AdminCsvSource } from "./csv.js";
 
 /**
@@ -53,6 +52,18 @@ export type AdminResourceImportColumn = {
   parse?: (text: string | null) => unknown;
 };
 
+/**
+ * The half of the actions an import writes through: the one call a row is a create.
+ *
+ * The same shape `createAdminResourceActions` returns, written out rather than picked, because the
+ * call is generic over what the store hands back and an importer has no use for that: it wants the
+ * write to have happened or to have refused. `AdminResourceActions` satisfies it as it stands, and so
+ * does a host's own function, which is what lets a fixture test the importer without a cast.
+ */
+export type AdminResourceImportWriter = {
+  create: (resource: string, value: unknown) => Promise<unknown>;
+};
+
 export type AdminResourceImportOptions = {
   /**
    * The resource actions, and the create among them.
@@ -63,7 +74,7 @@ export type AdminResourceImportOptions = {
    * would get. An importer that wrote around them would create rows a session could not have created,
    * which is the one thing a form cannot do and the reason a form is not the only door.
    */
-  actions: Pick<AdminResourceActions, "create">;
+  actions: AdminResourceImportWriter;
   resource: string;
   columns: readonly AdminResourceImportColumn[];
   /**
