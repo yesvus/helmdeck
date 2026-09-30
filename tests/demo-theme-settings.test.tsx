@@ -454,6 +454,18 @@ describe("a stored value that is absent or unknown falls back to the contract's 
     expect(DEFAULT_SETTINGS.accent).toBe(/--admin-brand-500:\s*(#[0-9a-f]{6});/.exec(tokens)?.[1]);
     // And it is one the contract accepts, so the fallback is not itself something the shell refuses.
     expect(adminBrandVariables(DEFAULT_SETTINGS.accent)).not.toBeNull();
+
+    // SQL cannot import the constant, so `0009_site_density.sql` writes the density list out. Both
+    // halves of it are a second copy of something above, and both have to say the same thing: the
+    // column's default is the contract's density, and its CHECK admits the contract's densities
+    // rather than a subset. A migration that gained a fourth density and not this would refuse a
+    // value the page offers.
+    const migration = readFileSync(
+      join(process.cwd(), "fixtures/lib/migrations/0009_site_density.sql"),
+      "utf8",
+    );
+    expect(migration).toContain(`DEFAULT '${DEFAULT_ADMIN_DENSITY}'`);
+    for (const step of ADMIN_DENSITIES) expect(migration).toContain(`'${step}'`);
   });
 
   it("falls back when the stored density is one the package does not know", async () => {
