@@ -251,7 +251,7 @@ describe("property 2: a refusal names the throttle, and is not the credentials m
     });
   });
 
-  it("does not extend the window, so a held-down button cannot lock an account out for ever", async () => {
+  it("does not extend the window, so a held-down button cannot lock a key out for good", async () => {
     const time = clock();
     const bound = throttle({ limit: 1, now: time.now });
     const target = adapter({ throttle: bound });
@@ -822,11 +822,18 @@ describe("property 6: a host that supplies no throttle gets what it has today", 
     // jsdom has no request scope, so the header read returns nothing rather than throwing. A
     // throttle that made a login attempt depend on the platform having headers would take the
     // login page down on exactly the host that needs it most.
-    const bound = throttle();
+    //
+    // The shipped key function, not the email-keying one the rest of this file uses, because the
+    // claim is about the header read and a key that never reads a header cannot fail on one. The
+    // adapter's own `getUser` is bypassed here, so nothing else is standing between the read and
+    // the result.
+    const bound = createLoginThrottle();
     const target = adapter({ throttle: bound });
 
     expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
     await target.auth.login({ email: EMAIL, password: "wrong" });
+    // A key built from a request that had no headers is the account, which is a real bound and
+    // does not throw, so the sign-in after a failure still works.
     expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
   });
 
