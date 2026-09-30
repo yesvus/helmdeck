@@ -267,10 +267,13 @@ function predicateForFilter(filter: AdminResourceFilter): Predicate {
  * classes returns the same rows, so writing it out changes no answer, and then a new class added to
  * `classOf` moves the comparison and leaves the ordering where it was, with nothing to catch it.
  *
- * It costs nothing to say it out. The sort reads a JSON document through `json_extract` bound to a
- * path, which is an expression no index over this table holds and which an index over it could not
- * hold, so the ordering is a scan and a sort either way. The class is one further read of a row the
- * sort is already reading.
+ * It costs nothing to say it out. `data` is one JSON document per row and the sort reads it through
+ * `json_extract` bound to a path, which is nothing this table's `PRIMARY KEY (resource, id)` holds,
+ * so the plan is a scan and a temp B-tree sort exactly as it is without the class. An index built
+ * over the extracted value does not change that plan either, asked with a literal path and with the
+ * id tiebreak left off, so there is no index this ordering is waiting for. The class is one more
+ * `json_type` over a row the sort is already reading, and a measurement over fifty thousand rows
+ * could not separate the two from each other.
  */
 function orderBy(sort: AdminResourceSort[] | undefined): Predicate {
   if (sort === undefined || sort.length === 0) {
