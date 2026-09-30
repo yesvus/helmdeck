@@ -58,7 +58,9 @@ export type AdminAnalyticsReportRow = {
   visitors: string;
   /** Views in this row's figure that carried no key. */
   unattributed: string;
+  /** The path, in the one section that can hold one, and the only cell that can name a page. */
   path: string;
+  /** The recorded source, beside the name the host gives it. */
   source: string;
   /** The host's visitor key, in the one section that can hold one. */
   visitorKey: string;

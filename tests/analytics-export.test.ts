@@ -617,6 +617,13 @@ describe("a file read back", () => {
     const report = await adminAnalyticsReport({ store: await seeded(), range: RANGE, pathPolicy: () => true });
     const columnsDropped = report.csv.replace("visitor_key,", "");
     await expect(adminAnalyticsReportFigures(columnsDropped)).rejects.toThrow(/visitor_key/);
+
+    // A row that names no table belongs to no figure, and a reader that guessed one would put a number
+    // under a heading nobody wrote.
+    const unlabelled = `${report.csv},\r\n,,,2026-09-27,2026-09-27,1,1,0,,,\r\n`;
+    await expect(adminAnalyticsReportFigures(unlabelled)).rejects.toThrow(/names no section/);
+    const unknown = `${report.csv}\r\nwidgets,,,,1,,,,,,,\r\n`;
+    await expect(adminAnalyticsReportFigures(unknown)).rejects.toThrow(/is in "widgets"/);
   });
 
   it("refuses a file whose totals do not hold what it claims to state", async () => {
@@ -665,6 +672,12 @@ describe("a file read back", () => {
     await expect(adminAnalyticsReportFigures(withoutRange)).rejects.toThrow(/no range_from/);
     const withoutWithheld = lines.filter((line) => !line.startsWith("manifest,rows_withheld")).join("\r\n");
     await expect(adminAnalyticsReportFigures(withoutWithheld)).rejects.toThrow(/no rows_withheld/);
+
+    // And a manifest row stated twice is the same hazard as a total stated twice: a file that says nine
+    // rows were withheld and then six is a file whose claim depends on which row a reader looks at.
+    const twice = [...lines];
+    twice.splice(twice.indexOf("manifest,rows_withheld,3,,,,,,,,,") + 1, 0, "manifest,rows_withheld,0,,,,,,,,,");
+    await expect(adminAnalyticsReportFigures(twice.join("\r\n"))).rejects.toThrow(/states "rows_withheld" again/);
   });
 });
 
@@ -848,17 +861,29 @@ describe("what a report refuses to be written", () => {
   });
 
   it("names a kind it was given, so a report of one thing does not read as a report of all of it", async () => {
-    const store = await seeded();
+    // One extra event of a kind of its own, so the filter has something to exclude and the figure in the
+    // file is narrower than the table behind it. A report that stated the kind and did not apply it
+    // would be a file whose header disagrees with its rows.
+    const store = await seeded([
+      ...EVENTS,
+      { kind: "download", path: "/", visitorKey: "v-9", at: "2026-09-30T10:00:00.000Z" },
+    ]);
     const report = await adminAnalyticsReport({
       store,
       range: RANGE,
       pathPolicy: publicOnly,
       kind: ADMIN_ANALYTICS_PAGE_VIEW,
     });
+    const read = await adminAnalyticsReportFigures(report.csv);
 
     expect(report.manifest.kind).toBe(ADMIN_ANALYTICS_PAGE_VIEW);
     expect(report.csv).toContain("manifest,kind,page_view");
-    expectReportToAddUp(await adminAnalyticsReportFigures(report.csv));
+    // The view the filter excluded is in neither the body nor the total, and the read's own count of rows
+    // is the filtered one, because the filter is pushed into the store's query rather than applied over
+    // the top of it.
+    expect(read.totals.views).toBe(PUBLIC_VIEWS);
+    expect(read.manifest.rows_read).toBe(String(IN_RANGE));
+    expectReportToAddUp(read);
   });
 
   it("uses the host's own names for a day and a source, which are the host's vocabulary", async () => {

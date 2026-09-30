@@ -1499,8 +1499,8 @@ range is refused for naming the range rather than blaming a table that is fine.
 *separately*, on purpose: the totals are what the file claims and the tables are what it says, and a
 reader that computed one from the other would be checking nothing. A file whose totals disagree with its
 rows reads the same as one whose totals agree, so the reconciliations above are a host's check to run
-and this package's test to hold, and a file missing a column, a total or a whole number is refused
-rather than half read.
+and this package's test to hold. A file missing a column, a figure stated twice, a row that names no
+table, or a cell that is not a whole number is refused rather than half read.
 
 ## Dashboard tiles
 

@@ -133,6 +133,9 @@ export async function adminAnalyticsReportFigures(source: AdminCsvSource): Promi
     switch (row.section) {
       case "manifest":
         if (row.metric === "") refuse(`line ${record.line} is a manifest row naming no metric.`);
+        if (Object.hasOwn(manifest, row.metric)) {
+          refuse(`line ${record.line} states ${JSON.stringify(row.metric)} again. One figure stated twice is two answers to one question.`);
+        }
         manifest[row.metric] = row.value;
         break;
       case "total": {
