@@ -13,6 +13,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - CSV export and import over the resource seam: the list a query names as a downloadable file, and a file read into the store a row at a time.
 - Visitor analytics over the same persistence seam: record a page view or a named event, and read back views, unique visitors, top paths and sources per day. The visitor key and the retention window are the host's, and nothing here derives or defaults either.
 - An analytics report as a file: the period, the policy behind it, and the figures per day, per path and per source, with the totals stated in the file where a spreadsheet can check them against the rows above them.
+- A content lifecycle over the host's own rows: revision history a person can read and restore from, a soft delete with a trash, and a way back from both. See [Content lifecycle](#content-lifecycle).
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
 - A static bilingual fixture app for the hosted demo.
 - A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
@@ -989,6 +990,122 @@ It answers `queryPage` as well, so a list reading through it draws its search bo
 A comparison ranks before it compares, and so does an ordering, and both rank by the same written rule: nothing first, then numbers and booleans, then text. That is the database's own order of storage classes, and the adapter states it rather than leaving it to the engine, so a comparison and an ordering are the same rule read twice rather than two that happen to agree. A text value is above a number however the two would compare as text, and a boolean is the number a database stores it as, so `true` and `1` order as each other. A value the record does not have ranks with the nulls rather than above them, and reading an ordering the other way reverses each class and puts the nulls at the end. **A null is the lowest class, and a range filter can be given one**, so `gt(null)` is every record that is not null or absent, `gte(null)` is every record, `lt(null)` is none, and `lte(null)` is the null and the absent. That is where a three-valued language and a two-valued one part company: there is no value to compare and nothing compares against nothing, so the class decides and the operator still says which way. Both shipped adapters rank the same way, which is what lets a fixture and a database answer the same question alike.
 
 This is the adapter to start on. A filter runs through `json_extract`, which SQLite cannot index the way it can a column, so once a resource is large enough that the scan shows, put it behind a mapped schema and the same `AdminPersistenceAdapter`.
+
+## Content lifecycle
+
+A CMS needs three things a resource engine does not have: what a record said before, a delete that can be undone, and a way back from both. This package supplies them as primitives over the host's own rows, and deliberately has no opinion about what content is or when it is published.
+
+```ts
+import { createAdminLifecycle } from "@yesvus/helmdeck";
+
+const lifecycle = createAdminLifecycle({
+  guard: requirePermission,
+  persistence,
+  resources: [
+    {
+      resource: "posts",
+      trash: "posts_trash",
+      revisions: {
+        resource: "post_revisions",
+        record: "post_id",
+        position: "position",
+        cause: "cause",
+        restoredFrom: "restored_from",
+        occurredAt: "created_at",
+        read: (revision) => ({
+          title: String(revision.title ?? ""),
+          body: String(revision.body ?? ""),
+          status: revision.status === "published" ? "published" : "draft",
+        }),
+        write: (input) => ({
+          id: input.id,
+          post_id: input.recordId,
+          position: input.position,
+          cause: input.cause,
+          title: input.snapshot.title,
+          body: input.snapshot.body,
+          status: input.snapshot.status,
+          actor_email: input.session?.email ?? "",
+          restored_from: input.restoredFrom,
+          created_at: input.occurredAt,
+        }),
+      },
+      children: [{ resource: "comments", field: "post_id", on: "trash" }],
+    },
+  ],
+});
+```
+
+A host wires it beside its content action rather than instead of it:
+
+```ts
+export async function savePost(id: string, input: { title: string; body: string }) {
+  await requirePermission("posts.update", { resourceId: id });
+  await lifecycle.recordRevision("posts", id, { session, cause: "edit" });
+  return persistence.update("posts", id, input);
+}
+```
+
+`recordRevision` asks no permission, because it decides nothing about whether the change may happen. That is the difference from recording history inside an audit write, which makes the history depend on the audit sink being wired and puts a history entry in the path of every change whether or not anybody reads it. Here the host's own rule has already allowed the write, and the history is a separate call that can fail on its own terms.
+
+### A revision is a row the host already has
+
+There is no table for this package to create and no migration to apply. `AdminRevisionStore` names the columns a host's own history table uses and gives `read` and `write` the projection, which is the same call the aggregation layer made and for the same reason: a mechanism over host rows works against the schema a host has. A host storing a revision as a flat row of real columns and a host storing it as one JSON document are both one `read` and one `write` apart, and neither shape needs a migration the other does not.
+
+What a host writes to record a revision is a `write` that receives the whole record, the position, the cause, the session and the timestamp, and returns a row. What a host writes to restore is a `read` that takes a row back to the record, and **the fields it returns are exactly the fields a restore can bring back**. A store whose `read` returns three fields has a history covering three fields.
+
+Ordering is a whole number rather than a clock, because two saves in one millisecond are two changes and only a position can say which was first. The revision id is derived from the position, so two callers racing for the same position ask the store for the same id and the second write is refused rather than overwriting the first.
+
+### What a restore can and cannot bring back
+
+A revision records the **whole row**, and a restore answers that in three places, none of them silently.
+
+A field the revision holds and the record has is **written**. This is what brings back a value somebody deliberately cleared, which a revision recording only what changed cannot do: a cleared field is indistinguishable from an untouched one. So the snapshot is the whole row for exactly that reason.
+
+A field the record holds and the revision does not is **retained**, left as it is and named in the result. A column added after the revision was taken has no value in it to bring back, and the two options are keeping the current value or nulling it. Nulling is the quiet one, so the current value is kept.
+
+A field the revision holds and the record no longer has is **refused**, by name, before anything is written. A column dropped since cannot be brought back, and writing it would either fail or discard a value without saying which. A caller that means it passes `dropFields`, and the result reports the loss in `dropped` rather than making it silent:
+
+```ts
+const restored = await lifecycle.restoreRevision("posts", id, revisionId, { dropFields: ["legacy_score"] });
+// restored.written, restored.retained, restored.dropped
+```
+
+A restore is itself recorded, under the cause `restore`, before the write it is about to replace. So the restore is reversible by restoring what it replaced, and a history that says a version was put back can also say what was lost to it. **A host whose own `cause` column constrains its values must admit `restore`**; the demo's `post_revisions` already does.
+
+A restore writes the whole record rather than the fields it is putting back, because a partial write drops every field it did not name on both shipped adapters. That is the case this exists not to lose quietly.
+
+### A soft delete moves a row rather than flagging it
+
+`softDelete` moves the record into the resource named by `trash`, and `restoreFromTrash` moves it back. It does not write a `deleted_at` column, and the reason is that a flag cannot make a count agree with its rows.
+
+A flag is filtered out of reads, and the filter has to be injected into every query a host makes, including the ones behind a total. The shipped adapters both filter `isNull` and `notNull` on the stored value rather than on the field's presence, so a row that has never been flagged does not match `isNull` and a flag-based exclusion misses exactly the rows that were never deleted. Moving the row sidesteps the whole question: a live list's count and its rows cannot disagree about a row that is not in the table, and a search or a window agrees with a bare list because there is nothing to exclude.
+
+A row keeps its id across the move, so references pointing at it stay intact and resolve again when it comes back. **Rows pointing at a record being trashed are refused by default**, naming them, because the write boundary refuses a value that names a row the store does not hold, so orphaning rows makes them uneditable by anyone afterwards. A host declares what happens instead:
+
+| `on` | What happens to rows pointing at it |
+| --- | --- |
+| `"refuse"` (default) | The trash is refused, and the rows doing it are named. Nothing is moved. |
+| `"trash"` | The referencing rows join the move, following their own declarations. Cycles terminate. |
+| `"keep"` | They are left alone, stating that a row whose target is gone is acceptable. |
+
+The whole cascade is read before anything is written. A refusal then costs some reads; a refusal halfway through a cascade would leave rows in their trash tables and in their live ones for the host to repair by hand.
+
+`lifecycle.trash("posts")` returns an adapter for the generated list. It reads the trash's rows and refuses another resource's name, and it **refuses writes**, because a trashed row is not a live one. Its `delete` goes through `purge` rather than a raw delete, so mounting a list on a trash is enough to get the guarded hard delete rather than one that skips the refusal protecting the rows pointing at it.
+
+### Refusals, and the permissions behind them
+
+Every operation asked of a record in the wrong state is refused rather than made a quiet success, and the refusal names which state it was in: `live`, `trashed`, `missing`, or `both` for a half-finished move. Trashing something already trashed, restoring something never trashed, purging something live, and operating on something that is not there are all refusals, and a refused call records no audit event and invalidates no cache key.
+
+The five capabilities have their own vocabulary, `AdminResourceLifecycleOperation`: `readRevisions`, `restoreRevision`, `softDelete`, `restoreFromTrash` and `purge`. **It is a separate union from `AdminResourceOperation` on purpose.** That union is what every generated list and form switches on, and a host that switches exhaustively over it breaks at compile time in every file that does if four members are added. Below 1.0 a consumer has no signal about what a minor may take, which is why this repository's surface gate treats removals as build failures rather than leaving them to convention. The default permission name is `resource.operation`, so `posts.restoreRevision` and `posts.softDelete` are distinct and a host's own rule decides what each means.
+
+A trash and a history are independent. Declare `trash` and you get a trash; leave it out and the resource keeps its revision history and every refusal a history implies, and refuses a soft delete rather than moving a row somewhere the host has not built. A host that wants a history is not obliged to create a table for a feature it did not ask for.
+
+### What this does not decide
+
+**Publish snapshots are the host's.** A publish snapshot is not "the row as it was", it is the row projected onto the fields the public site renders, at a moment a workflow chose. Which fields are public and when a snapshot is taken are both host decisions, and a generic mechanism that knew about publishing would have to take that projection from the host anyway, which makes it a thinner wrapper over the host's own function with more vocabulary. A host that wants publish snapshots records a revision with the cause `publish` and keeps its own published copy; this layer neither knows nor assumes.
+
+Two narrower limits, stated rather than left to be discovered. A record is recorded and restored one whole row at a time, so a host whose history spans several tables is composing several of these. And a revision is looked up among the record's own revisions, so an id belonging to another record finds nothing even when its content is what the caller wanted.
 
 ## Host integration contracts
 

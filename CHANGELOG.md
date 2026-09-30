@@ -11,7 +11,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 The package now ships working authentication and server-side authorization, both of which it
 previously documented as the host's job. A generated list can search, sort, filter and page, and a
 CMS can be built on top of it. No exported name was removed: 142 names were exported at 0.4.0 and
-238 are exported now, with none of the original 142 gone, so this is a minor transition.
+258 are exported before the lifecycle, with none of the original 142 gone. The lifecycle adds 13 more
+(271 in total) and removes nothing, so this is a minor transition.
 
 The two additions that change what a host has to build are the reason to read this section. Before
 them, a host that installed this package and wanted a person to sign in had to write the credential
@@ -251,6 +252,73 @@ every permission decision the package made was made in a browser.
   unreadable, and sets `--admin-brand-text`, which it did not before.
 
 ### Added
+
+- **`src/lifecycle/`**: `createAdminLifecycle`, with no new dependency. Revision history, a soft delete
+  with a trash, and a restore from both: the three things a resource engine does not have and a CMS
+  cannot be built without. It runs over `AdminPersistenceAdapter`, so a trashed row is gone from every
+  ordinary read by being absent rather than by being filtered out of one.
+
+  **A revision is a row the host already has.** `AdminRevisionStore` names the columns a host's own
+  history table uses and gives `read` and `write` the projection, so there is no table for this package
+  to create and no migration to apply. A flat row of real columns and a single JSON document are one
+  `read` and one `write` apart, and neither needs a migration the other does not. The demo's
+  `post_revisions` fits as it stands: every column the declaration names is one
+  `0005_post_revisions.sql` defines, and the cause a restore writes (`restore`) is one its own `CHECK`
+  already admits. **No migration file was changed.** Ordering is a whole number rather than a clock,
+  and the revision id derives from the position, so two callers racing for one position ask the store
+  for the same id and the second write is refused rather than overwriting the first.
+
+  **A restore answers in three places, and none of them silently.** A revision records the whole row,
+  because a revision recording only what changed cannot restore a field somebody deliberately cleared,
+  since a cleared field and an untouched one look the same. A field the revision holds and the record
+  has is written back. A field the record holds and the revision does not, which is a column added
+  since, is **retained** as it is and named in the result: there is no older value to bring back, and
+  the two options are keeping the current one or quietly nulling it. A field the revision holds and the
+  record no longer has, which is a column dropped since, is **refused by name before anything is
+  written**, because writing it would either fail or discard a value without saying which. A caller who
+  means it passes `dropFields`, and the loss comes back in `dropped`, so an accepted loss is still a
+  stated one. The restore is itself recorded, under the cause `restore`, before the write it replaces,
+  so it is reversible by restoring what it replaced. The write is the whole record rather than the
+  fields being put back, because a partial write drops every field it did not name on both shipped
+  adapters, which is the case this exists not to lose quietly.
+
+  **A soft delete moves a row rather than flagging it.** `softDelete` moves the record into the
+  resource named by `trash`. It does not write a `deleted_at` column, because a flag cannot make a
+  count agree with its rows: both shipped adapters filter `isNull` and `notNull` on the stored value
+  rather than on the field's presence, so a flag-based exclusion misses exactly the rows that were
+  never flagged. Moving the row means a live list's count and its rows cannot disagree about a row
+  that is not in the table, and a search or a window agrees with a bare list because there is nothing
+  to exclude. The row keeps its id, so references stay intact. **Rows pointing at a record being
+  taken away are refused by default and named**, because the write boundary refuses a value that names
+  a row the store does not hold, so orphaning rows makes them uneditable by anyone afterwards; a host
+  declares `on: "trash"` to bring them along or `on: "keep"` to state that losing the target is
+  intended. The whole cascade is read before anything is written, so a refusal never leaves rows half
+  moved. `lifecycle.trash(resource)` returns an adapter for the generated list which refuses writes
+  and routes its `delete` through the guarded `purge` rather than a raw one.
+
+  **`AdminResourceLifecycleOperation` is a separate union from `AdminResourceOperation`, on purpose.**
+  Its five members (`readRevisions`, `restoreRevision`, `softDelete`, `restoreFromTrash`, `purge`)
+  could have been added to the existing four, and doing so would break every host that switches
+  exhaustively over it at compile time. Below 1.0 a consumer has no signal about what a minor may
+  take, which is why this repository's exported-surface gate treats removals as build failures; a
+  widening is a removal of the guarantee that those four are all of them. The default permission name
+  is `resource.operation`, so `posts.restoreRevision` and `posts.softDelete` are separate decisions.
+
+  **`recordRevision` asks no permission**, because it decides nothing about whether a change may
+  happen. A host calls it beside its content action, after its own rule has allowed the write, which
+  is the difference from recording history inside an audit write: that makes the history depend on the
+  audit sink being wired and puts a history entry in the path of every change whether or not anybody
+  reads it.
+
+  A trash and a history are independent: declare `trash` for a trash, leave it out and the resource
+  keeps its revision history and refuses a soft delete rather than demanding a table the host has not
+  built. Trashing something already trashed, restoring something never trashed, and operating on
+  something that is not there are all refusals with the state named (`live`, `trashed`, `missing`,
+  `both`), and a refused call records no audit event and invalidates no cache key.
+
+  **Publish snapshots are deliberately not here.** A publish snapshot is the row projected onto the
+  fields the public site renders, at a moment a workflow chose, and both are host decisions. A host
+  that wants them records a revision with the cause `publish` and keeps its own published copy.
 
 - **`src/charts/`**: `AdminTimeSeriesChart`, `AdminRankChart`, `AdminChartTable`,
   `AdminChartFrame` and the scales, ticks and formatters behind them, with no new dependency. A chart
