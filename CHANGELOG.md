@@ -81,6 +81,21 @@ every permission decision the package made was made in a browser.
   `windowMs` and `reservationMs` get the same rule, since a window of zero lapses every key on the
   next read and a lease of zero lapses every reservation on the next read. Hosts that pass a
   mis-sourced number now see a throw at startup rather than a bound that quietly does not exist.
+- **A reservation is charged at most once, whichever path its report arrives by.** A report reaches
+  the accounting in five states: still reserved, past its lease, a repeat of either, one this
+  process never minted, and one whose key has been forgotten. Only the first charged once, and every
+  repeat after that charged again, so a request whose report was delivered three times cost a
+  visitor three guesses' worth of budget. That charges **more**, not less, so it cannot be used to
+  bypass the bound; it locks a slow honest visitor out on the strength of requests they did not make.
+  The failures are now keyed by the reservation that reported them rather than held as a list of
+  positions, so the record of what has been charged and the failures are one structure and a repeat
+  finds it and stops there. The invariant is written on `failed`. It is exact for as long as the
+  store remembers the reservation, which is to the end of the key's window, and approximate past
+  that: a report more than one `windowMs` after its attempt is charged again, because it cannot be
+  told from a first report for a handle from a process that restarted. Making it exact past the
+  window would mean remembering every reservation for ever, which is what a window exists to avoid.
+  A host with a shared store holds the same map in a hash and gets the same property with the same
+  bound, so `reservation` doubles as the key the charged failures are indexed by.
 - **`endAllSessions` takes no account argument.** It resolves the caller from the signed cookie and
   acts on that account, and it refuses unless the host supplies `mayEndAllSessions`. There is no
   capability here that a caller can point at somebody else, which is the shape the previous version

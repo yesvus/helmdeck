@@ -1238,9 +1238,12 @@ describe("property 9: a host's own throttle can meet the contract", () => {
    * cheaply and uniquely, and nothing here is a class the package owns.
    */
   function sharedStoreThrottle(limit: number, now: () => number) {
+    // A hash of charged reservations beside the row, which is the shape a host's store takes: one
+    // field per reservation, so a repeat finds the field and stops. The invariant is the same one
+    // the shipped throttle keeps, and a host that does not keep it does not meet the contract.
     const rows = new Map<
       string,
-      { failures: number; inFlight: Map<string, number>; until: number }
+      { failures: Map<string, number>; inFlight: Map<string, number>; until: number }
     >();
     let serial = 0;
     return (): AdminLoginThrottle => ({
@@ -1248,7 +1251,7 @@ describe("property 9: a host's own throttle can meet the contract", () => {
         const key = a.credentials.email;
         const entry = rows.get(key);
         const live = entry && entry.until > now() ? entry : null;
-        if (live && live.failures + live.inFlight.size >= limit) {
+        if (live && live.failures.size + live.inFlight.size >= limit) {
           return { ok: false, message: "refused by the shared store" };
         }
         serial += 1;
@@ -1256,7 +1259,7 @@ describe("property 9: a host's own throttle can meet the contract", () => {
         const inFlight = new Map(live?.inFlight ?? []);
         inFlight.set(reservation, now());
         rows.set(key, {
-          failures: live?.failures ?? 0,
+          failures: new Map(live?.failures ?? []),
           inFlight,
           until: now() + WINDOW,
         });
@@ -1266,23 +1269,46 @@ describe("property 9: a host's own throttle can meet the contract", () => {
         const entry = rows.get(a.credentials.email);
         if (!entry) {
           rows.set(a.credentials.email, {
-            failures: 1,
+            failures: new Map([[reservation, 1]]),
             inFlight: new Map(),
             until: now() + WINDOW,
           });
           return;
         }
-        entry.failures += 1;
+        if (entry.failures.has(reservation)) return;
+        entry.failures.set(reservation, 1);
         entry.inFlight.delete(reservation);
       },
       succeeded: (a, reservation) => {
         const entry = rows.get(a.credentials.email);
         if (!entry) return;
         entry.inFlight.delete(reservation);
-        entry.failures = 0;
+        entry.failures.clear();
       },
     });
   }
+
+  it("charges a reservation once, on the host's own implementation as well", async () => {
+    // The contract is a property rather than a suggestion, and the second implementation is the
+    // proof a host can meet it: a repeat of a report it was given, on a key it has already
+    // recorded, changes nothing.
+    const bound = sharedStoreThrottle(8, Date.now)();
+    const held = allowed(await bound.check(attempt()));
+
+    await bound.failed(attempt(), held);
+    await bound.failed(attempt(), held);
+    await bound.failed(attempt(), held);
+    await bound.failed(attempt(), "a-row-this-store-never-issued");
+    await bound.failed(attempt(), "a-row-this-store-never-issued");
+
+    // One charge for the row it issued and one for the row it did not, and no more, so six of an
+    // eight-limit key's attempts are left. Five reports for two attempts would leave four.
+    let through = 0;
+    for (let i = 0; i < 40; i += 1) {
+      if ((await bound.check(attempt())).ok) through += 1;
+    }
+    expect(through).toBe(6);
+  });
 
   it("holds the same burst bound with nothing but the three methods", async () => {
     const target = adapter({ throttle: sharedStoreThrottle(4, Date.now)() });
