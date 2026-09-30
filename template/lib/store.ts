@@ -1,9 +1,4 @@
-import {
-  adminResourceValues,
-  createAdminResourceActions,
-  type AdminPersistenceAdapter,
-  type AdminResourceDefinition,
-} from "@yesvus/helmdeck";
+import { createAdminResourceActions } from "@yesvus/helmdeck";
 import { persistence } from "./persistence";
 import { adminResources } from "./resources";
 import { exposedResource, requirePermission } from "./rules";
@@ -15,46 +10,20 @@ import { exposedResource, requirePermission } from "./rules";
  * against the exposed set before the session is resolved, and then against the one rule before the
  * effect runs. `createAdminResourceActions` is the package's, built once here rather than per call
  * site, so no action can be the one that forgot.
- */
-function definitionFor(resource: string): AdminResourceDefinition {
-  const definition = adminResources.find((candidate) => candidate.resource === resource);
-  // Unreachable through the calls below, because the exposed set is built from these definitions.
-  // Refusing rather than passing the value through is what makes that a fact about the store
-  // instead of an assumption about the code above it.
-  if (!definition) throw new Error(`No resource definition names ${resource}`);
-  return definition;
-}
-
-/**
- * A write narrowed to the fields the definition declares, read on the server.
  *
- * `adminResourceValues` is what the generated forms call in the browser, so calling it here is what
- * makes the two agree about a record's shape. Without it, a hand-edited request that never went
- * through a form could set a field the definition dropped, or an `id` the caller chose, and the
- * write would succeed. The form's filtering is not a boundary; this is.
+ * There is no narrowing of the value here, and there was once. A hand-edited request that never went
+ * through a form could set a field the definition dropped, or an `id` the caller chose, so this file
+ * filtered every write through `adminResourceValues` and the template's boundary was the safe one.
+ * The package enforces both itself now, before the store is reached, and a second copy of a boundary
+ * is a second thing to forget: the fixture kept one for months while the shipped boundary was open,
+ * and the tests were asserting the copy rather than the package.
  */
-function declaredFields(resource: string, value: unknown): Record<string, unknown> {
-  const incoming = (value ?? {}) as Record<string, unknown>;
-  const form = new FormData();
-  for (const [key, entry] of Object.entries(incoming)) {
-    form.append(key, entry === null || entry === undefined ? "" : String(entry));
-  }
-  return adminResourceValues(definitionFor(resource), form);
-}
-
-/** The same adapter with `create` and `update` narrowed. Reads pass straight through. */
-const bounded: AdminPersistenceAdapter = {
-  ...persistence,
-  create: <T>(resource: string, value: unknown) => persistence.create<T>(resource, declaredFields(resource, value)),
-  update: <T>(resource: string, id: string, value: unknown) =>
-    persistence.update<T>(resource, id, declaredFields(resource, value)),
-};
-
 export const resourceActions = createAdminResourceActions({
   guard: requirePermission,
-  persistence: bounded,
+  persistence,
   expose: exposedResource,
-  // Read for the references the definitions declare and nothing else, which is what lets a write
-  // carrying a value that names a row be refused before it reaches a table.
+  // Read for the columns a write is held to and the references they declare. A definition naming a
+  // key a write does not carry is not a problem, and a write naming a key no definition declares is
+  // refused before it reaches a table.
   definitions: adminResources,
 });

@@ -74,26 +74,27 @@ describe("what a write is allowed to carry", () => {
     request.session = undefined;
   });
 
-  it("drops a column the table has but the definition does not declare", async () => {
+  it("refuses a column the table has but the definition does not declare", async () => {
     await ensureDemoSeeded();
     const store = demoPersistence().adapter;
 
-    const created = (await createResourceAction("products", {
-      name: "Declared only",
-      sku: "DECL-001",
-      price_cents: 500,
-      stock: 1,
-      created_at: "1999-01-01 00:00:00",
-    })) as { id: string; created_at?: string };
+    // Refused rather than dropped. This used to narrow the write in the demo's own adapter, so the
+    // demo was protected and the shipped boundary was not, and this test was asserting the demo's
+    // copy rather than the package. A dropped column leaves the author believing it was written,
+    // which is the same defect pointed the other way.
+    await expect(
+      createResourceAction("products", {
+        name: "Declared only",
+        sku: "DECL-001",
+        price_cents: 500,
+        stock: 1,
+        created_at: "1999-01-01 00:00:00",
+      }),
+    ).rejects.toThrow(/created_at/);
 
-    const stored = (await store.read("products", created.id)) as {
-      name: string;
-      created_at?: string;
-    };
-    expect(stored.name).toBe("Declared only");
     // A caller-supplied timestamp would otherwise be written, so the record would claim to be older
     // than it is. This is the shape of the bug: an accepted column, a value nobody chose.
-    expect(stored.created_at).not.toBe("1999-01-01 00:00:00");
+    expect(await store.read("products", "prd_1")).toMatchObject({ name: expect.any(String) });
   });
 
   it("names the record itself rather than letting the caller choose the id", async () => {
@@ -114,14 +115,19 @@ describe("what a write is allowed to carry", () => {
     expect(await store.read("products", "prd_caller_named_this")).toBeNull();
   });
 
-  it("refuses to write an undeclared field through an update either", async () => {
+  it("refuses an undeclared field through an update too", async () => {
     await ensureDemoSeeded();
     const store = demoPersistence().adapter;
+    const before = (await store.read("products", "prd_1")) as { name: string };
 
-    await updateResourceAction("products", "prd_1", { name: "Renamed", updated_at: "1999-01-01 00:00:00" });
+    await expect(
+      updateResourceAction("products", "prd_1", { name: "Renamed", updated_at: "1999-01-01 00:00:00" }),
+    ).rejects.toThrow(/updated_at/);
 
-    const stored = (await store.read("products", "prd_1")) as { name: string; updated_at?: string };
-    expect(stored.name).toBe("Renamed");
-    expect(stored.updated_at).not.toBe("1999-01-01 00:00:00");
+    // Nothing was written, so the record still holds what it held. A refusal that left a partial
+    // write behind would be worse than no refusal at all.
+    const after = (await store.read("products", "prd_1")) as { name: string; updated_at?: string };
+    expect(after.name).toBe(before.name);
+    expect(after.updated_at).not.toBe("1999-01-01 00:00:00");
   });
 });

@@ -386,8 +386,11 @@ export function createAdminResourceActions({
    *
    * `null` means the boundary is not closed here, which is what a host that declared no definition for
    * the resource is saying: it told this seam nothing about the resource's shape, so there is nothing
-   * to check a value against. That is not the same as a resource declaring no columns, which is
-   * refused, because a definition with an empty `columns` is a host that has said what it stores.
+   * to check a value against. A single settings row written by a site's own module is exactly that
+   * case, and refusing it would refuse a resource that was never a table.
+   *
+   * That is not the same as a definition declaring no columns, which is refused, because a definition
+   * with an empty `columns` is a host that has said what it stores and stored nothing.
    */
   function writableKeys(resource: string): Set<string> | null {
     const definition = declared.get(resource);
@@ -515,12 +518,12 @@ export function createAdminResourceActions({
 
     async create<T>(resource: string, value: unknown): Promise<T> {
       const session = await permit(resource, "create");
-      // After the refusal and before the store, so a column the resource does not declare never
-      // reaches a table to be stored and then have to be un-stored.
-      refuseUndeclared(resource, "create", value);
       // After the refusal and before the store, so a value naming a row that is not there never
-      // reaches a table to be stored and then have to be un-stored.
+      // reaches a table to be stored and then have to be un-stored. Ahead of the field refusal
+      // because it carries a second permission decision, and every one of those has to be settled
+      // before any of them can be told apart from a validation answer.
       await checkReferences(resource, value);
+      refuseUndeclared(resource, "create", value);
       const created = await persistence.create<T>(resource, value);
       await reported({ operation: "create", resource, session, record: created });
       return created;
@@ -528,12 +531,12 @@ export function createAdminResourceActions({
 
     async update<T>(resource: string, id: string, value: unknown): Promise<T> {
       const session = await permit(resource, "update", id);
-      // After the refusal and before the store, so a column the resource does not declare never
-      // reaches a table to be stored and then have to be un-stored.
-      refuseUndeclared(resource, "update", value);
       // After the refusal and before the store, with the record it is about to replace, so a value
-      // the record already holds is not this write's to check.
+      // the record already holds is not this write's to check. Ahead of the field refusal because it
+      // carries a second permission decision, and every one of those has to be settled before any of
+      // them can be told apart from a validation answer.
       await checkReferences(resource, value, id);
+      refuseUndeclared(resource, "update", value);
       const updated = await persistence.update<T>(resource, id, value);
       await reported({ operation: "update", resource, resourceId: id, session, record: updated });
       return updated;
