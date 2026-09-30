@@ -266,6 +266,17 @@ test("a public route that does not render is reported rather than passed", async
   assert.deepEqual(failed(outcome), ["public route /nope renders"]);
 });
 
+test("the guarded route is the one asked about, and the check names it", async () => {
+  const healthy = await run({ fetchImpl: fakeDeployment().fetchImpl });
+  assert.ok(healthy.results.some((entry) => entry.name.startsWith("/shell/products with a junk cookie")));
+
+  const moved = await run({ fetchImpl: fakeDeployment().fetchImpl, guardedPath: "/shell/orders" });
+  assert.ok(
+    failed(moved).some((name) => name.startsWith("/shell/orders with a junk cookie")),
+    "an option that is accepted and ignored is a check that quietly tests the wrong route",
+  );
+});
+
 test("a login form missing its password field is reported", async () => {
   const loginHtml = LOGIN_HTML.replace('<input type="password" name="password"/>', "");
   const outcome = await run({ fetchImpl: fakeDeployment({ loginHtml }).fetchImpl });

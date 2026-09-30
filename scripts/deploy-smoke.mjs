@@ -205,8 +205,8 @@ async function checkJunkCookieLogin(fetchImpl, base, { timeoutMs }) {
 }
 
 /** An authenticated route with a junk cookie: the guard has to read the session to refuse it. */
-async function checkGuardedRedirect(fetchImpl, base, { timeoutMs }) {
-  const page = await request(fetchImpl, `${base}${GUARDED_PATH}`, {
+async function checkGuardedRedirect(fetchImpl, base, { path, timeoutMs }) {
+  const page = await request(fetchImpl, `${base}${path}`, {
     headers: { cookie: `${SESSION_COOKIE}=${JUNK_SESSION_COOKIE}` },
     timeoutMs,
   });
@@ -217,7 +217,7 @@ async function checkGuardedRedirect(fetchImpl, base, { timeoutMs }) {
   const ok = isRedirect && pointsAtLogin && Boolean(next);
   return {
     ...result(
-      `${GUARDED_PATH} with a junk cookie redirects to ${LOGIN_PATH} and names the destination`,
+      `${path} with a junk cookie redirects to ${LOGIN_PATH} and names the destination`,
       ok,
       ok
         ? `${page.status} to ${location.pathname}${location.search} (next=${next})`
@@ -484,7 +484,7 @@ export async function runSmoke({
 
   const loginPage = await checkLoginPage(fetchImpl, target, options);
   const junk = await checkJunkCookieLogin(fetchImpl, target, options);
-  const guarded = await checkGuardedRedirect(fetchImpl, target, options);
+  const guarded = await checkGuardedRedirect(fetchImpl, target, { path: guardedPath, timeoutMs });
   const publicRoute = await checkPublicRoute(fetchImpl, target, { path: publicPath, timeoutMs });
   const signIn = await checkSignIn(fetchImpl, target, options);
   const authenticated = signIn.ok
