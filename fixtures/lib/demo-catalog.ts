@@ -504,6 +504,40 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "Removes the events older than the window the host named, and says what it left. There is no default, because this package does not decide how long a table of visits is kept.",
     keywords: "retain prune retention delete window days privacy",
   },
+  adminAnalyticsReport: {
+    category: "Analytics",
+    summary:
+      "A range of analytics as a report a person opens in a spreadsheet: the period, the policy behind it, the figures per day, the paths, the sources, and the totals they add up to.",
+    keywords: "report export csv download spreadsheet figures totals period",
+  },
+  adminAnalyticsReportResponse: {
+    category: "Analytics",
+    summary: "The same report as a download response, for a route handler to return as it is.",
+    keywords: "report response download attachment route csv",
+  },
+  adminAnalyticsReportFigures: {
+    category: "Analytics",
+    summary:
+      "A report file read back as the figures it states, with the totals handed back apart from the rows so a host can check the two against each other.",
+    keywords: "read back parse import figures totals verify reconcile",
+  },
+  ADMIN_ANALYTICS_REPORT_MAX_ROWS: {
+    category: "Analytics",
+    summary:
+      "How many rows one report writes, above which it is refused rather than served with a file of the first figures of a range.",
+    keywords: "cap limit rows report range refuse bound",
+  },
+  ADMIN_ANALYTICS_REPORT_SECTIONS: {
+    category: "Analytics",
+    summary: "The four tables a report can hold, in the order the file writes them.",
+    keywords: "sections tables series paths sources visitors",
+  },
+  ADMIN_ANALYTICS_REPORT_DEFAULT_SECTIONS: {
+    category: "Analytics",
+    summary:
+      "The three a report holds unless a host names others, which is every one of them but the one that can carry a visitor key.",
+    keywords: "default sections tables series paths sources",
+  },
 
   AdminBanner: {
     category: "Overlays and feedback",

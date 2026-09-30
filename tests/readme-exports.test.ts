@@ -81,6 +81,12 @@ const DOCUMENTED_FUNCTIONS = [
   "adminCsvCell",
   "adminCsvText",
   "adminCsvCellValue",
+  "adminAnalyticsReport",
+  "adminAnalyticsReportResponse",
+  "adminAnalyticsReportFigures",
+  "ADMIN_ANALYTICS_REPORT_MAX_ROWS",
+  "ADMIN_ANALYTICS_REPORT_SECTIONS",
+  "ADMIN_ANALYTICS_REPORT_DEFAULT_SECTIONS",
 ];
 
 const ALL = [...DOCUMENTED_COMPONENTS, ...DOCUMENTED_FUNCTIONS, ...DOCUMENTED_BASELINE];
