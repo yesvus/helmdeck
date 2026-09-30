@@ -11,6 +11,7 @@ import {
 import { adminResources } from "./admin-resources";
 import { exposedResource } from "./demo-rules";
 import { demoPersistence } from "./demo-persistence";
+import { createDemoAuditAdapter, createDemoCacheAdapter } from "./demo-audit";
 import { ensureDemoSeeded } from "./ensure-seeded";
 import { requireDemoPermission } from "./demo-guard";
 
@@ -95,6 +96,10 @@ const store = createAdminResourceActions({
   // After the refusal and before the effect, so the first request of a fresh process finds records
   // rather than an empty store, and a refused request does not pay for the seed.
   before: ensureDemoSeeded,
+  // Both halves of the seam the package now offers. The audit trail is not a resource a browser
+  // browses, so it is written to its own table directly and never through these calls.
+  audit: createDemoAuditAdapter(),
+  cache: createDemoCacheAdapter(),
 });
 
 export async function queryResourceAction(
