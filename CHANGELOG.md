@@ -10,9 +10,9 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 The package now ships working authentication and server-side authorization, both of which it
 previously documented as the host's job. A generated list can search, sort, filter and page, and a
-CMS can be built on top of it. No exported name was removed: 142 names were exported at 0.4.0 and
-277 are exported before the lifecycle, with none of the original 142 gone. The lifecycle adds 13 more
-(290 in total) and removes nothing, so this is a minor transition.
+CMS can be built on top of it. No exported name was removed: 139 names were exported at 0.4.0 and 283
+are exported before the lifecycle, with none of the original 139 gone. The lifecycle adds 13 more
+(296 in total) and removes nothing, so this is a minor transition.
 
 The two additions that change what a host has to build are the reason to read this section. Before
 them, a host that installed this package and wanted a person to sign in had to write the credential
