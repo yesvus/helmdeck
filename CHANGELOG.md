@@ -6,7 +6,7 @@ canonical and must match `package.json` and the install command in the README.
 Artifacts are distributed as GitHub release tarballs. npm publication is postponed indefinitely, so
 upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
-## Unreleased
+## 0.5.0
 
 The package now ships working authentication and server-side authorization, both of which it
 previously documented as the host's job. A generated list can search, sort, filter and page, and a
