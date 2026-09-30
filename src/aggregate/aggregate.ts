@@ -124,6 +124,34 @@ function measured(name: string, value: number): number {
   return value;
 }
 
+/**
+ * One addition, refused when the running total stops being a whole number a number can hold.
+ *
+ * This is the same failure `adminWholeNumber` refuses one level down, and it is separate for the
+ * same reason: a thousand rows of `4_000_000_000_000` are each perfectly exact and add up to a
+ * number no double holds. `adminWholeNumber` cannot see it, because every value it is given is fine.
+ *
+ * Checked on every addition rather than on the finished sum, and a signed measure is why. A bucket
+ * that goes to `2 ** 53` and back down again finishes under the limit having already rounded the
+ * largest value away, so a check on the answer alone returns a total that is wrong by an amount
+ * nothing downstream can see. `where` names the bucket or the total, because the figure a host needs
+ * in order to act is which of their measures and which of their periods crossed.
+ *
+ * A sum of non-integers is not this guard's business. `0.1 + 0.2` is not `0.3` for reasons that have
+ * nothing to do with a boundary, and a host measuring a rate has chosen float arithmetic knowingly.
+ */
+function added(name: string, total: number, value: number, where: string): number {
+  const sum = total + value;
+  if (Number.isInteger(sum) && !Number.isSafeInteger(sum)) {
+    throw new Error(
+      `the measure "${name}" summed to ${sum} over ${where}, past the largest whole number a number ` +
+        `holds (${Number.MAX_SAFE_INTEGER}). The figure would be wrong by an amount nothing downstream ` +
+        "can detect. Narrow the range, or measure in a unit a number can sum.",
+    );
+  }
+  return sum;
+}
+
 /** A key that is a period, or nothing at all, with the surrounding space a hand-written key may carry. */
 function periodOf(value: string | null | undefined): string | null {
   const period = typeof value === "string" ? value.trim() : "";
@@ -176,7 +204,9 @@ export function adminAggregate<TRow, TMeasures extends Record<string, number>>(
         order.push(period);
       }
     }
-    for (const name of names) values[name] += measured(String(name), measures[name](row));
+    for (const name of names) {
+      values[name] = added(String(name), values[name], measured(String(name), measures[name](row)), `"${period}"`);
+    }
     counts.set(period, (counts.get(period) ?? 0) + 1);
   }
 
@@ -187,7 +217,9 @@ export function adminAggregate<TRow, TMeasures extends Record<string, number>>(
   const buckets: Array<AdminAggregateBucket<TMeasures>> = order.map((period) => {
     const values = sums.get(period) ?? zeros(names);
     const records = counts.get(period) ?? 0;
-    for (const name of names) totals[name] += values[name];
+    // The buckets are individually guarded above, so this is the second crossing and a different one:
+    // five safe buckets can add to an unsafe total, and the total is the figure read aloud.
+    for (const name of names) totals[name] = added(String(name), totals[name], values[name], "the whole range");
     totalRecords += records;
     return { key: period, label: label?.(period, firstRow.get(period)) ?? period, values: values as TMeasures, records };
   });
@@ -214,7 +246,10 @@ export function adminAggregateTotals<TRow, TMeasures extends Record<string, numb
   const names = Object.keys(measures) as Array<keyof TMeasures>;
   const totals = zeros(names);
   for (const row of rows) {
-    for (const name of names) totals[name] += measured(String(name), measures[name](row));
+    for (const name of names) {
+      const measure = String(name);
+      totals[name] = added(measure, totals[name], measured(measure, measures[name](row)), "every row");
+    }
   }
   return totals as TMeasures;
 }

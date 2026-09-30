@@ -280,6 +280,164 @@ describe("what a measure is allowed to answer", () => {
     expect(result.buckets[0]?.values.cents).toBe(12_000_000_000_000);
   });
 
+  it("refuses a sum that crosses the boundary, naming the measure and the period", () => {
+    // 2000 rows of 9e12. Each one is well inside the range a number holds exactly, so the per-value
+    // guard sees nothing wrong with any of them, and the total is past what a double can carry.
+    const rows = Array.from({ length: 2000 }, (_, index) => ({ id: `o${index}`, total_cents: 9_000_000_000_000 }));
+    const truth = rows.reduce((total, row) => total + BigInt(row.total_cents), 0n);
+
+    // The sum really is out of range, asserted against the exact total rather than a written figure,
+    // so the test is about the boundary and not about this fixture's arithmetic.
+    expect(truth).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
+    expect(Number.isSafeInteger(Number(truth))).toBe(false);
+
+    expect(() =>
+      adminAggregate({
+        rows,
+        range: ["d1"],
+        key: () => "d1",
+        measures: { cents: (row) => row.total_cents },
+      }),
+    ).toThrow(/the measure "cents" summed to \d+ over "d1", past the largest whole number/);
+  });
+
+  it("refuses the same crossing in the totals-only API, which has no buckets to check", () => {
+    // This one has no periods and no `range`, so the only place a crossing can be caught is the
+    // running total, and an implementation that guarded the buckets alone would pass every other test
+    // in this file and miss this defect entirely.
+    const rows = Array.from({ length: 2000 }, () => ({ total_cents: 9_000_000_000_000 }));
+
+    expect(() =>
+      adminAggregateTotals({ rows, measures: { cents: (row) => row.total_cents } }),
+    ).toThrow(/the measure "cents" summed to \d+ over every row, past the largest whole number/);
+  });
+
+  it("refuses a crossing in one bucket while the others stay inside it", () => {
+    // The finding says a total can cross after its buckets are added up, so five buckets that are each
+    // exactly representable and a total that is not. 2 ** 52 is inside the range; five of them are not.
+    const rows = Array.from({ length: 5 }, (_, index) => ({ id: `d${index}`, total_cents: 2 ** 52 }));
+    const truth = rows.reduce((total, row) => total + BigInt(row.total_cents), 0n);
+    expect(truth).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
+    for (const row of rows) expect(Number.isSafeInteger(row.total_cents)).toBe(true);
+
+    expect(() =>
+      adminAggregate({
+        rows,
+        range: ["d0", "d1", "d2", "d3", "d4"],
+        key: (row) => row.id,
+        measures: { cents: (row) => row.total_cents },
+      }),
+    ).toThrow(/the measure "cents" summed to \d+ over the whole range/);
+  });
+
+  it("refuses a measure that goes past the boundary and comes back under it", () => {
+    // The case that decides the guard is per addition rather than per answer. The finished total is 0,
+    // which is inside the range and looks fine, and it is wrong by one: the run went to 2 ** 53 + 1,
+    // where a double cannot hold the 1, and dropped it on the way down. Checking the answer alone
+    // returns 0 and reports nothing.
+    const rows = [
+      { id: "a", total_cents: 2 ** 53 },
+      { id: "b", total_cents: 1 },
+      { id: "c", total_cents: -(2 ** 53) },
+    ];
+    const truth = rows.reduce((total, row) => total + BigInt(row.total_cents), 0n);
+    expect(truth).toBe(1n);
+    // The unchecked arithmetic, which is what the guard has to catch.
+    expect(rows.reduce((total, row) => total + row.total_cents, 0)).toBe(0);
+
+    expect(() =>
+      adminAggregate({
+        rows,
+        range: ["d1"],
+        key: () => "d1",
+        measures: { cents: (row) => row.total_cents },
+      }),
+    ).toThrow(/the measure "cents" summed to 9007199254740992/);
+  });
+
+  it("refuses a negative measure crossing the boundary, which one direction would miss", () => {
+    // Downward, so a comparison written as `sum > MAX` alone lets this through and the total comes
+    // back wrong with nothing to show for it. The sum of the negatives is below MIN_SAFE_INTEGER.
+    const rows = Array.from({ length: 2000 }, (_, index) => ({ id: `n${index}`, total_cents: -9_000_000_000_000 }));
+    const truth = rows.reduce((total, row) => total + BigInt(row.total_cents), 0n);
+    expect(truth).toBeLessThan(BigInt(Number.MIN_SAFE_INTEGER));
+
+    expect(() =>
+      adminAggregate({
+        rows,
+        range: ["d1"],
+        key: () => "d1",
+        measures: { cents: (row) => row.total_cents },
+      }),
+    ).toThrow(/past the largest whole number/);
+    expect(() => adminAggregateTotals({ rows, measures: { cents: (row) => row.total_cents } })).toThrow(
+      /past the largest whole number/,
+    );
+  });
+
+  it("leaves a sum inside the boundary exactly as it was", () => {
+    // Not a behaviour change for anyone whose totals fit, which is every caller that has not hit this
+    // defect. Asserted against the same rows summed in bigint, so the float result is checked against
+    // the exact one rather than against a second float.
+    const rows = [
+      { id: "a", period: "d1", total_cents: 4_900_000_000_000 },
+      { id: "b", period: "d1", total_cents: 3_200_000_000_000 },
+      { id: "c", period: "d2", total_cents: 12_500_000_000_000 },
+    ];
+    const result = adminAggregate({
+      rows,
+      range: ["d1", "d2"],
+      key: (row) => row.period,
+      measures: { cents: (row) => row.total_cents },
+    });
+
+    const exact = (period: string) =>
+      rows.filter((row) => row.period === period).reduce((total, row) => total + BigInt(row.total_cents), 0n);
+    expect(result.buckets[0]?.values.cents).toBe(Number(exact("d1")));
+    expect(result.buckets[1]?.values.cents).toBe(Number(exact("d2")));
+    expect(result.totals.cents).toBe(Number(exact("d1") + exact("d2")));
+    // 8.1e12 + 12.5e12 on paper, so the expected values are not just the code agreeing with itself.
+    expect(result.totals.cents).toBe(8_100_000_000_000 + 12_500_000_000_000);
+    expect(Number.isSafeInteger(result.totals.cents)).toBe(true);
+  });
+
+  it("returns a number, and a value just inside the boundary, exactly", () => {
+    // The boundary case a host is most likely to reach, and the type their existing code expects: a
+    // plain number, exactly the integer that went in, with no bigint for them to handle.
+    const result = adminAggregate({
+      rows: [{ id: "a", total_cents: Number.MAX_SAFE_INTEGER }],
+      range: ["d1"],
+      key: () => "d1",
+      measures: { cents: (row) => row.total_cents },
+    });
+
+    expect(typeof result.totals.cents).toBe("number");
+    expect(result.totals.cents).toBe(Number.MAX_SAFE_INTEGER);
+    expect(typeof result.buckets[0]?.values.cents).toBe("number");
+    // One less, which is the largest value a sum of two safe integers cannot represent, so it is the
+    // last figure that is unambiguous.
+    const justInside = adminAggregateTotals({
+      rows: [{ cents: Number.MAX_SAFE_INTEGER - 1 }],
+      measures: { cents: (row) => row.cents },
+    });
+    expect(justInside.cents).toBe(Number.MAX_SAFE_INTEGER - 1);
+  });
+
+  it("leaves a measure of fractions alone, where exactness is not this layer's business", () => {
+    // A host measuring a rate chose float arithmetic knowingly, and `0.1 + 0.2` is not `0.3` for
+    // reasons that have nothing to do with a boundary. Refusing it would be refusing a legal measure
+    // and turning a known property of the numbers into an error a tile shows.
+    const result = adminAggregate({
+      rows: [{ id: "a", rate: 0.1 }, { id: "b", rate: 0.2 }],
+      range: ["d1"],
+      key: () => "d1",
+      measures: { rate: (row) => row.rate },
+    });
+
+    expect(result.totals.rate).toBe(0.1 + 0.2);
+    expect(result.totals.rate).toBe(0.30000000000000004);
+  });
+
   it("refuses a measure that answered something which cannot be added up", () => {
     // NaN on a chart is not a bar reading NaN, it is a bar shorter than the number it was given.
     expect(() =>
