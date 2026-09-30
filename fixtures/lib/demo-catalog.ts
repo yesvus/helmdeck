@@ -1468,6 +1468,100 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     hostNote:
       "An error the resource actions throw before the store is reached. There is nothing to draw here: catch it, or turn it into a not-found response.",
   },
+  AdminLifecycleError: {
+    category: "Resources",
+    summary:
+      "The base of every refusal the content lifecycle makes, so a host can tell them apart with one check.",
+    keywords: "lifecycle error base refuse resource",
+    hostNote:
+      "An error the lifecycle throws rather than a component. There is nothing to draw here: catch it, or turn it into the response a person should read.",
+  },
+  AdminLifecycleNotDeclaredError: {
+    category: "Resources",
+    summary:
+      "Thrown when a resource was declared to the lifecycle with no trash table or no revision store, which is a wiring fault rather than a decision.",
+    keywords: "lifecycle not declared error wiring trash revisions refuse",
+    hostNote:
+      "An error the lifecycle throws at the point of use. There is nothing to draw here: fix the declaration, since nothing about this session decides it.",
+  },
+  AdminLifecycleStateError: {
+    category: "Resources",
+    summary:
+      "Thrown when an operation names a record that is not in the state it needs, naming which state it was in rather than succeeding quietly.",
+    keywords: "lifecycle state error live trashed missing refuse",
+    hostNote:
+      "An error the lifecycle throws instead of a silent success. There is nothing to draw here: catch it, or show the trash instead of the live row.",
+  },
+  AdminLifecycleChildError: {
+    category: "Resources",
+    summary:
+      "Thrown when rows point at the record a trash would take away, naming them, so a host decides what happens to them.",
+    keywords: "lifecycle child reference refuse cascade trash rows point",
+    hostNote:
+      "An error the lifecycle throws, carrying the rows that point at the record. There is nothing to draw here: catch it, or declare what those rows' fate is.",
+  },
+  AdminLifecycleScopeError: {
+    category: "Resources",
+    summary:
+      "Thrown when a trash scope is asked for another resource's name or for a write, since a trashed row is not a live one.",
+    keywords: "lifecycle scope error trash write refuse resource",
+    hostNote:
+      "An error the trash adapter throws. There is nothing to draw here: it names a wiring mistake at the call site rather than a decision.",
+  },
+  AdminRevisionUnknownError: {
+    category: "Resources",
+    summary:
+      "Thrown when the named revision is not one of this record's revisions, because a revision is read through the record it describes.",
+    keywords: "revision unknown error restore refuse history",
+    hostNote:
+      "An error the lifecycle throws before a restore writes anything. There is nothing to draw here: catch it, or send the person back to the history that does hold it.",
+  },
+  AdminRevisionDriftError: {
+    category: "Resources",
+    summary:
+      "Thrown when a revision holds a field the record no longer has, because a dropped column cannot be brought back and writing it would lose a value quietly.",
+    keywords: "revision drift error dropped column refuse restore schema",
+    hostNote:
+      "An error the lifecycle throws, naming the fields. There is nothing to draw here: catch it, or pass the fields you accept losing in dropFields.",
+  },
+  AdminRevisionMalformedError: {
+    category: "Resources",
+    summary:
+      "Thrown when a revision row cannot be ordered or attributed, which means the store's shape does not match the declaration naming its columns.",
+    keywords: "revision malformed error position cause columns refuse",
+    hostNote:
+      "An error the lifecycle throws while reading a history, naming the column. There is nothing to draw here: fix the declaration, since no operation can make the history readable.",
+  },
+  createAdminLifecycle: {
+    category: "Resources",
+    summary:
+      "Builds revision history, a soft delete with a trash, and a restore from both, over the host's own rows and the persistence adapter the admin already reads through.",
+    keywords: "lifecycle revisions history restore trash soft delete trash recover version undo",
+  },
+  adminRevision: {
+    category: "Resources",
+    summary:
+      "One stored revision row read as a revision, with every part checked rather than assumed, so ordering and attribution can be relied on downstream.",
+    keywords: "revision row read order position cause history",
+  },
+  adminRevisionId: {
+    category: "Resources",
+    summary:
+      "The revision id for a record at a position, derived from both, so two callers racing for one position ask the store for the same id.",
+    keywords: "revision id deterministic position race unique",
+  },
+  revisionIdOf: {
+    category: "Resources",
+    summary:
+      "The revision's id at a position, from the store's own rule when it declares one and derived from the position when it does not.",
+    keywords: "revision id store position derive",
+  },
+  byNewestRevision: {
+    category: "Resources",
+    summary:
+      "Orders revisions newest first by position rather than by time, because two changes in one tick are two changes and only a position says which was first.",
+    keywords: "revision order sort position newest first history",
+  },
   AdminResourceReferenceError: {
     category: "Resources",
     summary:
