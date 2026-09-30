@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
-import { join as joinPath } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { nextTag, recordExportedSurface, rewriteChangelogHeading, rewriteInstallUrls } from "./release-version.mjs";
+import { versionSource } from "./version-source.mjs";
+import {
+  nextTag,
+  recordExportedSurface,
+  rewriteChangelogHeading,
+  rewriteInstallUrls,
+  writeTag,
+} from "./release-version.mjs";
 
 /** Records the call instead of shelling out, so the release path is asserted rather than exercised. */
 function fakeSpawn(status = 0) {
@@ -18,7 +27,7 @@ test("records the exported surface as part of moving the version", () => {
   recordExportedSurface("v0.5.0", { root: "/repo", spawn });
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].args[0], joinPath("/repo", "scripts", "exported-surface.cli.mjs"));
+  assert.equal(calls[0].args[0], join("/repo", "scripts", "exported-surface.cli.mjs"));
   assert.equal(calls[0].args[1], "record");
 });
 
@@ -155,10 +164,23 @@ test("the committed README install command matches the released version", async 
 
 test("stamps the pending changelog section with the version being cut", () => {
   const changelog = ["# Changelog", "", "## Unreleased", "", "- Something new", "", "## 0.3.2", "", "- Older"].join("\n");
+  const stamped = rewriteChangelogHeading(changelog, "0.4.0");
 
   // The section is authored as Unreleased and renamed by the release, so the changelog can never
   // announce a release the rest of the repository does not agree has happened.
-  assert.equal(rewriteChangelogHeading(changelog, "0.4.0"), changelog.replace("## Unreleased", "## 0.4.0"));
+  assert.match(stamped, /^## 0\.4\.0$/m);
+  assert.match(stamped, /^- Something new$/m);
+  assert.match(stamped, /^## 0\.3\.2$/m);
+});
+
+test("leaves a pending section behind, so the next release is not blocked", () => {
+  const changelog = ["## Unreleased", "", "- New", "", "## 0.3.2", "", "- Old"].join("\n");
+  const stamped = rewriteChangelogHeading(changelog, "0.4.0");
+
+  // Without this, the run after a successful release is the one that fails, and it fails on the
+  // absence of a heading the release itself consumed.
+  assert.match(stamped, /^## Unreleased$/m);
+  assert.ok(stamped.indexOf("## Unreleased") < stamped.indexOf("## 0.4.0"), "the pending section comes first");
 });
 
 test("stamps only the pending section and leaves released ones alone", () => {
@@ -167,11 +189,93 @@ test("stamps only the pending section and leaves released ones alone", () => {
 
   assert.match(stamped, /^## 0\.4\.0$/m);
   assert.match(stamped, /^## 0\.3\.2$/m);
-  assert.doesNotMatch(stamped, /Unreleased/);
+  // Exactly one pending heading, so repeated stamping cannot stack empty sections.
+  assert.equal(stamped.match(/^## Unreleased$/gm)?.length, 1);
 });
 
 test("refuses to cut a release with no pending changelog section", () => {
   // Failing loudly beats stamping nothing: a silent skip would leave the changelog describing a
   // release that never got notes, which is the state this exists to prevent.
   assert.throws(() => rewriteChangelogHeading("## 0.3.2\n", "0.4.0"), /Unreleased/);
+});
+
+/** A repository the version bump can be run against without touching the real checkout. */
+function scratchRepo(changelog = ["# Changelog", "", "## Unreleased", "", "- New"].join("\n")) {
+  const dir = mkdtempSync(join(tmpdir(), "release-"));
+  mkdirSync(join(dir, "src"), { recursive: true });
+  writeFileSync(join(dir, "VERSION"), "v0.4.0\n");
+  writeFileSync(join(dir, "package.json"), `${JSON.stringify({ name: "x", version: "0.4.0" }, null, 2)}\n`);
+  writeFileSync(join(dir, "README.md"), "pnpm add https://github.com/o/r/releases/download/v0.4.0/r-0.4.0.tgz\n");
+  writeFileSync(join(dir, "CHANGELOG.md"), `${changelog}\n`);
+  writeFileSync(join(dir, "src", "version.ts"), versionSource("v0.4.0"));
+  return dir;
+}
+
+test("the whole version bump lands together", () => {
+  const dir = scratchRepo();
+  try {
+    writeTag("v0.5.0", { root: dir, record: () => {} });
+
+    assert.equal(readFileSync(join(dir, "VERSION"), "utf8"), "v0.5.0\n");
+    assert.equal(JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).version, "0.5.0");
+    assert.equal(readFileSync(join(dir, "src", "version.ts"), "utf8"), versionSource("v0.5.0"));
+    assert.match(readFileSync(join(dir, "README.md"), "utf8"), /v0\.5\.0\/r-0\.5\.0\.tgz/);
+    assert.match(readFileSync(join(dir, "CHANGELOG.md"), "utf8"), /^## 0\.5\.0$/m);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a refusal partway through leaves nothing moved", () => {
+  // This is the failure that fired in production: the changelog had no pending section, so the bump
+  // stopped after VERSION and package.json were written, and `check` then failed on a repository
+  // whose VERSION and generated constant disagreed. Every rewrite is computed before the first write,
+  // so the refusal lands with the version exactly where it was.
+  const dir = scratchRepo(["# Changelog", "", "## 0.3.2", "", "- Old"].join("\n"));
+  try {
+    const before = {
+      version: readFileSync(join(dir, "VERSION"), "utf8"),
+      generated: readFileSync(join(dir, "src", "version.ts"), "utf8"),
+      readme: readFileSync(join(dir, "README.md"), "utf8"),
+      changelog: readFileSync(join(dir, "CHANGELOG.md"), "utf8"),
+    };
+
+    assert.throws(() => writeTag("v0.5.0", { root: dir, record: () => {} }), /Unreleased/);
+
+    assert.equal(readFileSync(join(dir, "VERSION"), "utf8"), before.version);
+    assert.equal(readFileSync(join(dir, "src", "version.ts"), "utf8"), before.generated);
+    assert.equal(readFileSync(join(dir, "README.md"), "utf8"), before.readme);
+    assert.equal(readFileSync(join(dir, "CHANGELOG.md"), "utf8"), before.changelog);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the baseline is recorded only once every refusal has been taken", () => {
+  // Recording first meant a later refusal left a ledger rewritten by a release that never happened.
+  // It is now inside the same call as the writes, after the rewrites are known to succeed.
+  const dir = scratchRepo(["# Changelog", "", "## 0.3.2", "", "- Old"].join("\n"));
+  const recorded = [];
+  try {
+    assert.throws(
+      () => writeTag("v0.5.0", { root: dir, record: (tag) => recorded.push(tag) }),
+      /Unreleased/,
+    );
+
+    assert.deepEqual(recorded, [], "a refused release recorded a baseline anyway");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a valid bump does record the baseline, for the version being cut", () => {
+  const dir = scratchRepo();
+  const recorded = [];
+  try {
+    writeTag("v0.5.0", { root: dir, record: (tag, options) => recorded.push([tag, options.root]) });
+
+    assert.deepEqual(recorded, [["v0.5.0", dir]]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

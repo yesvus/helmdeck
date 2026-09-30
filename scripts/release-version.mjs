@@ -3,7 +3,7 @@
 
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { VERSION_TAG_PATTERN as tagPattern, GENERATED_PATH, versionSource } from "./version-source.mjs";
@@ -41,9 +41,9 @@ function parseTag(tag) {
   };
 }
 
-function readState() {
-  const tag = readFileSync(versionPath, "utf8").trim();
-  const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
+function readState(base = root) {
+  const tag = readFileSync(resolve(base, "VERSION"), "utf8").trim();
+  const packageJson = JSON.parse(readFileSync(resolve(base, "package.json"), "utf8"));
 
   if (!tagPattern.test(tag)) {
     fail(`VERSION must be a valid v-prefixed semver tag: ${tag}`);
@@ -226,24 +226,51 @@ export function rewriteChangelogHeading(content, version) {
   if (!UNRELEASED_HEADING.test(content)) {
     fail("CHANGELOG.md has no '## Unreleased' section to stamp");
   }
-  return content.replace(UNRELEASED_HEADING, `## ${version}`);
+  // A fresh pending section is left behind, because otherwise the release that just succeeded is the
+  // reason the next one cannot start. An empty heading costs nothing and removes a step that only
+  // fails once per cycle, on the run after a good one.
+  return content.replace(UNRELEASED_HEADING, `## Unreleased\n\n## ${version}`);
 }
 
-function writeTag(tag) {
+/**
+ * Moves every file that states the version, or none of them.
+ *
+ * `root` and `record` are injectable so the ordering can be asserted in a temporary directory. The
+ * ordering is the whole point: writing in sequence and refusing partway through left a repository
+ * saying v0.5.1 in VERSION while the constant the package exports still read 0.4.0, which is the
+ * drift `check` exists to catch, produced by the command meant to prevent it.
+ */
+export function writeTag(tag, options = {}) {
+  const base = options.root ?? root;
+  const record = options.record ?? recordExportedSurface;
   if (!tagPattern.test(tag)) {
     fail(`Invalid release tag: ${tag}`);
   }
 
-  const { packageJson } = readState();
+  const paths = {
+    packagePath: resolve(base, "package.json"),
+    versionPath: resolve(base, "VERSION"),
+    readmePath: resolve(base, "README.md"),
+    changelogPath: resolve(base, "CHANGELOG.md"),
+    generatedPath: resolve(base, relative(root, GENERATED_PATH)),
+  };
+  const { packageJson } = readState(base);
   const version = tag.slice(1);
-  packageJson.version = version;
-  writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
-  writeFileSync(versionPath, `${tag}\n`);
-  writeFileSync(readmePath, rewriteInstallUrls(readFileSync(readmePath, "utf8"), version));
-  writeFileSync(changelogPath, rewriteChangelogHeading(readFileSync(changelogPath, "utf8"), version));
-  // Last, and in the same call, so a release cannot move VERSION without moving the constant the
-  // package exports. A half-completed bump is the drift this gate exists to catch.
-  writeFileSync(GENERATED_PATH, versionSource(tag));
+
+  // Every rewrite is computed, and every refusal taken, before the first write.
+  const packageNext = `${JSON.stringify({ ...packageJson, version }, null, 2)}\n`;
+  const versionNext = `${tag}\n`;
+  const readmeNext = rewriteInstallUrls(readFileSync(paths.readmePath, "utf8"), version);
+  const changelogNext = rewriteChangelogHeading(readFileSync(paths.changelogPath, "utf8"), version);
+  const generatedNext = versionSource(tag);
+
+  record(tag, { root: base });
+
+  writeFileSync(paths.packagePath, packageNext);
+  writeFileSync(paths.versionPath, versionNext);
+  writeFileSync(paths.readmePath, readmeNext);
+  writeFileSync(paths.changelogPath, changelogNext);
+  writeFileSync(paths.generatedPath, generatedNext);
 }
 
 export function main(args = process.argv.slice(2)) {
@@ -268,9 +295,6 @@ export function main(args = process.argv.slice(2)) {
     if (!value) {
       fail("Usage: release-version.mjs write <version>");
     }
-    // Recorded before the tag moves: a failure here then leaves the version unmoved rather than
-    // shipping a release whose baseline was never captured.
-    recordExportedSurface(value);
     writeTag(value);
     return;
   }
@@ -279,7 +303,6 @@ export function main(args = process.argv.slice(2)) {
     if (!value) {
       fail("Usage: release-version.mjs bump <alpha|beta|stable|patch|minor|major>");
     }
-    recordExportedSurface(nextTag(readState().tag, value));
     writeTag(nextTag(readState().tag, value));
     return;
   }
