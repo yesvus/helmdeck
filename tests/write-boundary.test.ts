@@ -223,9 +223,11 @@ describe("the order the refusals are decided in", () => {
         { key: "tracking", header: "Tracking" },
         { key: "order_id", header: "Order", reference: { resource: "orders" } },
       ],
+      // The reference is declared on both, and that is not redundancy: the column says what the stored
+      // shape is, and the field is what a reference is looked up from.
       fields: [
         { name: "tracking", label: "Tracking", type: "text" },
-        { name: "order_id", label: "Order", type: "text" },
+        { name: "order_id", label: "Order", type: "text", reference: { resource: "orders" } },
       ],
     });
     const base = createMemoryPersistenceAdapter();
@@ -260,9 +262,11 @@ describe("the order the refusals are decided in", () => {
         { key: "tracking", header: "Tracking" },
         { key: "order_id", header: "Order", reference: { resource: "orders" } },
       ],
+      // The reference is declared on both, and that is not redundancy: the column says what the stored
+      // shape is, and the field is what a reference is looked up from.
       fields: [
         { name: "tracking", label: "Tracking", type: "text" },
-        { name: "order_id", label: "Order", type: "text" },
+        { name: "order_id", label: "Order", type: "text", reference: { resource: "orders" } },
       ],
     });
     const base = createMemoryPersistenceAdapter();
