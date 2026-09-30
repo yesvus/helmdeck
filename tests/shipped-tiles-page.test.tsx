@@ -1,0 +1,237 @@
+// SPDX-License-Identifier: MIT
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { adminDashboardValidate, type AdminDashboard } from "@yesvus/helmdeck";
+import ShippedTilesPage from "../fixtures/app/dashboard/tiles/page";
+import { buildShippedTileDashboard } from "../fixtures/app/dashboard/tiles/arrangement";
+import { shippedTileRegistry } from "../fixtures/app/dashboard/tiles/registry";
+
+/**
+ * The route, with the store's answers stood in for.
+ *
+ * The registry, the arrangement and the layout are the real ones, so what is under test is the page a
+ * host would write against the six shipped tiles: that it registers and places them through the
+ * engine, that each tile's data reaches the screen, and that loading, empty, failed and ready are
+ * states the grid renders rather than states this file claims. The slow loader is a promise the test
+ * settles by hand, so the loading state is measured rather than raced, and the failing loader is
+ * refused with a message so the error state is the engine's own.
+ */
+
+const backend = vi.hoisted(() => ({
+  revenue: vi.fn(),
+  revenueChart: vi.fn(),
+  ordersTable: vi.fn(),
+  lowStockList: vi.fn(),
+  stockValueRank: vi.fn(),
+  contentActivity: vi.fn(),
+}));
+
+vi.mock("../fixtures/lib/demo-widgets-data", () => ({
+  loadWindowedRevenueAction: backend.revenue,
+  loadDailyRevenueAction: backend.revenueChart,
+  loadRecentOrdersAction: backend.ordersTable,
+  loadLowStockAction: backend.lowStockList,
+  loadStockValueRankAction: backend.stockValueRank,
+  loadContentActivityAction: backend.contentActivity,
+}));
+
+/** The panel for one widget, which is the element that carries the state. */
+function tile(widget: string): HTMLElement {
+  const panel = document.querySelector(`[data-widget='${widget}'][data-widget-state]`);
+  if (!(panel instanceof HTMLElement)) throw new Error(`no tile for ${widget}`);
+  return panel;
+}
+
+function stateOf(widget: string): string | null {
+  return tile(widget).getAttribute("data-widget-state");
+}
+
+/** Every tile the page rendered, read from the DOM rather than from a list written here. */
+function renderedTiles(): string[] {
+  return [...document.querySelectorAll("[data-widget][data-widget-state]")].map(
+    (panel) => panel.getAttribute("data-widget") ?? "",
+  );
+}
+
+/**
+ * The answer the stat tile is waiting for, and the hand that gives it.
+ *
+ * Rebuilt per test, because a tile allowed to answer in an earlier test would otherwise leave the next
+ * one measuring a dashboard that is not slow. The promise itself lives in a hoisted box rather than in
+ * a `beforeEach` local, because the mock has to hand back this promise and a closure over a
+ * `beforeEach` variable would be a different one by the time the tile asked for it.
+ */
+const slow = vi.hoisted(() => ({
+  answer: null as null | Promise<{ cents: number; previousCents: number; orders: number }>,
+  release: null as null | ((value: { cents: number; previousCents: number; orders: number }) => void),
+}));
+
+beforeEach(() => {
+  slow.answer = new Promise<{ cents: number; previousCents: number; orders: number }>((resolve) => {
+    slow.release = resolve;
+  });
+  backend.revenue.mockResolvedValue({ cents: 25500, previousCents: 17000, orders: 4 });
+  backend.revenueChart.mockResolvedValue({
+    cents: 25500,
+    days: [
+      { key: "2026-09-27", label: "Sep 27", value: 0 },
+      { key: "2026-09-28", label: "Sep 28", value: 7400 },
+      { key: "2026-09-29", label: "Sep 29", value: 18100 },
+    ],
+  });
+  backend.ordersTable.mockResolvedValue([
+    { id: "ord_2", customer: "Ece Toprak", status: "pending", totalCents: 74900 },
+    { id: "ord_1", customer: "Deniz Aydın", status: "paid", totalCents: 4900 },
+  ]);
+  backend.lowStockList.mockResolvedValue([
+    { id: "prd_3", name: "Walnut monitor riser", sku: "RISR-001", priceCents: 5900, stock: 0 },
+    { id: "prd_2", name: "Ash standing desk", sku: "DESK-001", priceCents: 74900, stock: 6 },
+  ]);
+  backend.stockValueRank.mockResolvedValue([
+    { key: "prd_2", label: "Ash standing desk", units: 6, cents: 449400 },
+    { key: "prd_5", label: "Linen cable tray", units: 58, cents: 185600 },
+  ]);
+  backend.contentActivity.mockResolvedValue([
+    {
+      id: "rev_pst_1_2",
+      message: "publish “Shipping to the EU from the new warehouse”",
+      actor: "owner@demo.helmdeck.dev",
+      at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+      kind: "publish",
+    },
+  ]);
+});
+
+describe("the shipped tiles route", () => {
+  it("places a placement for every widget the registry resolved, and the registry refuses none of them", () => {
+    const dashboard = buildShippedTileDashboard();
+    const registered = shippedTileRegistry.list().map((definition) => definition.id);
+
+    // Read off the registry rather than from a list written here, so dropping a widget from the
+    // registry fails this rather than passing against a hardcoded expectation of six.
+    expect(dashboard.placements.map((placement) => placement.widget).sort()).toEqual(
+      [...registered].sort(),
+    );
+    expect(dashboard.placements).toHaveLength(registered.length);
+    expect(adminDashboardValidate(shippedTileRegistry, dashboard.placements).size).toBe(0);
+  });
+
+  it("places each tile at a size its own definition declares, rather than one this file chose", () => {
+    const dashboard = buildShippedTileDashboard();
+
+    for (const placement of dashboard.placements) {
+      const definition = shippedTileRegistry.resolve(placement.widget);
+      expect(definition, `${placement.widget} is placed but not registered`).toBeDefined();
+      expect(
+        definition?.sizes.includes(placement.size),
+        `${placement.widget} placed at ${placement.size}, which it does not declare`,
+      ).toBe(true);
+    }
+  });
+
+  it("renders six tiles, and every one of them is a placement the arrangement made", async () => {
+    render(<ShippedTilesPage />);
+
+    await waitFor(() => expect(stateOf("revenueStat")).toBe("ready"));
+    const dashboard: AdminDashboard = buildShippedTileDashboard();
+    expect(renderedTiles().sort()).toEqual(
+      dashboard.placements.map((placement) => placement.widget).sort(),
+    );
+  });
+
+  it("shows the store's own figures, formatted from the integer cents the sum produced", async () => {
+    render(<ShippedTilesPage />);
+
+    // 25500 cents and 74900 cents: the values the actions answered with, divided by 100 only by the
+    // widget's own money formatter. A tile that formatted them itself could be off by a cent and this
+    // would not see it, which is why the expected strings are exact.
+    await waitFor(() => expect(within(tile("revenueStat")).getByText("$255.00")).toBeInTheDocument());
+    expect(within(tile("revenueStat")).getByText(/4 paid and shipped orders/)).toBeInTheDocument();
+    expect(within(tile("ordersTable")).getByText("Ece Toprak")).toBeInTheDocument();
+    expect(within(tile("ordersTable")).getByText("$749.00")).toBeInTheDocument();
+    expect(within(tile("lowStockList")).getByText("Walnut monitor riser")).toBeInTheDocument();
+    // 449400 cents, which is 74900 times the 6 units the action reported. The rank chart prints its
+    // figures twice, once in the bar and once in the table a screen reader reads, so this asks for the
+    // count of them rather than for a single match.
+    expect(within(tile("stockValueRank")).getAllByText("$4,494.00").length).toBeGreaterThan(0);
+    expect(within(tile("contentActivity")).getByText(/publish/)).toBeInTheDocument();
+  });
+
+  it("shows a tile still waiting while its loader is held open, and the rest ready beside it", async () => {
+    backend.revenue.mockImplementation(() => slow.answer);
+
+    render(<ShippedTilesPage />);
+
+    await waitFor(() => expect(stateOf("revenueStat")).toBe("loading"));
+    expect(within(tile("revenueStat")).queryByText("$255.00")).not.toBeInTheDocument();
+    // The other five answered, which is the property the per-tile hook exists for.
+    expect(stateOf("ordersTable")).toBe("ready");
+    expect(stateOf("lowStockList")).toBe("ready");
+  });
+
+  it("shows a released slow tile's own answer, and only once it lands", async () => {
+    backend.revenue.mockImplementation(() => slow.answer);
+
+    render(<ShippedTilesPage />);
+    await waitFor(() => expect(stateOf("revenueStat")).toBe("loading"));
+
+    slow.release?.({ cents: 9900, previousCents: 25500, orders: 2 });
+
+    await waitFor(() => expect(within(tile("revenueStat")).getByText("$99.00")).toBeInTheDocument());
+    expect(stateOf("revenueStat")).toBe("ready");
+  });
+
+  it("shows what a refused read failed with, and retries it on the tile's own control", async () => {
+    const user = userEvent.setup();
+    backend.ordersTable.mockRejectedValue(new Error("This session may not read orders"));
+
+    render(<ShippedTilesPage />);
+
+    await waitFor(() => expect(stateOf("ordersTable")).toBe("error"));
+    expect(within(tile("ordersTable")).getByText(/may not read orders/)).toBeInTheDocument();
+    expect(backend.ordersTable).toHaveBeenCalledTimes(1);
+
+    await user.click(within(tile("ordersTable")).getByRole("button", { name: "Try again" }));
+
+    await waitFor(() => expect(backend.ordersTable).toHaveBeenCalledTimes(2));
+    // The other tiles are untouched by the retry: it is one tile's control.
+    expect(stateOf("revenueStat")).toBe("ready");
+  });
+
+  it("shows the empty state for a tile the store has nothing for", async () => {
+    backend.lowStockList.mockResolvedValue([]);
+
+    render(<ShippedTilesPage />);
+
+    await waitFor(() => expect(stateOf("lowStockList")).toBe("empty"));
+    // The tile's own words rather than the engine's, which is what a host supplies a tile for.
+    expect(within(tile("lowStockList")).getByText("Nothing low on stock")).toBeInTheDocument();
+    expect(stateOf("revenueStat")).toBe("ready");
+  });
+
+  it("re-reads every tile when the store selector moves, so the figures are an answer and not a picture", async () => {
+    const user = userEvent.setup();
+    render(<ShippedTilesPage />);
+    await waitFor(() => expect(stateOf("revenueStat")).toBe("ready"));
+
+    await user.selectOptions(screen.getByLabelText("Store"), "lamp");
+
+    // The term reaches the action, which is the only place a filter could have been applied.
+    await waitFor(() => expect(backend.lowStockList).toHaveBeenLastCalledWith(6, "lamp"));
+    expect(backend.revenue).toHaveBeenLastCalledWith(30, "lamp");
+    expect(backend.ordersTable).toHaveBeenLastCalledWith(6, "lamp");
+    expect(backend.contentActivity).toHaveBeenLastCalledWith(8, "lamp");
+  });
+
+  it("keeps a failed tile out of the count of tiles showing data", async () => {
+    backend.revenueChart.mockRejectedValue(new Error("The chart's query was refused"));
+
+    render(<ShippedTilesPage />);
+
+    await waitFor(() => expect(stateOf("revenueChart")).toBe("error"));
+    // A failed tile and an empty one both render as no data, so counting them as ready would report a
+    // dashboard with more in it than there is.
+    expect(document.querySelectorAll("[data-widget-state='ready']")).toHaveLength(5);
+  });
+});

@@ -102,13 +102,16 @@ export const recentOrdersTableWidget = adminTableWidget<TileOrder>({
   description: "The orders worth the most money, largest first.",
   rows: (data) => data,
   getKey: (order) => order.id,
-  // Every numeric column is money, so the tile is declared once rather than per column. The customer
-  // column carries no `value`, which is what leaves it left-aligned and printed as written.
+  // Money is read as whole cents, so the tile's own formatter is the only place the sum is divided.
   unit: "money",
   columns: [
-    { key: "customer", header: "Customer" },
-    { key: "status", header: "Status" },
-    { key: "totalCents", header: "Total", width: "7rem" },
+    // Every column reads through `value`, which is what prints it and what decides its alignment. The
+    // two text columns answer strings, so the tile leaves them left-aligned and prints them as
+    // written; the total answers a number, so the tile right-aligns and formats it. A column with
+    // only a header prints nothing at all, which is the tile refusing to guess.
+    { key: "customer", header: "Customer", value: (order) => order.customer },
+    { key: "status", header: "Status", value: (order) => order.status },
+    { key: "totalCents", header: "Total", value: (order) => order.totalCents, width: "7rem" },
   ],
   cap: { max: TILE_TABLE_ROWS },
   empty: {

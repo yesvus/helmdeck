@@ -195,10 +195,14 @@ export async function loadStockValueRankAction(term: string): Promise<RankedProd
 export async function loadDailyRevenueAction(end: Date, days: number, term: string): Promise<DailyRevenue> {
   const dayKeys = adminChartDayRange(days, end);
   const firstDay = dayKeys[0] ?? "";
+  const lastDay = dayKeys[dayKeys.length - 1] ?? "";
   const totals = new Map<string, number>();
   for (const order of earned(await orders(term))) {
     const day = dayKey(order.created_at);
-    if (!day || day < firstDay) continue;
+    // Bounded at both ends, because the total this answers with is the one the tile reads aloud beside
+    // the drawing. A row dated after the last day of the range would be in that sentence and not on
+    // the axis, which is a total the chart does not show.
+    if (!day || day < firstDay || day > lastDay) continue;
     totals.set(day, (totals.get(day) ?? 0) + wholeNumber(order, "total_cents"));
   }
 
