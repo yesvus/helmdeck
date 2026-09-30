@@ -43,6 +43,7 @@ import {
   resolveSessionCookie,
 } from "./session.js";
 import type { AdminSessionCookieIO } from "./session.js";
+import type { AdminLoginThrottle } from "./throttle.js";
 import { hashPassword, normalizeEmail, verifyPassword } from "./passwords.js";
 
 /** A user row, as far as signing in is concerned. Anything else on the row is the host's. */
@@ -605,6 +606,15 @@ export type CredentialAuthOptions = {
    */
   includeSessionId?: boolean;
   /**
+   * Bounds the failed attempts on this sign-in form, and says so when it refuses one.
+   *
+   * Passed straight through to `createCredentialAuthAdapter`, so it is asked before `authenticate`
+   * and therefore before the scrypt that `authenticate` would do. A host with more than one
+   * process implements `AdminLoginThrottle` over whatever the processes share; see
+   * `createLoginThrottle` for the single-process case and for what it is not.
+   */
+  throttle?: AdminLoginThrottle;
+  /**
    * Whether the account resolved from the request may end every session it holds.
    *
    * A host policy, because the package has no vocabulary for roles and a rule written here would
@@ -733,6 +743,7 @@ export function createCredentialAuthAdapter(options: CredentialAuthOptions): Cre
       sameSite: options.sameSite,
       secure: options.secure,
       invalidMessage,
+      throttle: options.throttle,
       onError: options.onError,
       async verify(credentials: AdminLoginCredentials) {
         const user = await authenticate(store, credentials.email, credentials.password);
