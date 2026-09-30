@@ -1,0 +1,5 @@
+@import "tailwindcss";
+/* The package's own components are written with Tailwind utilities, and Tailwind only generates a
+   utility it finds in scanned source. Without this line the tokens arrive and the layout does not. */
+@source "../node_modules/@yesvus/helmdeck/dist";
+@import "@yesvus/helmdeck/theme.css";

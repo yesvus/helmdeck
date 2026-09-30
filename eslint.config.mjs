@@ -5,7 +5,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "fixtures/.next/**", "fixtures/next-env.d.ts", "examples/independent-host/.next/**", "examples/independent-host/next-env.d.ts", "node_modules/**"],
+    ignores: ["dist/**", "fixtures/.next/**", "fixtures/next-env.d.ts", "examples/independent-host/.next/**", "examples/independent-host/next-env.d.ts", "template/.next/**", "template/next-env.d.ts", "node_modules/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -33,6 +33,17 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+    },
+  },
+  {
+    // The Node-side modules: the typecheck gate, the database URL, and the command that creates an
+    // account. Without this they lint as files in no environment at all, which is what `process` and
+    // `console` being undefined means.
+    files: ["**/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
     },
   },
 );
