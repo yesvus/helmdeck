@@ -9,10 +9,7 @@ import { fileURLToPath } from "node:url";
 import { VERSION_TAG_PATTERN as tagPattern, GENERATED_PATH, versionSource } from "./version-source.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const packagePath = resolve(root, "package.json");
-const versionPath = resolve(root, "VERSION");
 const readmePath = resolve(root, "README.md");
-const changelogPath = resolve(root, "CHANGELOG.md");
 const UNRELEASED_HEADING = /^## Unreleased$/m;
 // Anchored on the documented install command so an unrelated release link elsewhere in the
 // README is never rewritten. The capture keeps owner, repository, and asset naming owned by
