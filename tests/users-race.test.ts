@@ -36,11 +36,13 @@ const PASSWORD = "correct horse battery staple";
 const ADDRESS = "racing@example.test";
 const ADMIN: AdminSession = { email: "owner@example.test", role: "admin" };
 
-const TAKEN = {
-  ok: false,
-  reason: "email-taken",
-  message: `${ADDRESS} already has an account. Change its role or turn it off rather than making a second one.`,
-} as const;
+function taken(email: string) {
+  return {
+    ok: false,
+    reason: "email-taken",
+    message: `${email} already has an account. Change its role or turn it off rather than making a second one.`,
+  } as const;
+}
 
 /** A store over a persistence, and that persistence, for counting rows afterwards. */
 function persisted(db: AdminPersistenceAdapter) {
@@ -52,7 +54,183 @@ function persisted(db: AdminPersistenceAdapter) {
   return { store, admin };
 }
 
+/**
+ * A store with an honest read and no constraint of its own: the plausible hand-written one, which
+ * can look an address up and will write the same one twice.
+ *
+ * A read that never told the truth would be a different thing, and one no check in the package could
+ * ever answer, so the read here is real. The hash the sign-in's shape requires is a placeholder:
+ * nothing signs in against this store.
+ */
+function looseStore(rows: AccountRecord[]) {
+  const withHash = (row: AccountRecord) => ({ ...row, passwordHash: "not-a-hash" });
+  return {
+    findUserByEmail: async (email: string) => {
+      const row = rows.find((candidate) => candidate.email === email);
+      return row ? withHash(row) : null;
+    },
+    findUserById: async (id: string) => {
+      const row = rows.find((candidate) => candidate.id === id);
+      return row ? withHash(row) : null;
+    },
+    createSession: async () => ({ id: "s1", userId: "u1", expiresAt: 0 }),
+    readSession: async () => null,
+    deleteSession: async () => {},
+    deleteSessionsForUser: async () => 0,
+    listUsers: async () => rows,
+    createUser: async (account: { email: string }) => {
+      const record = { id: `u${rows.length + 1}`, email: account.email, disabled: false };
+      rows.push(record);
+      return record;
+    },
+  } satisfies CredentialStore;
+}
+
+/**
+ * A store that records whether two creates for one address were ever inside it at the same time.
+ *
+ * A barrier that forces two reads to overlap cannot be built here, and the reason is worth stating
+ * because it is the same reason the bug was hard to see. Releasing a held read needs a signal that a
+ * second call has arrived, and the serialisation is exactly what stops the second call arriving. So
+ * a test that tries to force the interleaving either waits on a clock or hangs, and a test that
+ * cannot fail is worse than no test.
+ *
+ * What can be tested is the property itself: two creates for one address are not inside the store at
+ * the same time. The first create is held open on a promise the test controls, which makes the
+ * window open until the test closes it rather than until a machine happens to be slow, and the
+ * second create is given every chance to walk in. The record says whether it did. Nothing sleeps
+ * and nothing waits on a timer: the hash happens before the serialised section, so the only await
+ * between a call and the store is one the test's own gate controls.
+ */
+function overlappingSections(inner: CredentialStore) {
+  let open = 0;
+  const log: string[] = [];
+  const gate = { closed: false, waiters: [] as (() => void)[] };
+  let release = () => {};
+  const blocked = new Promise<void>((done) => {
+    release = done;
+  });
+
+  const store: CredentialStore = {
+    ...inner,
+    async findUserByEmail(email) {
+      open += 1;
+      log.push(`read:start:${open}`);
+      try {
+        return await inner.findUserByEmail(email);
+      } finally {
+        log.push(`read:end:${open}`);
+        open -= 1;
+      }
+    },
+    async createUser(account) {
+      open += 1;
+      log.push(`write:start:${open}`);
+      try {
+        if (!gate.closed) {
+          // The first write holds the section open. A second create reaching here would be inside
+          // the store at the same time as this one, which is the whole thing under test.
+          await blocked;
+        }
+        return await inner.createUser!(account);
+      } finally {
+        log.push(`write:end:${open}`);
+        open -= 1;
+      }
+    },
+  };
+
+  return {
+    store,
+    log,
+    release,
+  };
+}
+
+/**
+ * One create held open inside the store, and a second given every chance to join it.
+ *
+ * A bounded number of microtask turns rather than a wait: the section is held open by this test's
+ * own promise, so the only question the turns answer is whether the second call would have walked
+ * in, which it either does within a couple of turns or never does because it is serialised.
+ */
+async function holdOneAndOfferASecond(
+  admin: ReturnType<typeof persisted>["admin"],
+  spellings: [string, string],
+  held: ReturnType<typeof overlappingSections>,
+) {
+  const first = admin.create(ADMIN, { email: spellings[0], password: PASSWORD, role: "editor" });
+  for (let turn = 0; turn < 8; turn += 1) await Promise.resolve();
+  const second = admin.create(ADMIN, { email: spellings[1], password: PASSWORD, role: "editor" });
+  for (let turn = 0; turn < 8; turn += 1) await Promise.resolve();
+  held.release();
+  return Promise.all([first, second]);
+}
+
 describe("two creates of one address, at the same time", () => {
+  it("keeps two creates for one address out of the store at the same time", async () => {
+    // The property, asserted as what it is: the two calls are serialised, so the second is not inside
+    // the store while the first is. The first is held open by the test's own promise, which makes
+    // the window open rather than timing-dependent, and the second is given every chance to walk in.
+    const db = createMemoryPersistenceAdapter();
+    const held = overlappingSections(createPersistenceCredentialStore(db));
+    const admin = createAccountAdmin(held.store, {
+      roles: ["admin", "editor"],
+      may: { create: () => true, list: () => true },
+    });
+
+    const answers = await holdOneAndOfferASecond(admin, [ADDRESS, ADDRESS], held);
+
+    // The log is the whole assertion: with no serialisation, the second create's read begins before
+    // the first create's write ends. Interleaving two of those is what produced two rows.
+    expect(held.log.filter((entry) => entry.endsWith(":start:2"))).toEqual([]);
+    expect(answers.filter((answer) => answer.ok)).toHaveLength(1);
+    expect(answers.filter((answer) => !answer.ok)).toEqual([taken(ADDRESS)]);
+    expect(await db.query("users")).toHaveLength(1);
+    expect(await authenticate(held.store, ADDRESS, PASSWORD)).toMatchObject({ email: ADDRESS });
+  });
+
+  it("holds two spellings of one address to one queue, over a store with no check of its own", async () => {
+    // A queue keyed on the address as it was typed is two queues, and two queues is the duplicate
+    // again. It is tested on a store with no duplicate check of its own because that is the only
+    // place the key is load-bearing: with the shipped store, a second write is refused by the store
+    // whichever queue it came from, and the test would pass for the wrong reason.
+    const rows: AccountRecord[] = [];
+    const bare = looseStore(rows);
+    const held = overlappingSections(bare);
+    const admin = createAccountAdmin(held.store, { may: { create: () => true } });
+
+    const answers = await holdOneAndOfferASecond(
+      admin,
+      ["Racing@Example.test", "  racing@EXAMPLE.Test "],
+      held,
+    );
+
+    expect(held.log.filter((entry) => entry.endsWith(":start:2"))).toEqual([]);
+    expect(answers.filter((answer) => answer.ok)).toHaveLength(1);
+    expect(answers.filter((answer) => !answer.ok)).toHaveLength(1);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].email).toBe(ADDRESS);
+  });
+
+  it("gives a host on a store with no unique index the in-process guarantee, and says what it lacks", async () => {
+    // A store that reads honestly and writes a duplicate without complaint, which is what a host
+    // whose schema has no unique address column actually has. Nothing in the package can give that
+    // host the cross-process guarantee and the README says so; what it does get is this one, and
+    // this is the test that holds the serialisation to being a guarantee rather than a decoration.
+    const rows: AccountRecord[] = [];
+    const bare = looseStore(rows);
+    const held = overlappingSections(bare);
+    const admin = createAccountAdmin(held.store, { may: { create: () => true } });
+
+    const answers = await holdOneAndOfferASecond(admin, [ADDRESS, ADDRESS], held);
+
+    expect(held.log.filter((entry) => entry.endsWith(":start:2"))).toEqual([]);
+    expect(answers.filter((answer) => answer.ok)).toHaveLength(1);
+    expect(answers.filter((answer) => !answer.ok)).toEqual([taken(ADDRESS)]);
+    expect(rows).toHaveLength(1);
+  });
+
   it("leaves one account and one good message, over the memory adapter", async () => {
     const db = createMemoryPersistenceAdapter();
     const { store, admin } = persisted(db);
@@ -67,7 +245,7 @@ describe("two creates of one address, at the same time", () => {
     const refused = [first, second].filter((answer) => !answer.ok);
     expect(accepted).toHaveLength(1);
     expect(refused).toHaveLength(1);
-    expect(refused[0]).toEqual(TAKEN);
+    expect(refused[0]).toEqual(taken(ADDRESS));
     // One row, which is the property the finding is about: the memory adapter has no index, so
     // nothing but the code stops the second write.
     expect(await db.query("users")).toHaveLength(1);
@@ -89,7 +267,7 @@ describe("two creates of one address, at the same time", () => {
       ]);
 
       expect(answers.filter((answer) => answer.ok)).toHaveLength(1);
-      expect(answers.filter((answer) => !answer.ok)).toEqual([TAKEN]);
+      expect(answers.filter((answer) => !answer.ok)).toEqual([taken(ADDRESS)]);
       expect(await store.listUsers!()).toHaveLength(1);
     } finally {
       rmSync(directory, { recursive: true, force: true });
@@ -125,7 +303,7 @@ describe("two creates of one address, at the same time", () => {
     ]);
 
     expect(answers.filter((answer) => answer.ok)).toHaveLength(1);
-    expect(answers.filter((answer) => !answer.ok)).toEqual([TAKEN, TAKEN]);
+    expect(answers.filter((answer) => !answer.ok)).toEqual([taken(ADDRESS), taken(ADDRESS)]);
   });
 
   it("does not let one refusal refuse the next create of that address", async () => {
@@ -242,7 +420,7 @@ describe("the store's own refusal, for a caller that is not the surface", () => 
     ]);
 
     expect(answers.filter((answer) => answer.ok)).toHaveLength(1);
-    expect(answers.filter((answer) => !answer.ok)).toEqual([TAKEN]);
+    expect(answers.filter((answer) => !answer.ok)).toEqual([taken(ADDRESS)]);
   });
 
   it("lets a failure that is not a duplicate through, rather than reporting it as one", async () => {

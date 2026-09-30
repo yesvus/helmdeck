@@ -340,18 +340,24 @@ export function createAccountAdmin(
       // a second account for the same person, which is the answer a unique index cannot give once
       // the two spellings are already different.
       const email = normalizeEmail(input.email);
-      const passwordHash = await hashPassword(input.password);
       // Read once, outside the queue, because a narrowing that does not survive into a closure is a
       // narrowing the compiler cannot see and the reader cannot either.
       const createUser = store.createUser.bind(store);
 
       return serialiseOnAddress(email, async () => {
         // **What this check is for: the message, not the uniqueness.** It is a read followed by a
-        // write, so on its own it cannot prevent a duplicate, and it is not what does: the store's
-        // own constraint is, where the store has one. It is here because it turns the ordinary case,
-        // a second invite to an address that already has an account, into a sentence naming that
-        // address rather than an error raised and caught.
+        // write, so on its own it cannot prevent a duplicate, and it is not what does: the queue
+        // below is, within a process, and the store's own constraint is across them. It is here
+        // because it turns the ordinary case, a second invite to an address that already has an
+        // account, into a sentence naming that address rather than an error raised and caught.
         if (await store.findUserByEmail(email)) return taken(email);
+        // Derived inside the queue rather than before it, which refuses a duplicate before paying
+        // for a key derivation, and leaves nothing between a call and the store but the queue and
+        // the check above. That is what makes the serialisation a property a test can hold to
+        // without waiting on a machine: scrypt between here and the store would put real elapsed
+        // time between two calls, and a test that needs elapsed time to see a race cannot be a
+        // reliable one.
+        const passwordHash = await hashPassword(input.password);
         try {
           const account = await createUser({
             email,
