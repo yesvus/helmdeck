@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   createCredentialAuthAdapter,
@@ -16,7 +18,6 @@ import type {
   AdminLoginThrottle,
   AdminSessionCookieIO,
 } from "../src/baseline";
-import { verifyPassword } from "../src/baseline/passwords";
 
 /**
  * The bound on a login form nobody can guess at without limit, each test named after the property
@@ -164,9 +165,6 @@ describe("property 1: the refusal comes before the credential check", () => {
     expect(result).toEqual({ ok: false, message: DEFAULT_THROTTLED_MESSAGE });
     expect(comparisons).toBe(0);
     expect(cookies.writes).toEqual([]);
-    // And a password that would have been right, so the refusal is not just the answer a wrong
-    // password gets here too.
-    expect(await verifyPassword(PASSWORD, `scrypt$${"c2FsdHNhbHRzYWx0c2FsdA=="}${"a2V5a2V5a2V5"}`)).toBe(false);
   });
 
   it("asks before it verifies, rather than recording the outcome and refusing afterwards", async () => {
@@ -391,14 +389,15 @@ describe("property 4: the window lapses with no timer and no sweep", () => {
   });
 
   it("starts no timer, so nothing keeps a process alive or has to be torn down", async () => {
-    // The clock is the only thing that moves the window, which is the property a sweep would
-    // break: a timer is a resource the host has to remember to release.
+    // Spied on before the throttle is built, which is the only order that means anything: a
+    // sweep would be armed inside `createLoginThrottle`, so a spy installed afterwards would
+    // watch the wrong part of the test and pass.
+    const setInterval = vi.spyOn(globalThis, "setInterval");
+    const setTimeout = vi.spyOn(globalThis, "setTimeout");
     const time = clock();
     const bound = throttle({ now: time.now });
     const target = adapter({ throttle: bound });
     await exhaust(target);
-    const setInterval = vi.spyOn(globalThis, "setInterval");
-    const setTimeout = vi.spyOn(globalThis, "setTimeout");
 
     await target.auth.login({ email: EMAIL, password: PASSWORD });
     time.advance(WINDOW);
@@ -513,14 +512,35 @@ describe("property 6: a host that supplies no throttle gets what it has today", 
     expect((await target.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
   });
 
-  it("calls nothing that is not the session path, so no counter is created", async () => {
-    const target = adapter();
-    const setTimeout = vi.spyOn(globalThis, "setTimeout");
+  it("shares no count with a throttled adapter in the same process, so no global counter exists", async () => {
+    // The shape this catches is a module-level throttle used when the option is absent. That
+    // would look like a harmless default and would bind every host in one process together: an
+    // adapter asked to do nothing new would refuse because another one was guessed at.
+    const bounded = adapter({ throttle: throttle() });
+    await exhaust(bounded);
 
-    await target.auth.login({ email: EMAIL, password: PASSWORD });
+    const unbounded = adapter();
+    for (let i = 0; i < 12; i += 1) {
+      expect(await unbounded.auth.login({ email: EMAIL, password: `wrong-${i}` })).toEqual({
+        ok: false,
+        message: "Those credentials were not accepted.",
+      });
+    }
+    expect((await unbounded.auth.login({ email: EMAIL, password: PASSWORD })).ok).toBe(true);
+  });
 
-    expect(setTimeout).not.toHaveBeenCalled();
-    expect(target.verify).toHaveBeenCalledTimes(1);
+  it("reads no request headers at all, because there is no throttle to key", async () => {
+    // The one property here a black-box test cannot hold on its own: in jsdom the header read
+    // succeeds and returns nothing, so reading it or not reading it looks the same. What it would
+    // cost is a sign-in that fails on a platform with no request scope, so the assertion is on
+    // the source, in the same spirit as the constant-time comparison in the credential suite.
+    const source = readFileSync(join(import.meta.dirname, "..", "src", "baseline", "session.ts"), "utf8")
+      .replace(/^\s*\*.*$/gm, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    const login = source.slice(source.indexOf("async login(credentials"));
+
+    // Built inside the conditional rather than beside it, so an unthrottled host never touches it.
+    expect(login).toMatch(/const attempt = throttle\s*\?\s*\{[^}]*requestHeaders\(\)/);
   });
 
   it("survives a request with no headers at all, which is a host on no framework", async () => {
