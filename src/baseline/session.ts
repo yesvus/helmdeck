@@ -275,18 +275,26 @@ export function createSessionAuthAdapter({
 
       // Before `verify`, so a refused attempt derives no key and reads no user row, and before it
       // with a message of its own, so the refusal cannot be mistaken for a wrong password.
-      const refusal = attempt && throttle ? await throttle.check(attempt) : null;
-      if (refusal) return { ok: false, message: refusal };
+      const decision = attempt && throttle ? await throttle.check(attempt) : null;
+      if (decision && !decision.ok) return { ok: false, message: decision.message };
+
+      // Carried through the comparison and named in whichever report follows, so a report retires
+      // the attempt it belongs to rather than a slot off the key's shared count.
+      const reservation = decision?.reservation;
 
       const sessionId = await verify(credentials);
       if (!sessionId) {
-        if (attempt && throttle) await throttle.failed(attempt);
+        if (attempt && throttle && reservation !== undefined) {
+          await throttle.failed(attempt, reservation);
+        }
         return { ok: false, message: invalidMessage };
       }
       // Cleared the moment the credentials are accepted, before the row is read, so a store that
       // is briefly unhappy afterwards does not count as another failed attempt against the
       // account of somebody who typed the right password.
-      if (attempt && throttle) await throttle.succeeded(attempt);
+      if (attempt && throttle && reservation !== undefined) {
+        await throttle.succeeded(attempt, reservation);
+      }
       const session = await getUser(sessionId);
       if (!session) return { ok: false, message: invalidMessage };
       // The host's own bookkeeping first: if it fails, nothing has been written, so the two
