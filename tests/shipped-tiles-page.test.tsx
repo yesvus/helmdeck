@@ -2,7 +2,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { adminDashboardValidate, type AdminDashboard } from "@yesvus/helmdeck";
+import { adminDashboardValidate } from "@yesvus/helmdeck";
 import ShippedTilesPage from "../fixtures/app/dashboard/tiles/page";
 import { buildShippedTileDashboard } from "../fixtures/app/dashboard/tiles/arrangement";
 import { shippedTileRegistry } from "../fixtures/app/dashboard/tiles/registry";
@@ -352,17 +352,37 @@ describe("the shipped tiles route", () => {
   });
 
   it("re-reads every tile when the store selector moves, so the figures are an answer and not a picture", async () => {
+    // The answers narrow with the term, so the tile's own contents are the evidence rather than the
+    // call record alone. A page that passed the term on and then rendered the same rows would satisfy
+    // every assertion about which action was called.
+    backend.lowStockList.mockImplementation(async (_limit: number, term: string) =>
+      term === "lamp"
+        ? [{ id: "prd_1", name: "Amber desk lamp", sku: "LAMP-001", priceCents: 4900, stock: 34 }]
+        : [
+            { id: "prd_3", name: "Walnut monitor riser", sku: "RISR-001", priceCents: 5900, stock: 0 },
+            { id: "prd_2", name: "Ash standing desk", sku: "DESK-001", priceCents: 74900, stock: 6 },
+          ],
+    );
     const user = userEvent.setup();
     render(<ShippedTilesPage />);
-    await waitFor(() => expect(stateOf("revenueStat")).toBe("ready"));
+    await waitFor(() => expect(stateOf("lowStockList")).toBe("ready"));
+    expect(within(tile("lowStockList")).getByText("Walnut monitor riser")).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("Store"), "lamp");
 
-    // The term reaches the action, which is the only place a filter could have been applied.
+    // The term reaches every tile's action, which is the only place a filter could have been applied.
     await waitFor(() => expect(backend.lowStockList).toHaveBeenLastCalledWith(6, "lamp"));
     expect(backend.revenue).toHaveBeenLastCalledWith(30, "lamp");
+    expect(backend.revenueChart).toHaveBeenLastCalledWith(expect.any(Date), 30, "lamp");
     expect(backend.ordersTable).toHaveBeenLastCalledWith(6, "lamp");
+    expect(backend.stockValueRank).toHaveBeenLastCalledWith("lamp");
     expect(backend.contentActivity).toHaveBeenLastCalledWith(8, "lamp");
+
+    // And the tile now shows the answer to the narrower question rather than the previous one.
+    await waitFor(() =>
+      expect(within(tile("lowStockList")).getByText("Amber desk lamp")).toBeInTheDocument(),
+    );
+    expect(within(tile("lowStockList")).queryByText("Walnut monitor riser")).not.toBeInTheDocument();
   });
 
   it("reaches the empty state through its own control, rather than only through a stubbed answer", async () => {
