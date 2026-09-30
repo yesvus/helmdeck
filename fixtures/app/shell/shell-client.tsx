@@ -3,7 +3,14 @@
 
 import Link from "next/link.js";
 import { createContext, useContext, type ReactNode } from "react";
-import { AdminShell, AdminPermissionsProvider, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
+import {
+  AdminShell,
+  AdminThemeSettingsProvider,
+  AdminPermissionsProvider,
+  type AdminDensity,
+  type AdminNavGroup,
+  type AdminSession,
+} from "@yesvus/helmdeck";
 import { useShellTheme } from "../../components/shell-theme-provider";
 import { signOutAction } from "./sign-out-action";
 import { demoPermissionsAdapter } from "../../lib/demo-permissions";
@@ -16,6 +23,7 @@ const permissions = demoPermissionsAdapter();
 
 type ShellSettings = {
   accent: string;
+  density: AdminDensity;
   siteName: string;
 };
 
@@ -48,27 +56,39 @@ function ThemeSelector() {
 /**
  * The shell's client half: presentation, theme, and a sign-out that actually ends the session.
  *
- * The accent arrives as a prop from the layout, which read it from the store. It was a constant here
- * once, which is what made the settings page's colour picker a control that changed nothing; the
- * value is now the same one the settings page writes, so the brand here and the form there cannot
- * disagree.
+ * The accent and the density arrive as props from the layout, which read them from the store. The
+ * accent used to be a constant here, which is what made the settings page's colour picker a control
+ * that changed nothing; the value is now the same one the settings page writes, so the brand here
+ * and the form there cannot disagree.
+ *
+ * They go through the package's own theme provider rather than into style attributes here. The
+ * density has to reach the document root to matter at all, because `tokens.css` remaps Tailwind's
+ * spacing scale through `--admin-density`, and a value set on one element would leave every other
+ * element at the default.
+ *
+ * No colour mode is passed, so the provider derives the brand text the same way `AdminShell` derives
+ * it for its own sidebar. Passing the mode would give the root a dark-correct value that the shell's
+ * inline one overrides anyway, which is two behaviours where one is better.
  */
 export function ShellClient({
   nav,
   session,
   accent,
+  density,
   siteName,
   children,
 }: {
   nav: AdminNavGroup[];
   session: AdminSession;
   accent: string;
+  density: AdminDensity;
   siteName: string;
   children: ReactNode;
 }) {
   return (
-    <SettingsContext.Provider value={{ accent, siteName }}>
+    <SettingsContext.Provider value={{ accent, density, siteName }}>
       <AdminPermissionsProvider adapter={permissions}>
+        <AdminThemeSettingsProvider settings={{ accent, density }}>
         <AdminShell
         nav={nav}
         session={session}
@@ -94,6 +114,7 @@ export function ShellClient({
       >
         {children}
       </AdminShell>
+        </AdminThemeSettingsProvider>
       </AdminPermissionsProvider>
     </SettingsContext.Provider>
   );
