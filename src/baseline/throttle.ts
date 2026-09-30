@@ -207,9 +207,21 @@ export function forwardedClientKey(attempt: AdminLoginAttempt): string {
 }
 
 export type LoginThrottleOptions = {
-  /** Failures allowed per key per window. */
+  /**
+   * Failures allowed per key per window. Zero is legal and means no attempt is allowed at all.
+   *
+   * **A number that is not a whole number of attempts is refused here, not reinterpreted later.**
+   * `NaN` is the one that matters: every comparison against it is false, so a throttle built with
+   * one refuses nothing, and the host finds that out from an incident rather than from a stack
+   * trace.
+   */
   limit?: number;
-  /** How long a key stays refused after it reaches the limit. */
+  /**
+   * How long a key stays refused after it reaches the limit.
+   *
+   * Must be a positive whole number of milliseconds. Zero would lapse every key on the next read,
+   * so nothing would ever be charged and the bound would not exist.
+   */
   windowMs?: number;
   /**
    * How long a slot stays reserved when nothing reports it back.
@@ -272,9 +284,28 @@ type LoginThrottleEntry = {
  * because this is one process; a host's shared store has to get it from one statement.
  */
 export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLoginThrottle {
-  const limit = options.limit ?? DEFAULT_THROTTLE_LIMIT;
-  const windowMs = options.windowMs ?? DEFAULT_THROTTLE_WINDOW_MS;
-  const reservationMs = options.reservationMs ?? windowMs;
+  /**
+   * A whole number, and zero is allowed for the limit because zero attempts is a bound a host can
+   * want. Everything else is refused here rather than reinterpreted at the first comparison,
+   * because the values that cannot be read are also the ones whose comparisons quietly succeed, and
+   * a host that found out from the absence of a bound would have nothing to trace.
+   */
+  function whole(name: string, value: number, smallest: number): number {
+    if (!Number.isInteger(value) || value < smallest) {
+      const unit = smallest === 0 ? "attempts, which may be zero" : "milliseconds, above zero";
+      throw new Error(
+        `createLoginThrottle needs ${name} to be a whole number of ${unit}, and got ${String(value)}`,
+      );
+    }
+    return value;
+  }
+
+  // Resolved first and validated second, so an option the caller left out is never the thing that
+  // gets checked. `??` and not `||`: a `limit` of zero is a configuration, and `0 || 8` would turn
+  // it into the default and report a form the host shut as one that is merely lenient.
+  const limit = whole("limit", options.limit ?? DEFAULT_THROTTLE_LIMIT, 0);
+  const windowMs = whole("windowMs", options.windowMs ?? DEFAULT_THROTTLE_WINDOW_MS, 1);
+  const reservationMs = whole("reservationMs", options.reservationMs ?? windowMs, 1);
   const now = options.now ?? Date.now;
   const clientKey = options.clientKey ?? forwardedClientKey;
   const message = options.message ?? DEFAULT_THROTTLED_MESSAGE;
@@ -335,11 +366,23 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
     return entry;
   }
 
+  /**
+   * A whole number, and zero is allowed for the limit because zero attempts is a bound a host can
+   * want. Everything else is refused here rather than reinterpreted at the first comparison,
+   * because the values that cannot be read are also the ones whose comparisons quietly succeed, and
+   * a host that found out from the absence of a bound would have nothing to trace.
+   */
   return {
     check: async (attempt) => {
       const key = await clientKey(attempt);
       const { reservation, position } = mint();
       const entry = read(key);
+      // Before the branch that creates an entry, and not after it. A key nobody has looked at yet
+      // has spent nothing, so the same comparison decides the first attempt as every one after it,
+      // and `limit: 0` means zero attempts rather than one.
+      const inUse = entry ? charged(entry) + entry.reserved.size : 0;
+      if (inUse >= limit) return { ok: false, message };
+
       if (!entry) {
         entries.set(key, {
           failures: [],
@@ -351,7 +394,6 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
       }
       // Failures and reservations are one budget, which is what makes the bound a bound: a slot
       // held by an attempt still running is a slot an attacker cannot spend twice.
-      if (charged(entry) + entry.reserved.size >= limit) return { ok: false, message };
       entry.reserved.set(reservation, { taken: now(), position });
       return { ok: true, reservation };
     },
