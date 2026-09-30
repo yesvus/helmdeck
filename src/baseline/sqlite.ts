@@ -260,13 +260,33 @@ function predicateForFilter(filter: AdminResourceFilter): Predicate {
  * in-memory adapter returns. A window over no ordering is otherwise a window over whatever order
  * the query happened to produce, so paging it would skip and repeat rows between one call and the
  * next.
+ *
+ * The class is the first term of an ordering and the value the second, both reading the same way,
+ * because that is the one rule `comparisonFor` ranks with: a value sits against another by what it
+ * is before it sits by how large it is. Leaving the class to the engine's own order of storage
+ * classes returns the same rows, so writing it out changes no answer, and then a new class added to
+ * `classOf` moves the comparison and leaves the ordering where it was, with nothing to catch it.
+ *
+ * It costs nothing to say it out. The sort reads a JSON document through `json_extract` bound to a
+ * path, which is an expression no index over this table holds and which an index over it could not
+ * hold, so the ordering is a scan and a sort either way. The class is one further read of a row the
+ * sort is already reading.
  */
 function orderBy(sort: AdminResourceSort[] | undefined): Predicate {
   if (sort === undefined || sort.length === 0) {
     return { sql: " ORDER BY rowid", args: [] };
   }
-  const keys = sort.map((ordering) => `json_extract(data, ?) ${ordering.direction === "desc" ? "DESC" : "ASC"}`);
-  return { sql: ` ORDER BY ${keys.join(", ")}, id ASC`, args: sort.map((ordering) => pathForField(ordering.field)) };
+  const terms: string[] = [];
+  const args: unknown[] = [];
+  for (const ordering of sort) {
+    const path = pathForField(ordering.field);
+    const klass = classOf(path);
+    const way = ordering.direction === "desc" ? "DESC" : "ASC";
+    terms.push(`(${klass.sql}) ${way}`, `json_extract(data, ?) ${way}`);
+    args.push(...klass.args, path);
+  }
+  terms.push("id ASC");
+  return { sql: ` ORDER BY ${terms.join(", ")}`, args };
 }
 
 /**
@@ -412,9 +432,11 @@ export function createSqlitePersistenceAdapter(options: SqlitePersistenceOptions
 
       const orderings = orderBy(asked.sort);
       const window = asked.window;
-      // The arguments follow the statement's own order: the conditions, then the ordering's paths,
-      // then the window. A path left unbound is a bound NULL, which extracts nothing and leaves
-      // every row tied, so a missing pair would quietly answer the store's insertion order.
+      // The arguments follow the statement's own order: the conditions, then the ordering's terms
+      // in the order they are written, then the window. Each ordering binds its path twice, once
+      // where the class is read and once where the value is. A path left unbound is a bound NULL,
+      // which extracts nothing and leaves every row tied, so a missing pair would quietly answer
+      // the store's insertion order.
       return {
         rows: toRecords<T>(
           await db.execute({
