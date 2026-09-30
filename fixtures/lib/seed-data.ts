@@ -26,14 +26,40 @@ export const seedProducts = [
   { id: "prd_5", name: "Linen cable tray", sku: "TRAY-001", price_cents: 3200, stock: 58 },
 ];
 
-export const seedOrders = [
+/**
+ * Days before the seed ran, per order.
+ *
+ * The orders carry a moment because anything that sums a window needs one, and the two stores do
+ * not agree about supplying it: the schema gives `orders.created_at` a default, and the in-memory
+ * adapter has no columns to give a default to, so a seeded order reached the windowed reads with no
+ * date at all. A revenue figure over a window that excludes every order is not a small number, it is
+ * a demo that looks broken while passing.
+ *
+ * Fixed dates would be worse than none: they fall out of every window as the demo ages, so the tiles
+ * would be correct the day they were written and empty a month later. These are relative to the
+ * moment of seeding, so a fresh clone always has a spread inside the window a reader is looking at.
+ */
+const ORDER_DAYS_AGO: readonly number[] = [0, 1, 3, 6, 9, 14];
+
+const seedOrderRows = [
   { id: "ord_1", total_cents: 4900, status: "paid", customer: "Deniz Aydın" },
   { id: "ord_2", total_cents: 74900, status: "pending", customer: "Ece Toprak" },
   { id: "ord_3", total_cents: 3200, status: "shipped", customer: "Kaan Demir" },
   { id: "ord_4", total_cents: 12500, status: "paid", customer: "Selin Kaya" },
   { id: "ord_5", total_cents: 5900, status: "cancelled", customer: "Bora Yıldız" },
   { id: "ord_6", total_cents: 4900, status: "paid", customer: "Mert Şahin" },
-];
+] as const;
+
+/** `created_at` is SQLite's `datetime('now')` shape, so both stores spell a moment the same way. */
+function isoAt(daysAgo: number, from: Date): string {
+  const at = new Date(from.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+  return at.toISOString().replace("T", " ").slice(0, 19);
+}
+
+export const seedOrders = seedOrderRows.map((order, index) => ({
+  ...order,
+  created_at: isoAt(ORDER_DAYS_AGO[index] ?? 0, new Date()),
+}));
 
 export const seedPosts = [
   {
