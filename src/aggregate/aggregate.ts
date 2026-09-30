@@ -8,6 +8,9 @@
  * `AdminPersistenceAdapter` answers with rows and nothing here can ask the store to aggregate. A host
  * whose table outgrows one dashboard range needs a query contract and a store that can sum in SQL;
  * until then this is the whole of it, and it is said here rather than left for a host to discover.
+ *
+ * The figures it hands back are exact or refused. That is checked per value and per addition, because
+ * the two failures are separate and a guard for either one alone misses the other.
  */
 
 /** What each measure is called, and the column or expression a bucket of it is built from. */

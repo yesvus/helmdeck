@@ -1178,6 +1178,12 @@ revenue.unkeyed;     // rows whose key named no period
   about the parse, so the count is reported instead of the row being dropped in silence.
 - **The totals are summed off the buckets**, not accumulated beside them, so a range total cannot
   drift from the series it sits next to.
+- **A sum that outgrows what a number holds is refused, not returned.** Each value is checked on the
+  way in and each addition on the way along, because two thousand rows of `9_000_000_000_000` are each
+  exactly representable and add up to a figure that is not. The refusal names the measure and the
+  period, and says what to do: narrow the range, or measure in a unit a number can sum. A measure of
+  fractions is left alone, since `0.1 + 0.2` is not `0.3` for reasons that have nothing to do with a
+  boundary.
 
 `adminChartDayKey` reads the UTC day out of both shapes a store produces: SQLite's `datetime('now')`
 and an ISO timestamp. A value that is not a timestamp is refused rather than filed under a guessed

@@ -129,7 +129,12 @@ every permission decision the package made was made in a browser.
   chart draws a straight line across. A row outside the range, or one the key cannot place, reaches
   neither the buckets nor the totals, and is reported as `outOfRange` or `unkeyed` rather than
   dropped. The totals are summed off the buckets rather than accumulated beside them, so a range
-  total cannot drift from the series it sits next to. It runs in memory over the rows a host has
+  total cannot drift from the series it sits next to. Exactness is checked on every addition, not
+  only on each value and not only on the finished answer: two thousand rows of `9_000_000_000_000`
+  are each exactly representable and add up to a figure no number holds, and a signed measure that
+  goes past the boundary and comes back finishes inside it having dropped the difference on the way.
+  Both are refused with the measure and the period named, and a measure of fractions is left alone
+  because `0.1 + 0.2` is not `0.3` for reasons unrelated to a boundary. It runs in memory over the rows a host has
   already read, which is the whole of the cost: thirty points can come from a million orders, but
   they come from reading all million of them, and a host whose table outgrows one dashboard range
   needs a query contract rather than a larger array.
