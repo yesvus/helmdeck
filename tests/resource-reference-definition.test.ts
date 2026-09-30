@@ -107,14 +107,19 @@ describe("a reference that names a row of another resource", () => {
     // Every part of a reference resolves a row through the adapter's `read`, which takes an id and
     // nothing else. A `field` here would be a declaration the choices, the printed row and the write
     // check could not honour without each looking the value up a different way, and the refusal says
-    // so rather than carrying a name the code ignores.
+    // so rather than carrying a name the code ignores. Cast because the type is the first line of
+    // defence and this is the second: a definition reaching the boundary as data gets no check.
     expect(() =>
       defineAdminResource({
         resource: "shipments",
         label: "Shipments",
         columns: [],
         fields: [
-          { name: "customer_slug", label: "Customer", reference: { resource: "customers", field: "slug" } },
+          {
+            name: "customer_slug",
+            label: "Customer",
+            reference: { resource: "customers", field: "slug" } as never,
+          },
         ],
       }),
     ).toThrow(/A reference names a resource/);

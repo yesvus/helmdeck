@@ -532,4 +532,139 @@ describe("a reference to a resource the session may not read", () => {
     // real one.
     expect(read).not.toHaveBeenCalledWith("orders", "ord_real");
   });
+
+  it("refuses an update that changes the value, and does not let the answer differ for a row that exists", async () => {
+    const { store, inner } = boundary((resource) => resource === "shipments");
+    await inner.create("orders", { id: "ord_real" });
+    await inner.create("shipments", { id: "shp_1", tracking: "HD-1", order_id: "ord_kept" });
+
+    // Both of these change what the record holds, which is the half that is still checked in full: a
+    // write introducing a value is a claim about another resource's rows, and the claim is refused
+    // without saying whether the id names one.
+    const answer = async (order_id: string) => {
+      try {
+        await store.update("shipments", "shp_1", { tracking: "HD-1", order_id });
+        return "allowed";
+      } catch (cause) {
+        return cause instanceof AdminPermissionDeniedError ? `denied: ${cause.permission}` : String(cause);
+      }
+    };
+    const real = await answer("ord_real");
+    const invented = await answer("ord_invented");
+
+    expect(real).toBe("denied: orders.read");
+    expect(invented).toBe(real);
+    // And the record kept the value it had, so a refused change is not a half-applied one.
+    expect(await inner.read("shipments", "shp_1")).toMatchObject({ order_id: "ord_kept" });
+  });
+
+  it("saves a record whose value the session cannot read, which is the one the form offers", async () => {
+    const { store, inner, persistence } = boundary((resource) => resource === "shipments");
+    await inner.create("orders", { id: "ord_real" });
+    await inner.create("shipments", { id: "shp_1", tracking: "HD-1", order_id: "ord_real" });
+    const read = vi.spyOn(persistence, "read");
+
+    // The form is handed the guarded actions rather than the adapter behind them, because the claim
+    // under test is what the two halves do together. A form that saves through a boundary the page
+    // never posts to would agree with nothing.
+    render(tree(<AdminResourceForm definition={shipmentsWithOrder} persistence={store} id="shp_1" />));
+
+    // The form's half: this session may not read orders, so the control offers the value the record
+    // already holds and nothing else, and says why. Dropping it instead would empty the column the
+    // moment somebody fixed a typo in the tracking.
+    const control = await screen.findByLabelText<HTMLSelectElement>("Order");
+    await waitFor(() =>
+      expect(screen.getByText(/only the current value is offered/)).toBeInTheDocument(),
+    );
+    expect([...control.options].map((option) => option.value)).toEqual(["", "ord_real"]);
+
+    await act(async () => {
+      await userEvent.clear(screen.getByLabelText("Tracking"));
+      await userEvent.type(screen.getByLabelText("Tracking"), "HD-2");
+    });
+    await act(async () => {
+      await userEvent.click(await screen.findByRole("button", { name: "Save" }));
+    });
+
+    // The server's half: the write landed and the value is still on the record, and the target was
+    // never read to find that out. An unchanged value is not this write's to check, so a record
+    // holding a reference this session may not follow is still editable by somebody who may edit it.
+    // Either half drifting fails here: a server that checked the value would refuse the save, and a
+    // form that offered nothing would save the empty string over it.
+    expect(await inner.read<{ tracking: string; order_id: unknown }>("shipments", "shp_1")).toMatchObject({
+      tracking: "HD-2",
+      order_id: "ord_real",
+    });
+    expect(read).not.toHaveBeenCalledWith("orders", "ord_real");
+  });
+});
+
+describe("a value a write does not change", () => {
+  /** A boundary over the shipments' own reference, with nothing withheld from this session. */
+  function open() {
+    const { persistence, asked, inner } = recordingStore();
+    return {
+      inner,
+      asked,
+      store: createAdminResourceActions({
+        guard: createAdminPermissionGuard({
+          rule: () => true,
+          session: () => caller.session ?? null,
+        }),
+        persistence,
+        definitions: [shipments],
+      }),
+    };
+  }
+
+  it("asks the target nothing for a value the record already holds, and checks one it changes", async () => {
+    const { store, inner, asked } = open();
+    const readsOf = (resource: string) =>
+      asked.filter((call) => call.call === "read" && call.resource === resource);
+    // A row the store no longer holds, and the record still pointing at it. The write did not put
+    // that value there, so refusing it would make a stale record uneditable rather than true, and
+    // the list keeps saying "No such row" about it either way.
+    await inner.create("shipments", { id: "shp_1", tracking: "HD-1", customer_id: "cus_gone" });
+
+    const kept = await store.update("shipments", "shp_1", { tracking: "HD-2", customer_id: "cus_gone" });
+    expect(kept).toMatchObject({ customer_id: "cus_gone" });
+    expect(readsOf("customers")).toHaveLength(0);
+
+    // Changed to a row the store holds, which is a new claim and is checked the way a create's is.
+    await store.update("shipments", "shp_1", { tracking: "HD-2", customer_id: "cus_a" });
+    expect(readsOf("customers")).toEqual([{ call: "read", resource: "customers", id: "cus_a" }]);
+
+    // And changed to one it does not, which is refused by name rather than stored.
+    await expect(
+      store.update("shipments", "shp_1", { tracking: "HD-2", customer_id: "cus_nope" }),
+    ).rejects.toThrow(/shipments\.customer_id names "cus_nope"/);
+  });
+
+  it("reads a stored id and a written one the same way, so a store that numbers its rows is not a change", async () => {
+    const { store, inner, asked } = open();
+    await inner.create("shipments", { id: "shp_1", tracking: "HD-1", customer_id: 7 });
+
+    // A form sends a string whatever the store holds, and a store that numbers its rows is ordinary
+    // for half of them. Compared as they arrived, `7` and `"7"` would be a change, and a value the
+    // write did not touch would be checked against a target the session may not read.
+    await expect(
+      store.update("shipments", "shp_1", { tracking: "HD-2", customer_id: "7" }),
+    ).resolves.toMatchObject({ tracking: "HD-2" });
+    expect(asked.filter((call) => call.call === "read" && call.resource === "customers")).toHaveLength(0);
+  });
+
+  it("checks a create's values, because a create introduced each of them", async () => {
+    const { store, asked } = open();
+    const readsOf = () =>
+      asked.filter((call) => call.call === "read" && call.resource === "customers").map((call) => call.id);
+
+    await store.create("shipments", { tracking: "HD-1", customer_id: "cus_a" });
+    await expect(
+      store.create("shipments", { tracking: "HD-2", customer_id: "cus_nope" }),
+    ).rejects.toThrow(AdminResourceReferenceError);
+    // A create with nothing chosen for the reference names no row, so there is nothing to ask, and
+    // the two that named one were each checked once against the store.
+    await store.create("shipments", { tracking: "HD-3", customer_id: null });
+    expect(readsOf()).toEqual(["cus_a", "cus_nope"]);
+  });
 });

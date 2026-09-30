@@ -260,6 +260,53 @@ describe("a reference to a resource the session may not read", () => {
     expect(created).toMatchObject({ order_id: seedOrders[0].id });
     await store.delete("shipments", created.id);
   });
+
+  it("lets the editor fix a shipment whose order they may not read, and refuses them changing it", async () => {
+    await signIn(editor);
+    // An administrator attached an order to this shipment, which is the case the rule has to stay
+    // useful in: the editor may work the shipment and may not read the order hanging off it. Written
+    // straight to the store because that is the only way an order gets onto a shipment for a session
+    // that cannot name one, and seeded rows cannot carry a value a later test would rely on.
+    const customer = seedCustomers[0].id;
+    const shipment = (await store.create("shipments", {
+      tracking: "HD-LOCKED",
+      status: "label_created",
+      customer_id: customer,
+      order_id: seedOrders[0].id,
+    })) as { id: string };
+
+    // The whole record, as the generated form sends it. The editor changes a field of their own and
+    // leaves the order as it found it, which is a write that introduces nothing about orders and so
+    // asks nothing about them: the value is theirs to write, and the guard is never asked whether the
+    // order behind it is one this session could read.
+    const saved = (await updateResourceAction("shipments", shipment.id, {
+      tracking: "HD-FIXED",
+      status: "label_created",
+      customer_id: customer,
+      order_id: seedOrders[0].id,
+    })) as { tracking: string; order_id: unknown };
+    expect(saved).toMatchObject({ tracking: "HD-FIXED", order_id: seedOrders[0].id });
+
+    // And the other half of the same property: a value the write does change is checked as it always
+    // was, and the refusal is the same for a real order and an invented one.
+    const change = (order_id: string) =>
+      refused(() =>
+        updateResourceAction("shipments", shipment.id, {
+          tracking: "HD-FIXED",
+          status: "label_created",
+          customer_id: customer,
+          order_id,
+        }),
+      );
+    const real = await change(seedOrders[1].id);
+    expect(real).toBe("denied: orders.read");
+    expect(await change("ord_invented")).toBe(real);
+    // The refused change left the shipment as the editor left it, rather than half applied.
+    expect(await readResourceAction("shipments", shipment.id)).toMatchObject({
+      tracking: "HD-FIXED",
+      order_id: seedOrders[0].id,
+    });
+  });
 });
 
 describe("a session the demo has no part in", () => {
