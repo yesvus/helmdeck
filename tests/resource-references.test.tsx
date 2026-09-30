@@ -15,6 +15,7 @@ import {
   evaluateAdminPermission,
   AdminPermissionDeniedError,
   AdminResourceReferenceError,
+  type AdminAuditEvent,
   type AdminPersistenceAdapter,
   type AdminResourcePage,
   type AdminResourceQuery,
@@ -666,5 +667,145 @@ describe("a value a write does not change", () => {
     // the two that named one were each checked once against the store.
     await store.create("shipments", { tracking: "HD-3", customer_id: null });
     expect(readsOf()).toEqual(["cus_a", "cus_nope"]);
+  });
+});
+
+describe("a write that is audited and checked at once", () => {
+  /**
+   * The store behind the actions, with every call recorded in the order the seam reached it.
+   *
+   * The two halves of this file each came from a change that moved the same function, and each one's
+   * own tests pass with the other missing: the audit's order test updates a record holding no
+   * reference, and the reference tests wire no audit and no cache. A write that does both is the one
+   * call neither of them made, so it is the one a merge can get wrong with everything else green.
+   */
+  function tracked(order: string[]) {
+    const { persistence, inner } = recordingStore();
+    return {
+      inner,
+      persistence: {
+        ...persistence,
+        read<T>(resource: string, id: string) {
+          order.push(`read:${resource}:${id}`);
+          return persistence.read<T>(resource, id);
+        },
+        create<T>(resource: string, value: unknown) {
+          order.push(`create:${resource}`);
+          return persistence.create<T>(resource, value);
+        },
+        update<T>(resource: string, id: string, value: unknown) {
+          order.push(`update:${resource}:${id}`);
+          return persistence.update<T>(resource, id, value);
+        },
+        delete(resource: string, id: string) {
+          order.push(`delete:${resource}:${id}`);
+          return persistence.delete(resource, id);
+        },
+      } satisfies AdminPersistenceAdapter,
+    };
+  }
+
+  /** The boundary as a host wires all of it, with every prepared call named in the log. */
+  function seam(order: string[], events: AdminAuditEvent[]) {
+    const store = tracked(order);
+    return {
+      ...store,
+      store: createAdminResourceActions({
+        guard: createAdminPermissionGuard({
+          rule: () => true,
+          session: () => caller.session ?? null,
+        }),
+        persistence: store.persistence,
+        before: ({ resource, operation, resourceId }) => {
+          order.push(`before:${operation}:${resource}:${resourceId ?? ""}`);
+        },
+        audit: {
+          record: async (event) => {
+            order.push("audit");
+            events.push(event);
+          },
+        },
+        cache: { invalidate: async () => void order.push("cache") },
+        definitions: [shipments],
+      }),
+    };
+  }
+
+  it("prepares, reads the record it replaces, checks the value, writes, records and invalidates", async () => {
+    const order: string[] = [];
+    const events: AdminAuditEvent[] = [];
+    const { store, inner } = seam(order, events);
+    await inner.create("shipments", { id: "shp_1", tracking: "HD-1", customer_id: "cus_b" });
+    order.length = 0;
+
+    await store.update("shipments", "shp_1", { tracking: "HD-2", customer_id: "cus_a" });
+
+    // One list, and every line of it load-bearing. The two reads of the record being written are
+    // both there: the one that decides which values this write introduced goes straight to the store,
+    // so it prepares nothing, and the one that checks the value it introduced is a permitted call of
+    // its own and prepares as one. Route that first read through `permit` and a third `before` shows
+    // up here; drop the check and four lines go; move either half of the reporting and the tail moves.
+    expect(order).toEqual([
+      "before:update:shipments:shp_1",
+      "read:shipments:shp_1",
+      "before:read:customers:cus_a",
+      "read:customers:cus_a",
+      "update:shipments:shp_1",
+      "audit",
+      "cache",
+    ]);
+    // The event is the one the guard decided for, which is what returning the session from `permit`
+    // is for, and it names the record the call named rather than only what the store returned.
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      action: "update",
+      resource: "shipments",
+      resourceId: "shp_1",
+      actor: owner,
+    });
+  });
+
+  it("records nothing for a value the check refuses, which is a refusal like any other", async () => {
+    const order: string[] = [];
+    const events: AdminAuditEvent[] = [];
+    const { store, inner } = seam(order, events);
+    await inner.create("shipments", { id: "shp_1", tracking: "HD-1", customer_id: "cus_b" });
+    order.length = 0;
+
+    await expect(
+      store.update("shipments", "shp_1", { tracking: "HD-2", customer_id: "cus_gone" }),
+    ).rejects.toThrow(AdminResourceReferenceError);
+
+    // The guard is asked about the target before the store is, so a refused value says nothing about
+    // whether the row is there, and the trail says nothing about a write that did not happen. A
+    // resolution that reported before checking would leave a change the event claims and the table
+    // never took.
+    expect(order).toEqual([
+      "before:update:shipments:shp_1",
+      "read:shipments:shp_1",
+      "before:read:customers:cus_gone",
+      "read:customers:cus_gone",
+    ]);
+    expect(events).toHaveLength(0);
+    expect(await inner.read("shipments", "shp_1")).toMatchObject({
+      tracking: "HD-1",
+      customer_id: "cus_b",
+    });
+  });
+
+  it("reads nothing extra for a write that names no reference, and prepares once", async () => {
+    const order: string[] = [];
+    const events: AdminAuditEvent[] = [];
+    const { store, inner } = seam(order, events);
+    await inner.create("shipments", { id: "shp_1", tracking: "HD-1", customer_id: "cus_b" });
+    order.length = 0;
+
+    await store.update("shipments", "shp_1", { tracking: "HD-2", customer_id: null });
+
+    // The cost of deciding what a write introduced is one read of the record, and it is paid only by
+    // a write that introduces something. A read here would be a store call the check itself did not
+    // need, on the path every write through this seam takes.
+    expect(order).toEqual(["before:update:shipments:shp_1", "update:shipments:shp_1", "audit", "cache"]);
+    expect(events).toHaveLength(1);
   });
 });
