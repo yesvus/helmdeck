@@ -155,11 +155,21 @@ export type AdminLoginThrottle = {
    * of what a window is for. What is lost is bounded and in the safe direction: the repeat opens a
    * fresh window with one charge rather than adding a charge to a key that is being refused.
    *
-   * **A report for a reservation the store does not hold is still charged.** The reasoning is that
-   * the guess really happened and the slot has already been handed back, so ignoring the report
-   * would hand out a free attempt to anyone who can keep a connection open. That is also what makes
-   * a repeat look like a new attempt, which is why the memory above is what settles it rather than
-   * the charge itself.
+   * **A report for a reservation the store does not hold is still charged, and no sign-in forgives
+   * it.** The reasoning for charging is that the guess really happened and the slot has already
+   * been handed back, so ignoring the report would hand out a free attempt to anyone who can keep a
+   * connection open. That is also what makes a repeat look like a new attempt, which is why the
+   * memory above is what settles it rather than the charge itself.
+   *
+   * Not forgiving it is the other half of the same rule, and it is where a host's store has to
+   * agree. A success forgives the failures its own attempt was preceded by, and this report's
+   * attempt is one the store cannot place any more, so there is no position to compare and no
+   * honest answer to give. A host that files it at a position drawn from the same counter its
+   * reservations come from has not chosen a position at all: that counter's next value is the
+   * reservation the next attempt is about to be given, so the failure and a live attempt share a
+   * position and the next sign-in on the key forgives a guess it had nothing to do with. Anything
+   * above every position the host's own reservations can take does it, and on a store whose
+   * reservations are row ids that is one number the host never mints.
    */
   failed: (attempt: AdminLoginAttempt, reservation: LoginReservation) => Promise<void> | void;
   /**
@@ -173,7 +183,9 @@ export type AdminLoginThrottle = {
    * What a success does not do is discard a failure that is not its own to forgive. The recorded
    * failure stands, and only the failure count is reset, so a person who fumbled three times and
    * then got it right is not one typo from a lockout while an attacker's failures in the same
-   * window survive it.
+   * window survive it. That includes a report `failed` filed for a reservation this attempt's
+   * store does not hold: no sign-in forgives one of those, and a success whose own reservation has
+   * lapsed forgives nothing at all rather than guessing what it was preceded by.
    */
   succeeded: (attempt: AdminLoginAttempt, reservation: LoginReservation) => Promise<void> | void;
 };
@@ -252,6 +264,24 @@ export type LoginThrottleOptions = {
   message?: string;
 };
 
+/**
+ * The position a report is filed at when the throttle no longer holds the reservation it names.
+ *
+ * **It has to be a value no live reservation can hold and that no success's position can reach.** A
+ * success forgives every failure at or below the position its own attempt was admitted at, so a
+ * failure filed at a position a live reservation also holds is forgiven by the next sign-in on that
+ * key: a guess that really happened, against a slot that had already been handed back, stops
+ * counting because of somebody else's correct password.
+ *
+ * **No counter can supply one.** `minted + 1` is the serial the very next attempt is given, so the
+ * failure and that attempt share a position. A second counter does not escape the defect, it delays
+ * it: forgiveness is a comparison rather than an equality, so a failure filed at any position a
+ * later reservation can still pass is swallowed by the success of the first attempt admitted after
+ * it. The positions a reservation can be given have no top, so the value that works is the one a
+ * reservation cannot be given.
+ */
+const LATE_REPORT_POSITION = Number.POSITIVE_INFINITY;
+
 /** One key's count and the moment its window closes. */
 type LoginThrottleEntry = {
   /**
@@ -275,6 +305,10 @@ type LoginThrottleEntry = {
    * A success forgives what its attempt was preceded by and nothing after it, so a failure from an
    * attempt that was admitted later survives the sign-in. That is the narrow claim the old
    * "clears the key's count" overreached on.
+   *
+   * Always finite, because it is taken from a reservation the entry holds, and that is what keeps a
+   * late report's position above it: a report filed where no serial can reach cannot compare as
+   * forgiven by a success, whichever attempt signed in and whichever serial that attempt had.
    */
   cleared: number;
   until: number;
@@ -422,11 +456,14 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
         // after its own lease lapsed or a handle from a process that has restarted. Charged rather
         // than dropped: ignoring it is a free attempt for anyone who can hold a connection open,
         // and the slot it was holding has already been handed back, so charging is what puts that
-        // budget back where the attempt left it. Filed after every success on purpose, so no
-        // sign-in forgives it, and keyed by the reservation so a second report for the same
-        // attempt finds the entry and stops there.
+        // budget back where the attempt left it. Filed at `LATE_REPORT_POSITION`, above every serial
+        // this throttle will ever mint, so no sign-in forgives it: this attempt's position is not
+        // knowable any more, and guessing one out of the counter guessed the serial the next
+        // attempt was given, which let that attempt's success forgive a guess it had nothing to do
+        // with. Keyed by the reservation so a second report for the same attempt finds the entry
+        // and stops there.
         entries.set(key, {
-          failures: new Map([[reservation, minted + 1]]),
+          failures: new Map([[reservation, LATE_REPORT_POSITION]]),
           cleared: 0,
           until: now() + windowMs,
           reserved: new Map(),
@@ -445,11 +482,12 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
       //
       // The named slot becomes the failure, so the budget is the same size afterwards, and the
       // failure is filed under the position that attempt was admitted at. A reservation the entry
-      // no longer holds was either aged out or never minted here, and is filed after every success
-      // for the same reason as the branch above.
+      // no longer holds was either aged out or never minted here, and takes `LATE_REPORT_POSITION`
+      // for the same reason as the branch above: filed at a serial, it would be forgiven by the
+      // success of whichever attempt was admitted next.
       const held = entry.reserved.get(reservation);
       entry.reserved.delete(reservation);
-      entry.failures.set(reservation, held?.position ?? minted + 1);
+      entry.failures.set(reservation, held?.position ?? LATE_REPORT_POSITION);
     },
 
     succeeded: async (attempt, reservation) => {
