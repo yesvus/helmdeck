@@ -96,6 +96,16 @@ export const sampleNav: AdminNavGroup[] = [
         icon: "activity",
         keywords: ["dashboard", "tiles", "layout", "order", "engine"],
       },
+      {
+        // The tiles the package ships, over the demo's real rows. This is the surface that answers
+        // "what does installing this actually get me", so it sits beside the engine dashboard rather
+        // than behind a menu.
+        href: "/dashboard/tiles",
+        label: "Shipped tiles",
+        shortLabel: "Tiles",
+        icon: "chart",
+        keywords: ["tiles", "widgets", "stat", "chart", "activity", "revenue", "stock"],
+      },
     ],
   },
 ];
