@@ -839,9 +839,9 @@ describe("property 10: two attempts from one key, completing in either order, ag
     const budgets: number[] = [];
     for (const successIsFirst of [true, false]) {
       const bound = throttle({ limit: 4 });
-      const held = [await bound.check(attempt()), await bound.check(attempt())];
-      const succeeded = () => bound.succeeded(attempt(), held[1].reservation);
-      const failed = () => bound.failed(attempt(), held[0].reservation);
+      const held = [allowed(await bound.check(attempt())), allowed(await bound.check(attempt()))];
+      const succeeded = () => bound.succeeded(attempt(), held[1]);
+      const failed = () => bound.failed(attempt(), held[0]);
       await (successIsFirst ? succeeded() : failed());
       await (successIsFirst ? failed() : succeeded());
       budgets.push(await remainingBudget(bound));
@@ -856,9 +856,9 @@ describe("property 10: two attempts from one key, completing in either order, ag
     // is what "forgives" has to mean before it means anything.
     for (const successIsFirst of [true, false]) {
       const bound = throttle({ limit: 4 });
-      const held = [await bound.check(attempt()), await bound.check(attempt())];
-      const succeeded = () => bound.succeeded(attempt(), held[1].reservation);
-      const failed = () => bound.failed(attempt(), held[0].reservation);
+      const held = [allowed(await bound.check(attempt())), allowed(await bound.check(attempt()))];
+      const succeeded = () => bound.succeeded(attempt(), held[1]);
+      const failed = () => bound.failed(attempt(), held[0]);
       await (successIsFirst ? succeeded() : failed());
       await (successIsFirst ? failed() : succeeded());
 
@@ -872,9 +872,9 @@ describe("property 10: two attempts from one key, completing in either order, ag
     // and is a later guess rather than one of the typos that sign-in forgives.
     for (const successIsFirst of [true, false]) {
       const bound = throttle({ limit: 4 });
-      const held = [await bound.check(attempt()), await bound.check(attempt())];
-      const succeeded = () => bound.succeeded(attempt(), held[0].reservation);
-      const failed = () => bound.failed(attempt(), held[1].reservation);
+      const held = [allowed(await bound.check(attempt())), allowed(await bound.check(attempt()))];
+      const succeeded = () => bound.succeeded(attempt(), held[0]);
+      const failed = () => bound.failed(attempt(), held[1]);
       await (successIsFirst ? succeeded() : failed());
       await (successIsFirst ? failed() : succeeded());
 
@@ -887,9 +887,13 @@ describe("property 10: two attempts from one key, completing in either order, ag
     // A success retires its own slot. Handing out the slots of attempts still running is a burst
     // through the back door, and it is what a success that cleared the whole entry did.
     const bound = throttle({ limit: 4 });
-    const held = [await bound.check(attempt()), await bound.check(attempt()), await bound.check(attempt())];
+    const held = [
+      allowed(await bound.check(attempt())),
+      allowed(await bound.check(attempt())),
+      allowed(await bound.check(attempt())),
+    ];
 
-    await bound.succeeded(attempt(), held[0].reservation);
+    await bound.succeeded(attempt(), held[0]);
 
     // Two still running, nothing charged against them, so two attempts are left.
     expect(await remainingBudget(bound)).toBe(2);
@@ -916,13 +920,11 @@ describe("property 10: two attempts from one key, completing in either order, ag
     // typos it was preceded by, and this is not one: it is the next guess, and counting it is what
     // keeps an attacker from spending a free attempt per legitimate sign-in.
     const bound = throttle({ limit: 4 });
-    const signedIn = await bound.check(attempt());
-    allowed(signedIn);
-    await bound.succeeded(attempt(), signedIn.reservation);
+    const signedIn = allowed(await bound.check(attempt()));
+    await bound.succeeded(attempt(), signedIn);
 
-    const after = await bound.check(attempt());
-    allowed(after);
-    await bound.failed(attempt(), after.reservation);
+    const after = allowed(await bound.check(attempt()));
+    await bound.failed(attempt(), after);
 
     expect(await remainingBudget(bound)).toBe(3);
   });
@@ -1015,10 +1017,10 @@ describe("property 9: a host's own throttle can meet the contract", () => {
     // The contract is what two implementations are held to, so the second one has to reach the
     // same answer as the first on the case that separated the old throttle from a correct one.
     const bound = sharedStoreThrottle(4, Date.now)();
-    const held = [await bound.check(attempt()), await bound.check(attempt())];
+    const held = [allowed(await bound.check(attempt())), allowed(await bound.check(attempt()))];
 
-    await bound.succeeded(attempt(), held[0].reservation);
-    await bound.failed(attempt(), held[1].reservation);
+    await bound.succeeded(attempt(), held[0]);
+    await bound.failed(attempt(), held[1]);
 
     let through = 0;
     for (let i = 0; i < 40; i += 1) {

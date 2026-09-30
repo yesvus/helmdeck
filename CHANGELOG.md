@@ -38,18 +38,37 @@ every permission decision the package made was made in a browser.
 - **A decision carries the record the call names.** `read`, `update` and `delete` are decided per
   record; `query` is the collection question, and the host's own query does the row scoping. That
   last part is a deliberate limitation rather than an oversight, and it is stated where the code is.
-- **The sign-in bound covers attempts that arrive together.** `AdminLoginThrottle.check` was a read:
-  a client firing twenty attempts at once had all twenty of them read the count before any of them
-  had recorded a failure, so all twenty reached the password and the bound did nothing to the only
-  shape a fast attacker uses. It now takes a slot for the key when it lets an attempt through, and
-  `failed` and `succeeded` are how that slot comes back, so at most `limit` of a burst reach the
-  comparison. The three methods and their signatures are unchanged, so nothing fails to compile and
-  no call site changes. A host with its own throttle is the one this asks something of, and it is
-  written on the type: `check` has to take the slot in the same operation that refuses, so a Redis
-  implementation is a script or a conditional `UPDATE` rather than a `GET` and a `SET`, and it has
-  to age out a slot that is never reported back, or a request that dies between `check` and the
-  comparison holds the key below its limit for ever. `createLoginThrottle` ages one out with the
-  window by default and takes `reservationMs` for a host that wants it shorter.
+- **The sign-in bound covers attempts that arrive together, and a report names its own attempt.**
+  `AdminLoginThrottle.check` was a read: a client firing twenty attempts at once had all twenty of
+  them read the count before any of them had recorded a failure, so all twenty reached the password
+  and the bound did nothing to the only shape a fast attacker uses. `check` now answers with either
+  a refusal and its message or the **reservation** the attempt holds, and `failed` and `succeeded`
+  name the reservation they are reporting about, so at most `limit` of a burst reach the comparison
+  and a report retires one named attempt rather than a slot off the key's shared count. Naming it
+  is what makes the accounting order-independent: without it, two attempts from one key whose
+  reports arrived in either order left it in two different states, because a success arriving last
+  erased a failure that really happened and a success arriving first left that failure counted
+  against a key it had just cleared. Ageing out now retires one named reservation and cannot
+  discard a recorded failure filed against a different one, and a report for a reservation the
+  store no longer holds is still counted, because the slot it was holding has already been handed
+  back and ignoring the report is a free attempt for anyone who can hold a connection open. A
+  success forgives the failures recorded before its own attempt was admitted and not the ones after
+  it, and retires only its own reservation, so a concurrent attempt still running keeps its slot.
+
+  **This changes the interface, and it is a breaking change to a preview shape rather than to a
+  released one.** `check` returns `{ ok: true; reservation } | { ok: false; message }` instead of
+  `string | null`, and `failed` and `succeeded` take a second argument. A host with its own
+  throttle gets a compile error at `check` naming the union, which is the point: an implementation
+  that counts correctly but does not reserve and does not name what it reserved is silently the
+  throttle that bounds nothing, and nothing but a type error was ever going to say so. `failed` and
+  `succeeded` do not produce one on their own, because TypeScript accepts a function of fewer
+  parameters, so a host that fixes only `check` still compiles; the requirement is written on the
+  type, and a host whose reports ignore the reservation is the one that has to read it. A
+  reservation is an opaque `string`, so a host mints one from whatever its store makes cheaply and
+  unique: a row id, a UUID, a Redis `INCR`. Nothing in the package interprets it, and it never
+  leaves the server, so it does not have to be unguessable. `createLoginThrottle` ages a
+  reservation out with the window by default and takes `reservationMs` for a host that wants it
+  shorter.
 - **`endAllSessions` takes no account argument.** It resolves the caller from the signed cookie and
   acts on that account, and it refuses unless the host supplies `mayEndAllSessions`. There is no
   capability here that a caller can point at somebody else, which is the shape the previous version
