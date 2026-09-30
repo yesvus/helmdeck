@@ -75,6 +75,8 @@ function tracked(order: string[] = []) {
 
 type Half = "audit" | "cache";
 type Failure = { adapter: Half; cause: unknown };
+/** The second argument the seam hands `onAdapterError`, which names the half and the write. */
+type Reported = { adapter: Half; operation: string; resource: string; resourceId?: string };
 
 /**
  * A host wired the way the README wires one.
@@ -89,7 +91,7 @@ async function host(options: {
   halves?: Partial<Record<Half, boolean>>;
   record?: (event: AdminAuditEvent) => void | Promise<void>;
   invalidate?: (input: { resource: string; resourceId?: string; operation: string }) => void | Promise<void>;
-  onAdapterError?: (cause: unknown, input: { adapter: Half }) => void;
+  onAdapterError?: (cause: unknown, input: Reported) => void;
 } = {}) {
   const wired = { audit: true, cache: true, ...options.halves };
   const store = tracked();
@@ -121,7 +123,7 @@ async function host(options: {
         },
       }
       : {}),
-    onAdapterError: (cause: unknown, input: { adapter: Half }) => {
+    onAdapterError: (cause: unknown, input: Reported) => {
       failures.push({ adapter: input.adapter, cause });
       options.onAdapterError?.(cause, input);
     },
