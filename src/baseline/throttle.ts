@@ -262,10 +262,11 @@ type LoginThrottleEntry = {
    * success has to forgive the failures already recorded when it started and leave the ones that
    * came after it, and the only ordering both reports agree on is the order attempts were admitted
    * in, so each failure has to remember its own position. And a report arrives naming a
-   * reservation, so this map is also what says whether that reservation has been charged already.
-   * A list of positions beside a separate set of charged reservations is two structures that can
-   * disagree, and four rounds of this accounting were found wrong one path at a time because
-   * nothing tied the two together.
+   * reservation, so this map is also what says whether that reservation has been charged already:
+   * writing under a key the map holds overwrites rather than adds, which is where the "at most
+   * once" comes from. A list of positions beside a separate set of charged reservations is two
+   * structures that can disagree, and four rounds of this accounting were found wrong one path at
+   * a time because nothing tied the two together.
    */
   failures: Map<LoginReservation, number>;
   /**
@@ -432,9 +433,11 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
         });
         return;
       }
-      // The invariant, in the one place it can be broken. A report for a reservation already in
-      // the failures is a second report for an attempt that has been charged, and charging it
-      // again is what turns one request into N guesses' worth of budget.
+      // The invariant, named at the point where it would be broken. What keeps it is the keying
+      // rather than this line: a map written under a reservation it already holds overwrites, so
+      // the charge is one whatever this says. The check is here so that the rule is written down
+      // where a reader changing this method will come for it, and so the rule survives the map
+      // being swapped for something that is not keyed by reservation.
       if (entry.failures.has(reservation)) return;
       // A refused attempt does not extend the window. It costs the caller nothing to send a
       // thousand of them, and a window that each one pushed forward would be a way to keep a
