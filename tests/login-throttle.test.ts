@@ -528,7 +528,106 @@ describe("property 5: keys do not share a count", () => {
 
     expect(refused(second)).toBe(DEFAULT_THROTTLED_MESSAGE);
   });
+});
 
+describe("property 11: the number a host configures is the number the bound enforces", () => {
+  /**
+   * Twenty attempts at one limit, counting the ones that got as far as the password comparison.
+   * A refusal count would not do: a throttle that refuses everything also refuses twenty times.
+   */
+  async function burstAt(limit?: number) {
+    const bound = createLoginThrottle({ limit, clientKey: (a) => a.credentials.email });
+    let reached = 0;
+    let refusedCount = 0;
+    await Promise.all(
+      Array.from({ length: BURST }, async (_, i) => {
+        const one = { credentials: { email: EMAIL, password: `wrong-${i}` }, headers: headers({}) };
+        const decision = await bound.check(one);
+        if (!decision.ok) {
+          refusedCount += 1;
+          return;
+        }
+        reached += 1;
+        await bound.failed(one, decision.reservation);
+      }),
+    );
+    return { reached, refused: refusedCount };
+  }
+
+  it("admits nothing at a limit of zero, rather than one attempt", async () => {
+    // The defect. `check` created the entry for a key it had never seen and admitted the attempt
+    // that arrived first, so a limit of zero still let one password comparison happen. One is the
+    // whole difference between a bound of zero and a bound of one, and it was the one a host
+    // turning a form off could not see.
+    const { reached, refused: refusedCount } = await burstAt(0);
+
+    expect(reached).toBe(0);
+    expect(refusedCount).toBe(BURST);
+  });
+
+  it("says the same thing at a limit of zero as at any other limit", async () => {
+    // A limit of zero is a bound, so it refuses in the throttle's own words rather than with a
+    // sign-in form that silently fails. A host that turned a form off can tell from the response
+    // that the bound is what stopped it.
+    const bound = throttle({ limit: 0 });
+    const target = adapter({ throttle: bound });
+
+    expect(await target.auth.login({ email: EMAIL, password: PASSWORD })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+    expect(target.verify).not.toHaveBeenCalled();
+  });
+
+  it("defaults to eight, as a count of comparisons rather than an assumption about refusals", async () => {
+    // The number a host gets for free, pinned as a number. "Attempts were refused" would pass for
+    // any limit at or below twenty.
+    const { reached, refused: refusedCount } = await burstAt(undefined);
+
+    expect(reached).toBe(DEFAULT_THROTTLE_LIMIT);
+    expect(reached).toBe(8);
+    expect(refusedCount).toBe(BURST - DEFAULT_THROTTLE_LIMIT);
+  });
+
+  it("tells an absent limit apart from a limit of zero", async () => {
+    // The pair that must not share a code path. `limit: undefined` is the default and gets eight;
+    // `limit: 0` is a configuration and gets none. A `||` where a `??` belongs collapses them,
+    // and a host that passed an unset value through a config object would have found their form
+    // either unbounded or shut, with nothing to say which.
+    expect((await burstAt(undefined)).reached).toBe(8);
+    expect((await burstAt(0)).reached).toBe(0);
+    expect(DEFAULT_THROTTLE_LIMIT).toBe(8);
+  });
+
+  it("refuses to build at a limit that is not a whole number of attempts", async () => {
+    // The values with no reading at all, refused where the misconfiguration is rather than
+    // reinterpreted at runtime. `NaN` is the sharp one: every comparison against it is false, so
+    // a throttle built with it refuses nothing and bounds nothing, and the host would find that
+    // out from an incident rather than from a stack trace.
+    for (const bad of [Number.NaN, -1, 1.5]) {
+      expect(() => createLoginThrottle({ limit: bad })).toThrow(/limit/);
+    }
+  });
+
+  it("refuses to build at a window or a reservation lease that is not a positive number", async () => {
+    // The same defect on the two numbers beside the limit, and the same reason. A window of zero
+    // lapses every key on the next read, so nothing is ever charged, and a lease of zero lapses
+    // every reservation on the next read, so a burst stops being bounded at all.
+    expect(() => createLoginThrottle({ windowMs: 0 })).toThrow(/windowMs/);
+    expect(() => createLoginThrottle({ reservationMs: 0 })).toThrow(/reservationMs/);
+    expect(() => createLoginThrottle({ windowMs: Number.NaN })).toThrow(/windowMs/);
+  });
+
+  it("keeps the burst bound at the limits it has always enforced", async () => {
+    // The off-by-one is invisible at a positive limit, because the second attempt onwards is
+    // refused correctly, so these two numbers are the regression guard for a change that moves
+    // the budget check. Twenty at eight and twenty at three, counted at the comparison.
+    expect((await burstAt(8)).reached).toBe(8);
+    expect((await burstAt(3)).reached).toBe(3);
+  });
+});
+
+describe("property 5: keys do not share a count", () => {
   it("falls back to the account when nothing identifies the client, rather than to nothing", async () => {
     // A key that resolved to `undefined` would put every key in one bucket and throttle everyone
     // together, or worse, throw. Both are worse than a per-account bound, which is at least real.
