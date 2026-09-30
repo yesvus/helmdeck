@@ -69,10 +69,13 @@ function spelling(value: unknown): string {
 export function adminCsvCell(value: unknown): string {
   const text = spelling(value);
   if (text.length === 0) return "";
-  const marked = FORMULA.test(text) && !PLAIN_NUMBER.test(text) ? `'${text}` : text;
-  const safe = marked.startsWith("'") ? `'${marked}` : marked;
-  if (!NEEDS_QUOTES.test(safe)) return safe;
-  return `"${safe.replace(/"/g, '""')}"`;
+  // One prefix, for either of the two reasons there is one: a cell a spreadsheet would evaluate, and
+  // a cell whose own first character is the mark itself. Marking both with the same character is what
+  // lets the reader take it off again without knowing which reason it was.
+  const marked =
+    (FORMULA.test(text) && !PLAIN_NUMBER.test(text)) || text.startsWith("'") ? `'${text}` : text;
+  if (!NEEDS_QUOTES.test(marked)) return marked;
+  return `"${marked.replace(/"/g, '""')}"`;
 }
 
 /**
