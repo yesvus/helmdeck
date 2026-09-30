@@ -365,6 +365,56 @@ describe("two creates of one address, at the same time", () => {
 });
 
 describe("the store's own refusal, for a caller that is not the surface", () => {
+  /**
+   * Two spellings of one address, written straight to the store with nothing folded in the test.
+   *
+   * No `normalizeEmail` anywhere in these, because the surface is the thing that folds and the point
+   * is the path that does not go through it. The row count is asserted as well as the refusal, since
+   * "threw" and "wrote one row" are both plausible and only the second is right.
+   */
+  for (const [label, fresh] of [
+    ["the memory adapter", () => createMemoryPersistenceAdapter()],
+    [
+      "the SQLite adapter",
+      () =>
+        createSqlitePersistenceAdapter({
+          url: `file:${join(mkdtempSync(join(tmpdir(), "helmdeck-fold-")), "h.db")}`,
+        }),
+    ],
+  ] as const) {
+    // A fresh database per test rather than one per adapter, so a row one test wrote is not the
+    // duplicate the next one asserts.
+    const db = () => fresh();
+    it(`refuses a second account over ${label} for an address differing only in case and space`, async () => {
+      const database = db();
+      const store = createPersistenceCredentialStore(database);
+      const hash = "scrypt$salt$key";
+
+      const first = await store.createUser!({ email: "Same@Example.test", passwordHash: hash });
+
+      // The first write is folded, so the row it wrote is the row the sign-in will look up.
+      expect(first.email).toBe("same@example.test");
+      await expect(
+        store.createUser!({ email: "  same@EXAMPLE.Test ", passwordHash: hash }),
+      ).rejects.toThrow(AccountAlreadyExistsError);
+      expect(await database.query("users")).toHaveLength(1);
+    }, 30_000);
+
+    it(`reads back a row written in any spelling over ${label}, because the store wrote the folded one`, async () => {
+      const store = createPersistenceCredentialStore(db());
+      await store.createUser!({ email: "Same@Example.test", passwordHash: "scrypt$salt$key" });
+
+      // The read folds too. A store that folded only the write would refuse the duplicate and then
+      // fail to find the account it had just agreed to, which is a sign-in that cannot work.
+      for (const spelling of ["same@example.test", "SAME@EXAMPLE.TEST", "  Same@Example.test  "]) {
+        expect(await store.findUserByEmail(spelling), spelling).toMatchObject({
+          email: "same@example.test",
+        });
+      }
+    }, 30_000);
+  }
+
+
   it("refuses a second account for one address, rather than writing a second row", async () => {
     // `createUser` is exported, so a host calling it directly gets the guarantee the surface gives
     // rather than having to know to ask first.
@@ -421,6 +471,32 @@ describe("the store's own refusal, for a caller that is not the surface", () => 
 
     expect(answers.filter((answer) => answer.ok)).toHaveLength(1);
     expect(answers.filter((answer) => !answer.ok)).toEqual([taken(ADDRESS)]);
+  });
+
+  it("answers a duplicate the surface found itself with its own wording, never the store's error", async () => {
+    // A host renders that message, so the surface's sentence is the one that reaches a person. The
+    // store's error carries the same words in a different shape, and leaking it would put a class name
+    // in front of an operator who only needs to be told the address is spoken for.
+    //
+    // This is the path where the surface's own check refuses. The path where only the store can refuse
+    // is the test below it, which stands up a store whose read never finds anything so the catch is
+    // the only thing that can answer.
+    const db = createMemoryPersistenceAdapter();
+    const store = createPersistenceCredentialStore(db);
+    const admin = createAccountAdmin(store, { may: { create: () => true } });
+
+    const answers = await Promise.all([
+      admin.create(ADMIN, { email: "Same@Example.test", password: PASSWORD }),
+      admin.create(ADMIN, { email: "  same@EXAMPLE.Test ", password: PASSWORD }),
+    ]);
+
+    const refused = answers.filter((answer) => !answer.ok);
+    expect(refused).toHaveLength(1);
+    expect(refused[0]).toEqual(taken("same@example.test"));
+    // The message names the stored address, not the spelling that was typed, because the row is the
+    // thing that now holds it.
+    expect(JSON.stringify(refused[0])).not.toContain("Example");
+    expect(await db.query("users")).toHaveLength(1);
   });
 
   it("lets a failure that is not a duplicate through, rather than reporting it as one", async () => {

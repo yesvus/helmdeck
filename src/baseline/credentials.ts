@@ -106,6 +106,11 @@ export type AccountChanges = {
 
 /** What a caller hands over to have an account written, with the password in the clear exactly once. */
 export type NewAccount = {
+  /**
+   * Folded through `normalizeEmail` on the way in, so what lands in the column is the same value a
+   * sign-in will look the row up by. See `createUser` for why it is the stored form and not only the
+   * compared one.
+   */
   email: string;
   passwordHash: string;
   role?: string;
@@ -144,6 +149,13 @@ export class AccountAlreadyExistsError extends Error {
  * management surface without its owner adding the writes.
  */
 export type CredentialStore = {
+  /**
+   * Finds the account for an address, in whatever form this store treats as an address.
+   *
+   * The shipped store folds the address before looking, so a caller may pass what a person typed.
+   * A host whose identity is not a folded address implements this and `createUser` together, and
+   * says so there.
+   */
   findUserByEmail: (email: string) => Promise<CredentialUser | null>;
   findUserById: (id: string) => Promise<CredentialUser | null>;
   /** Writes the row and returns it. The store names the row, so one path covers any store. */
@@ -165,6 +177,10 @@ export type CredentialStore = {
    * refusal from the database and rethrows it as this; a store without one has to check, which
    * covers one process and not several, and the cross-process half is a schema question the host
    * answers with an index rather than with anything in this interface.
+   *
+   * "The same address" has to mean the same thing here as it does in the lookup, or the store
+   * refuses a duplicate on one spelling and writes it on another. The shipped store folds both sides
+   * for that reason, and a store with a different idea of an address implements both methods to it.
    */
   createUser?: (account: NewAccount) => Promise<AccountRecord>;
   updateUser?: (id: string, changes: AccountChanges) => Promise<AccountRecord>;
@@ -407,7 +423,7 @@ export function createPersistenceCredentialStore(
   return {
     async findUserByEmail(email) {
       const rows = await persistence.query<Record<string, unknown>>(users, {
-        [userColumns.email]: email,
+        [userColumns.email]: normalizeEmail(email),
       });
       return toUser(rows[0] ?? null);
     },
@@ -449,6 +465,29 @@ export function createPersistenceCredentialStore(
     },
 
     async createUser(account) {
+      /**
+       * **Why the stored address is the folded one and not only the compared one.** The lookup is an
+       * exact match against a value in a column, so a row written as `Ada@Example.test` is not found
+       * by a sign-in that looks up `ada@example.test`. Folding the comparison but keeping the
+       * caller's spelling would refuse the duplicate and still write an account nothing can sign in
+       * to, which is a worse failure than the one this prevents, and it would be invisible until
+       * someone tried to use the account they had just been told was created.
+       *
+       * So the fold is the store's identity model, on the way in and on the way out, and the account
+       * surface folding too is not a second decision about it: the surface folds because it has to
+       * find the row the store wrote and to name the address in the message, and both are only true
+       * if the two agree.
+       *
+       * **The limit, stated because it is a decision this seam makes.** Two spellings a host's own
+       * collation would treat as different addresses are one account here. A host that disagrees
+       * writes its own `CredentialStore`, whose `findUserByEmail` and `createUser` use its own
+       * comparison; that is the same seam as every other part of this interface, and it is the only
+       * place a different identity model can come from. Nothing here can be configured into a
+       * case-sensitive address, and pretending otherwise would be a store that sometimes writes rows
+       * its own sign-in cannot find.
+       */
+      const email = normalizeEmail(account.email);
+
       // The store's own duplicate refusal, and the reason it is here rather than only in
       // `createAccountAdmin`: this method is exported, so a host calling it directly gets the same
       // guarantee the surface gives. It is a check and not a constraint, because these two adapters
@@ -456,12 +495,12 @@ export function createPersistenceCredentialStore(
       // the check is the strongest thing available here and a host with a real unique address
       // column gets a stronger one from the database as well.
       const existing = await persistence.query<Record<string, unknown>>(users, {
-        [userColumns.email]: account.email,
+        [userColumns.email]: email,
       });
-      if (existing.length > 0) throw new AccountAlreadyExistsError(account.email);
+      if (existing.length > 0) throw new AccountAlreadyExistsError(email);
 
       const row = await persistence.create<Record<string, unknown>>(users, {
-        [userColumns.email]: account.email,
+        [userColumns.email]: email,
         [userColumns.passwordHash]: account.passwordHash,
         ...(account.role === undefined ? {} : { [userColumns.role]: account.role }),
         ...(account.name === undefined ? {} : { [userColumns.name]: account.name }),
