@@ -200,6 +200,12 @@ export function settingsFromForm(form: FormData): { ok: true; value: Record<Colu
  * A row the rules did not admit is treated as no row rather than as a failure, because a settings
  * page that refuses to render is a page nobody can repair, and the values it falls back to are the
  * ones the migration inserted.
+ *
+ * The fallback is per value rather than for the row. A row written before `density` existed, or one
+ * carrying a density this build does not know, still holds a perfectly good site name and a good
+ * accent, and treating the whole row as unread threw those away over one field. So a field falls
+ * back on its own, and the cost of an unrecognised value is that one value rather than everything
+ * beside it.
  */
 function asSettings(row: unknown): SiteSettings | null {
   if (!row || typeof row !== "object") return null;
@@ -208,8 +214,8 @@ function asSettings(row: unknown): SiteSettings | null {
 
   for (const field of SETTINGS_FIELDS) {
     const stored = record[field.column];
-    if (typeof stored !== "string" || !field.rule(stored)) return null;
-    value[field.column] = stored;
+    value[field.column] =
+      typeof stored === "string" && field.rule(stored) ? stored : DEFAULT_SETTINGS[field.column];
   }
 
   // The same rule the loop above applied, stated again because `rule` is read through the union of

@@ -499,6 +499,33 @@ describe("a stored value that is absent or unknown falls back to the contract's 
     expect(rootStyle("--admin-brand-500")).toBe(DEFAULT_SETTINGS.accent);
   }, 30_000);
 
+  it("keeps the values it can read when one value is unrecognised", async () => {
+    await signIn();
+    // The row a person actually has: a good name and a good accent, beside a density from a shape
+    // that has since changed. The whole-row fallback read this as no row at all, so the name the
+    // operator typed was replaced by the migration's, for the sake of one field.
+    // Deliberately not the defaults. `DEFAULT_SETTINGS.name` is "Northstar Supply", so a test that
+    // used that name could not tell a preserved value from a discarded one, and passed against the
+    // whole-row fallback it exists to catch.
+    const named = { ...DEFAULT_SETTINGS, name: "Kestrel Freight", accent: CHOSEN };
+    await store.delete("site_settings", SETTINGS_ROW_ID);
+    await store.create("site_settings", {
+      id: SETTINGS_ROW_ID,
+      ...named,
+      density: "cosy",
+    });
+
+    const settings = await readSettings();
+    expect(settings.density).toBe(DEFAULT_ADMIN_DENSITY);
+    // The two values that were readable are still the ones stored, not the defaults.
+    expect(settings.name).toBe("Kestrel Freight");
+    expect(settings.accent).toBe(CHOSEN);
+
+    await openShell();
+    expect(rootStyle("--admin-brand-500")).toBe(named.accent);
+    expect(rootStyle("--admin-density")).toBe(ADMIN_DENSITY_SCALE[DEFAULT_ADMIN_DENSITY]);
+  }, 30_000);
+
   it("falls back for a row that is not a row at all", async () => {
     await signIn();
     await store.delete("site_settings", SETTINGS_ROW_ID);
