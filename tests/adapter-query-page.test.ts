@@ -6,7 +6,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createMemoryPersistenceAdapter } from "../src/baseline/memory";
 import { createSqlitePersistenceAdapter } from "../src/baseline/sqlite";
 import { adminResourceQuery } from "../src/adapters/query";
-import type { AdminPersistenceAdapter, AdminResourcePage, AdminResourceQuery } from "../src/adapters/index";
+import type {
+  AdminPersistenceAdapter,
+  AdminResourcePage,
+  AdminResourceQuery,
+  AdminResourceSort,
+} from "../src/adapters/index";
 
 /**
  * The paged form of the query, asked of both stores this repository ships.
@@ -618,20 +623,70 @@ describe("the two stores answering the same question", () => {
     ["an ordering descending", { sort: [{ field: "views", direction: "desc" }] }],
     ["an ordering on text", { sort: [{ field: "title", direction: "asc" }] }],
     ["an ordering on a field some records lack", { sort: [{ field: "note", direction: "asc" }] }],
+    ["an ordering on a field some records lack, reversed", { sort: [{ field: "note", direction: "desc" }] }],
     ["an ordering over every class", { sort: [{ field: "mixed", direction: "asc" }] }],
     ["an ordering over every class, reversed", { sort: [{ field: "mixed", direction: "desc" }] }],
-    ["an ordering on letters above the basic plane", { sort: [{ field: "uni", direction: "asc" }] }],
     ["an ordering on a document", { sort: [{ field: "doc", direction: "asc" }] }],
+    ["an ordering on a document, reversed", { sort: [{ field: "doc", direction: "desc" }] }],
     ["an ordering on a list", { sort: [{ field: "tags", direction: "asc" }] }],
+    ["an ordering on a list, reversed", { sort: [{ field: "tags", direction: "desc" }] }],
+    ["an ordering on a real", { sort: [{ field: "weight", direction: "asc" }] }],
+    ["an ordering on a real, reversed", { sort: [{ field: "weight", direction: "desc" }] }],
+    ["an ordering on a boolean", { sort: [{ field: "published", direction: "asc" }] }],
+    ["an ordering on a boolean, reversed", { sort: [{ field: "published", direction: "desc" }] }],
+    ["an ordering on letters above the basic plane", { sort: [{ field: "uni", direction: "asc" }] }],
+    ["an ordering on letters above the basic plane, reversed", { sort: [{ field: "uni", direction: "desc" }] }],
+    ["an ordering on a nested field", { sort: [{ field: "meta.slug", direction: "asc" }] }],
+    ["an ordering on a nested field, reversed", { sort: [{ field: "meta.slug", direction: "desc" }] }],
+    ["an ordering on a field no record has", { sort: [{ field: "absent", direction: "asc" }] }],
     ["two orderings", {
       sort: [
         { field: "status", direction: "asc" },
         { field: "views", direction: "desc" },
       ],
     }],
+    ["two orderings, both reversed", {
+      sort: [
+        { field: "status", direction: "desc" },
+        { field: "views", direction: "asc" },
+      ],
+    }],
+    // A window inside one class rather than between them, so the boundary is only reachable if the
+    // class is ranked before the value. A window over an ordering that put the window on the other
+    // side of a class boundary would agree between the two stores over a different set of rows.
+    ["an ordering with a window inside its lowest class", {
+      sort: [{ field: "mixed", direction: "asc" }],
+      window: { offset: 1, limit: 2 },
+    }],
+    ["an ordering with a window inside its highest class", {
+      sort: [{ field: "mixed", direction: "desc" }],
+      window: { offset: 0, limit: 2 },
+    }],
+    ["a reversed ordering with a window inside its lowest class", {
+      sort: [{ field: "note", direction: "desc" }],
+      window: { offset: 2, limit: 3 },
+    }],
+    ["an ordering on a document with a window", {
+      sort: [{ field: "doc", direction: "desc" }],
+      window: { offset: 0, limit: 3 },
+    }],
+    ["an ordering on a nested field with a window", {
+      sort: [{ field: "meta.slug", direction: "asc" }],
+      window: { offset: 2, limit: 5 },
+    }],
+    // The first ordering ties on every row, so the answer is the second one and the class of the
+    // first is not what put the rows in order. A store that ranked a missing field above a held one
+    // would still agree here, which is why the cases above ask for an ordering on both.
+    ["two orderings, the first of which no record holds", {
+      sort: [
+        { field: "absent", direction: "desc" },
+        { field: "views", direction: "asc" },
+      ],
+      window: { offset: 1, limit: 4 },
+    }],
     ["a window", { window: { offset: 2, limit: 2 } }],
     ["a window past the end", { window: { offset: 40, limit: 10 } }],
-    ["all four", {
+    ["search, filter, ordering and window at once", {
       search: "a",
       filter: [{ field: "status", operator: "ne", value: "archived" }],
       sort: [{ field: "title", direction: "desc" }],
@@ -660,6 +715,98 @@ describe("the two stores answering the same question", () => {
       expect(fromSqlite.rows.map(byId), what).toEqual(fromMemory.rows.map(byId));
     });
   }
+
+  /**
+   * An ordering, the row order the ranking states for it, and the window it is read through.
+   *
+   * The cases in the set above hold the two stores to each other, which is not the same as holding
+   * either of them to the ranking: two stores that ranked a class the wrong way agree with each
+   * other perfectly, and a store that ranks the class for a comparison and not for an ordering
+   * agrees with itself on every query that does not cross a class. So the order is written out here
+   * beside each ordering, and each store is held to that list rather than to the other.
+   *
+   * Each row of the table below is read off the rule rather than off a store's answer, so a store
+   * that answers it is a store that applied the rule. The classes come out lowest first: nothing, a
+   * stored null and a field no record has alike, then numbers and booleans, then text, with a
+   * document and a list spelled as their own JSON, which is what a store casts them to. Reading the
+   * other way reverses each class and puts nothing at the end, and the id settles what is left tied,
+   * ascending whichever way the ordering reads.
+   */
+  const rankings: Array<[string, AdminResourceSort[], string[]]> = [
+    // Nothing first, then the two numbers, then the one word. `true` is the number a store keeps it
+    // as, so it is below `5`, and the null and the absent field are tied and the id orders them.
+    ["nothing, then numbers, then text", [{ field: "mixed", direction: "asc" }], ["r1", "r4", "r5", "r2", "r3"]],
+    // The same rows the other way, so the class that was first is last. A store that reversed the
+    // value and left the class alone would put the two lowest rows at the front.
+    ["and nothing at the end of it", [{ field: "mixed", direction: "desc" }], ["r3", "r2", "r5", "r1", "r4"]],
+    ["text, then nothing", [{ field: "note", direction: "asc" }], ["r1", "r4", "r5", "r2", "r3"]],
+    ["and the two words first", [{ field: "note", direction: "desc" }], ["r3", "r2", "r1", "r4", "r5"]],
+    // A document and a list sit above a number, so the three rows holding one come after the null
+    // and the absent field. Within them the cast to text reads by code point, which puts `[1,2,3]`
+    // below `a document's own text` below `{"slug":"one"}`.
+    ["a document cast as its own JSON, above the nothing", [{ field: "doc", direction: "asc" }], ["r3", "r4", "r2", "r5", "r1"]],
+    ["and the two nothing rows at the end of it", [{ field: "doc", direction: "desc" }], ["r1", "r5", "r2", "r3", "r4"]],
+    ["a list cast as its own JSON, above the nothing", [{ field: "tags", direction: "asc" }], ["r4", "r1", "r5", "r2", "r3"]],
+    ["and nothing at the end of it", [{ field: "tags", direction: "desc" }], ["r3", "r2", "r5", "r1", "r4"]],
+    // Every row here holds a boolean, so there is one class throughout and the order is the number
+    // a store keeps it as: `false` below `true`, and `true` tied across three rows in id order.
+    ["a boolean as the number a store keeps it as", [{ field: "published", direction: "asc" }], ["r2", "r4", "r1", "r3", "r5"]],
+    ["and the other way", [{ field: "published", direction: "desc" }], ["r1", "r3", "r5", "r2", "r4"]],
+    // Reals only, so what is being read is the value inside the class: `-3.5`, then `1e-7`, then
+    // `0.1 + 0.2` and `1 / 3` as the two engines each spell them, then `1e21`.
+    ["reals among themselves", [{ field: "weight", direction: "asc" }], ["r5", "r3", "r1", "r4", "r2"]],
+    ["and the other way", [{ field: "weight", direction: "desc" }], ["r2", "r4", "r1", "r3", "r5"]],
+    // Text by code point, which is not what a JavaScript string comparison says: the character above
+    // the basic plane is the last of these rather than the first.
+    ["text by code point rather than by code unit", [{ field: "uni", direction: "asc" }], ["r5", "r1", "r2", "r3", "r4"]],
+    ["and the other way", [{ field: "uni", direction: "desc" }], ["r4", "r3", "r2", "r1", "r5"]],
+    // A nested path is one field, ranked as the field it is. No row here holds nothing, so the class
+    // is the same throughout and the order is the three rows on `one` and then `three` and `two`.
+    ["a nested field, ranked as the field it is", [{ field: "meta.slug", direction: "asc" }], ["r1", "r3", "r5", "r4", "r2"]],
+    ["and the other way", [{ field: "meta.slug", direction: "desc" }], ["r2", "r4", "r1", "r3", "r5"]],
+    // A field no record holds is the lowest class on every row, so no value is compared anywhere
+    // and the id is the whole answer. This is where a store that ranked a missing field elsewhere,
+    // or that applied the direction to the id as well, would put these rows in another order.
+    ["a field no record holds, where the id is the whole answer", [{ field: "absent", direction: "asc" }], ["r1", "r2", "r3", "r4", "r5"]],
+  ];
+
+  /**
+   * The same orderings read through a window, which lands inside one class rather than between two.
+   *
+   * A window on the boundary between two classes cannot tell the two apart, since either ranking
+   * gives the same rows there. One landing inside a class can, because the rows on either side of it
+   * belong to the same class and only the value orders them.
+   */
+  const windows: Array<[string, AdminResourceSort[], { offset: number; limit: number }, string[]]> = [
+    ["a window inside the lowest class", [{ field: "mixed", direction: "asc" }], { offset: 1, limit: 2 }, ["r4", "r5"]],
+    ["a window inside the highest class", [{ field: "mixed", direction: "desc" }], { offset: 0, limit: 2 }, ["r3", "r2"]],
+    ["a window inside the class a reversal moved to the end", [{ field: "note", direction: "desc" }], { offset: 2, limit: 3 }, ["r1", "r4", "r5"]],
+    ["a window over documents", [{ field: "doc", direction: "desc" }], { offset: 0, limit: 3 }, ["r1", "r5", "r2"]],
+    ["a window over a nested field", [{ field: "meta.slug", direction: "asc" }], { offset: 2, limit: 5 }, ["r5", "r4", "r2"]],
+    ["a window over reals", [{ field: "weight", direction: "desc" }], { offset: 0, limit: 3 }, ["r2", "r4", "r1"]],
+    ["a window reaching past the end of the last class", [{ field: "mixed", direction: "asc" }], { offset: 3, limit: 9 }, ["r2", "r3"]],
+    ["a window on a field no record holds, where the id decides the boundary", [{ field: "absent", direction: "asc" }], { offset: 2, limit: 2 }, ["r3", "r4"]],
+  ];
+
+  it("answer each ordering with the row order the ranking states, in both stores", async () => {
+    const [[, memoryStore], [, sqliteStore]] = await seeded(records);
+
+    for (const [what, sort, expected] of rankings) {
+      const query: AdminResourceQuery = { sort };
+      expect((await memoryStore.queryPage<Row>("products", query)).rows.map(byId), `the in-memory adapter, ${what}`).toEqual(expected);
+      expect((await sqliteStore.queryPage<Row>("products", query)).rows.map(byId), `the SQLite adapter, ${what}`).toEqual(expected);
+    }
+  });
+
+  it("answer a window landing inside a class with that class's rows, in both stores", async () => {
+    const [[, memoryStore], [, sqliteStore]] = await seeded(records);
+
+    for (const [what, sort, window, expected] of windows) {
+      const query: AdminResourceQuery = { sort, window };
+      expect((await memoryStore.queryPage<Row>("products", query)).rows.map(byId), `the in-memory adapter, ${what}`).toEqual(expected);
+      expect((await sqliteStore.queryPage<Row>("products", query)).rows.map(byId), `the SQLite adapter, ${what}`).toEqual(expected);
+    }
+  });
 
   it("are not both empty, or a pair of stores that answer nothing would pass every case above", async () => {
     // Asked of every query in the set above rather than of one of them, because the failure this
