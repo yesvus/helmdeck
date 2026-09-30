@@ -29,20 +29,26 @@ export class AdminResourceImportError extends Error {
 /** One column of the file, and how its cell becomes what a write stores. */
 export type AdminResourceImportColumn = {
   /**
-   * The header name this column is read under, which is the file's own name for it.
+   * The field of the record this column is written as.
    *
-   * The file leads: a column is a field of the file, and this says what to do with it. A host whose
-   * store wants a number gets a `parse` rather than a guess, because CSV carries text: `007` is a
-   * product code to one store and seven to another, and the package cannot know which.
+   * The file leads on what a row *says* and the record decides what a field is *called*, so the two
+   * are named separately: a spreadsheet's `Price` is a store's `price_cents` often enough that a file
+   * that could only be imported into a table whose columns are spelled the way a person typed them
+   * would be a file half the exports could not come back from.
    */
   name: string;
+  /**
+   * The header name in the file this column is read under. The name, when none is given, which is the
+   * case for a file this host's own export wrote.
+   */
+  header?: string;
   /**
    * Reads a cell into what a write stores.
    *
    * Handed `null` for a cell the file leaves empty, and the text otherwise. An empty cell is the
-   * absence of a value, which is what an empty string and a null both look like in a file, so this
-   * is where a host says which of the two it wants. A column with no `parse` gets the text, so an
-   * import never turns a value into a number nobody asked it to be.
+   * absence of a value, which is what an empty string and a null both look like in a file, so this is
+   * where a host says which of the two it wants. A column with no `parse` gets the text, so an import
+   * never turns a value into a number nobody asked it to be.
    */
   parse?: (text: string | null) => unknown;
 };
@@ -142,20 +148,36 @@ function headerOf(record: { line: number; cells: string[]; error: string | null 
   return record.cells;
 }
 
-/** The columns a host declared, checked before the file is read at all. */
+/**
+ * The columns a host declared, keyed by the name the file gives them, and checked before the file is
+ * read at all.
+ *
+ * Two columns reading the same header are a file whose two cells cannot be told apart, and two
+ * writing the same field is a row whose second value overwrites the first, so both are refused rather
+ * than resolved in the order they were declared.
+ */
 function checkedColumns(
   columns: readonly AdminResourceImportColumn[],
   resource: string,
 ): ReadonlyMap<string, AdminResourceImportColumn> {
   const declared = new Map<string, AdminResourceImportColumn>();
+  const fields = new Set<string>();
   for (const column of columns) {
     if (typeof column?.name !== "string" || column.name.length === 0) {
       throw new AdminResourceImportError(resource, "one of the columns names no field to read the file's name into");
     }
-    if (declared.has(column.name)) {
-      throw new AdminResourceImportError(resource, `two of the columns are named ${JSON.stringify(column.name)}`);
+    const header = column.header ?? column.name;
+    if (declared.has(header)) {
+      throw new AdminResourceImportError(
+        resource,
+        `two of the columns are read under the file's name ${JSON.stringify(header)}`,
+      );
     }
-    declared.set(column.name, column);
+    if (fields.has(column.name)) {
+      throw new AdminResourceImportError(resource, `two of the columns are written as ${JSON.stringify(column.name)}`);
+    }
+    declared.set(header, column);
+    fields.add(column.name);
   }
   return declared;
 }
@@ -165,9 +187,9 @@ function checkedColumns(
  *
  * Every declared column is here, whether the file carries it or not, and a cell the file leaves out
  * is the same as one it leaves empty: both are `null`, because that is the one thing a file can say
- * about a value it does not hold. A column the file names and the host did not is passed through as
- * its own text rather than dropped, since which fields a write accepts is the write boundary's
- * decision and this one has not read the resource's definition to know.
+ * about a value it does not hold. A column the file names and the host did not is passed through
+ * under the name the file gave it rather than dropped, since which fields a write accepts is the write
+ * boundary's decision and this has not read the resource's definition to know it.
  */
 function valuesOf(
   record: { line: number; cells: string[] },
@@ -183,16 +205,17 @@ function valuesOf(
     header.map((name, index): [string, string | null] => [name, record.cells[index] ?? null]),
   );
   const values: Record<string, unknown> = {};
-  // The file's own order first, so a value object reads in the order the file was written in, and
-  // then whatever the host declared that the file did not name.
+  // The file's own order first, so a value object reads in the order the file was written in, and then
+  // whatever the host declared that the file did not name.
   for (const name of [...header, ...declared.keys()]) {
-    if (Object.hasOwn(values, name)) continue;
+    const column = declared.get(name);
+    const field = column?.name ?? name;
+    if (Object.hasOwn(values, field)) continue;
     const cell = byName.get(name) ?? null;
     // The mark comes off before the column's parse sees the cell, so a number a writer marked is a
     // number the column can read rather than a string with an apostrophe on the front of it.
     const text = cell === null || cell.length === 0 ? null : adminCsvCellValue(cell);
-    const column = declared.get(name);
-    values[name] = column?.parse ? column.parse(text) : text;
+    values[field] = column?.parse ? column.parse(text) : text;
   }
   return values;
 }
