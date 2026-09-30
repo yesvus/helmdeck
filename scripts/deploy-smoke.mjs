@@ -385,13 +385,16 @@ export function logCommand(base, minutes = 5) {
  * has been ruled out as well as what has not.
  */
 export function diagnose(results, base) {
-  const by = (name) => results.find((entry) => entry.name.startsWith(name));
+  const by = (name) => results.find((entry) => entry.name.includes(name));
   const failed = results.filter((entry) => !entry.ok);
+  const limits = ["", "What this run does not establish:", ...whatThisCannotConclude().map((line) => `  ${line}`)];
+
   if (failed.length === 0) {
     return [
       `Every check passed against ${base}.`,
       "The sign-in issued a session and the session rendered a page, so the persistence path, the",
       "credential path and the session guard all answered on this deploy.",
+      ...limits,
     ];
   }
 
@@ -447,7 +450,7 @@ export function diagnose(results, base) {
     );
   }
 
-  if (signIn?.ok && authed?.ok) {
+  if (signIn?.ok && authed?.ok && !junk?.ok && !guarded?.ok) {
     lines.push(
       "The store answered for a real sign-in and for the page behind it, so the failure is in the",
       "pages or the routes rather than in persistence. A status code this run could not expect is",
@@ -456,11 +459,7 @@ export function diagnose(results, base) {
     );
   }
 
-  lines.push(
-    "",
-    "What this run does not establish:",
-    ...whatThisCannotConclude().map((line) => `  ${line}`),
-  );
+  lines.push(...limits);
   return lines;
 }
 
@@ -522,7 +521,7 @@ function parseArgs(argv) {
   return { flags, positional };
 }
 
-function report(run, { write = (line) => stdout.write(`${line}\n`) } = {}) {
+export function report(run, { write = (line) => stdout.write(`${line}\n`) } = {}) {
   const failed = run.results.filter((entry) => !entry.ok);
   write(`deploy smoke: ${run.base}`);
   write("");
