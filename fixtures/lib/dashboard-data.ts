@@ -14,27 +14,26 @@
  * The aggregates are computed here rather than in the database because the persistence contract's
  * query is a filter, not an aggregate, and adding one for a dashboard would put a SQL dialect in a
  * host. Cents are summed as integers and divided by 100 only where a widget formats them, so no
- * total is ever built out of a formatted string.
+ * total is ever built out of a formatted string. The summing itself is the package's, so a tile on
+ * this dashboard and a host's own tile reach the same figure by the same arithmetic.
  */
 
+import { adminAggregateTotals, adminWholeNumber } from "@yesvus/helmdeck";
 import { queryResourceAction } from "./resource-actions";
 
 /** The fields the dashboard reads out of a row, which is not the whole row. */
 type ProductRow = { id: string; name: string; sku: string; stock: number };
 type OrderRow = { id: string; total_cents: number; status: string };
 
-/**
- * A column an aggregate is built from, refused rather than coerced.
- *
- * The store holds integers, and a total computed from anything else is wrong in a way that reads
- * correctly on screen. Refusing puts it in the widget's error state, where the reason is visible.
- * A bigint is accepted because a driver configured to return 64-bit integers is still an integer.
- */
-function wholeNumber(row: Record<string, unknown>, column: string): number {
-  const value = row[column];
-  if (typeof value === "bigint") return Number(value);
-  if (typeof value === "number" && Number.isInteger(value)) return value;
-  throw new Error(`${column} is not a whole number: ${JSON.stringify(value)}`);
+/** The store's own guard, now the package's, so a tile here and a host's tile refuse the same column alike. */
+const wholeNumber = (row: Record<string, unknown>, column: string) => adminWholeNumber(row[column], column);
+
+/** Money the store holds over a set of orders, in integer cents, through the package's own summing. */
+function revenueOf(rows: readonly OrderRow[]): number {
+  return adminAggregateTotals({
+    rows,
+    measures: { cents: (order) => wholeNumber(order, "total_cents") },
+  }).cents;
 }
 
 /**
@@ -54,7 +53,10 @@ export async function loadCatalogAction(): Promise<{ products: number; units: nu
   const products = (await queryResourceAction("products")) as ProductRow[];
   return {
     products: products.length,
-    units: products.reduce((total, product) => total + wholeNumber(product, "stock"), 0),
+    units: adminAggregateTotals({
+      rows: products,
+      measures: { stock: (product) => wholeNumber(product, "stock") },
+    }).stock,
   };
 }
 
@@ -85,10 +87,7 @@ export async function loadSignupCountAction(): Promise<{ total: number }> {
 
 export async function loadRevenueAction(): Promise<{ cents: number; orders: number }> {
   const earned = (await orders()).filter((order) => EARNED.has(order.status));
-  return {
-    cents: earned.reduce((total, order) => total + wholeNumber(order, "total_cents"), 0),
-    orders: earned.length,
-  };
+  return { cents: revenueOf(earned), orders: earned.length };
 }
 
 export async function loadAverageOrderValueAction(): Promise<{ cents: number; orders: number }> {
@@ -99,6 +98,7 @@ export async function loadAverageOrderValueAction(): Promise<{ cents: number; or
   const earned = (await orders()).filter((order) => EARNED.has(order.status));
   if (earned.length === 0) return { cents: 0, orders: 0 };
 
-  const cents = earned.reduce((total, order) => total + wholeNumber(order, "total_cents"), 0);
-  return { cents: Math.round(cents / earned.length), orders: earned.length };
+  // The total divided by the count once, in integer cents, so this is a rounded figure. Averaging two
+  // totals that were each already divided is the arithmetic this avoids.
+  return { cents: Math.round(revenueOf(earned) / earned.length), orders: earned.length };
 }
