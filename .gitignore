@@ -2,6 +2,7 @@ node_modules
 dist
 .next
 examples/independent-host/next-env.d.ts
+template/next-env.d.ts
 template/helmdeck.db
 template/helmdeck.db-journal
 coverage

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { typecheckTemplate } from "../scripts/typecheck-template.mjs";
@@ -122,6 +123,106 @@ describe("the starter template", () => {
     expect(code(join(template, "lib/store.ts"))).toMatch(/requirePermission/);
     expect(code(join(template, "app/actions/permission-actions.ts"))).toMatch(/checkPermission/);
   });
+
+  it("narrows a write to the declared fields, so a hand-edited request cannot add one", async () => {
+    // The form filters what it submits, in the browser. This is the other half: a request that never
+    // went through a form reaches the store directly, and a store that takes the value as it was sent
+    // will write a field the definition dropped, or an `id` the caller chose. The claim is about the
+    // boundary rather than about the form, so it is checked by writing through the boundary and
+    // reading back what the store holds.
+    //
+    // The session is stood in for rather than resolved: it is read from an HTTP-only cookie by the
+    // package's server-only adapter, and a cookie this process cannot set is not what is under test.
+    // It carries the editor role, which the template's own rule gives every operation but delete, so
+    // the refusal at the end is the one rule answering rather than a second check written here.
+    const directory = mkdtempSync(join(root, "node_modules", ".helmdeck-starter-"));
+    const previous = process.env.HELMDECK_DATABASE_URL;
+    process.env.HELMDECK_DATABASE_URL = `file:${join(directory, "writes.db")}`;
+    try {
+      vi.doMock("../template/lib/session", () => ({
+        currentAdminSession: async () => ({ email: "someone@somewhere.test", role: "editor" }),
+        auth: {},
+        requireAdminSession: async () => ({ email: "someone@somewhere.test", role: "editor" }),
+      }));
+      const { resourceActions } = await import("../template/lib/store");
+      const { persistence } = await import("../template/lib/persistence");
+
+      const written = await resourceActions.create("products", {
+        name: "Chair",
+        sku: "CHAIR-1",
+        price_cents: 12000,
+        // None of these three is a declared field. A caller who found this action could send them,
+        // and the store is the last place they can be refused.
+        isAdmin: true,
+        password_hash: "scrypt$salt$key",
+      });
+
+      expect(Object.keys(written).sort()).toEqual(["id", "name", "price_cents", "sku"]);
+
+      // The id is the store's, not the caller's, which is the same claim from the other direction: a
+      // hand-edited request that names an id must not be able to write over a row that already has it.
+      const smuggled = await resourceActions.create("products", {
+        id: "chosen-by-the-caller",
+        name: "Table",
+        sku: "TABLE-1",
+        price_cents: 20000,
+      });
+      expect(smuggled.id).not.toBe("chosen-by-the-caller");
+
+      // And an editor may not delete, which is the rule asked through the same boundary.
+      await expect(
+        resourceActions.delete("products", String(written.id)),
+      ).rejects.toThrow(/may not products\.delete/);
+      await persistence.delete("products", String(written.id));
+    } finally {
+      vi.doUnmock("../template/lib/session");
+      if (previous === undefined) delete process.env.HELMDECK_DATABASE_URL;
+      else process.env.HELMDECK_DATABASE_URL = previous;
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }, 120_000);
+
+  it("creates an account the sign-in accepts, and refuses a wrong password", async () => {
+    // The claim a host makes when they run the command is "I can sign in now", and nothing else here
+    // can check it. So the command is run for real against a database in a temporary directory, and
+    // the same store the app uses is asked whether the account it wrote verifies. Two facts that can
+    // drift and are the usual way this breaks: the column the command writes and the column the
+    // sign-in reads, and the address form the command stores and the form the sign-in looks up.
+    const directory = mkdtempSync(join(root, "node_modules", ".helmdeck-starter-"));
+    const database = join(directory, "accounts.db");
+    const password = "a-password-long-enough";
+    const previous = process.env.HELMDECK_DATABASE_URL;
+    process.env.HELMDECK_DATABASE_URL = `file:${database}`;
+    try {
+      const created = execFileSync(
+        process.execPath,
+        [join(template, "scripts", "create-user.mjs"), "someone@somewhere.test", "editor"],
+        { input: `${password}\n`, encoding: "utf8", env: { ...process.env } },
+      );
+      expect(created).toContain("someone@somewhere.test");
+      expect(created).not.toContain(password);
+
+      const { authenticate, createPersistenceCredentialStore, createSqlitePersistenceAdapter } =
+        await import("@yesvus/helmdeck/baseline");
+      const store = createPersistenceCredentialStore(
+        createSqlitePersistenceAdapter({ url: `file:${database}` }),
+      );
+
+      // The role comes back on the user row, which is where `lib/rules.ts` reads it from. A row
+      // that stored it somewhere the session does not carry would leave every account with no role,
+      // and the rule's answer to that is nothing at all.
+      const verified = await authenticate(store, "  Someone@Somewhere.test ", password);
+      expect(verified?.role).toBe("editor");
+
+      // And a wrong password is refused, which is the half that a command writing the wrong column
+      // would still pass.
+      expect(await authenticate(store, "someone@somewhere.test", "not-the-password")).toBeNull();
+    } finally {
+      if (previous === undefined) delete process.env.HELMDECK_DATABASE_URL;
+      else process.env.HELMDECK_DATABASE_URL = previous;
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }, 120_000);
 
   it("refuses to load without a signing secret rather than falling back to a constant", async () => {
     // A constant here is a constant in every host that forgets to configure one, and those hosts

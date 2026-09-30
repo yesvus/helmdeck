@@ -30,11 +30,22 @@ const USERS = "users";
  */
 function ask(question, { secret = false } = {}) {
   const stdin = process.stdin;
-  return new Promise((resolve, reject) => {
-    if (!stdin.isTTY) {
-      reject(new Error(`${question} needs a terminal. Pipe the answer in, or run this from a shell.`));
-      return;
-    }
+  // Not a terminal, so the answer is piped: read it and echo nothing. `echo secret | node
+  // scripts/create-user.mjs ...` is how this runs in a container or a provisioning script, and a
+  // command that cannot be piped cannot be run in one.
+  if (!stdin.isTTY) {
+    return new Promise((resolve) => {
+      let answer = "";
+      stdin.setEncoding("utf8");
+      stdin.on("data", (chunk) => {
+        answer += String(chunk);
+      });
+      stdin.on("end", () => resolve(answer.replace(/\r?\n$/, "")));
+      stdin.resume();
+    });
+  }
+
+  return new Promise((resolve) => {
     const wasRaw = stdin.isRaw;
     stdin.setRawMode(true);
     stdin.resume();
