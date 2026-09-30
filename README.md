@@ -10,6 +10,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
 - Six ready dashboard tiles (stat, table, list, time-series chart, ranked chart, activity feed) that render the engine's four states themselves, so a host registers a tile rather than writing one.
 - Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
+- CSV export and import over the resource seam: the list a query names as a downloadable file, and a file read into the store a row at a time.
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
 - A static bilingual fixture app for the hosted demo.
 
@@ -597,6 +598,77 @@ Declarations that could be drawn two ways are refused at `defineAdminResource`: 
 **A query that crosses the server is read or refused.** `createAdminResourceActions` reads the query it is handed before it asks about the session, and refuses anything it cannot read: a part that is not part of a query, a field name that is not a field, an ordering that is not ascending or descending, a comparison with nothing to compare to, an offset that is not a whole record, a window of no rows, and a window larger than the contract allows. The refusal is deliberate, because the adapters this contract grew out of read every key they are given as a field to match exactly: a `sort` was a column named `sort`, and a `limit` was a filter nothing matched. A store is not handed a guess about what a caller meant.
 
 `query` on the actions is still the rows-only read, and its argument is passed through as the host's adapter takes it. A host that wants its queries read, checked and counted asks for `queryPage`, and a host whose adapter has no `queryPage` is not offered one, so a list mounted on the actions sees the same capabilities it would see mounted on the adapter itself.
+
+### Getting a list out of the store, and a file back into it
+
+An export is a dump of a table or it is the list a person is looking at, and the two are different files. A CSV of every row answers a question nobody asked; a CSV of the filtered, searched and ordered set answers the one in front of them. This package treats the second as the only export there is, which is only possible because the query the list is holding is a value the store can be asked and can count.
+
+`adminResourceExport` is the file, and `adminResourceExportResponse` is the same file as the response a route hands back:
+
+```ts
+// app/admin/products/export/route.ts
+import { adminResourceExportResponse } from "@yesvus/helmdeck";
+
+export async function GET(request: Request) {
+  const query = Object.fromEntries(new URL(request.url).searchParams);
+  return adminResourceExportResponse({
+    actions: store,
+    resource: "products",
+    filename: "products.csv",
+    columns: [
+      { key: "name", header: "Name" },
+      { key: "sku", header: "SKU" },
+      { key: "price_cents", header: "Price", format: "money" },
+    ],
+    query,
+  });
+}
+```
+
+**It reads through the actions, not around them.** The query arrives from the browser, is read by the same parser a read is refused by, and reaches the store through the same `queryPage` the list view uses, so the rule, the exposed set and the store's own row scoping all apply to a file exactly as they apply to a table. An export that reached `persistence` directly would hand a session that may read forty rows a file of the whole table, and the rule would be consulted once at the top of a route rather than per page. The refusal is the refusal: a session the rule withholds gets `AdminPermissionDeniedError` before the first window is read, and `AdminResourceExportError` comes back for a store with no paged query, which cannot say how many rows a query matched and would therefore be exporting however many rows it felt like returning. The first window is read before the call resolves, so a refused export, a query the store could not be asked, and a set larger than `ADMIN_RESOURCE_EXPORT_MAX_ROWS` are all refusals rather than a body that fails once it is piped. The cap is a refusal and not a truncation: a file holding the first fifty thousand rows of a hundred thousand is a file that claims to be the list and is not.
+
+**The count is the store's, and the file is walked rather than collected.** `total` is what the store counted for the query before any window, and the walk stops there. The bytes come back one row at a time, so a fifty thousand row export is never held whole in memory by this package, and `adminResourceExportResponse` streams them into the response rather than building it. The generator's own return value is `{ exported, complete }`, which is how a caller writing to a file learns that the walk ended early: a store that stopped answering windows produces a real file of the rows that came, and `complete: false` is the claim that it is not the whole set, which nothing downstream can work out from the bytes alone. Give the query an ordering if your store does not settle ties itself, since this walks the matched set in windows and a store that ranks two queries for one set differently is a store where a row can be read twice and another not at all.
+
+**A window in the query is dropped.** An export is the whole of what a query names rather than the page the reader happens to be on. `file.query` is the query as this package read it, so the caller can see what was asked for.
+
+**The columns are declared rather than read off a definition.** A definition's header is a node, which a file cannot hold, so a host says the text; and a column naming another row's field is a column whose value is that row's label rather than its id, which is a read of the target resource per page. Declaring the columns puts both of those choices where they can be made and leaves nothing to be read correctly by accident. `format` answers `money` and `count` as the list does, and anything else through `formatters`; a name nothing answers is refused before the store is asked, because a column silently showing `4900` where its definition promised `$49.00` is a wrong number in a file that looks right. A value the row does not hold is an empty cell whatever the format says, because a dash in a numeric column is a column nobody can sum.
+
+**A cell a spreadsheet would run is marked, not written.** A customer's name of `=HYPERLINK("http://evil","Statement")` written honestly is a file that runs on the finance team's machine the moment somebody clicks the column, and "we wrote valid CSV" is not an answer to that. A cell whose text begins with `=`, `+`, `-` or `@` is written with a leading apostrophe, which every reader treats as text, and a value that is nothing but a number is left as the number it is: a cell with no operator and no function name in it has nothing to run, so a column of refunds stays a column a spreadsheet can sum. A value beginning with an apostrophe is marked the same way, and that is not redundancy: it is what tells the two apart on the way back in, so `'=1+1` comes back as `'=1+1` and `=1+1` as `=1+1`. `adminCsvCell` and `adminCsvText` are that pair, exported because a host writing CSV by hand should not have to decide the escaping on its own.
+
+**A null is an empty cell, and so is an empty string.** A file cannot say which of the two a blank cell is, so the export writes both as nothing and the import reads both back as `null`. Every other value is text, because CSV has no types: a column that wants a number says so with a `parse`, since `007` is a product code to one store and seven to another. Records end with CRLF and a value's own newline stays inside its quoted cell.
+
+**An import is the same importer for the first row and for the ten thousandth.** `adminResourceImport` reads a file as records, writes one row, and reports that row's outcome before it has read the next one, so a thousand rows and one row go through identical code and make identical decisions. `adminResourceImportResult` is that same stream read to the end:
+
+```ts
+// app/admin/products/import/route.ts
+import { adminResourceImportResult } from "@yesvus/helmdeck";
+
+export async function POST(request: Request) {
+  return Response.json(
+    await adminResourceImportResult({
+      actions: store,
+      resource: "products",
+      columns: [
+        { header: "Name", name: "name" },
+        { header: "Price", name: "price_cents", parse: (text) => (text === null ? null : cents(text)) },
+      ],
+      rows: request.body,
+    }),
+  );
+}
+```
+
+`rows` takes a `ReadableStream`, an async iterable, a plain iterable of pieces, or one string, and a file split a character at a time reads the same as a file handed over whole, so a route does not have to make an upload be a string before it can be read. A byte-order mark at the front of the file is dropped, because a spreadsheet writes one to say the file is not Latin-1 and it belongs to the first column's name rather than to the file.
+
+**A row that cannot be written does not undo the rows that were.** They are in the store, and the report says which line failed and what it said. That is not a shortcut around a transaction, it is the only answer a streaming read can give: all or nothing means reading the whole file before writing the first row, which is the batch this is built not to be, and a ten thousand row import rolled back over one bad line is a person doing the work twice. A host that needs one row or the whole file owns the transaction in its own store, where one belongs. `stopOnError` is the middle setting, for a caller that would rather have a short file and a re-run, and the result says which of the two it was.
+
+**Every row is a create through the same actions.** The rule, the exposed set, the references a write may not name, the audit trail and the cache are the ones a person typing the same row into a form would get, so an import cannot create what a form could not. The rule is asked once per row, because the alternative is a decision made once for a file nobody has read yet. A row the file cannot be read as at all is reported as malformed and never written, and the reader picks up at the next line break rather than refusing the file: one stray quote among ten thousand good rows is one row a person can fix, and a row is the unit this loses.
+
+**The header is refused rather than repaired,** before a single row is written: a file with two columns of one name has rows whose cells cannot be told apart, and one with a column of no name has a value with nowhere to go. So is an empty file, and so is a row with more cells than the header names. `adminCsvRecords` is the reader on its own, for a host that wants the records rather than the writes, and `adminCsvCellValue` is what a cell of a file being read carries.
+
+The two halves have the same shape: a primitive that streams, and a thin wrapper for the case where a route wants the whole answer. The export's wrapper is the `Response` above. The import's is `adminResourceImportResult`, which drives the same stream and returns the counts a JSON response needs, with the failure list capped at `ADMIN_RESOURCE_IMPORT_MAX_FAILURES` and the count of the ones the cap left out beside it, so a report of twenty entries is never read as the whole of what went wrong. There is no equivalent for the export, because the only way to know a file's finished count without a walk is to have done the walk, and a `string` return would be that walk held in memory.
+
+**Hand-rolled instead:** read the rows yourself and write the file. The bytes are the easy half. What is not the host's to redo is the rule being asked before the first row, the store's count being the one in the file, the escaping being the same in both directions, and a value beginning with `=` not becoming something a spreadsheet runs on the machine of whoever opens the file.
 
 ### Enforcing a permission on the server
 
