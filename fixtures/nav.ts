@@ -25,6 +25,23 @@ export const sampleNav: AdminNavGroup[] = [
         mobilePrimary: true,
         keywords: ["catalog", "inventory", "sku"],
       },
+      {
+        // The two resources that reference each other, which is what the reference work made
+        // possible: a shipment's customer is a row the store holds, offered by the generated form
+        // and checked on the way in, rather than a column a host writes by hand.
+        href: "/shell/customers",
+        label: "Customers",
+        shortLabel: "Customers",
+        icon: "users",
+        keywords: ["people", "accounts", "contacts", "who"],
+      },
+      {
+        href: "/shell/shipments",
+        label: "Shipments",
+        shortLabel: "Shipments",
+        icon: "store",
+        keywords: ["delivery", "dispatch", "tracking", "orders in transit"],
+      },
       { href: "/shell/media", label: "Media library", shortLabel: "Media", icon: "media", mobilePrimary: true },
       { href: "/shell/orders", label: "Orders", shortLabel: "Orders", icon: "file", roles: ["admin"] },
       {
