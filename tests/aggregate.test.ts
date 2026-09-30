@@ -123,23 +123,58 @@ describe("a row the key cannot place", () => {
   });
 
   it("counts a key that is only whitespace as no key at all", () => {
-    const result = revenueByDay([{ id: "blank", total_cents: 500, created_at: "" }], week);
+    // A hand-written key, because this is the case one of those produces: a store column holding a
+    // blank rather than nothing, which is what a padded CHAR column and a submitted empty field both
+    // give. Read as a period, " " puts the row on the axis under a label made of nothing.
+    const result = adminAggregate({
+      rows: [{ id: "blank", region: " ", total_cents: 500 }],
+      key: (row) => row.region,
+      measures: { cents: (row) => row.total_cents },
+      range: ["2026-09-29"],
+    });
 
     expect(result.unkeyed).toBe(1);
     expect(result.totalRecords).toBe(0);
+    expect(result.buckets).toHaveLength(1);
+    expect(result.totals.cents).toBe(0);
+  });
+
+  it("accepts a key with space around it as the period it names", () => {
+    // The other half of the same rule: a key padded with space names the period inside it, so a host
+    // that builds keys by concatenation is not silently excluded from its own chart.
+    const result = adminAggregate({
+      rows: [{ id: "padded", region: " 2026-09-29 ", total_cents: 500 }],
+      key: (row) => row.region,
+      measures: { cents: (row) => row.total_cents },
+      range: ["2026-09-29"],
+    });
+
+    expect(result.unkeyed).toBe(0);
+    expect(result.buckets[0]).toMatchObject({ key: "2026-09-29", values: { cents: 500 }, records: 1 });
   });
 
   it("keeps every row when no range is stated, so a grouping is a grouping and not a window", () => {
+    // Deliberately out of order: the 29th is read before the 28th, so first-appearance order and
+    // sorted order are different answers and the test can tell which one came back.
+    const rows: Order[] = [
+      { id: "c", total_cents: 12500, created_at: "2026-09-29 01:00:00" },
+      { id: "a", total_cents: 4900, created_at: "2026-09-28 09:00:00" },
+      { id: "b", total_cents: 3200, created_at: "2026-09-28T23:59:00.000Z" },
+    ];
+
     const result = adminAggregate({
-      rows: orders,
+      rows,
       key: (order) => adminChartDayKey(order.created_at ?? ""),
-      measures: { cents: (order) => order.total_cents },
+      measures: { cents: (order) => adminWholeNumber(order.total_cents, "total_cents") },
     });
 
-    // No range means no bound, so the buckets are the periods the rows named, in the order they
-    // first appeared, and nothing is out of range.
-    expect(result.buckets.map((bucket) => bucket.key)).toEqual(["2026-09-28", "2026-09-29"]);
+    // No range means no bound, so the buckets are the periods the rows named, in the order the rows
+    // arrived, and nothing is out of range. Every row is in one of them.
+    expect(result.buckets.map((bucket) => bucket.key)).toEqual(["2026-09-29", "2026-09-28"]);
+    expect(result.buckets.map((bucket) => bucket.values.cents)).toEqual([12500, 8100]);
     expect(result.outOfRange).toBe(0);
+    expect(result.unkeyed).toBe(0);
+    expect(result.totalRecords).toBe(3);
     expect(result.totals.cents).toBe(20600);
   });
 });
