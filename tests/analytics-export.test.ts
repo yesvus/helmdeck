@@ -231,6 +231,34 @@ describe("the file a report writes", () => {
     expect(lines[lines.length - 1]).toBe("");
   });
 
+  it("dates each path and each key by its most recent view, not by the first one the read handed over", async () => {
+    // The read comes back newest first on purpose, and the aggregation files the first row it sees into a
+    // bucket as that bucket's label. Reversing the order before the figures would therefore not break
+    // any count, and every date in the file would quietly become the oldest one instead of the newest,
+    // which is a report nobody can tell wrong by looking at it.
+    const report = await adminAnalyticsReport({
+      store: await seeded(),
+      range: RANGE,
+      pathPolicy: publicOnly,
+      sections: [...ADMIN_ANALYTICS_REPORT_SECTIONS],
+    });
+    const read = await adminAnalyticsReportFigures(report.csv);
+    // One column called `last_seen_at` in the file, read back as the field each table's own type names:
+    // a path's last view and a key's last sighting are the same question asked of two tables.
+    const pathSeen = (path: string): string | null =>
+      read.paths.find((row) => row.path === path)?.lastViewedAt ?? null;
+    const keySeen = (key: string): string | null =>
+      read.visitors.find((row) => row.visitorKey === key)?.lastSeenAt ?? null;
+
+    // `/` was viewed on the 27th, the 28th and the 30th, and `/pricing` on the 27th and the 29th. The
+    // figure is the last of those, which is the opposite end from the order the file lists them in.
+    expect(pathSeen("/")).toBe("2026-09-30T09:00:00.000Z");
+    expect(pathSeen("/pricing")).toBe("2026-09-29T10:00:00.000Z");
+    // The same for a key: `v-1` was on the 27th and the 28th.
+    expect(keySeen("v-1")).toBe("2026-09-28T09:00:00.000Z");
+    expect(keySeen("v-2")).toBe("2026-09-29T10:00:00.000Z");
+  });
+
   it("adds up: the totals are the sum of the rows the file wrote beside them", async () => {
     const report = await adminAnalyticsReport({
       store: await seeded(),
