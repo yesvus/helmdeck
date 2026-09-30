@@ -44,6 +44,7 @@ const tables = new Set([
   "shipments",
   "dashboard_placements",
   "audit_events",
+  "analytics_events",
   "landing_sections",
   "sessions",
   "site_settings",

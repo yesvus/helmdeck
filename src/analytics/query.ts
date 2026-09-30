@@ -51,12 +51,18 @@ export type AdminAnalyticsReadOptions = {
   range?: readonly string[];
   /** Only events of this kind, for a host counting one thing rather than everything. */
   kind?: string;
-  /** How many events one read may return, up to the query contract's window cap. */
-  limit?: number;
+  /**
+   * How many events one read may return, up to the query contract's window cap.
+   *
+   * Named for what it bounds rather than `limit`, because a query that also returns a ranked list
+   * takes a `limit` meaning how many of that list, and one options object carrying two meanings of
+   * `limit` is a bug waiting for a caller who reads the wrong one.
+   */
+  maxEvents?: number;
 };
 
-function readLimit(options: AdminAnalyticsReadOptions): number {
-  const asked = options.limit ?? ADMIN_ANALYTICS_MAX_EVENTS_PER_READ;
+function readCap(options: AdminAnalyticsReadOptions): number {
+  const asked = options.maxEvents ?? ADMIN_ANALYTICS_MAX_EVENTS_PER_READ;
   if (!Number.isSafeInteger(asked) || asked < 1) {
     throw new AdminAnalyticsError(`a read limit of ${String(asked)} is not a whole number from one up.`);
   }
@@ -100,7 +106,7 @@ export async function adminAnalyticsRead(
   store: AdminPersistenceAdapter,
   options: AdminAnalyticsReadOptions = {},
 ): Promise<AdminAnalyticsEventRow[]> {
-  const limit = readLimit(options);
+  const limit = readCap(options);
   const range = options.range;
   if (range !== undefined) {
     if (range.length === 0 || !range.every((key) => DAY.test(key))) refuseRange([...range]);
@@ -179,10 +185,15 @@ export type AdminAnalyticsTotals = {
   visitors: number;
   /** Views across the range that carried no key. */
   unattributed: number;
-  /** Events the range could not place on a day, in neither the points nor the totals. */
+  /**
+   * Events the store holds that carry no day at all, in neither the points nor the totals.
+   *
+   * A range excludes them at the read, so this is the count a host sees when it reads without one:
+   * a table holding rows this layer cannot read is worth saying out loud, and a count that is
+   * structurally always zero would not say it. An event dated outside a range is not counted here
+   * because the read never handed it over, which is the same reason its exclusion is not a failure.
+   */
   unkeyed: number;
-  /** Events dated outside the range, in neither the points nor the totals. */
-  outOfRange: number;
 };
 
 export type AdminAnalyticsSeries = {
@@ -243,7 +254,7 @@ export async function adminAnalyticsSeries(
   const views = adminAggregate({
     rows,
     range,
-    key: (row) => row.occurred_at,
+    key: (row) => adminChartDayKey(row.occurred_at),
     label: (key) => label(key),
     measures: {
       views: () => 1,
@@ -275,7 +286,6 @@ export async function adminAnalyticsSeries(
       visitors: new Set(distinct.map((row) => row.visitorKey)).size,
       unattributed: views.totals.unattributed,
       unkeyed: views.unkeyed,
-      outOfRange: views.outOfRange,
     },
   };
 }
@@ -401,8 +411,13 @@ export type AdminAnalyticsRetainOptions = {
   days: number;
   /** The moment "now" is. The wall clock when absent, and injected in tests rather than slept through. */
   now?: () => Date;
-  /** How many deletions one call makes before it stops and says there are more. */
-  limit?: number;
+  /**
+   * How many deletions one call makes before it stops and says there are more.
+   *
+   * Named for what it bounds rather than `limit`, so it cannot be read as the read's `maxEvents`:
+   * one is a window a store will serve and the other is a budget across several of them.
+   */
+  maxRemovals?: number;
 };
 
 export type AdminAnalyticsRetention = {
@@ -477,7 +492,7 @@ export async function adminAnalyticsRetain(
         "how long a table of visits is kept is a decision this package does not get to make.",
     );
   }
-  const limit = Math.max(1, Math.floor(options.limit ?? ADMIN_ANALYTICS_MAX_EVENTS_PER_READ));
+  const limit = Math.max(1, Math.floor(options.maxRemovals ?? ADMIN_ANALYTICS_MAX_EVENTS_PER_READ));
   const cutoff = new Date((options.now?.() ?? new Date()).getTime() - days * 86_400_000).toISOString();
 
   let removed = 0;
