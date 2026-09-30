@@ -5,6 +5,7 @@ import type {
   AdminLoginResult,
   AdminSession,
 } from "../adapters/index.js";
+import type { AdminLoginHeaders, AdminLoginThrottle } from "./throttle.js";
 
 /** How the adapter reaches the session cookie. Defaults to Next's own cookie store. */
 export type AdminSessionCookieIO = {
@@ -70,6 +71,28 @@ async function nextCookies(name: string): Promise<AdminSessionCookieIO> {
       (await cookies()).delete({ name, path });
     },
   };
+}
+
+/** The headers of a request whose scope cannot be read, which is what a non-Next host gets. */
+const NO_HEADERS: AdminLoginHeaders = { get: () => null };
+
+/**
+ * The request's own headers, for a throttle that keys an attempt on the client address.
+ *
+ * Read through `next/headers`, which is the request scope this module already depends on for the
+ * cookie. Unlike the cookie, an unreadable request is not an error here: a throttle still has to
+ * key an attempt when the platform exposes no headers, and the key function has a documented
+ * fallback for exactly that, so a missing request scope bounds the sign-in rather than taking the
+ * login page down.
+ */
+async function requestHeaders(): Promise<AdminLoginHeaders> {
+  if (typeof window !== "undefined") return NO_HEADERS;
+  try {
+    const { headers } = await import("next/headers.js");
+    return (await headers()) as AdminLoginHeaders;
+  } catch {
+    return NO_HEADERS;
+  }
 }
 
 /**
@@ -192,6 +215,7 @@ export function createSessionAuthAdapter({
   secure = true,
   cookie,
   invalidMessage = DEFAULT_INVALID_MESSAGE,
+  throttle,
 }: {
   /** Resolves the session id for these credentials, or null to refuse them. */
   verify: (credentials: AdminLoginCredentials) => Promise<string | null> | string | null;
@@ -210,6 +234,16 @@ export function createSessionAuthAdapter({
   /** Replaces the cookie store, for tests and for hosts outside Next's request scope. */
   cookie?: AdminSessionCookieIO;
   invalidMessage?: string;
+  /**
+   * Bounds the failed attempts on this sign-in form, and says so when it refuses one.
+   *
+   * Asked before `verify`, so a refused attempt costs no key derivation and tells an attacker
+   * nothing about whether the password was close. Absent means unbounded, which is the behaviour
+   * before this option existed: a host with nothing but the baseline has to pass
+   * `createLoginThrottle()` or its own implementation of `AdminLoginThrottle` over whatever its
+   * instances share. See `baseline/throttle` for what the shipped one is and is not.
+   */
+  throttle?: AdminLoginThrottle;
 }): AdminAuthAdapter {
   const { seal, unseal } = createSessionSigner(secret);
 
@@ -235,8 +269,24 @@ export function createSessionAuthAdapter({
     },
 
     async login(credentials: AdminLoginCredentials): Promise<AdminLoginResult> {
+      // Built only when a throttle was supplied, so a host that passed none runs exactly the path
+      // it ran before this option existed: no request read, and no counter anywhere.
+      const attempt = throttle ? { credentials, headers: await requestHeaders() } : null;
+
+      // Before `verify`, so a refused attempt derives no key and reads no user row, and before it
+      // with a message of its own, so the refusal cannot be mistaken for a wrong password.
+      const refusal = attempt && throttle ? await throttle.check(attempt) : null;
+      if (refusal) return { ok: false, message: refusal };
+
       const sessionId = await verify(credentials);
-      if (!sessionId) return { ok: false, message: invalidMessage };
+      if (!sessionId) {
+        if (attempt && throttle) await throttle.failed(attempt);
+        return { ok: false, message: invalidMessage };
+      }
+      // Cleared the moment the credentials are accepted, before the row is read, so a store that
+      // is briefly unhappy afterwards does not count as another failed attempt against the
+      // account of somebody who typed the right password.
+      if (attempt && throttle) await throttle.succeeded(attempt);
       const session = await getUser(sessionId);
       if (!session) return { ok: false, message: invalidMessage };
       // The host's own bookkeeping first: if it fails, nothing has been written, so the two

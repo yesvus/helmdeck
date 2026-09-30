@@ -36,6 +36,20 @@ export type {
   CreateAccountInput,
 } from "./baseline/users.js";
 export { hashPassword, normalizeEmail, verifyPassword } from "./baseline/passwords.js";
+export {
+  createLoginThrottle,
+  DEFAULT_THROTTLE_LIMIT,
+  DEFAULT_THROTTLED_MESSAGE,
+  DEFAULT_THROTTLE_WINDOW_MS,
+  forwardedClientKey,
+  loginHeader,
+} from "./baseline/throttle.js";
+export type {
+  AdminLoginAttempt,
+  AdminLoginHeaders,
+  AdminLoginThrottle,
+  LoginThrottleOptions,
+} from "./baseline/throttle.js";
 export { createSessionAuthAdapter, generateSessionSecret } from "./baseline/session.js";
 export type { AdminSessionCookieIO } from "./baseline/session.js";
 export { createSqlitePersistenceAdapter } from "./baseline/sqlite.js";
