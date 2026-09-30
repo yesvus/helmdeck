@@ -96,6 +96,21 @@ every permission decision the package made was made in a browser.
   window would mean remembering every reservation for ever, which is what a window exists to avoid.
   A host with a shared store holds the same map in a hash and gets the same property with the same
   bound, so `reservation` doubles as the key the charged failures are indexed by.
+- **A late report is charged where no sign-in can forgive it.** A success forgives the failures
+  recorded before its own attempt was admitted, which are compared by the position the attempt was
+  admitted at, so a report for a reservation the store no longer holds had to be given a position
+  to be filed under. It was given the next value of the same counter the reservations come from,
+  which is the reservation the following attempt is about to be handed: the failure and a live
+  attempt shared a position, and the next correct password on that key forgave a guess it had
+  nothing to do with, so an attacker could take a slot, let its lease lapse, get the slot back, and
+  have the resulting failure forgiven by the victim's own sign-in. A late report is now filed above
+  every position the throttle can hand out, so it is charged once, stands until the window closes,
+  and no `succeeded` forgives it, whichever attempt signed in. A reservation's own serial is the
+  ordering, so a host's store has the rule for free: file the report for a row it does not hold at
+  one number the store never mints as a row id, and do not draw it from the row counter, whose next
+  value belongs to the next attempt. Both halves are written on `failed` and `succeeded`, and the
+  invariant itself is unchanged: a reservation is charged at most once whichever path its report
+  arrives by, and a charge is charged.
 - **`endAllSessions` takes no account argument.** It resolves the caller from the signed cookie and
   acts on that account, and it refuses unless the host supplies `mayEndAllSessions`. There is no
   capability here that a caller can point at somebody else, which is the shape the previous version
