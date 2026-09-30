@@ -6,6 +6,7 @@ import { adminDashboardValidate } from "@yesvus/helmdeck";
 import ShippedTilesPage from "../fixtures/app/dashboard/tiles/page";
 import { buildShippedTileDashboard } from "../fixtures/app/dashboard/tiles/arrangement";
 import { shippedTileRegistry } from "../fixtures/app/dashboard/tiles/registry";
+import { dashboardRegistry } from "../fixtures/app/dashboard/registry";
 
 /**
  * The route, with the store's answers stood in for.
@@ -225,6 +226,23 @@ describe("the shipped tiles route", () => {
     );
     expect(dashboard.placements).toHaveLength(registered.length);
     expect(adminDashboardValidate(shippedTileRegistry, dashboard.placements).size).toBe(0);
+  });
+
+  it("keeps the demo's own dashboard registry separate, so the two cannot edit each other", () => {
+    // The demo's six hand-written widgets are not this page's six, and merging the registries would make
+    // the shipped tiles unfalsifiable: a change to either would look like a change to both. Asserting
+    // they are separate objects is what keeps the demo's existing dashboard a thing this route cannot
+    // have altered.
+    const demoRegistry = dashboardRegistry;
+
+    expect(shippedTileRegistry).not.toBe(demoRegistry);
+    expect(shippedTileRegistry.list()).not.toBe(demoRegistry.list());
+    // And the demo's own arrangement still resolves against its own registry, unchanged.
+    const demoWidgets = demoRegistry.list().map((definition) => definition.id);
+    expect(demoWidgets).toHaveLength(6);
+    for (const widget of demoWidgets) {
+      expect(demoRegistry.resolve(widget), `${widget} is not the demo's own widget`).toBeDefined();
+    }
   });
 
   it("registers the six tiles the route is for, so a tile the registry loses cannot pass as a route with fewer", () => {
