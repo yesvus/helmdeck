@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link.js";
 import { ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
 import { Button } from "../primitives/button.js";
@@ -25,16 +25,31 @@ import {
 import type { AdminPersistenceAdapter } from "../adapters/index.js";
 import {
   absentRequired,
+  adminResourceFilters,
   adminResourcePath,
   adminResourceRecordId,
+  adminResourceReferenceValue,
   adminResourceValues,
   type AdminResourceColumnFormat,
   type AdminResourceDefinition,
+  type AdminResourceField,
   type AdminResourceFilterDefinition,
   type AdminResourceFormatter,
   type AdminResourceRecord,
+  type AdminResourceReference,
 } from "./registry.js";
 import { defaultAdminResourceListQueryLabels } from "./list-labels.js";
+import { defaultAdminResourceReferenceLabels, type AdminResourceReferenceLabels } from "./reference-labels.js";
+import {
+  ADMIN_RESOURCE_REFERENCE_LIMIT,
+  adminResourceReferenceChoices,
+  adminResourceReferenceKey,
+  adminResourceReferenceLabel,
+  adminResourceReferenceResolution,
+  type AdminResourceReferenceChoices,
+  type AdminResourceReferenceRequest,
+  type AdminResourceReferenceResolution,
+} from "./references.js";
 
 /** Rows a list asks for per page. Enough to read, few enough that a wide table still fits. */
 const PAGE_SIZE = 40;
@@ -96,6 +111,68 @@ function columnFormatter(
 /** Long enough that a term is not a query per keystroke, short enough to feel immediate. */
 const SEARCH_SETTLE_MS = 250;
 
+/**
+ * The latest of a value whose identity changes on every render, held for an effect to read.
+ *
+ * A definition handed down as a fresh literal, and a cause reported through an inline arrow, are both
+ * new objects on every render. An effect that depended on either would ask the store for ever, so
+ * both are read from here instead, and the effect depends on a key that says which reference and
+ * which window it is actually about.
+ */
+function useLatest<T>(value: T): { readonly current: T } {
+  const held = useRef(value);
+  useEffect(() => {
+    held.current = value;
+  });
+  return held;
+}
+
+/**
+ * The rows a reference offers, loaded once and asked of the store both halves go through.
+ *
+ * Keyed by the reference it was asked for and the window it was asked for, so a definition that
+ * hands down a fresh object literal on every render loads once rather than forever. The settled
+ * answer is kept by that same key, which is what makes a rerender a no-op here: a hook that set state
+ * on every pass would put a form in a render loop rather than in a form.
+ *
+ * Null until the store has answered, so a caller can tell "not yet" from "nothing": a form still
+ * renders its control in the first case, offering the value it already holds, and says so in the
+ * second.
+ */
+function useReferenceChoices(
+  persistence: AdminPersistenceAdapter,
+  reference: AdminResourceReference | undefined,
+  limit: number,
+  onError?: (cause: unknown) => void,
+): AdminResourceReferenceChoices | null {
+  const [settled, setSettled] = useState<{
+    key: string;
+    choices: AdminResourceReferenceChoices;
+  } | null>(null);
+  const wanted = useLatest(reference);
+  const reported = useLatest(onError);
+  const key =
+    reference === undefined
+      ? null
+      : `${reference.resource}@${String(limit)}`;
+
+  useEffect(() => {
+    const asked = wanted.current;
+    if (asked === undefined || key === null) return;
+    let live = true;
+    void adminResourceReferenceChoices(persistence, asked, limit, (cause) =>
+      reported.current?.(cause),
+    ).then((choices) => {
+      if (live) setSettled((current) => (current?.key === key ? current : { key, choices }));
+    });
+    return () => {
+      live = false;
+    };
+  }, [key, limit, persistence, reported, wanted]);
+
+  return settled?.key === key ? settled.choices : null;
+}
+
 type ListControls = {
   /** The term in the search box, which reaches the adapter as it is typed. */
   search: string;
@@ -106,7 +183,6 @@ type ListControls = {
 };
 
 const NO_CONTROLS: ListControls = { search: "", filters: {}, sort: [], page: 1 };
-const NO_FILTERS: AdminResourceFilterDefinition[] = [];
 
 /**
  * A value that stops changing before it is used, so a typed term is one query rather than one per
@@ -128,6 +204,49 @@ function useSettled<T>(value: T, key: string): T {
 }
 
 /**
+ * The rows the values on a page name, resolved one hop each.
+ *
+ * The requests are built from the rows on screen, so a page asks about its own values and nothing
+ * else, and a definition with no reference column asks nothing at all. Resolved per value rather
+ * than in one query, because that is the only shape that works on an adapter without a paged query,
+ * and because each read is a read of a record, which is the question a per-record rule is asked.
+ */
+function useReferenceResolutions(
+  persistence: AdminPersistenceAdapter,
+  requests: readonly AdminResourceReferenceRequest[],
+  onError?: (cause: unknown) => void,
+): Map<string, AdminResourceReferenceResolution> {
+  const [settled, setSettled] = useState<{
+    key: string;
+    resolutions: Map<string, AdminResourceReferenceResolution>;
+  } | null>(null);
+  // A definition handed down as a fresh literal would otherwise give the requests a new identity on
+  // every render, and an effect keyed on that identity would ask the store forever.
+  const stable = useLatest(requests);
+  const reported = useLatest(onError);
+  const key = requests
+    .map((request) => adminResourceReferenceKey(request.reference, request.value))
+    .sort()
+    .join(",");
+
+  useEffect(() => {
+    let live = true;
+    void adminResourceReferenceResolution(persistence, stable.current, (cause) =>
+      reported.current?.(cause),
+    ).then((resolutions) => {
+      if (live) setSettled((current) => (current?.key === key ? current : { key, resolutions }));
+    });
+    return () => {
+      live = false;
+    };
+  }, [key, persistence, reported, stable]);
+
+  return settled?.key === key ? settled.resolutions : EMPTY_RESOLUTIONS;
+}
+
+const EMPTY_RESOLUTIONS: Map<string, AdminResourceReferenceResolution> = new Map();
+
+/**
  * A list view generated from a resource definition, so a CMS host does not hand-write a table
  * per resource. Reads go through the persistence adapter; the create, edit and delete controls
  * are wrapped in the resource's own permissions, so a definition that declares them gets them
@@ -138,6 +257,64 @@ function useSettled<T>(value: T, key: string): T {
  * and nothing else, and gets the same list it always did, because a control that cannot work is
  * not drawn.
  */
+/**
+ * A filter over a reference, offered as the rows that exist.
+ *
+ * The same call the form's control over that reference makes, at the same window, so the two cannot
+ * come to offer different sets of rows. The comparison it sends is the row's id with `eq`, and it
+ * goes to the adapter with everything else: narrowing a list is the store's work, and a control
+ * that filtered the rows it had already been handed would report a count the store never gave it.
+ *
+ * Not drawn at all when the rows are not this session's to read. Unlike a form's control, this one
+ * holds no value of its own to keep, so there is nothing to preserve and a select that can only say
+ * "no filter" is the control this contract says not to draw.
+ */
+function AdminResourceReferenceFilter({
+  filter,
+  controlId,
+  value,
+  all,
+  persistence,
+  limit,
+  onChange,
+  onError,
+}: {
+  filter: AdminResourceFilterDefinition;
+  controlId: string;
+  value: string;
+  all: string;
+  persistence: AdminPersistenceAdapter;
+  limit: number;
+  onChange: (value: string) => void;
+  onError?: (cause: unknown) => void;
+}) {
+  const reference = filter.reference!;
+  const choices = useReferenceChoices(persistence, reference, limit, onError);
+  if (choices !== null && !choices.available) return null;
+
+  return (
+    <>
+      <label htmlFor={controlId} className="sr-only">
+        {filter.label}
+      </label>
+      <AdminSelect
+        id={controlId}
+        name={filter.field}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-9 w-full min-w-40"
+      >
+        <option value="">{all}</option>
+        {(choices?.rows ?? []).map((row) => (
+          <option key={row.id} value={row.id}>
+            {adminResourceReferenceLabel(row, reference)}
+          </option>
+        ))}
+      </AdminSelect>
+    </>
+  );
+}
+
 export function AdminResourceList({
   definition,
   persistence,
@@ -145,6 +322,8 @@ export function AdminResourceList({
   pageSize = PAGE_SIZE,
   formatters,
   labels,
+  referenceLabels,
+  referenceLimit = ADMIN_RESOURCE_REFERENCE_LIMIT,
   onError,
 }: {
   definition: AdminResourceDefinition;
@@ -174,11 +353,16 @@ export function AdminResourceList({
     resultCount?: (from: number, to: number, total: number) => string;
     noMatches?: string;
   };
+  /** The words a reference draws, shared with the form that chooses from the same rows. */
+  referenceLabels?: Partial<AdminResourceReferenceLabels>;
+  /** How many rows a reference offers. The store's count comes back beside them. */
+  referenceLimit?: number;
   onError?: (cause: unknown) => void;
 }) {
   const i18n = useAdminMessages();
   const toHref = useAdminHref();
   const copy = { ...defaultAdminResourceListQueryLabels, ...labels };
+  const referenceCopy = { ...defaultAdminResourceReferenceLabels, ...referenceLabels };
   // The adapter's own shape is the only evidence there is that it can answer a query. A host
   // that did not implement the paged form is not asked about search, rather than being asked
   // and having its rows returned unsearched under a search box that looks like it worked.
@@ -215,7 +399,14 @@ export function AdminResourceList({
   // list is a collection: this is the question the server's `query` asks, and the form asks the
   // per-record one.
   const mayRead = useAdminPermission(permissions.read);
-  const filterDefinitions = definition.filters ?? NO_FILTERS;
+  // The declared filters, then one per reference the definition declares none for. Asking a
+  // definition for its own filters rather than reading an array keeps the list and the form reading
+  // the same declarations, and keeps a host that writes its own filter for a reference field in
+  // charge of that control.
+  const filterDefinitions = useMemo(
+    () => adminResourceFilters(definition),
+    [definition],
+  );
 
   /**
    * What the list is asking for, as the caller expressed it. The rows that come back are the
@@ -348,6 +539,22 @@ export function AdminResourceList({
   // rather than through a helper so the narrowing reaches the type.
   const nonEmpty = (permission: string | undefined) => permission !== undefined && permission.length > 0;
   const hasRowActions = nonEmpty(permissions.update) || nonEmpty(permissions.delete);
+  // One read per distinct value on this page, for the columns that name a row. A definition with no
+  // reference column asks nothing, which is what keeps a list of plain records exactly as quick as
+  // it was before.
+  const requests = useMemo<AdminResourceReferenceRequest[]>(() => {
+    if (rows === null) return [];
+    const asked: AdminResourceReferenceRequest[] = [];
+    for (const column of definition.columns) {
+      if (column.reference === undefined) continue;
+      for (const row of rows) {
+        const value = adminResourceReferenceValue(row[column.key]);
+        if (value !== null) asked.push({ reference: column.reference, value });
+      }
+    }
+    return asked;
+  }, [definition.columns, rows]);
+  const resolutions = useReferenceResolutions(persistence, requests, onError);
   const columns: AdminTableColumn<AdminResourceRecord>[] = [
     // Resolved once per column rather than once per cell, so a name nothing answers is refused
     // while the table is being built rather than on whichever row happens to be drawn.
@@ -385,8 +592,27 @@ export function AdminResourceList({
           ),
         align: column.align,
         width: column.width,
-        cell: (row: AdminResourceRecord) =>
-          format ? format(row[column.key], row) : renderValue(row[column.key]),
+        cell: (row: AdminResourceRecord) => {
+          if (column.reference !== undefined) {
+            const value = adminResourceReferenceValue(row[column.key]);
+            if (value === null) return null;
+            const found = resolutions.get(adminResourceReferenceKey(column.reference, value));
+            // Absent while the reads are in flight, which is the same blank a cell has before the
+            // rows themselves arrived, and a claim about neither a row nor its absence.
+            if (found === undefined) return null;
+            if (found.state === "named") {
+              return adminResourceReferenceLabel(found.row, column.reference);
+            }
+            // Named apart from an empty cell, because a value naming no row and a value naming
+            // nothing are different claims, and a cell of blank ones would claim the second.
+            return (
+              <span className="text-zinc-500 dark:text-zinc-400">
+                {found.state === "missing" ? referenceCopy.missing : referenceCopy.unreadable}
+              </span>
+            );
+          }
+          return format ? format(row[column.key], row) : renderValue(row[column.key]);
+        },
       };
     }),
     ...(hasRowActions
@@ -461,6 +687,23 @@ export function AdminResourceList({
           ))}
         </AdminSelect>
       </>
+    ) : filter.reference !== undefined ? (
+      <AdminResourceReferenceFilter
+        filter={filter}
+        controlId={controlId}
+        value={value}
+        all={copy.all}
+        persistence={persistence}
+        limit={referenceLimit}
+        onChange={(chosen) =>
+          updateControls((current) => ({
+            ...current,
+            filters: { ...current.filters, [filter.field]: chosen },
+            page: 1,
+          }))
+        }
+        onError={onError}
+      />
     ) : (
       <>
         <label htmlFor={controlId} className="sr-only">
@@ -570,6 +813,77 @@ export function AdminResourceList({
   );
 }
 
+/**
+ * A field whose value names a row of another resource, drawn as the rows that exist.
+ *
+ * The choices are asked of the store through the same call the list's filter over the same
+ * declaration uses, and through the same adapter, so a reference cannot come to mean one thing in a
+ * form and another in a list: whatever refused to be read for the filter is not offered here
+ * either.
+ *
+ * The value the record holds is always among the options, even when the store's window did not carry
+ * it. That is the one place the form legitimately has to differ from the filter beside it: a filter
+ * asks "which rows may this visitor narrow to" and has no value of its own to keep, while a form has
+ * to be able to save a record whose reference points past the window without silently clearing it.
+ */
+function AdminResourceReferenceField({
+  field,
+  controlId,
+  current,
+  invalid,
+  persistence,
+  limit,
+  copy,
+  loadingLabel,
+  onError,
+}: {
+  field: AdminResourceField;
+  controlId: string;
+  current: unknown;
+  invalid: boolean;
+  persistence: AdminPersistenceAdapter;
+  limit: number;
+  copy: AdminResourceReferenceLabels;
+  loadingLabel: string;
+  onError?: (cause: unknown) => void;
+}) {
+  const reference = field.reference!;
+  const choices = useReferenceChoices(persistence, reference, limit, onError);
+  const held = adminResourceReferenceValue(current);
+  const offered = choices?.rows ?? [];
+  const holdsOutside = held !== null && !offered.some((row) => row.id === held);
+  const note = (() => {
+    if (choices === null) return loadingLabel;
+    if (!choices.available) return copy.unreadableNote;
+    if (choices.total !== null && choices.total > offered.length) {
+      return copy.windowNote(offered.length, choices.total);
+    }
+    return null;
+  })();
+
+  return (
+    <>
+      <AdminSelect
+        id={controlId}
+        name={field.name}
+        required={field.required}
+        defaultValue={held ?? ""}
+        aria-invalid={invalid || undefined}
+        className={cn(invalid && "border-red-500")}
+      >
+        <option value="">{field.required ? copy.choose : copy.none}</option>
+        {holdsOutside ? <option value={held}>{copy.held(held)}</option> : null}
+        {offered.map((row) => (
+          <option key={row.id} value={row.id}>
+            {adminResourceReferenceLabel(row, reference)}
+          </option>
+        ))}
+      </AdminSelect>
+      {note ? <p className="text-xs leading-5 text-zinc-600 dark:text-zinc-400">{note}</p> : null}
+    </>
+  );
+}
+
 const EMPTY_VALUES: Record<string, unknown> = {};
 
 function renderValue(value: unknown): ReactNode {
@@ -590,6 +904,8 @@ export function AdminResourceForm({
   id,
   backHref,
   labels,
+  referenceLabels,
+  referenceLimit = ADMIN_RESOURCE_REFERENCE_LIMIT,
   onSaved,
   onError,
 }: {
@@ -607,10 +923,15 @@ export function AdminResourceForm({
     loadError?: string;
     saveFailed?: string;
   };
+  /** The words a reference draws, shared with the list that filters by the same rows. */
+  referenceLabels?: Partial<AdminResourceReferenceLabels>;
+  /** How many rows a reference offers. The store's count comes back beside them. */
+  referenceLimit?: number;
   onSaved?: (record: AdminResourceRecord) => void;
   onError?: (cause: unknown) => void;
 }) {
   const i18n = useAdminMessages();
+  const referenceCopy = { ...defaultAdminResourceReferenceLabels, ...referenceLabels };
   // A locale-enabled host encodes the content locale in its URLs, so a bare href would drop
   // it on these links while every other link in the shell kept it.
   const toHref = useAdminHref();
@@ -820,6 +1141,18 @@ export function AdminResourceForm({
             >
               {field.render ? (
                 field.render(current, controlId)
+              ) : field.reference !== undefined ? (
+                <AdminResourceReferenceField
+                  field={field}
+                  controlId={controlId}
+                  current={current}
+                  invalid={invalid}
+                  persistence={persistence}
+                  limit={referenceLimit}
+                  copy={referenceCopy}
+                  loadingLabel={i18n.shell.resourceLoading}
+                  onError={onError}
+                />
               ) : field.type === "textarea" ? (
                 <AdminTextarea
                   id={controlId}

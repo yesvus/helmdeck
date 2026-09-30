@@ -67,6 +67,8 @@ const EXPOSED = [
   "site_settings",
   "posts",
   "dashboard_placements",
+  "customers",
+  "shipments",
 ];
 
 const OPERATIONS = ["read", "create", "update", "delete"];
@@ -176,7 +178,7 @@ describe("the rule the package evaluates", () => {
     expect(decided).toHaveLength(ROLES.length * PERMISSIONS.length);
   });
 
-  it("exposes the six resources it is written to expose, and hides the two it must", () => {
+  it("exposes the eight resources it is written to expose, and hides the two it must", () => {
     for (const resource of EXPOSED) {
       expect(exposedResource(resource), resource).toBe(true);
     }

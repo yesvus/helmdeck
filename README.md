@@ -533,6 +533,65 @@ const posts = defineAdminResource({
 
 A name nothing answers is refused while the table is built, naming the column and the name it wanted, rather than falling back to the stored value. A column silently printing `4900` where its own definition promised `$49.00` is a wrong number on a page that looks right.
 
+#### A column that names a row of another resource
+
+`reference` is what a foreign key is in a definition: a `resource` to point at, and optionally the `field` of the target a person should read instead of its id. Both are names, so a definition carrying one still crosses the client boundary from a server component.
+
+```tsx
+const shipments = defineAdminResource({
+  resource: "shipments",
+  label: "Shipments",
+  columns: [
+    { key: "tracking", header: "Tracking" },
+    // Prints the customer's name, not the id in the column.
+    { key: "customer_id", header: "Customer", reference: { resource: "customers", label: "name" } },
+  ],
+  fields: [
+    { name: "tracking", label: "Tracking", required: true },
+    // A select over the customers that exist, and a write checked against them.
+    { name: "customer_id", label: "Customer", required: true, reference: { resource: "customers", label: "name" } },
+  ],
+  permissions: { read: "shipments.read", create: "shipments.create" },
+});
+
+<AdminResourceList definition={shipments} persistence={db} />;
+```
+
+A `resource` on its own is the whole of what is required, and it is the minimum that lets the server refuse a value naming a row that is not there. `label` is for the targets whose id is not what a person would say out loud, and a target row whose `label` is empty prints its id rather than a blank. The value is the target row's own id, which is the one name a row is read by everywhere a reference is resolved. A column holding a slug is a column a reference cannot point at, and a host with one writes a `format` for the cell and a `render` for the field.
+
+**Both halves ask the store the same question.** A field's choices and a list's filter over that field are the same call, at the same window, through the same adapter, so a reference cannot come to mean one thing in a form and another in a list. Neither is drawn from a constant:
+
+- The form's control is a `select` over the rows the store answered, asked as a windowed query. `referenceLimit` sets the window (100 by default) and the count the store reported past it is said out loud, because a control offering 100 of 108 without saying so is making a claim it cannot back.
+- A list draws a filter for every reference the definition declares no filter of its own for, and sends it as `eq` on the field to the adapter like any other comparison. Narrowing a list is the store's work.
+- A list prints the row a column names, resolving one hop per value on the page.
+
+**A write naming a row the store does not hold is refused.** `createAdminResourceActions` takes `definitions`, reads them for the references they declare and nothing else, and refuses before the store is reached:
+
+```ts
+export const actions = createAdminResourceActions({
+  guard: requirePermission,
+  persistence: db,
+  expose: exposedResource,
+  definitions: [products, orders, shipments],
+});
+```
+
+`AdminResourceReferenceError` names the field and the value, so the author of the write learns which reference was wrong. The check is a read of the target rather than a membership test over the choices a control was drawn from, which is what lets a reference pointing past the window of options still be a real reference.
+
+**A write is checked for what it introduces.** A value the record already holds is not checked again on an update. It was put there by an earlier write, so the author of this one is asserting nothing about a resource they may not be allowed to read, and checking it would make a record holding such a value uneditable by the people who are allowed to edit it: the tracking number cannot be corrected because a column nobody can see is on the same row. The form already draws the other half of that bargain, offering the value a control cannot fetch as its own option rather than dropping it, so the two halves of a reference have to agree about it or a form draws a save the server refuses.
+
+The cost is one read of the record being written, and only on an update that names a reference at all: a resource declaring none, or a write naming none, reads nothing it did not read before. A record that cannot be read leaves nothing to compare against, so its values are checked as a create's are, and a create has no stored record to compare against, so every value it carries is checked.
+
+**A reference to a resource the session may not read is refused, not offered.** Because a value is checked by reading the row it names, the target's read goes through the same guard as any other: no choices are offered for a field or a filter the session may not follow, and a write **changing** a value to one is refused **identically whether or not the row is there**. That is the property, and an error that differed between a real id and an invented one would be an oracle for which rows of another resource exist. The demo's `shipments.order_id` is exactly this: administrators can read orders, editors cannot, so an editor is offered no orders, cannot attach one, and can still edit a shipment an administrator attached one to.
+
+**One hop, so a cycle terminates.** `customers.parent_id` naming a `customers` row is a real shape, and resolving it never asks what the target's own values name. A cell needs the label of the row it points at and nothing else, so a page of rows in a cycle resolves each value once and stops. A host that wants a path rather than a name writes a `format`, which is where code goes.
+
+**What a dangling value does.** A value naming a row the store does not hold is refused on the way in, which is the only answer that keeps the stored data true. One that got in around the form, through a raw adapter write, or by the row it named being deleted afterwards, is drawn as a marker rather than as an id a reader would take for a name. The two are different claims and a column of blank cells would claim the second. An edit that leaves such a value alone is allowed and leaves it in place: the write did not make it true and cannot make it false, and the cell keeps saying so.
+
+**A definition with no reference behaves exactly as it did.** No extra reads, no extra controls, and `adminResourceValues` reads its fields the way it always did. A field's reference with nothing chosen for it stores `null` rather than an empty string, because a database holding a foreign key column reads the empty string as a reference to a row whose id is the empty string: a reference to nothing while looking like a value.
+
+Declarations that could be drawn two ways are refused at `defineAdminResource`: a field with both a `render` and a reference, a column with both a `format` and one, a column and a field of the same name pointing at different rows, a filter that writes its own options beside a reference, a name the reference does not carry, and a resource name that is not a name. `defineAdminResource` is where a typo in a declaration is found; a blank cell tells its author nothing about where the name came from.
+
 **Most of a definition crosses the client boundary; the rest is code and does not.** `AdminResourceList` and `AdminResourceForm` are client components, so a definition passed to one from a server component travels as data. A column's `format` is a name for that reason. A field's `render` and `parse` and a filter's `parse` are functions and cannot be serialised at all, so a definition declaring one has to be built on the side that renders the view, and its page has to be a client component. Nothing about that is a limitation of the framework's convenience: a custom control and a custom comparison are code, and code has to be on the side that runs it.
 
 **A query that crosses the server is read or refused.** `createAdminResourceActions` reads the query it is handed before it asks about the session, and refuses anything it cannot read: a part that is not part of a query, a field name that is not a field, an ordering that is not ascending or descending, a comparison with nothing to compare to, an offset that is not a whole record, a window of no rows, and a window larger than the contract allows. The refusal is deliberate, because the adapters this contract grew out of read every key they are given as a field to match exactly: a `sort` was a column named `sort`, and a `limit` was a filter nothing matched. A store is not handed a guess about what a caller meant.
@@ -615,7 +674,7 @@ Both are optional and independent. A host that wires neither gets exactly the be
 - An event written first and left behind when the write failed claims a change that did not happen, and nothing in the event tells a reader to doubt it. That is the dishonest direction, and it is the one this seam cannot produce.
 - The price of that choice is a process that dies between the write and the record, which leaves a change nobody wrote down. Closing that window is a transactional outbox in your own store, in the same transaction as the write, which is a schema question rather than a seam one. A host that needs it wraps `persistence` rather than these calls.
 
-A refused call records nothing, because nothing happened to record: a permission the rule withheld, a name outside the exposed set, and a store that refused the write all leave the trail as it was. A read records nothing either. If you want refused attempts in your trail, `onDenied` on the guard already holds the permission and the record, and that is where they belong.
+A refused call records nothing, because nothing happened to record: a permission the rule withheld, a name outside the exposed set, a store that refused the write, and a reference value naming a row the store does not hold all leave the trail as it was. A read records nothing either. If you want refused attempts in your trail, `onDenied` on the guard already holds the permission and the record, and that is where they belong.
 
 **The event says what happened.** `action` is the operation (`create`, `update`, `delete`), `resource` and `resourceId` name the record, `actor` is the session the guard decided for, and `occurredAt` is an ISO timestamp. A create names the id **the store assigned**, which is the other reason the event is built after the write: before it, a create has no record to name, and a trail that cannot name a new record is not the history of anything. `metadata.fields` holds the field names of the record the store now holds, which is the shape of the write and not a diff. Names rather than values on purpose: a trail holding every value a record ever had is a second copy of every secret in the table. A host that wants the values keeps them where a change is reversible from, which is its own revision store.
 

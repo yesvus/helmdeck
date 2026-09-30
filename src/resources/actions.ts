@@ -10,7 +10,12 @@ import type {
 import { parseAdminResourceQuery } from "../adapters/query.js";
 import type { AdminResourcePage, AdminResourceQuery } from "../adapters/query.js";
 import type { AdminPermissionGuard } from "../shell/permission-rule.js";
-import type { AdminResourceRecord } from "./registry.js";
+import {
+  adminResourceReferenceValue,
+  type AdminResourceDefinition,
+  type AdminResourceRecord,
+  type AdminResourceReference,
+} from "./registry.js";
 
 export type AdminResourceOperation = "read" | "create" | "update" | "delete";
 
@@ -115,6 +120,41 @@ function writeEvent({
 }
 
 /**
+ * Refused because a value names a row the store does not hold.
+ *
+ * A write is refused rather than stored, because a stored value naming nothing is a claim the store
+ * cannot back and every later read has to make sense of: a list would print a marker where a
+ * customer was, and a form would offer a choice that resolves to nothing. Refusing names the field
+ * and the value, so the author of the write learns which reference was wrong rather than that a
+ * write was wrong.
+ *
+ * Distinct from a permission refusal on purpose. A value this write newly names, pointing at a
+ * resource this session may not read, is refused by the guard, identically whether the row exists or
+ * not, so the answer cannot be used to ask which rows another resource holds. A value the record
+ * already held is not checked at all, so it never gets here.
+ */
+export class AdminResourceReferenceError extends Error {
+  readonly resource: string;
+  readonly field: string;
+  readonly value: string;
+  readonly target: string;
+
+  constructor(input: { resource: string; field: string; value: string; target: string }) {
+    super(
+      `${input.resource}.${input.field} names ${JSON.stringify(input.value)}, which no ${input.target} row carries`,
+    );
+    this.name = "AdminResourceReferenceError";
+    this.resource = input.resource;
+    this.field = input.field;
+    this.value = input.value;
+    this.target = input.target;
+  }
+}
+
+/** One value in a write that names a row, and the row it claims to name. */
+type Asked = { field: string; reference: AdminResourceReference; value: string };
+
+/**
  * Resource calls that decide on the server, in front of the persistence adapter.
  *
  * `AdminResourceList` and `AdminResourceForm` read and write through a `persistence` prop from the
@@ -147,6 +187,7 @@ export function createAdminResourceActions({
   audit,
   cache,
   onAdapterError,
+  definitions,
 }: {
   /** Decides. Required, because an action with nothing deciding it is a capability, not a feature. */
   guard: AdminPermissionGuard;
@@ -204,6 +245,13 @@ export function createAdminResourceActions({
       resourceId?: string;
     },
   ) => void;
+  /**
+   * The definitions a write is checked against, read for the references they declare and nothing
+   * else. Optional, and its absence is not a weaker boundary: a write carrying a value that names a
+   * row is checked as far as the definitions say it can be, and a host that declares none has
+   * declared no references to check.
+   */
+  definitions?: readonly AdminResourceDefinition[];
 }): AdminResourceActions {
   if (typeof guard !== "function") {
     throw new Error(
@@ -211,6 +259,89 @@ export function createAdminResourceActions({
         "from the browser becomes a capability, so without one there is nothing that decides and the " +
         "actions are not created at all.",
     );
+  }
+
+  const declared = new Map<string, AdminResourceDefinition>();
+  for (const definition of definitions ?? []) declared.set(definition.resource, definition);
+
+  /**
+   * Every value in a write that names a row, and the row it claims to name.
+   *
+   * A field is checked by reading the target, which is the whole of how a value comes to name a row:
+   * the store is asked, rather than the write being compared against the list of choices the browser
+   * was drawn from, so a value outside a window of choices is still a value the store can answer for.
+   */
+  function referencesIn(resource: string, value: unknown): Asked[] {
+    const definition = declared.get(resource);
+    if (definition === undefined) return [];
+    const incoming = (value ?? {}) as Record<string, unknown>;
+    const asked: Asked[] = [];
+    for (const field of definition.fields) {
+      if (field.reference === undefined) continue;
+      const named = adminResourceReferenceValue(incoming[field.name]);
+      if (named === null) continue;
+      asked.push({ field: field.name, reference: field.reference, value: named });
+    }
+    return asked;
+  }
+
+  /**
+   * Whether a value is the one the record already holds, read the way the write was.
+   *
+   * A stored id is a number where a form's is a string, so both go through the same reader: a
+   * comparison of what arrived would call `7` a change on a record holding `7`, and check a reference
+   * the write never touched.
+   */
+  function heldBefore(stored: AdminResourceRecord | null, asked: Asked): boolean {
+    return stored !== null && adminResourceReferenceValue(stored[asked.field]) === asked.value;
+  }
+
+  /**
+   * A write refused unless every value it newly names is one the store holds.
+   *
+   * `recordId` is the record an update is about to replace, and it is what separates a create from an
+   * update here. A create has none, so every value it carries is one this write is asserting. An
+   * update has one, and a value the record already holds is not this write's to check: it did not put
+   * that value there, so its author is asserting nothing about a resource they may not be allowed to
+   * read, and a check would make a record holding such a value uneditable by the people who may edit
+   * it. The form already promises the other half of that, offering the value a control cannot show
+   * rather than dropping it, and the two halves of a reference have to agree or a form draws a save
+   * the server refuses. What a write *changes* a value to is still checked in full.
+   *
+   * The cost is one read of the record being written, and only on a write that names a reference at
+   * all: a resource with no reference in it, or a write with nothing named in it, reads nothing here
+   * that it did not read before. That read goes straight to the adapter rather than through `permit`,
+   * because the update has already been decided on that record and asking again would run the host's
+   * `before` hook twice for one write. A record that cannot be read leaves nothing to compare against,
+   * so its values are checked as a create's are. What the comparison reveals is the record's own
+   * stored value, which is the caller's to write, and nothing about whether the target holds it.
+   *
+   * A changed value is read through `permit` first, so one naming a resource this session may not
+   * read is refused by the guard, and identically whether or not the row is there. That is what stops
+   * a reference from becoming a way to ask about another resource's rows: the answer to "is this id
+   * real" cannot differ for a session not allowed to read the table.
+   *
+   * One hop, so a self-referencing column terminates here as it does in a view: a value names a row,
+   * and whether that row's own values are references is a question this never asks.
+   */
+  async function checkReferences(resource: string, value: unknown, recordId?: string) {
+    const asked = referencesIn(resource, value);
+    if (asked.length === 0) return;
+    const stored =
+      recordId === undefined ? null : await persistence.read<AdminResourceRecord>(resource, recordId);
+    for (const one of asked) {
+      if (heldBefore(stored, one)) continue;
+      await permit(one.reference.resource, "read", one.value);
+      const found = await persistence.read(one.reference.resource, one.value);
+      if (found === null) {
+        throw new AdminResourceReferenceError({
+          resource,
+          field: one.field,
+          value: one.value,
+          target: one.reference.resource,
+        });
+      }
+    }
   }
 
   async function permit(
@@ -306,6 +437,9 @@ export function createAdminResourceActions({
 
     async create<T>(resource: string, value: unknown): Promise<T> {
       const session = await permit(resource, "create");
+      // After the refusal and before the store, so a value naming a row that is not there never
+      // reaches a table to be stored and then have to be un-stored.
+      await checkReferences(resource, value);
       const created = await persistence.create<T>(resource, value);
       await reported({ operation: "create", resource, session, record: created });
       return created;
@@ -313,6 +447,9 @@ export function createAdminResourceActions({
 
     async update<T>(resource: string, id: string, value: unknown): Promise<T> {
       const session = await permit(resource, "update", id);
+      // After the refusal and before the store, with the record it is about to replace, so a value
+      // the record already holds is not this write's to check.
+      await checkReferences(resource, value, id);
       const updated = await persistence.update<T>(resource, id, value);
       await reported({ operation: "update", resource, resourceId: id, session, record: updated });
       return updated;

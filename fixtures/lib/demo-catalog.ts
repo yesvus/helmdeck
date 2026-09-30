@@ -1246,6 +1246,63 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     hostNote:
       "An error the resource actions throw before the store is reached. There is nothing to draw here: catch it, or turn it into a not-found response.",
   },
+  AdminResourceReferenceError: {
+    category: "Resources",
+    summary:
+      "Thrown when a write carries a value naming a row the store does not hold, so a reference is checked rather than stored as a string.",
+    keywords: "reference foreign key dangling refuse error resource",
+    hostNote:
+      "An error the resource actions throw before the store is reached. There is nothing to draw here: catch it, or turn it into a validation response naming the field.",
+  },
+  adminResourceReference: {
+    category: "Resources",
+    summary: "The reference a field or column of that name declares, or nothing for one that declares none.",
+    keywords: "reference field column foreign key lookup",
+  },
+  adminResourceFilters: {
+    category: "Resources",
+    summary:
+      "The filters a list draws: the declared ones, then one per reference the definition declares no filter for.",
+    keywords: "filters list reference declared",
+  },
+  adminResourceReferenceValue: {
+    category: "Resources",
+    summary: "The id a stored value names, or null for one that names nothing.",
+    keywords: "reference value id null",
+  },
+  ADMIN_RESOURCE_REFERENCE_LIMIT: {
+    category: "Resources",
+    summary:
+      "How many rows one reference offers as choices, so a foreign key into a large table is a window rather than a page that never arrives.",
+    keywords: "limit reference choices window ceiling cap",
+  },
+  adminResourceReferenceChoices: {
+    category: "Resources",
+    summary:
+      "The rows a reference offers, asked of the store through the same call the form and the list both use.",
+    keywords: "reference choices options store query",
+  },
+  adminResourceReferenceLabel: {
+    category: "Resources",
+    summary: "The text a target row is read by, which is the label field a declaration names or the id.",
+    keywords: "reference label display text",
+  },
+  adminResourceReferenceKey: {
+    category: "Resources",
+    summary: "A value's own key in a resolution map, so two resources holding one id stay apart.",
+    keywords: "reference key resolve map",
+  },
+  adminResourceReferenceResolution: {
+    category: "Resources",
+    summary:
+      "The rows the values on a page name, resolved one hop each, so a self-referencing column terminates.",
+    keywords: "reference resolve read hop terminate cycle",
+  },
+  defaultAdminResourceReferenceLabels: {
+    category: "Resources",
+    summary: "The words a reference draws, one object shared by a form and the list that filters it.",
+    keywords: "reference labels i18n copy translate",
+  },
 
   AdminI18nProvider: {
     category: "Internationalisation",
