@@ -75,7 +75,13 @@ function columnFormatter(
 ): AdminResourceFormatter | undefined {
   if (column.format === undefined) return undefined;
   const name = formatName(column.format);
-  const formatter = formatters?.[name] ?? SHIPPED_FORMATTERS[name as "money" | "count"];
+  // An own property only, on both records. A plain lookup answers `toString`, `constructor` and
+  // anything else Object.prototype carries, and those are truthy, so the refusal below would pass
+  // and the column would render the prototype's output rather than telling the host the name is
+  // unknown. The name is arbitrary by design, so a host may name anything at all.
+  const own = (record: Readonly<Record<string, unknown>> | undefined): unknown =>
+    record === undefined ? undefined : Object.hasOwn(record, name) ? record[name] : undefined;
+  const formatter = (own(formatters) ?? own(SHIPPED_FORMATTERS)) as AdminResourceFormatter | undefined;
   if (!formatter) {
     throw new Error(
       `Column ${column.key} formats as ${JSON.stringify(name)}, which nothing answers. ` +
