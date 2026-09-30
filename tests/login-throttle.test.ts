@@ -737,6 +737,70 @@ describe("property 8: a request that reports back late does not hold the key for
   });
 });
 
+describe("property 10: two attempts from one key, completing in either order, agree", () => {
+  it("records the same thing whichever report lands first", async () => {
+    // The defect. One attempt succeeds and one is refused, from the same key, and the two reports
+    // arrive in whichever order the network happened to deliver them. `succeeded` clears the
+    // entry, so when it lands last it erases a failure that really happened, and when it lands
+    // first the failure is counted against a key that was just cleared. Same two attempts, two
+    // different states, and which one you get is a race.
+    const time = clock();
+    const bound = throttle({ limit: 4, now: time.now });
+    const taken = await Promise.all([bound.check(attempt()), bound.check(attempt())]);
+    expect(taken).toEqual([null, null]);
+
+    // Succeeds first this time.
+    await bound.succeeded(attempt());
+    await bound.failed(attempt());
+
+    const successFirst = await remainingBudget(bound);
+
+    // And the other order, on a fresh throttle.
+    const other = throttle({ limit: 4, now: time.now });
+    await Promise.all([other.check(attempt()), other.check(attempt())]);
+    await other.failed(attempt());
+    await other.succeeded(attempt());
+
+    expect(await remainingBudget(other)).toBe(successFirst);
+  });
+
+  it("does not turn a successful sign-in into a recorded failure", async () => {
+    // A success arriving first, then a refusal from a different attempt on the same key. The
+    // person is signed in; the count left behind has to be the one failure and not the two the
+    // clear and the record would otherwise add up to.
+    const time = clock();
+    const bound = throttle({ limit: 4, now: time.now });
+    await Promise.all([bound.check(attempt()), bound.check(attempt())]);
+    await bound.succeeded(attempt());
+    await bound.failed(attempt());
+
+    // Three attempts remain on a limit of four, so one failure is on the record.
+    expect(await remainingBudget(bound)).toBe(3);
+  });
+
+  it("does not discard a recorded failure when the success lands after it", async () => {
+    // The same two attempts, refusal first. The clear is still owed, and a throttle that reads
+    // "there is a success on this key" as "there was never a failure" hands the key a whole
+    // budget back on the strength of one good password.
+    const time = clock();
+    const bound = throttle({ limit: 4, now: time.now });
+    await Promise.all([bound.check(attempt()), bound.check(attempt())]);
+    await bound.failed(attempt());
+    await bound.succeeded(attempt());
+
+    expect(await remainingBudget(bound)).toBe(3);
+  });
+});
+
+/** How many more attempts a throttle would let through, counted by asking it rather than by reading it. */
+async function remainingBudget(bound: AdminLoginThrottle): Promise<number> {
+  let through = 0;
+  for (let i = 0; i < 40; i += 1) {
+    if ((await bound.check(attempt())) === null) through += 1;
+  }
+  return through;
+}
+
 describe("property 9: a host's own throttle can meet the contract", () => {
   /**
    * A second implementation of `AdminLoginThrottle` over a shared store, written the way a Redis
