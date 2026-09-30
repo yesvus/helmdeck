@@ -326,7 +326,13 @@ const OMISSIONS = [
   },
   {
     slug: "a rule that reads the record",
-    absent: () => /export function can\(session: AdminSession, permission: AdminPermission\): boolean/.test(code(join(template, "lib/rules.ts"))),
+    // The one omission that is positive rather than a symbol's absence: the rule is declared over the
+    // session and the permission alone. A third parameter typed `context` would be the shape a
+    // per-record rule takes, and the README's claim is that this one does not.
+    absent: () =>
+      /export function can\(session: AdminSession, permission: AdminPermission\): boolean/.test(
+        code(join(template, "lib/rules.ts")),
+      ),
   },
   {
     slug: "a second interface language",
