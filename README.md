@@ -12,6 +12,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
 - CSV export and import over the resource seam: the list a query names as a downloadable file, and a file read into the store a row at a time.
 - Visitor analytics over the same persistence seam: record a page view or a named event, and read back views, unique visitors, top paths and sources per day. The visitor key and the retention window are the host's, and nothing here derives or defaults either.
+- An analytics report as a file: the period, the policy behind it, and the figures per day, per path and per source, with the totals stated in the file where a spreadsheet can check them against the rows above them.
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
 - A static bilingual fixture app for the hosted demo.
 - A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
@@ -798,6 +799,10 @@ export async function GET(request: Request) {
 
 **A window in the query is dropped.** An export is the whole of what a query names rather than the page the reader happens to be on. `file.query` is the query as this package read it, so the caller can see what was asked for.
 
+Analytics figures are not rows of a resource, so the export above is not the export for them:
+`adminAnalyticsReport` is, under [A report of the range, as a file](#a-report-of-the-range-as-a-file),
+with a permission check about a path rather than about a row.
+
 **The columns are declared rather than read off a definition.** A definition's header is a node, which a file cannot hold, so a host says the text; and a column naming another row's field is a column whose value is that row's label rather than its id, which is a read of the target resource per page. Declaring the columns puts both of those choices where they can be made and leaves nothing to be read correctly by accident. `format` answers `money` and `count` as the list does, and anything else through `formatters`; a name nothing answers is refused before the store is asked, because a column silently showing `4900` where its definition promised `$49.00` is a wrong number in a file that looks right. A value the row does not hold is an empty cell whatever the format says, because a dash in a numeric column is a column nobody can sum.
 
 **A cell a spreadsheet would run is marked, not written.** A customer's name of `=HYPERLINK("http://evil","Statement")` written honestly is a file that runs on the finance team's machine the moment somebody clicks the column, and "we wrote valid CSV" is not an answer to that. A cell whose text begins with `=`, `+`, `-` or `@` is written with a leading apostrophe, which every reader treats as text, and a value that is nothing but a number is left as the number it is: a cell with no operator and no function name in it has nothing to run, so a column of refunds stays a column a spreadsheet can sum. A value beginning with an apostrophe is marked the same way, and that is not redundancy: it is what tells the two apart on the way back in, so `'=1+1` comes back as `'=1+1` and `=1+1` as `=1+1`. `adminCsvCell` and `adminCsvText` are that pair, exported because a host writing CSV by hand should not have to decide the escaping on its own.
@@ -1363,6 +1368,139 @@ the number a store has already said it will serve, so reusing it means the analy
 contract cannot drift apart. It is a ceiling on a whole answer rather than on one round trip. Raise it
 per query with `maxEvents`, which is also the knob to turn down for a dashboard that would rather
 refuse than spend twenty round trips.
+
+### A report of the range, as a file
+
+A month of views is a table, not a list. `adminAnalyticsReport` writes one row per day, one per path and
+one per source, and states the totals in the file beside them, and `adminAnalyticsReportResponse` is the
+same file as the response a route hands back.
+
+```ts
+// app/admin/analytics/export/route.ts
+import { adminAnalyticsReportResponse } from "@yesvus/helmdeck";
+
+export async function GET(request: Request) {
+  const range = adminChartDayRange(30, new Date());
+  return adminAnalyticsReportResponse({
+    store,
+    range,
+    // Which paths this session may see. Without one, the report withholds every path and says so.
+    pathPolicy: (path) => session.mayReadPath(path),
+  });
+}
+```
+
+A range is required, and it is the one option here that is not a preference: every figure is a figure
+over a period, and a file whose period is whatever the table happens to hold is a file claiming to be a
+period without saying which.
+
+**A permission check for a figure is a decision about a path, and it is taken before the figure
+exists.** A row-scoped rule answers "may this session read these products", and an analytics report has
+no row to ask about: it has a path, and a path names a page whose existence a role may not be told
+about. Nine views of `/admin/billing` in a download is the same shape of leak as a reference to a row a
+role may not read. So `pathPolicy` is asked about the **path**, once per distinct path in the range,
+before anything is counted, and a path it refuses contributes to no figure in the file at all.
+
+That is the whole discipline, and it is why the totals are trustworthy. A path the policy withheld is
+out of the daily series, out of the paths, out of the sources and out of the totals, so the four tables
+and the eleven totals are all counting the same rows. Keeping the totals whole and dropping the path
+from the ranking would produce a file whose headline number includes traffic the reader may not account
+for and whose ranking does not add up to it. A whole-report check cannot do this job either: it either
+gives over everything, including a path the role may not read, or refuses everything, and a session that
+may read the public pages and not the private ones has no answer to give it. A host whose rule is
+analytics-wide checks it in its own route, as it checks any other session, and the file's manifest says
+which policy produced it either way.
+
+**No policy is not permission.** A host that has not said which paths a session may see has not said it
+may see all of them, so the default withholds every path and the file says so:
+
+```
+manifest,path_policy,none,,,,,,,,,
+manifest,rows_read,9,,,,,,,,,
+manifest,rows_in_report,0,,,,,,,,,
+manifest,rows_withheld,9,,,,,,,,,
+```
+
+`rows_withheld` is the row that keeps a refusal from reading as a quiet week. Two files full of zeroes
+are the same file from the outside unless one of them says how many rows it left out, and this is the
+case where that difference is the whole answer. A policy that answers something which is not `true` or
+`false` is refused rather than read as a decision, because a check that does not answer is a broken
+check and a broken check that quietly became a filter is how a report ends up holding a fraction of a
+range with nothing in the file to say so.
+
+**The file is a report, not a list.** One header row, a `section` column that says which table each row
+belongs to, and the tables in a fixed order: what the file is, what it says, then the figures.
+
+```
+section,metric,value,day,label,views,visitors,unattributed,path,source,visitor_key,last_seen_at
+manifest,range_from,2026-09-27,,,,,,,,,
+manifest,range_to,2026-09-30,,,,,,,,,
+manifest,range_days,4,,,,,,,,,
+manifest,path_policy,host,,,,,,,,,
+manifest,sections,series paths sources,,,,,,,,,
+manifest,rounding,none,,,,,,,,,
+manifest,rows_read,9,,,,,,,,,
+manifest,rows_in_report,6,,,,,,,,,
+manifest,rows_withheld,3,,,,,,,,,
+total,views,6,,,,,,,,,
+total,visitors,3,,,,,,,,,
+total,unattributed,1,,,,,,,,,
+total,unkeyed,0,,,,,,,,,
+total,series_rows,4,,,,,,,,,
+total,paths,3,,,,,,,,,
+total,paths_unkeyed,0,,,,,,,,,
+total,sources,2,,,,,,,,,
+total,sources_unattributed,3,,,,,,,,,
+total,visitors_rows,3,,,,,,,,,
+total,visitors_ungrouped,1,,,,,,,,,
+series,,,2026-09-27,2026-09-27,2,2,0,,,,
+series,,,2026-09-28,2026-09-28,1,1,0,,,,
+series,,,2026-09-29,2026-09-29,1,1,0,,,,
+series,,,2026-09-30,2026-09-30,2,1,1,,,,
+paths,,,,,3,,,/,,,2026-09-30T09:00:00.000Z
+paths,,,,,2,,,/pricing,,,2026-09-29T10:00:00.000Z
+paths,,,,,1,,,/docs,,,2026-09-30T08:00:00.000Z
+sources,,,,news,2,,,,news,,
+sources,,,,search,1,,,,search,,
+```
+
+That is four days, ten captured views, a policy that withholds `/admin/billing`, and a file that adds
+up: the series is 2 + 1 + 1 + 2 = 6, the paths are 3 + 2 + 1 = 6, the sources are 2 + 1 + 3
+unattributed = 6, and the totals state 6 with the three withheld views named above them. A spreadsheet
+can check that with a `SUMIFS` on `section` and nothing else, because the `section` column is what makes
+one file four tables rather than three files a reader has to join.
+
+**Nothing in the file is rounded, and the file says so.** `manifest,rounding,none` is there because a
+total that disagrees with the rows above it by a rounding rule is a spreadsheet nobody can reconcile and
+a reader who assumes the tool is wrong. Every figure here is a count and is written as the whole number
+it is, so a column can be summed and held against its total. There is deliberately no percentage column:
+a share of views is a rounded figure by definition, a column of them does not add up to 100, and the
+person who wants one computes it from these numbers, where the rounding is visible and belongs to them
+rather than to the file.
+
+**A `visitorKey` is in the file only if a host names the `visitors` section.** The four sections are
+`series`, `paths`, `sources` and `visitors` (`ADMIN_ANALYTICS_REPORT_SECTIONS`), and
+`ADMIN_ANALYTICS_REPORT_DEFAULT_SECTIONS` is the first three: the visitors table is the only one that can
+hold a key, and a host that has decided a key is pseudonymous may still not want a file that leaves the
+machine holding six of them, so naming the section is the explicit call and the manifest's `sections` row
+says the file is holding keys. The figures the report ships by default are counts of keys, never the
+keys. `label` and `sourceLabel` name a day and a source in the host's own words, and the recorded value
+stays in the file beside the name.
+
+**The read's own refusal is the report's refusal.** A range above `ADMIN_ANALYTICS_MAX_EVENTS_PER_READ`
+is refused by the same read and the same `AdminAnalyticsError` that refuses the chart beside it, and
+there is no file. This is the opposite of the resource export, which walks a set in windows because a
+hundred thousand rows is a file nobody can open: here the read is already bounded, so the work is
+bounded before it starts and the file is held whole. `ADMIN_ANALYTICS_REPORT_MAX_ROWS` is left for the
+one thing a host can make a report large with, which is its own range, and a report over a very long
+range is refused for naming the range rather than blaming a table that is fine.
+
+**`adminAnalyticsReportFigures` reads a report back.** It returns the totals and the four tables
+*separately*, on purpose: the totals are what the file claims and the tables are what it says, and a
+reader that computed one from the other would be checking nothing. A file whose totals disagree with its
+rows reads the same as one whose totals agree, so the reconciliations above are a host's check to run
+and this package's test to hold. A file missing a column, a figure stated twice, a row that names no
+table, or a cell that is not a whole number is refused rather than half read.
 
 ## Dashboard tiles
 

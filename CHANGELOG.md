@@ -49,6 +49,36 @@ every permission decision the package made was made in a browser.
   cap, reused so the two cannot drift apart, and it is a ceiling on a whole answer rather than on one
   round trip. Above it the read refuses and names itself. A store that can sum in SQL is the way past
   it.
+- **An analytics report: the figures of a range as a file, with a permission check that fits them.**
+  `adminAnalyticsReport` writes one row per day, per path and per source with the totals stated in the
+  file beside them, `adminAnalyticsReportResponse` is the same file as the response a route hands back,
+  and `adminAnalyticsReportFigures` reads a report back as the figures it states. No new runtime
+  dependency, and no second implementation of anything the query layer already does: the report reads
+  the range through `adminAnalyticsRead`, hands the rows the policy allowed to
+  `adminAnalyticsSeries`, `adminAnalyticsTopPaths` and `adminAnalyticsSources`, and every figure in the
+  file is the figure a chart would draw. A range is required, because a file of figures with no period
+  beside them is a number about an unknown span.
+- **A permission check for a figure is a decision about a path, taken before the figure exists.** A
+  row-scoped rule answers "may this session read these products", and an analytics report has no row to
+  ask about: it has a path, and nine views of `/admin/billing` in a download is the same shape of leak
+  as a reference to a row a role may not read. So `pathPolicy` is asked about the path, once per
+  distinct path in the range, and a path it refuses contributes to no figure in the file at all, which
+  is what lets the daily series, the paths, the sources and the totals agree with one another. A
+  whole-report check cannot do this job: it either gives over everything, including a path the role
+  may not read, or refuses everything.
+- **No policy is not permission, and the file says so.** A host that has not said which paths a session
+  may see gets every path withheld, and `manifest,path_policy,none` beside the count of rows the
+  policy held back. `rows_withheld` is the row that keeps a refusal from reading as a quiet week, and a
+  policy that answers something which is not `true` or `false` is refused rather than read as a
+  decision. A `visitorKey` is in the file only when a host names the `visitors` section, which is not
+  one of `ADMIN_ANALYTICS_REPORT_DEFAULT_SECTIONS`.
+- **Nothing in a report is rounded, and the file says that too.** Every figure is a count and is
+  written as the whole number it is, so a column can be summed and held against the total it states;
+  there is deliberately no percentage column, because a column of shares does not add up to 100. A
+  report is refused rather than truncated above `ADMIN_ANALYTICS_REPORT_MAX_ROWS`, which is left for the
+  one thing a host can make a report large with: its own range. The read's own refusal is the report's
+  refusal, from the same call with the same error, so a range above
+  `ADMIN_ANALYTICS_MAX_EVENTS_PER_READ` produces no file at all.
 
 ### Security
 
