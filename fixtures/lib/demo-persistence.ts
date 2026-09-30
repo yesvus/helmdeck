@@ -26,6 +26,11 @@ export type DemoPersistence = {
   adapter: AdminPersistenceAdapter;
   /** Which store answered, so a page can say so and a test can assert it. */
   kind: "turso" | "memory";
+  /**
+   * The client behind the adapter, for the one caller that needs to speak SQL rather than resources:
+   * the migration runner. Absent in memory, where there is no schema to bring up to date.
+   */
+  sql?: SqlClient;
 };
 
 function fromEnvironment(env: NodeJS.ProcessEnv = process.env): DemoPersistence {
@@ -34,7 +39,11 @@ function fromEnvironment(env: NodeJS.ProcessEnv = process.env): DemoPersistence 
 
   if (url && authToken) {
     const client = createClient({ url, authToken });
-    return { adapter: createTursoPersistenceAdapter(client as unknown as SqlClient), kind: "turso" };
+    return {
+      adapter: createTursoPersistenceAdapter(client as unknown as SqlClient),
+      kind: "turso",
+      sql: client as unknown as SqlClient,
+    };
   }
 
   return { adapter: createMemoryPersistenceAdapter() as AdminPersistenceAdapter, kind: "memory" };
