@@ -18,6 +18,7 @@ export const CATALOG_CATEGORIES = [
   "Forms and fields",
   "Data display",
   "Charts",
+  "Analytics",
   "Overlays and feedback",
   "Sorting and reordering",
   "Layout",
@@ -388,6 +389,120 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary:
       "The five strings the frame uses when a host supplies none, where a partial override replaces only the keys it names.",
     keywords: "labels default strings frame wording",
+  },
+
+  // Visitor analytics. The capture half and the query half, and the two decisions on either side of
+  // them that a host has to make for itself: whether a visitor may be tracked at all, and how long
+  // the table is kept.
+  ADMIN_ANALYTICS_PAGE_VIEW: {
+    category: "Analytics",
+    summary: "The kind a page view is recorded under, so a host can count views without naming its own.",
+    keywords: "page view kind event record capture",
+  },
+  ADMIN_ANALYTICS_RESOURCE: {
+    category: "Analytics",
+    summary: "The resource the rows live under, which a host maps onto its own table.",
+    keywords: "resource table name events rows",
+  },
+  AdminAnalyticsError: {
+    category: "Analytics",
+    summary:
+      "A refused event or an unreadable range, named so a host tells a refusal of its own input from a store that was unreachable.",
+    keywords: "error refuse reject validation store",
+    hostNote:
+      "An error the capture and query half throws, and never the recorder, which reports rather than throws. There is nothing to draw here: let it reach the route, which turns it into a 400.",
+  },
+  adminAnalyticsRecord: {
+    category: "Analytics",
+    summary:
+      "One event written and the row the store answered with, which is one round trip the caller has chosen to await.",
+    keywords: "record write event create round trip",
+  },
+  createAdminAnalyticsRecorder: {
+    category: "Analytics",
+    summary:
+      "A recorder that holds events so a page view does not await a write. It never throws, and every failure lands in a sink and in a history the host can read.",
+    keywords: "recorder buffer batch flush failure page view",
+  },
+  adminAnalyticsEventValue: {
+    category: "Analytics",
+    summary:
+      "An event as the fields to write, with its fields checked and its moment normalised to the UTC instant it names.",
+    keywords: "validate normalise fields moment utc value",
+  },
+  adminAnalyticsInstant: {
+    category: "Analytics",
+    summary:
+      "An ISO 8601 instant as the UTC string the stores compare, or null for a moment it cannot place rather than one it has to guess at.",
+    keywords: "instant iso utc normalise timestamp moment",
+  },
+  ADMIN_ANALYTICS_BATCH_SIZE: {
+    category: "Analytics",
+    summary: "How many events one write holds, and so how many round trips a flush makes at worst.",
+    keywords: "batch size flush round trips write",
+  },
+  ADMIN_ANALYTICS_FAILURE_HISTORY: {
+    category: "Analytics",
+    summary: "How many past failures a recorder keeps for a host that reads them rather than wiring a sink.",
+    keywords: "failure history bounded recorder keep",
+  },
+  ADMIN_ANALYTICS_MAX_EVENTS_PER_READ: {
+    category: "Analytics",
+    summary:
+      "The most events one range read may return, which is the query contract's own window cap rather than a number chosen here.",
+    keywords: "read cap limit window events range",
+  },
+  ADMIN_ANALYTICS_MAX_KIND: {
+    category: "Analytics",
+    summary: "The longest an event's kind may be, refused rather than shortened.",
+    keywords: "kind length cap limit characters",
+  },
+  ADMIN_ANALYTICS_MAX_PATH: {
+    category: "Analytics",
+    summary:
+      "The longest a path may be. A path cut short is a path reporting a page nobody has, so an over-long one is refused.",
+    keywords: "path length cap limit characters",
+  },
+  ADMIN_ANALYTICS_MAX_VISITOR_KEY: {
+    category: "Analytics",
+    summary:
+      "The longest a visitor key may be, which is the cap with a reason behind it: a key is meant to be something the host derived and does not recognise.",
+    keywords: "visitor key length cap privacy limit",
+  },
+  ADMIN_ANALYTICS_MAX_SOURCE: {
+    category: "Analytics",
+    summary: "The longest a source label may be, refused rather than shortened.",
+    keywords: "source length cap limit characters referrer",
+  },
+  adminAnalyticsRead: {
+    category: "Analytics",
+    summary:
+      "The events a range covers, newest first, with the bounds pushed into the store and the read refused above the cap rather than cut short.",
+    keywords: "read range events bounds refuse newest",
+  },
+  adminAnalyticsSeries: {
+    category: "Analytics",
+    summary:
+      "Views, unique visitors and unattributed views per day over a range, and the totals they add to. One visitor on three days is three views and one visitor.",
+    keywords: "series views visitors unique daily chart totals",
+  },
+  adminAnalyticsTopPaths: {
+    category: "Analytics",
+    summary:
+      "The paths with the most events on them, each with when it was last looked at, ranked so equal counts hold still between loads.",
+    keywords: "top paths ranking last viewed popular",
+  },
+  adminAnalyticsSources: {
+    category: "Analytics",
+    summary:
+      "Where the events came from, ranked, with the views that named no source counted apart from the list.",
+    keywords: "sources referrer traffic ranking campaigns",
+  },
+  adminAnalyticsRetain: {
+    category: "Analytics",
+    summary:
+      "Removes the events older than the window the host named, and says what it left. There is no default, because this package does not decide how long a table of visits is kept.",
+    keywords: "retain prune retention delete window days privacy",
   },
 
   AdminBanner: {
