@@ -20,9 +20,24 @@ export * from "./primitives/index.js";
 export * from "./resources/registry.js";
 export {
   AdminResourceNotExposedError,
+  AdminResourceReferenceError,
   createAdminResourceActions,
 } from "./resources/actions.js";
 export type { AdminResourceActions, AdminResourceOperation } from "./resources/actions.js";
+export {
+  ADMIN_RESOURCE_REFERENCE_LIMIT,
+  adminResourceReferenceChoices,
+  adminResourceReferenceKey,
+  adminResourceReferenceLabel,
+  adminResourceReferenceResolution,
+} from "./resources/references.js";
+export type {
+  AdminResourceReferenceChoices,
+  AdminResourceReferenceRequest,
+  AdminResourceReferenceResolution,
+} from "./resources/references.js";
+export { defaultAdminResourceReferenceLabels } from "./resources/reference-labels.js";
+export type { AdminResourceReferenceLabels } from "./resources/reference-labels.js";
 export { AdminResourceForm, AdminResourceList } from "./resources/views.js";
 export * from "./shell/index.js";
 export * from "./theme/index.js";

@@ -7,6 +7,31 @@ import {
   type AdminResourceFilterValue,
 } from "../adapters/query.js";
 
+/**
+ * What a column's value names: a row of another resource.
+ *
+ * Three names and no code, because a definition crosses the client boundary as data and because
+ * every one of the three is something a host already knows about its own schema. `resource` is the
+ * table the value points at, which is the fact that lets the server refuse a value naming a row that
+ * is not there rather than storing a string. `field` is which column of that table the value is, and
+ * is absent for the ordinary case of a value that is the row's own id: naming it is there for the
+ * schema where it is not, and a host that has to write it has already looked. `label` is which of
+ * the target's fields a person reads instead of the id, and is absent for a target whose id is
+ * already what a person would say.
+ *
+ * Nothing here is a guess about the target's shape, and nothing is optional ceremony: a declaration
+ * carrying only a resource name is the common case, and the two optional names are read only when
+ * they are there.
+ */
+export type AdminResourceReference = {
+  /** The resource whose row this value names. Checked as a name before it reaches a store. */
+  resource: string;
+  /** The field of the target this value names. Absent means the target record's own id. */
+  field?: string;
+  /** The field of a target row printed in place of the id. Absent means the id. */
+  label?: string;
+};
+
 /** One field on a resource's detail form. */
 export type AdminResourceField = {
   name: string;
@@ -14,6 +39,11 @@ export type AdminResourceField = {
   hint?: string;
   type?: "text" | "textarea" | "number" | "checkbox" | "date";
   required?: boolean;
+  /**
+   * This value names a row of another resource, which makes the control a choice from the store
+   * rather than a box, and makes the write checked against that store on the server.
+   */
+  reference?: AdminResourceReference;
   /**
    * Rendered instead of the default control, for a field the primitives do not cover. Code, and
    * irreducibly so: a control is a component, so a definition declaring one has to be built on the
@@ -52,6 +82,12 @@ export type AdminResourceColumn = {
   align?: "left" | "right";
   width?: string;
   /**
+   * Prints the row this value names, in place of the value. Declared rather than assumed, because a
+   * column of ids is a column a reader has to translate, and the translation is a lookup this
+   * package can do from the same declaration the form draws its choices from.
+   */
+  reference?: AdminResourceReference;
+  /**
    * Offers this column as the query's ordering. Declared rather than assumed, because a sort the
    * visitor did not ask for is a store doing work nobody requested.
    */
@@ -70,6 +106,11 @@ export type AdminResourceFilterDefinition = {
   label: string;
   operator?: AdminResourceFilterOperator;
   options?: Array<{ value: string; label: string }>;
+  /**
+   * The control's choices are the rows the store holds, rather than a list written beside the
+   * column it narrows. Absent for a filter over values the definition already knows.
+   */
+  reference?: AdminResourceReference;
   /**
    * Reads a control's value into what the adapter compares against. Code, as a field's `render` is,
    * so a definition declaring one has to be built on the side that renders the list. The product's
@@ -111,21 +152,130 @@ export type AdminResourceDefinition = {
  * `parse` and a filter's `parse` are code and do not, which is the one thing a definition has to be
  * built on the side that renders it for.
  */
+/**
+ * A resource name, as an identifier and nothing more.
+ *
+ * Stricter than a field path, because a resource name becomes a table name: the dots an embedded
+ * document's field path needs would be a second table in a store that concatenated it.
+ */
+const RESOURCE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** What a declaration says in one line, for a message that has to name the mistake. */
+function describeReference(reference: AdminResourceReference): string {
+  return JSON.stringify({
+    resource: reference.resource,
+    ...(reference.field === undefined ? {} : { field: reference.field }),
+    ...(reference.label === undefined ? {} : { label: reference.label }),
+  });
+}
+
+/**
+ * The part of a declaration that decides which row a value names.
+ *
+ * Two declarations of the same name pointing at different places is a definition that says one thing
+ * in one half and another in the other, and the halves are read by different code: a form would
+ * offer the rows of one and a write would be checked against the other.
+ */
+function referenceTarget(reference: AdminResourceReference): string {
+  return `${reference.resource}.${reference.field ?? "id"}`;
+}
+
+/**
+ * Checks a reference declaration, on a column, a field or a filter, and returns it.
+ *
+ * A resource name crosses to a store the moment a reference is resolved, and `field` and `label` are
+ * field paths, so all three are read here rather than where they are used: a typo in a declaration is
+ * a mistake in the definition, and finding it out through a refused write or a blank cell tells its
+ * author nothing about where the name came from.
+ */
+function checkedReference(
+  definition: AdminResourceDefinition,
+  where: string,
+  reference: AdminResourceReference,
+): AdminResourceReference {
+  if (typeof reference !== "object" || reference === null) {
+    throw new Error(`Resource ${definition.resource} declares ${where} as something that is not a reference`);
+  }
+  if (typeof reference.resource !== "string" || !RESOURCE_NAME.test(reference.resource)) {
+    throw new Error(
+      `Resource ${definition.resource} declares ${where} naming ` +
+        `${JSON.stringify(reference.resource)}, which is not a resource. A resource is one identifier.`,
+    );
+  }
+  if (reference.field !== undefined && !isAdminResourceField(reference.field)) {
+    throw new Error(
+      `Resource ${definition.resource} declares ${where} field ` +
+        `${JSON.stringify(reference.field)}, which is not a field.`,
+    );
+  }
+  if (reference.label !== undefined && !isAdminResourceField(reference.label)) {
+    throw new Error(
+      `Resource ${definition.resource} declares ${where} label ` +
+        `${JSON.stringify(reference.label)}, which is not a field.`,
+    );
+  }
+  const extra = Object.keys(reference).find((key) => !["resource", "field", "label"].includes(key));
+  if (extra !== undefined) {
+    throw new Error(
+      `Resource ${definition.resource} declares ${where} with a "${extra}". A reference names a ` +
+        `resource, and optionally the field of it this value names and the field of it to print.`,
+    );
+  }
+  return reference;
+}
+
 export function defineAdminResource(definition: AdminResourceDefinition): AdminResourceDefinition {
   const seenColumns = new Set<string>();
+  const columnReferences = new Map<string, string>();
   for (const column of definition.columns) {
     if (seenColumns.has(column.key)) {
       throw new Error(`Resource ${definition.resource} declares the column ${column.key} twice`);
     }
     seenColumns.add(column.key);
+    if (column.reference !== undefined) {
+      const checked = checkedReference(definition, `the column ${column.key}`, column.reference);
+      // A format and a reference both decide what the cell says, and which one silently won would be
+      // decided by the order they are read in rather than by the host.
+      if (column.format !== undefined) {
+        const name = typeof column.format === "string" ? column.format : column.format.name;
+        throw new Error(
+          `Resource ${definition.resource} gives the column ${column.key} both a format ` +
+            `(${JSON.stringify(name)}) and a reference (${describeReference(checked)}). A column ` +
+            `prints its own value or the row it names, and a host that means a format of the named ` +
+            `row wants the target resource's column to say so.`,
+        );
+      }
+      columnReferences.set(column.key, referenceTarget(checked));
+    }
   }
 
   const seenFields = new Set<string>();
+  const fieldReferences = new Map<string, string>();
   for (const field of definition.fields) {
     if (seenFields.has(field.name)) {
       throw new Error(`Resource ${definition.resource} declares the field ${field.name} twice`);
     }
     seenFields.add(field.name);
+    if (field.reference === undefined) continue;
+    const checked = checkedReference(definition, `the field ${field.name}`, field.reference);
+    // A custom control and a generated one cannot both draw the same field, and a `render` that
+    // quietly won would leave a write checked against a choice the form never offered.
+    if (field.render !== undefined) {
+      throw new Error(
+        `Resource ${definition.resource} gives the field ${field.name} both a control and a ` +
+          `reference (${describeReference(checked)}). A reference draws the control, and a field that ` +
+          `needs its own declares no reference.`,
+      );
+    }
+    const target = referenceTarget(checked);
+    const columnTarget = columnReferences.get(field.name);
+    if (columnTarget !== undefined && columnTarget !== target) {
+      throw new Error(
+        `Resource ${definition.resource} points ${field.name} at ${columnTarget} on its column and at ` +
+          `${target} on its field. One value names one row.`,
+      );
+    }
+    fieldReferences.set(field.name, target);
   }
 
   // Checked here rather than at the first query, because a filter whose field is not a field is
@@ -146,6 +296,33 @@ export function defineAdminResource(definition: AdminResourceDefinition): AdminR
     if (filter.options !== undefined && filter.options.length === 0) {
       throw new Error(`Resource ${definition.resource} declares ${filter.field} with no options`);
     }
+    if (filter.reference !== undefined) {
+      const checked = checkedReference(definition, `the filter ${filter.field}`, filter.reference);
+      // The choices are the store's rows, so a list written beside the column is a second answer to
+      // the same question and the two can disagree about which rows exist.
+      if (filter.options !== undefined) {
+        throw new Error(
+          `Resource ${definition.resource} declares ${filter.field} with both options and a reference. ` +
+            `A reference's choices come from the store, which is the only place they are read from.`,
+        );
+      }
+      if (filter.parse !== undefined) {
+        throw new Error(
+          `Resource ${definition.resource} declares ${filter.field} with both a parse and a reference. ` +
+            `A reference's value is the row's own id, which needs no reading.`,
+        );
+      }
+      // A filter may narrow a reference, not invent one. Otherwise a field a form draws as a plain
+      // box could be filtered as a choice from a resource, and the store would be asked about rows
+      // the form never offered.
+      const fieldTarget = fieldReferences.get(filter.field);
+      if (fieldTarget !== undefined && fieldTarget !== referenceTarget(checked)) {
+        throw new Error(
+          `Resource ${definition.resource} filters ${filter.field} against ` +
+            `${describeReference(checked)}, which is not what the field points at.`,
+        );
+      }
+    }
   }
 
   return definition;
@@ -158,6 +335,52 @@ export function adminResourcePath(definition: AdminResourceDefinition): string {
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
     .replace(/[_\s]+/g, "-")
     .toLowerCase();
+}
+
+/**
+ * The reference a field or column of that name declares, or nothing for one that declares none.
+ *
+ * The single reader both halves of a reference go through, so the form that draws a choice and the
+ * list that prints a named row cannot end up with different declarations for one name. A column wins
+ * over a field of the same name, which can only happen for a column no field shares, since
+ * `defineAdminResource` refuses a pair that disagree.
+ */
+export function adminResourceReference(
+  definition: AdminResourceDefinition,
+  name: string,
+): AdminResourceReference | undefined {
+  return (
+    definition.columns.find((column) => column.key === name)?.reference ??
+    definition.fields.find((field) => field.name === name)?.reference
+  );
+}
+
+/**
+ * The filters a list draws: the ones the definition declares, then one per reference it declares no
+ * filter for.
+ *
+ * A reference is a column with a closed set of values, which is what a filter with options already
+ * was, so declaring one is enough for the list to offer it. A host that declares a filter for that
+ * field anyway keeps it, and that is the whole of the override: one control for the field, and the
+ * host's own label, operator and order if they want to say it.
+ */
+export function adminResourceFilters(
+  definition: AdminResourceDefinition,
+): AdminResourceFilterDefinition[] {
+  const declared = definition.filters ?? [];
+  const narrowed = new Set(declared.map((filter) => filter.field));
+  const derived: AdminResourceFilterDefinition[] = [];
+  for (const field of definition.fields) {
+    if (field.reference === undefined || narrowed.has(field.name)) continue;
+    derived.push({
+      field: field.name,
+      label: field.label,
+      // Equality, because the control's value is a row's id rather than a term to match against one.
+      operator: "eq",
+      reference: field.reference,
+    });
+  }
+  return [...declared, ...derived];
 }
 
 /** A record as the generated views handle it: the persisted fields plus an identity. */
@@ -195,6 +418,13 @@ export function adminResourceValues(
       values[field.name] = raw !== null;
       continue;
     }
+    // A reference with nothing chosen is the absence of a reference, and a database holding it in a
+    // column that declares a foreign key reads the empty string as a reference to a row whose id is
+    // the empty string: a dangling reference that looks like a value.
+    if (field.reference !== undefined) {
+      values[field.name] = raw === null || raw === "" ? null : String(raw);
+      continue;
+    }
     if (field.type === "number") {
       values[field.name] = raw === null || raw === "" ? null : Number(raw);
       continue;
@@ -202,6 +432,25 @@ export function adminResourceValues(
     values[field.name] = raw === null ? null : String(raw);
   }
   return values;
+}
+
+/**
+ * The id a stored value names, or null for one that names nothing.
+ *
+ * A number is a row id in a store that numbers its rows, and a form's value is a string either way.
+ */
+export function adminResourceReferenceValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : null;
+  if (typeof value === "string") return value.length > 0 ? value : null;
+  if (typeof value === "object") {
+    try {
+      return adminResourceRecordId(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 /** The declared required fields that `values` does not satisfy. */
