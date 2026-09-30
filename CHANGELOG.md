@@ -120,6 +120,19 @@ every permission decision the package made was made in a browser.
 - **`src/charts/`**: `AdminTimeSeriesChart`, `AdminRankChart`, `AdminChartTable`,
   `AdminChartFrame` and the scales, ticks and formatters behind them, with no new dependency. A chart
   reads `--admin-brand-500`, so it follows a host's accent and dark mode.
+- **`src/aggregate/`**: `adminAggregate`, `adminAggregateTotals` and `adminWholeNumber`, with no new
+  dependency. A host installing this package got the charts and the tiles but had to write its own
+  measuring: which rows are which period, what a day with no rows is, and a total that agrees with
+  the points it is read out loud beside. `adminAggregate` takes rows, a key naming the period a row
+  falls on, and any number of measures, over an explicit range. Every period in the range comes back
+  holding a zero where nothing landed on it, so a day with no rows is a zero rather than a hole a
+  chart draws a straight line across. A row outside the range, or one the key cannot place, reaches
+  neither the buckets nor the totals, and is reported as `outOfRange` or `unkeyed` rather than
+  dropped. The totals are summed off the buckets rather than accumulated beside them, so a range
+  total cannot drift from the series it sits next to. It runs in memory over the rows a host has
+  already read, which is the whole of the cost: thirty points can come from a million orders, but
+  they come from reading all million of them, and a host whose table outgrows one dashboard range
+  needs a query contract rather than a larger array.
 - **The dashboard widget engine** (`src/dashboard/`, `src/widgets/`): a placement model, a grid, a
   tile loader that reloads per tile rather than per rerender, and a widget registry a host extends.
 - **A collection editor** (`src/collections/`) for arranging ordered records over real storage.

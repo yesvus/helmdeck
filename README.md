@@ -1124,16 +1124,17 @@ Every amount crosses the boundary as a whole number of cents. Sum, compare and s
 divide by 100 in the formatter, which is the only place it happens:
 
 ```ts
-import { adminChartDayKey, adminChartDayRange, adminChartFillDays, adminFormatCents } from "@yesvus/helmdeck";
+import { adminAggregate, adminChartDayKey, adminChartDayRange, adminWholeNumber, adminFormatCents } from "@yesvus/helmdeck";
 
-const cents = orders.reduce((total, order) => total + order.total_cents, 0); // integer throughout
-const days = adminChartFillDays(
-  adminChartDayRange(30, new Date()),
-  revenueByDay(orders), // keyed by adminChartDayKey(order.created_at)
-  (key) => key,
-);
+const revenue = adminAggregate({
+  rows: orders,
+  range: adminChartDayRange(30, new Date()),
+  key: (order) => adminChartDayKey(order.created_at),
+  measures: { cents: (order) => adminWholeNumber(order.total_cents, "total_cents") },
+});
 
-adminFormatCents(cents); // "$1,290.00"
+revenue.totals.cents; // integer throughout, and the sum of the buckets beside it
+adminFormatCents(revenue.totals.cents); // "$1,290.00"
 ```
 
 A total assembled by adding formatted strings reads correctly on screen and disagrees with the ledger
@@ -1141,17 +1142,59 @@ as soon as rounding is involved, so `adminFormatCents` and `adminFormatCentsComp
 places the division happens. `adminChartFormatters("money")` gives the pair for a chart: every digit
 for a tooltip, shortened for an axis.
 
-### Every day in the range, including the zeros
+### Bucketing rows into a chart's points
 
-`adminChartDayRange(days, end)` returns the day keys ending on the day containing `end`, and
-`adminChartFillDays` emits a point for each of them whether or not a row exists. A store holds no
-row for a day nothing happened, so a chart built from the rows alone draws a straight line across the
-gap and the reader concludes it is a trend. A range with no rows at all comes back as a full run of
-zeros, which is how the empty state is reached by the data rather than by a host writing it.
+`adminAggregate` is the measuring half of a chart. The package shipped the chart and the day range;
+without this, every host wrote the same three things again: which rows are which period, what a day
+with no rows is, and a total that agrees with the points it is read out loud beside.
 
-`adminChartDayKey` reads the UTC day out of both shapes a store produces: SQLite's
-`datetime('now')` and an ISO timestamp. A value that is not a timestamp is refused rather than filed
-under a guessed day.
+```ts
+import { adminAggregate, adminChartDayKey, adminChartDayRange, adminWholeNumber } from "@yesvus/helmdeck";
+
+const revenue = adminAggregate({
+  rows: orders,                                    // rows you have already read
+  range: adminChartDayRange(30, new Date()),       // the periods the answer covers
+  key: (order) => adminChartDayKey(order.created_at),
+  label: (key) => key,
+  measures: { cents: (order) => adminWholeNumber(order.total_cents, "total_cents") },
+});
+
+revenue.buckets;     // one per day in the range, zero included, in range order
+revenue.totals.cents; // the sum of those buckets
+revenue.outOfRange;  // rows the range excluded
+revenue.unkeyed;     // rows whose key named no period
+```
+
+- **Every period in the range appears, holding a zero where nothing landed on it.** A store holds no
+  row for a day nothing happened, so a chart built from the rows alone draws a straight line across
+  the gap and the reader concludes it is a trend. A range with no rows at all comes back as a full
+  run of zeros, which is how the empty state is reached by the data rather than by a host writing it.
+- **A row outside the range is in neither the buckets nor the totals**, and is counted in
+  `outOfRange`. Bounded at both ends, so a row dated after the last day is not in the figure the tile
+  reads aloud beside a chart that does not draw it. A total the chart does not show is the
+  disagreement this exists to prevent.
+- **A row the key cannot place is in neither, and is counted in `unkeyed`.** Filing an undated order
+  under the epoch would drop every one of them into the first bucket and turn a chart into a statement
+  about the parse, so the count is reported instead of the row being dropped in silence.
+- **The totals are summed off the buckets**, not accumulated beside them, so a range total cannot
+  drift from the series it sits next to.
+
+`adminChartDayKey` reads the UTC day out of both shapes a store produces: SQLite's `datetime('now')`
+and an ISO timestamp. A value that is not a timestamp is refused rather than filed under a guessed
+day. A key is a string, and any key space a host wants works, because the range is compared as a set
+of the same keys.
+
+`adminAggregateTotals` is the same measures over the same rows with nothing grouped, for the figures
+a tile reads beside its chart rather than on it. `adminWholeNumber` is the integer guard to read a
+column through, and it refuses rather than coerces, so a column holding a float surfaces as an error
+in the tile rather than as a total that reads correctly and is wrong.
+
+**It runs in memory, over the rows you have already read, and that is the whole of the cost.** Thirty
+points can come from a million orders, but they come from reading all million of them: an
+`AdminPersistenceAdapter` answers with rows, and nothing here can ask the store to aggregate. A host
+whose table outgrows one dashboard range needs a query contract and a store that can sum in SQL. This
+is the honest boundary of the API rather than an implementation detail, and it is why the demo's own
+aggregates are computed in the fixture for the same reason.
 
 ### The axis is a scale
 
