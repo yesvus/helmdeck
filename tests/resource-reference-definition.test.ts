@@ -60,7 +60,7 @@ function crossing(props: unknown): string[] {
 }
 
 describe("a reference that names a row of another resource", () => {
-  it("carries only a resource, which is all a host knows about a foreign key", () => {
+  it("carries a resource name on its own, which is the whole of what a host has to know", () => {
     // The minimum that lets the server refuse a value naming a row that is not there, and nothing
     // more. `field` and `label` are for the schemas where the id is not enough, and a host that has
     // to declare them has already looked at the table.

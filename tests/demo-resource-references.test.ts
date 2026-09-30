@@ -152,7 +152,7 @@ describe("a reference the session may follow", () => {
     });
   });
 
-  it("accepts a value naming a customer the form was never offered, because the store holds it", async () => {
+  it("accepts a value the form's choices did not include, because the store holds it", async () => {
     await signIn(owner);
     // The check is a read of the target rather than a membership test over the choices a control was
     // drawn from, which is what lets a reference past a window of options still be a real reference.
@@ -263,18 +263,20 @@ describe("a reference to a resource the session may not read", () => {
 });
 
 describe("a session the demo has no part in", () => {
-  it("refuses a reference check before the store is reached, like every other call", async () => {
+  it("refuses a reference check before the store is reached, as it refuses any other call", async () => {
     request.session = undefined;
     const write = vi.spyOn(store, "create");
     const read = vi.spyOn(store, "read");
 
-    // Naming a customer nobody signed in to write a shipment for, and a session that resolves to
-    // nothing. A reference cannot be a way past the session check, because it is checked by a read
-    // and every read is behind the same one.
+    // Naming a customer for a session that resolves to nothing. A reference cannot be a way past the
+    // session check, because the check runs before the read that resolves one, and the read the
+    // reference itself needs sits behind that same one.
     await expect(
       createResourceAction("shipments", { tracking: "HD-1", customer_id: "cus_hale" }),
     ).rejects.toThrow(guard.RedirectSignal);
 
+    // Spied on rather than asserted on the rows afterwards, because a refusal that reached the store
+    // and then refused would leave the same rows and a different answer to whether it ran.
     expect(write).not.toHaveBeenCalled();
     expect(read).not.toHaveBeenCalled();
   });

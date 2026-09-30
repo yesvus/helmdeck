@@ -77,8 +77,13 @@ function recordingStore() {
   // asked rather than what a component did with the answer. Written per method rather than through
   // one generic wrapper because the adapter's own signatures are generic, and a wrapper that lost
   // `T` would make the recorder easier to write and the store harder to believe.
+  // The second argument is a query for the reads that take one and a record id for the reads that
+  // name a record, and which of the two it is says something worth keeping: a test asserting on a
+  // reference asked the store for a window, and one asserting on a cycle asked it for a row.
   const note = (call: string, resource: string, second?: unknown) => {
-    asked.push(second === undefined ? { call, resource } : { call, resource, query: second });
+    if (second === undefined) asked.push({ call, resource });
+    else if (typeof second === "string") asked.push({ call, resource, id: second });
+    else asked.push({ call, resource, query: second });
   };
 
   // The memory adapter's own `queryPage` is what makes this one a paged store, so a list draws its
@@ -399,10 +404,12 @@ describe("a reference that points at its own resource", () => {
     ],
   });
 
-  it("terminates on a row whose parent is its own ancestor, rather than walking forever", async () => {
-    const { persistence, inner } = recordingStore();
-    // A chain rather than a single self-reference, because a cycle of two is the shape that would
-    // loop if a view followed references, and a row pointing at itself is the least interesting case.
+  it("terminates on a row whose parent is its own ancestor, rather than walking the cycle", async () => {
+    const { persistence, asked, inner } = recordingStore();
+    // A cycle of two rather than a row pointing at itself, because a self-reference is the least
+    // interesting case: an implementation that follows a chain at all stops on it by accident, and a
+    // test against one proves nothing. Here X's parent is Y and Y's parent is X, so following
+    // references never runs out of rows.
     await inner.create("customers", { id: "cus_x", name: "X", parent_id: "cus_y" });
     await inner.create("customers", { id: "cus_y", name: "Y", parent_id: "cus_x" });
 
@@ -423,6 +430,14 @@ describe("a reference that points at its own resource", () => {
     };
     await waitFor(() => expect(parentOf("X")).toBe("Y"));
     expect(parentOf("Y")).toBe("X");
+
+    // And the claim the rendered cells cannot make on their own: the store was asked for each value
+    // on the page once, and not for what those values point at in turn. A resolution that followed
+    // the chain draws these same two cells and asks again for every one of them, for ever, so a test
+    // that only read the screen would report that as a pass.
+    const resolved = asked.filter((call) => call.call === "read" && call.resource === "customers");
+    await waitFor(() => expect(resolved.length).toBeGreaterThan(0));
+    expect(resolved.map((call) => call.id).sort()).toEqual(["cus_x", "cus_y"]);
   });
 
   it("offers the rows that exist for a self-referencing field, and refuses a value that names none", async () => {
