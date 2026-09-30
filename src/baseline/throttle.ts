@@ -141,14 +141,25 @@ export type AdminLoginThrottle = {
    * the whole time, and counting it twice would make a burst of `limit` refusals cost `2 * limit`
    * of budget rather than `limit`.
    *
-   * **A report for a reservation the store no longer holds still counts.** The reservation is
-   * named, so this is no longer about which slot to take off a shared pile, and the two ways to get
-   * here are both a refused attempt that deserves a refusal's worth of budget: a request that
-   * completed after its own lease lapsed, and a caller holding a handle from a process that has
-   * since restarted. Ignoring the report would hand out a free attempt to anyone who can keep a
-   * connection open, which is a cheaper bypass than the one this bound exists to stop. Counting it
-   * costs a slow attempt one extra charge, and the shipped lease is the window, which no honest
-   * sign-in comes near.
+   * **A reservation is charged at most once, whichever path its report arrives by.** It is the one
+   * invariant the whole accounting rests on, and a report can reach it in five states: still
+   * reserved, past its lease, a repeat of either, one this process never minted, and one whose key
+   * has been forgotten. Every one of them charges the same single time, and a repeat charges
+   * nothing at all.
+   *
+   * **It is exact for as long as the store remembers the reservation, which is to the end of the
+   * key's window, and it is approximate beyond that.** A report arriving more than one `windowMs`
+   * after its attempt is indistinguishable from a first report for a handle from a process that
+   * restarted, and it is charged again. Making it exact past the window would mean keeping one
+   * remembered reservation per attempt the throttle has ever seen, for ever, which is the opposite
+   * of what a window is for. What is lost is bounded and in the safe direction: the repeat opens a
+   * fresh window with one charge rather than adding a charge to a key that is being refused.
+   *
+   * **A report for a reservation the store does not hold is still charged.** The reasoning is that
+   * the guess really happened and the slot has already been handed back, so ignoring the report
+   * would hand out a free attempt to anyone who can keep a connection open. That is also what makes
+   * a repeat look like a new attempt, which is why the memory above is what settles it rather than
+   * the charge itself.
    */
   failed: (attempt: AdminLoginAttempt, reservation: LoginReservation) => Promise<void> | void;
   /**
@@ -244,15 +255,19 @@ export type LoginThrottleOptions = {
 /** One key's count and the moment its window closes. */
 type LoginThrottleEntry = {
   /**
-   * When each recorded failure was reserved, as the throttle's own order.
+   * The recorded failures, keyed by the reservation that reported them and carrying the position
+   * that attempt was admitted at.
    *
-   * A list of positions rather than a number, because a success has to forgive the failures that
-   * were already there when it started and leave the ones that came after it, and the only ordering
-   * both reports agree on is the order the attempts were admitted in. A bare counter cannot say
-   * which failures a success was meant to forgive, so which ones it forgives would depend on
-   * whether its report happened to arrive before or after somebody else's.
+   * Keyed by reservation rather than held as a bare count, for two reasons that are really one. A
+   * success has to forgive the failures already recorded when it started and leave the ones that
+   * came after it, and the only ordering both reports agree on is the order attempts were admitted
+   * in, so each failure has to remember its own position. And a report arrives naming a
+   * reservation, so this map is also what says whether that reservation has been charged already.
+   * A list of positions beside a separate set of charged reservations is two structures that can
+   * disagree, and four rounds of this accounting were found wrong one path at a time because
+   * nothing tied the two together.
    */
-  failures: number[];
+  failures: Map<LoginReservation, number>;
   /**
    * The position of the most recent success, which is the failure position it forgives up to.
    *
@@ -330,7 +345,7 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
   /** The failures still in force, which is the whole of what a success is allowed to forgive. */
   function charged(entry: LoginThrottleEntry): number {
     let count = 0;
-    for (const position of entry.failures) {
+    for (const position of entry.failures.values()) {
       if (position > entry.cleared) count += 1;
     }
     return count;
@@ -385,7 +400,7 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
 
       if (!entry) {
         entries.set(key, {
-          failures: [],
+          failures: new Map(),
           cleared: 0,
           until: now() + windowMs,
           reserved: new Map([[reservation, { taken: now(), position }]]),
@@ -402,29 +417,36 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
       const key = await clientKey(attempt);
       const entry = read(key);
       if (!entry) {
-        // A report for a reservation this throttle no longer holds, which is a request that
-        // reported after its own lease lapsed or a handle from a process that has restarted.
-        // Counted rather than dropped: ignoring it is a free attempt for anyone who can hold a
-        // connection open, and the slot it was holding has already been handed back, so counting
-        // is what puts that budget back where the attempt left it. Placed after every success on
-        // purpose, so no sign-in forgives it.
+        // A report for a reservation this throttle does not hold, which is a request that reported
+        // after its own lease lapsed or a handle from a process that has restarted. Charged rather
+        // than dropped: ignoring it is a free attempt for anyone who can hold a connection open,
+        // and the slot it was holding has already been handed back, so charging is what puts that
+        // budget back where the attempt left it. Filed after every success on purpose, so no
+        // sign-in forgives it, and keyed by the reservation so a second report for the same
+        // attempt finds the entry and stops there.
         entries.set(key, {
-          failures: [minted + 1],
+          failures: new Map([[reservation, minted + 1]]),
           cleared: 0,
           until: now() + windowMs,
           reserved: new Map(),
         });
         return;
       }
+      // The invariant, in the one place it can be broken. A report for a reservation already in
+      // the failures is a second report for an attempt that has been charged, and charging it
+      // again is what turns one request into N guesses' worth of budget.
+      if (entry.failures.has(reservation)) return;
       // A refused attempt does not extend the window. It costs the caller nothing to send a
       // thousand of them, and a window that each one pushed forward would be a way to keep a
       // legitimate account locked out for as long as an attacker cared to hold the button.
       //
       // The named slot becomes the failure, so the budget is the same size afterwards, and the
-      // failure is filed under the position that attempt was admitted at.
+      // failure is filed under the position that attempt was admitted at. A reservation the entry
+      // no longer holds was either aged out or never minted here, and is filed after every success
+      // for the same reason as the branch above.
       const held = entry.reserved.get(reservation);
       entry.reserved.delete(reservation);
-      entry.failures.push(held?.position ?? minted + 1);
+      entry.failures.set(reservation, held?.position ?? minted + 1);
     },
 
     succeeded: async (attempt, reservation) => {
