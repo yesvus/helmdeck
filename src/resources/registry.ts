@@ -126,6 +126,18 @@ export type AdminResourceDefinition = {
   columns: AdminResourceColumn[];
   fields: AdminResourceField[];
   /**
+   * Columns a write may carry that the list does not show.
+   *
+   * `columns` is the shape a write is held to, because it is the stored shape. A host whose table
+   * carries more than its list shows (timestamps, a soft-delete flag, a denormalised counter) names
+   * those here, and the refusal names this property, so a write that cannot account for a column is
+   * told where to declare it rather than only that it is wrong.
+   *
+   * Additive to `columns`, per definition, and never a global switch: a boundary a host can switch off
+   * for every resource at once is the boundary this closes.
+   */
+  writable?: string[];
+  /**
    * The filter controls the list offers. A definition that declares none has no filter bar, and a
    * visitor sees no control that would narrow nothing.
    */

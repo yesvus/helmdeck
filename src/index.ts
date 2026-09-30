@@ -25,6 +25,7 @@ export * from "./resources/registry.js";
 export {
   AdminResourceNotExposedError,
   AdminResourceReferenceError,
+  AdminResourceFieldError,
   createAdminResourceActions,
 } from "./resources/actions.js";
 export type { AdminResourceActions, AdminResourceOperation } from "./resources/actions.js";

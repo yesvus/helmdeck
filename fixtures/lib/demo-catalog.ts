@@ -1562,6 +1562,14 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "Orders revisions newest first by position rather than by time, because two changes in one tick are two changes and only a position says which was first.",
     keywords: "revision order sort position newest first history",
   },
+  AdminResourceFieldError: {
+    category: "Resources",
+    summary:
+      "Thrown when a write carries a key its resource definition does not declare, so a privilege column cannot be smuggled through the boundary",
+    keywords: "field column whitelist privilege refuse error resource create update",
+    hostNote:
+      "A definition's `columns` are the shape a write is held to, because they are the stored shape. Name an extra column in the definition's `writable` and it is accepted; every other key is refused by name. A resource with no definition is not checked, since the host told this seam nothing about its shape.",
+  },
   AdminResourceReferenceError: {
     category: "Resources",
     summary:

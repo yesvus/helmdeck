@@ -468,7 +468,13 @@ describe("a reference to a resource the session may not read", () => {
     resource: "shipments",
     label: "Shipments",
     permissions: { read: "shipments.read", create: "shipments.create", update: "shipments.update" },
-    columns: [{ key: "order_id", header: "Order", reference: { resource: "orders" } }],
+    // `tracking` is a stored column as well as a form field. Listing it in `fields` alone left the
+    // definition saying the record carries a value a write was then refused for naming, and the
+    // refusal arrived ahead of the permission answer this file is about.
+    columns: [
+      { key: "tracking", header: "Tracking" },
+      { key: "order_id", header: "Order", reference: { resource: "orders" } },
+    ],
     fields: [
       { name: "tracking", label: "Tracking" },
       { name: "order_id", label: "Order", reference: { resource: "orders" } },

@@ -151,6 +151,43 @@ export class AdminResourceReferenceError extends Error {
   }
 }
 
+/**
+ * Refused because a write carries a key the resource does not declare.
+ *
+ * The actions authorized which operation a session may perform and never restricted which columns that
+ * operation may touch, so a definition declaring `name` and `sku` would store whatever the adapter
+ * accepted: `role`, `is_privileged`, a soft-delete flag, a denormalised counter. Authorization passed
+ * because the operation was allowed, and reference checking passed because none of those keys name a
+ * row. The two checks together left the column boundary open in the one place a browser-supplied value
+ * reaches the store.
+ *
+ * Refused rather than dropped. A dropped key leaves the author believing a column was written when it
+ * was not, which is the same defect as the one this closes, pointed the other way: a privilege column
+ * that appears set and is not. Naming the keys means the author learns which write was wrong rather
+ * than that a write was wrong.
+ *
+ * `id` is the exception the caller cannot get wrong. On a create it is the record's own key and a host
+ * may generate it. On an update the route already named the record, so a value carrying an `id` is a
+ * request to move the row somewhere the route did not choose.
+ */
+export class AdminResourceFieldError extends Error {
+  readonly resource: string;
+  readonly operation: AdminResourceOperation;
+  readonly fields: readonly string[];
+
+  constructor(input: { resource: string; operation: AdminResourceOperation; fields: readonly string[] }) {
+    const list = input.fields.join(", ");
+    super(
+      `${input.operation} ${input.resource} carries ${list}, which ${input.resource} does not declare. ` +
+        `Declare the column, or add it to the definition's \`writable\`.`,
+    );
+    this.name = "AdminResourceFieldError";
+    this.resource = input.resource;
+    this.operation = input.operation;
+    this.fields = input.fields;
+  }
+}
+
 /** One value in a write that names a row, and the row it claims to name. */
 type Asked = { field: string; reference: AdminResourceReference; value: string };
 
@@ -344,6 +381,50 @@ export function createAdminResourceActions({
     }
   }
 
+  /**
+   * The keys a write to this resource is allowed to carry.
+   *
+   * `null` means the boundary is not closed here, which is what a host that declared no definition for
+   * the resource is saying: it told this seam nothing about the resource's shape, so there is nothing
+   * to check a value against. A single settings row written by a site's own module is exactly that
+   * case, and refusing it would refuse a resource that was never a table.
+   *
+   * That is not the same as a definition declaring no columns, which is refused, because a definition
+   * with an empty `columns` is a host that has said what it stores and stored nothing.
+   */
+  function writableKeys(resource: string): Set<string> | null {
+    const definition = declared.get(resource);
+    if (definition === undefined) return null;
+    return new Set([
+      ...definition.columns.map((column) => column.key),
+      ...(definition.writable ?? []),
+    ]);
+  }
+
+  /**
+   * Refuses a write carrying a key the definition does not declare, before the store is reached.
+   *
+   * Beside the reference check and for the same reason: a value that should never have been stored is
+   * refused before it is stored, rather than stored and then left for the host to notice. `id` is the
+   * one key the caller gets without declaring it, on a create only, where it is the record's own key
+   * and a host may generate it.
+   */
+  function refuseUndeclared(
+    resource: string,
+    operation: AdminResourceOperation,
+    value: unknown,
+  ): void {
+    const allowed = writableKeys(resource);
+    if (allowed === null) return;
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return;
+    const refused = Object.keys(value as Record<string, unknown>)
+      .filter((key) => !allowed.has(key) && !(key === "id" && operation === "create"))
+      .sort();
+    if (refused.length > 0) {
+      throw new AdminResourceFieldError({ resource, operation, fields: refused });
+    }
+  }
+
   async function permit(
     resource: string,
     operation: AdminResourceOperation,
@@ -438,8 +519,11 @@ export function createAdminResourceActions({
     async create<T>(resource: string, value: unknown): Promise<T> {
       const session = await permit(resource, "create");
       // After the refusal and before the store, so a value naming a row that is not there never
-      // reaches a table to be stored and then have to be un-stored.
+      // reaches a table to be stored and then have to be un-stored. Ahead of the field refusal
+      // because it carries a second permission decision, and every one of those has to be settled
+      // before any of them can be told apart from a validation answer.
       await checkReferences(resource, value);
+      refuseUndeclared(resource, "create", value);
       const created = await persistence.create<T>(resource, value);
       await reported({ operation: "create", resource, session, record: created });
       return created;
@@ -448,8 +532,11 @@ export function createAdminResourceActions({
     async update<T>(resource: string, id: string, value: unknown): Promise<T> {
       const session = await permit(resource, "update", id);
       // After the refusal and before the store, with the record it is about to replace, so a value
-      // the record already holds is not this write's to check.
+      // the record already holds is not this write's to check. Ahead of the field refusal because it
+      // carries a second permission decision, and every one of those has to be settled before any of
+      // them can be told apart from a validation answer.
       await checkReferences(resource, value, id);
+      refuseUndeclared(resource, "update", value);
       const updated = await persistence.update<T>(resource, id, value);
       await reported({ operation: "update", resource, resourceId: id, session, record: updated });
       return updated;

@@ -2,7 +2,6 @@
 "use server";
 
 import {
-  adminResourceValues,
   createAdminResourceActions,
   type AdminPersistenceAdapter,
   type AdminResourcePage,
@@ -38,60 +37,39 @@ import { requireDemoPermission } from "./demo-guard";
  */
 
 /**
- * Whether a resource has column definitions to filter a write against.
+ * The demo names every record itself, so a caller-supplied `id` is dropped.
  *
- * Not every exposed resource is a table browser's: `site_settings` is a single settings row written
- * by the site's own module, and it declares no columns anywhere. Filtering an undeclared resource
- * would refuse it, which is why this is a question about the resource rather than a rule applied to
- * all of them. Such a resource is still behind the same session, the same allowlist and the same
- * permission rule; what it is not behind is a list of fields, because it never had one.
+ * This was once a whole column whitelist, narrowing a write to the definition's declared fields
+ * through `adminResourceValues`, because the package did not enforce that itself. It does now:
+ * `createAdminResourceActions` refuses a write carrying a key its definition does not declare, and
+ * does so before the store is reached. Keeping a second copy is what let the gap survive, because the
+ * fixture was protected while the shipped boundary was not, so `tests/demo-write-shape.test.ts` was
+ * asserting this function rather than the package.
+ *
+ * What is left is the one policy that is the demo's own rather than the package's. The package allows
+ * a caller to name a record on a create, since a host may generate ids in the browser; this demo does
+ * not, and a store that let a caller name a row could have it overwritten.
  */
-function isFormDefined(resource: string): boolean {
-  return adminResources.some((candidate) => candidate.resource === resource);
-}
-
-/**
- * The declared fields of a record, and nothing else, read on the server.
- *
- * `adminResourceValues` is what the generated forms call in the browser, and it reads only the fields
- * a definition declares. Calling it here means the two halves cannot disagree about a record's
- * shape: the same function that decides what a form sends decides what a write stores.
- *
- * Without this, the README's claim that a field removed from the definition cannot be smuggled back
- * in through a hand-edited request was true only of the form and false of the boundary, because the
- * action handed its `value` straight to the adapter. The column check in the persistence layer is
- * not a substitute: it asks whether a name is a column of the table, and `id`, `created_at` and
- * `updated_at` all are, so a request could have set them and the write would have succeeded.
- */
-function declaredValue(resource: string, value: unknown): Record<string, unknown> {
-  if (!isFormDefined(resource)) return (value ?? {}) as Record<string, unknown>;
-
-  const definition = adminResources.find((candidate) => candidate.resource === resource)!;
+function withoutCallerId(value: unknown): Record<string, unknown> {
   const incoming = (value ?? {}) as Record<string, unknown>;
-  const form = new FormData();
-  for (const [key, entry] of Object.entries(incoming)) {
-    form.append(key, entry === null || entry === undefined ? "" : String(entry));
-  }
-  return adminResourceValues(definition, form);
+  if (!("id" in incoming)) return incoming;
+  const rest = { ...incoming };
+  delete rest.id;
+  return rest;
 }
 
-/**
- * The demo's own store behind the package's calls, so the filtering of a write happens at the
- * boundary the browser cannot reach. The reads are passed straight through.
- */
-function declaredWrites(adapter: AdminPersistenceAdapter): AdminPersistenceAdapter {
+/** The demo's own store behind the package's calls. The reads are passed straight through. */
+function demoNamedWrites(adapter: AdminPersistenceAdapter): AdminPersistenceAdapter {
   return {
     ...adapter,
     create: <T>(resource: string, value: unknown) =>
-      adapter.create<T>(resource, declaredValue(resource, value)),
-    update: <T>(resource: string, id: string, value: unknown) =>
-      adapter.update<T>(resource, id, declaredValue(resource, value)),
+      adapter.create<T>(resource, withoutCallerId(value)),
   };
 }
 
 const store = createAdminResourceActions({
   guard: requireDemoPermission,
-  persistence: declaredWrites(demoPersistence().adapter),
+  persistence: demoNamedWrites(demoPersistence().adapter),
   expose: exposedResource,
   // After the refusal and before the effect, so the first request of a fresh process finds records
   // rather than an empty store, and a refused request does not pay for the seed.

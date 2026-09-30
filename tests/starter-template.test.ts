@@ -147,27 +147,43 @@ describe("the starter template", () => {
       const { resourceActions } = await import("../template/lib/store");
       const { persistence } = await import("../template/lib/persistence");
 
+      // A caller who found this action could send a privilege column, and the boundary is the last
+      // place it can be refused. The template used to narrow the write itself; the package refuses now,
+      // and a boundary a host has to remember to write is a boundary it eventually forgets.
+      await expect(
+        resourceActions.create("products", {
+          name: "Chair",
+          sku: "CHAIR-1",
+          price_cents: 12000,
+          isAdmin: true,
+          password_hash: "scrypt$salt$key",
+        }),
+      ).rejects.toThrow(/isAdmin, password_hash/);
+
       const written = await resourceActions.create("products", {
         name: "Chair",
         sku: "CHAIR-1",
         price_cents: 12000,
-        // None of these three is a declared field. A caller who found this action could send them,
-        // and the store is the last place they can be refused.
-        isAdmin: true,
-        password_hash: "scrypt$salt$key",
       });
-
       expect(Object.keys(written).sort()).toEqual(["id", "name", "price_cents", "sku"]);
 
-      // The id is the store's, not the caller's, which is the same claim from the other direction: a
-      // hand-edited request that names an id must not be able to write over a row that already has it.
+      // An id on a create is the one key a caller may send without declaring it, because a host may
+      // generate record keys in the browser. On an update the route already named the record, so a
+      // value carrying an id is a request to move the row somewhere the route did not choose.
       const smuggled = await resourceActions.create("products", {
         id: "chosen-by-the-caller",
         name: "Table",
         sku: "TABLE-1",
         price_cents: 20000,
       });
-      expect(smuggled.id).not.toBe("chosen-by-the-caller");
+      await expect(
+        resourceActions.update("products", String(written.id), {
+          name: "Renamed",
+          id: "somewhere-else",
+        }),
+      ).rejects.toThrow(/\bid\b/);
+      expect(smuggled.id).toBe("chosen-by-the-caller");
+      await persistence.delete("products", String(smuggled.id));
 
       // And an editor may not delete, which is the rule asked through the same boundary.
       await expect(

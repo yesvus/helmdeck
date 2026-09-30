@@ -39,6 +39,7 @@ export { AdminResourceForm, AdminResourceList } from "./views.js";
 export {
   AdminResourceNotExposedError,
   AdminResourceReferenceError,
+  AdminResourceFieldError,
   createAdminResourceActions,
 } from "./actions.js";
 export type { AdminResourceActions, AdminResourceOperation } from "./actions.js";
