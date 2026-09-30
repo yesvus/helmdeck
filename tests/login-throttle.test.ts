@@ -126,6 +126,48 @@ function throttle(options: { limit?: number; now?: () => number; windowMs?: numb
   });
 }
 
+/**
+ * The credential adapter with its password comparisons counted at the row carrying the hash.
+ *
+ * The count is what a host actually experiences: the number of wrong answers the sign-in form
+ * gives before it starts naming the throttle. A throttle whose own bookkeeping said one charge
+ * while the form had answered eight would refuse on the bookkeeping and look correct.
+ */
+async function passwordCounter(bound: AdminLoginThrottle) {
+  const db = createMemoryPersistenceAdapter();
+  const store = createPersistenceCredentialStore(db);
+  await db.create<Record<string, unknown>>("users", {
+    email: EMAIL,
+    password_hash: await hashPassword(PASSWORD),
+    role: "admin",
+  });
+  let comparisons = 0;
+  const counted = {
+    ...store,
+    findUserByEmail: async (...args: Parameters<typeof store.findUserByEmail>) => {
+      const found = await store.findUserByEmail(...args);
+      if (found) comparisons += 1;
+      return found;
+    },
+  };
+  const auth = createCredentialAuthAdapter({
+    secret: SECRET,
+    store: counted,
+    cookie: jar().io,
+    throttle: bound,
+  });
+  return { auth, comparisons: () => comparisons };
+}
+
+/** How many attempts a key of `limit` has left, counted however large the limit is. */
+async function budget(bound: AdminLoginThrottle, limit: number, key = EMAIL): Promise<number> {
+  let through = 0;
+  for (let i = 0; i < limit; i += 1) {
+    if ((await bound.check(attempt(key))).ok) through += 1;
+  }
+  return through;
+}
+
 /** A session adapter over a spy, which is how a test proves the password was never read. */
 function adapter(options: {
   verify?: (credentials: { email: string; password: string }) => Promise<string | null>;
@@ -809,6 +851,95 @@ describe("property 12: a reservation is charged at most once, whichever path it 
 
     expect(await charges(bound, time)).toBe(4);
   });
+
+  it("keeps a late report charged when a different attempt signs in", async () => {
+    // The defect the review found. A report for a reservation whose lease lapsed has no position
+    // of its own, so the throttle had to invent one, and the serial it invented was the serial the
+    // next attempt was about to be given. The sign-in below belongs to that next attempt and knows
+    // nothing about the hung one, but it forgives every failure at or below its own position, so
+    // it forgave the hung attempt's failure too: a guess that really happened, against a slot that
+    // had already been handed back, stopped counting.
+    const time = clock();
+    const bound = throttle({ limit: 8, now: time.now, reservationMs: 1000 });
+    const form = await passwordCounter(bound);
+
+    // One attempt that takes a slot and reports nothing inside its lease.
+    const hung = allowed(await bound.check(attempt()));
+    time.advance(1000);
+
+    // The lease has lapsed and the slot is back, so a second attempt is admitted.
+    const live = allowed(await bound.check(attempt()));
+
+    // Only now does the first one report. Nothing in the throttle holds that reservation any more.
+    await bound.failed(attempt(), hung);
+
+    // A third attempt, admitted on the serial the late report had to invent, and a sign-in from it.
+    const next = allowed(await bound.check(attempt()));
+    await bound.succeeded(attempt(), next);
+    // The second attempt finishes too, so what is left on the key is recorded failures and nothing
+    // in flight, and the number below is a number of charges rather than of slots held.
+    await bound.succeeded(attempt(), live);
+
+    // Asked of the bookkeeping first, because it is the exact number and it is free.
+    expect(await charges(bound, time)).toBe(1);
+
+    // Then asked of the sign-in form, where a charge is a wrong password somebody got to answer.
+    // One surviving charge on a limit of eight leaves seven wrong answers, and the eighth attempt
+    // is refused. A forgiven late report leaves the key whole, so all eight are answered and only
+    // the ninth is refused, which is the bound one guess further out than it was configured to be.
+    for (let i = 0; i < 8; i += 1) {
+      await form.auth.login({ email: EMAIL, password: `probe-${i}` });
+    }
+    expect(form.comparisons()).toBe(7);
+    expect(await form.auth.login({ email: EMAIL, password: `probe-8` })).toEqual({
+      ok: false,
+      message: DEFAULT_THROTTLED_MESSAGE,
+    });
+    expect(form.comparisons()).toBe(7);
+  });
+
+  it("cannot be given a position a live reservation holds, however many serials have gone by", async () => {
+    // The same defect over a long run rather than one arrangement. Any position a late report can
+    // be given is either a serial some attempt already holds or one the next attempt is about to
+    // be given, so every lapsed report is a chance for one to be forgiven, and the answer is only
+    // worth having if it is the same two hundred times. The serials are burnt far ahead of the
+    // rounds below, so the counter is thousands past anywhere a counter would have wrapped and the
+    // positions in play are ones this test cannot have chosen by taking the right number of
+    // reservations first.
+    const LAPSED = 200;
+    const LIMIT = 512;
+    const time = clock();
+    const bound = throttle({ limit: LIMIT, now: time.now, windowMs: WINDOW, reservationMs: 1000 });
+
+    // A second key, filled to its limit and then five thousand attempts deeper, which is five
+    // thousand serials a test could not have arranged by taking reservations itself. Every `check`
+    // mints a serial whether or not it hands a slot back, so the counter is thousands past
+    // anything the rounds below could reach.
+    const burner = "burner@demo.helmdeck.dev";
+    allowed(await bound.check(attempt(burner)));
+    let admitted = 0;
+    for (let i = 0; i < 5000; i += 1) {
+      if ((await bound.check(attempt(burner))).ok) admitted += 1;
+    }
+    expect(admitted).toBe(LIMIT - 1);
+
+    for (let round = 0; round < LAPSED; round += 1) {
+      const hung = allowed(await bound.check(attempt()));
+      time.advance(1000);
+      // The lease lapses, the slot comes back, and the next attempt is admitted on the serial the
+      // late report below is about to want for itself.
+      const live = allowed(await bound.check(attempt()));
+      await bound.failed(attempt(), hung);
+      const next = allowed(await bound.check(attempt()));
+      // Both sign-ins the throttle has a position for, neither of which is the hung attempt's.
+      await bound.succeeded(attempt(), next);
+      await bound.succeeded(attempt(), live);
+    }
+
+    // One charge per hung attempt, none of them forgiven by a sign-in that belonged to somebody
+    // else, so two hundred of this key's five hundred and twelve attempts are spent.
+    expect(await budget(bound, LIMIT)).toBe(LIMIT - LAPSED);
+  });
 });
 
 describe("property 5: keys do not share a count", () => {
@@ -898,6 +1029,27 @@ describe("property 7: attempts arriving together share one budget", () => {
     );
 
     expect(target.verify).toHaveBeenCalledTimes(3);
+  });
+
+  it("reaches the password exactly `limit` times, at each limit a host can configure", async () => {
+    // The numbers above are held at the host's `verify`, which is a spy. This one holds them where
+    // a host's users are actually affected, at the row carrying the hash, and holds all four limits
+    // as equalities rather than as bounds: a bound of `<= 8` is also what a throttle that refuses
+    // everything does, so only the exact number says that eight is eight.
+    //
+    // Pinned here rather than only above because the budget arithmetic is what this file's later
+    // rounds keep changing, and a change that moved it would show up as a number rather than as a
+    // stack trace.
+    const measured: Record<string, number> = {};
+    for (const [label, limit] of [["eight", 8], ["three", 3], ["zero", 0], ["unset", undefined]] as const) {
+      const form = await passwordCounter(createLoginThrottle({ limit, clientKey: (a) => a.credentials.email }));
+      await Promise.all(
+        Array.from({ length: BURST }, (_, i) => form.auth.login({ email: EMAIL, password: `wrong-${i}` })),
+      );
+      measured[label] = form.comparisons();
+    }
+
+    expect(measured).toEqual({ eight: 8, three: 3, zero: 0, unset: 8 });
   });
 
   it("counts a burst of failures the way it counts the same failures one at a time", async () => {
@@ -1236,6 +1388,11 @@ describe("property 9: a host's own throttle can meet the contract", () => {
    * The reservation is a row id from a store-wide counter, which is the whole answer to what a
    * host can mint: the package's type is a string, so a host uses whatever its store makes
    * cheaply and uniquely, and nothing here is a class the package owns.
+   *
+   * **The counter's value is also the position, and that is what a host's own store gets for free.**
+   * A row id is already an ordering every process agrees on, so the two rules a success has to keep
+   * cost a host nothing beyond the row: forgive the failures at or below the position of the row it
+   * signed in on, and file a report for a row the store does not hold where no row can reach it.
    */
   function sharedStoreThrottle(limit: number, now: () => number) {
     // A hash of charged reservations beside the row, which is the shape a host's store takes: one
@@ -1243,23 +1400,29 @@ describe("property 9: a host's own throttle can meet the contract", () => {
     // the shipped throttle keeps, and a host that does not keep it does not meet the contract.
     const rows = new Map<
       string,
-      { failures: Map<string, number>; inFlight: Map<string, number>; until: number }
+      { failures: Map<string, number>; inFlight: Map<string, number>; cleared: number; until: number }
     >();
     let serial = 0;
+    const charged = (entry: { failures: Map<string, number>; cleared: number }): number => {
+      let count = 0;
+      for (const position of entry.failures.values()) if (position > entry.cleared) count += 1;
+      return count;
+    };
     return (): AdminLoginThrottle => ({
       check: (a) => {
         const key = a.credentials.email;
         const entry = rows.get(key);
         const live = entry && entry.until > now() ? entry : null;
-        if (live && live.failures.size + live.inFlight.size >= limit) {
+        if (live && charged(live) + live.inFlight.size >= limit) {
           return { ok: false, message: "refused by the shared store" };
         }
         serial += 1;
         const reservation = `row-${serial}`;
         const inFlight = new Map(live?.inFlight ?? []);
-        inFlight.set(reservation, now());
+        inFlight.set(reservation, serial);
         rows.set(key, {
           failures: new Map(live?.failures ?? []),
+          cleared: live?.cleared ?? 0,
           inFlight,
           until: now() + WINDOW,
         });
@@ -1267,23 +1430,29 @@ describe("property 9: a host's own throttle can meet the contract", () => {
       },
       failed: (a, reservation) => {
         const entry = rows.get(a.credentials.email);
-        if (!entry) {
+        if (!entry || entry.until <= now()) {
           rows.set(a.credentials.email, {
-            failures: new Map([[reservation, 1]]),
+            // A row this store never issued, or one it has already forgotten. Charged, and out of
+            // reach of every sign-in: a row id is the one ordering here, so a position drawn from
+            // the counter is the id of a row some attempt already holds or is about to be given.
+            failures: new Map([[reservation, Number.POSITIVE_INFINITY]]),
             inFlight: new Map(),
+            cleared: 0,
             until: now() + WINDOW,
           });
           return;
         }
         if (entry.failures.has(reservation)) return;
-        entry.failures.set(reservation, 1);
+        entry.failures.set(reservation, entry.inFlight.get(reservation) ?? Number.POSITIVE_INFINITY);
         entry.inFlight.delete(reservation);
       },
       succeeded: (a, reservation) => {
         const entry = rows.get(a.credentials.email);
         if (!entry) return;
+        const position = entry.inFlight.get(reservation);
         entry.inFlight.delete(reservation);
-        entry.failures.clear();
+        // Only the failures this row was admitted after, and nothing for a row it no longer holds.
+        if (position !== undefined) entry.cleared = Math.max(entry.cleared, position);
       },
     });
   }
@@ -1349,6 +1518,27 @@ describe("property 9: a host's own throttle can meet the contract", () => {
     for (let i = 0; i < 40; i += 1) {
       if ((await bound.check(attempt())).ok) through += 1;
     }
+    expect(through).toBe(3);
+  });
+
+  it("keeps a report for a row it no longer holds charged, on the host's own implementation too", async () => {
+    // The rule the shipped throttle had to be corrected to, held against the host's own three
+    // methods as well: it is a rule and not an implementation detail, so a host that files a late
+    // report at the next row id has the defect, and this is what says so without this code in it.
+    const bound = sharedStoreThrottle(4, Date.now)();
+
+    // A row this store never issued, which is what a report looks like after a restart, then a row
+    // it did issue and a sign-in from it.
+    await bound.failed(attempt(), "a-row-this-store-never-issued");
+    const signedIn = allowed(await bound.check(attempt()));
+    await bound.succeeded(attempt(), signedIn);
+
+    let through = 0;
+    for (let i = 0; i < 40; i += 1) {
+      if ((await bound.check(attempt())).ok) through += 1;
+    }
+    // One of four spent on a guess that really happened, so three are left. A store that filed the
+    // late report at the sign-in's own row id would clear it and leave four.
     expect(through).toBe(3);
   });
 });
