@@ -13,7 +13,10 @@
  *
  * - One process, or one replica behind one process: the default is what the deployment needs.
  * - More than one process: put the same three methods over Redis, a table, or anything the
- *   instances share. `AdminLoginThrottle` is three methods for exactly that reason.
+ *   instances share. `AdminLoginThrottle` is three methods for exactly that reason, and the one
+ *   requirement it puts on a host beyond counting is that `check` must reserve a slot in the same
+ *   operation that refuses, which is a Lua script or an `UPDATE ... WHERE` rather than a `GET`
+ *   and a `SET`.
  * - A client that can set its own forwarded header: no counter keyed on a header a client writes
  *   bounds anything. See `forwardedClientKey` for what the default does about that.
  *
@@ -65,11 +68,46 @@ export type AdminLoginAttempt = {
  *
  * A host with a Redis or a table behind it implements the same three and hands that to
  * `createSessionAuthAdapter`; nothing else in the package changes.
+ *
+ * **`check` is a read-modify-write, and that is the whole point of it.** Returning null is not a
+ * peek: it takes a slot for the key, and `failed` and `succeeded` are how that slot comes back.
+ * Without the take, twenty attempts arriving together all read the same count before any of them
+ * has recorded a failure, so all twenty reach the password and the bound does nothing to the one
+ * shape an attacker actually uses. The cost of the fix falls on the implementation rather than the
+ * caller, and it is written on `check` because that is where a host reads it: an implementation
+ * that counts correctly but does not reserve is not wrong in any way a test of its arithmetic
+ * would notice, and it is silently the pre-fix throttle.
  */
 export type AdminLoginThrottle = {
-  /** A message refuses the attempt and nothing is checked; null lets the attempt through. */
+  /**
+   * A message refuses the attempt and nothing is checked; null lets the attempt through.
+   *
+   * **Returning null takes a slot for this key, so this method writes and cannot be a read.** A
+   * null answer is a promise that the caller will come back with exactly one of `failed` or
+   * `succeeded`, which releases the slot: `failed` keeps it charged as a failure and `succeeded`
+   * gives it back and clears the key. The caller already has that shape, because a sign-in
+   * reports one outcome or the other, so nothing at the call site changes.
+   *
+   * The take must be atomic with the refusal. A `GET` followed by a `SET` lets two callers both
+   * see the last free slot and both take it, which is the same bypass with a network hop in it,
+   * so over a shared store this is one statement or one script rather than two.
+   *
+   * A slot that is never reported back has to lapse on its own, or a request that dies between
+   * here and the comparison would hold the key below its limit for ever. The shipped throttle
+   * ages one out with the window, and a host's own is its own decision to make: a lease shorter
+   * than the window recovers sooner from a request that gave up, and is also a faster way for an
+   * attacker holding connections open to have slots handed back. There is no handle and nothing to
+   * release, so ageing out is the only way out of a caller that never reports.
+   */
   check: (attempt: AdminLoginAttempt) => Promise<string | null> | string | null;
-  /** Called when the credentials were refused, which is what a bound counts. */
+  /**
+   * Called when the credentials were refused, which is what a bound counts.
+   *
+   * The slot `check` took stays charged, converted from a reservation into a recorded failure, so
+   * this does not move the count on its own: an attempt that was allowed and then refused was
+   * spending a slot the whole time, and counting it twice would make a burst of `limit` refusals
+   * cost `2 * limit` of budget rather than `limit`.
+   */
   failed: (attempt: AdminLoginAttempt) => Promise<void> | void;
   /** Called when the credentials were accepted, which clears that key's count. */
   succeeded: (attempt: AdminLoginAttempt) => Promise<void> | void;
@@ -119,6 +157,16 @@ export type LoginThrottleOptions = {
   limit?: number;
   /** How long a key stays refused after it reaches the limit. */
   windowMs?: number;
+  /**
+   * How long a slot stays reserved when nothing reports it back.
+   *
+   * Defaults to `windowMs`, which is the longest a key can be refused anyway, so a request that
+   * dies mid-comparison costs the key the same one window a wrong password would have. A shorter
+   * value recovers sooner from a browser that gave up, and is also a faster way for an attacker
+   * holding connections open to have their slots handed back, so it is the host's trade to make
+   * rather than this package's.
+   */
+  reservationMs?: number;
   /** Names the attempt. The default is `forwardedClientKey`. */
   clientKey?: (attempt: AdminLoginAttempt) => string | Promise<string>;
   /** Milliseconds since the epoch. Injected so a test advances a clock instead of waiting. */
@@ -131,6 +179,15 @@ export type LoginThrottleOptions = {
 type LoginThrottleEntry = {
   failures: number;
   until: number;
+  /**
+   * When each allowed attempt took its slot, oldest first, bounded by the limit.
+   *
+   * A timestamp per reservation rather than one per key, so ageing out hands back the attempt
+   * that went missing and leaves the ones that reported alone. They are dropped from the front
+   * because the report that comes back cannot be matched to the reservation that took it: the
+   * methods share an attempt and nothing to identify which of several it was.
+   */
+  reserved: number[];
 };
 
 /**
@@ -144,10 +201,16 @@ type LoginThrottleEntry = {
  * long-lived store behind `AdminLoginThrottle` keeps the same lazy read and additionally holds one
  * row per key it has ever refused until something deletes it, which is a table to sweep on a
  * schedule and an index on the key column.
+ *
+ * **Every write here is synchronous, after the key has been resolved.** `clientKey` is awaited
+ * once and nothing is awaited after it, so the read and the take are one turn of the event loop
+ * and no other attempt for the key can read the count between them. The map gives that for free
+ * because this is one process; a host's shared store has to get it from one statement.
  */
 export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLoginThrottle {
   const limit = options.limit ?? DEFAULT_THROTTLE_LIMIT;
   const windowMs = options.windowMs ?? DEFAULT_THROTTLE_WINDOW_MS;
+  const reservationMs = options.reservationMs ?? windowMs;
   const now = options.now ?? Date.now;
   const clientKey = options.clientKey ?? forwardedClientKey;
   const message = options.message ?? DEFAULT_THROTTLED_MESSAGE;
@@ -165,29 +228,54 @@ export function createLoginThrottle(options: LoginThrottleOptions = {}): AdminLo
       entries.delete(key);
       return null;
     }
+    // The same lazy read for a slot nobody reported back, and on the same schedule as the window
+    // so that nothing here is a timer and no key is held by a request that is not coming back.
+    let dropped = false;
+    while (entry.reserved.length > 0 && now() - entry.reserved[0] >= reservationMs) {
+      entry.reserved.shift();
+      dropped = true;
+    }
+    if (dropped && entry.failures === 0 && entry.reserved.length === 0) {
+      entries.delete(key);
+      return null;
+    }
     return entry;
   }
 
   return {
     check: async (attempt) => {
-      const entry = read(await clientKey(attempt));
-      return entry && entry.failures >= limit ? message : null;
+      const key = await clientKey(attempt);
+      const entry = read(key);
+      if (!entry) {
+        entries.set(key, { failures: 0, until: now() + windowMs, reserved: [now()] });
+        return null;
+      }
+      // Failures and reservations are one budget, which is what makes the bound a bound: a slot
+      // held by an attempt still running is a slot an attacker cannot spend twice.
+      if (entry.failures + entry.reserved.length >= limit) return message;
+      entry.reserved.push(now());
+      return null;
     },
 
     failed: async (attempt) => {
       const key = await clientKey(attempt);
       const entry = read(key);
       if (!entry) {
-        entries.set(key, { failures: 1, until: now() + windowMs });
+        entries.set(key, { failures: 1, until: now() + windowMs, reserved: [] });
         return;
       }
       // A refused attempt does not extend the window. It costs the caller nothing to send a
       // thousand of them, and a window that each one pushed forward would be a way to keep a
       // legitimate account locked out for as long as an attacker cared to hold the button.
       entry.failures += 1;
+      // The slot becomes a recorded failure, so the budget is the same size afterwards. A report
+      // with no reservation behind it is a host calling `failed` directly, which still counts.
+      if (entry.reserved.length > 0) entry.reserved.shift();
     },
 
     succeeded: async (attempt) => {
+      // The whole entry, so the reservations go with the count. Clearing failures but holding the
+      // reservations would leave the key at its limit for a person who just signed in on it.
       entries.delete(await clientKey(attempt));
     },
   };
