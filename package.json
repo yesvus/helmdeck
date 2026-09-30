@@ -61,7 +61,7 @@
     "lint": "eslint .",
     "dev": "next dev fixtures",
     "build:fixtures": "pnpm build && next build fixtures",
-    "typecheck:example": "cd examples/independent-host && tsc --noEmit -p tsconfig.json"
+    "typecheck:example": "node scripts/typecheck-example.mjs"
   },
   "peerDependencies": {
     "@dnd-kit/core": "^6.3.1",

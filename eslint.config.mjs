@@ -10,6 +10,17 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // The gate scripts under `scripts/` are Node programs, and without this every `console` and
+    // `process` in them is an undefined identifier. A script whose whole job is to report a failure
+    // cannot be linted with the browser's rules.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
     files: ["**/*.{ts,tsx}"],
     plugins: {
       "react-hooks": reactHooks,
