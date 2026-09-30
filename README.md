@@ -165,7 +165,7 @@ function toneForStatus(status: "healthy" | "degraded" | "failed"): AdminTone {
 <AdminProfilePage session={session} settingsHref="/admin/settings" onSignOut={signOut} />
 ```
 
-Sessions and the sign-out-everywhere control are yours to supply, because `AdminSession` carries no timestamps and the auth contract cannot revoke other sessions. Where you cannot honour one, the page leaves it out rather than rendering a control that does nothing.
+The sign-out-everywhere control is yours to supply, because the auth contract decides what ending one account's own sessions means. Where you cannot honour one, the page leaves it out rather than rendering a control that does nothing. [Who may end every session](#who-may-end-every-session) and [Managing accounts](#managing-accounts) cover the two that ship.
 
 ### Dialog layout
 
@@ -370,7 +370,93 @@ export const auth = createCredentialAuthAdapter({
 
 The session it is given is the one the cookie named, and its role is read from the user row, so a request cannot write it. **Omit the option and the capability is refused**, so a host that has not thought about who may revoke does not ship it by accident. A refusal is reported as a refusal rather than as a count of zero, and it happens before any session row is looked up or deleted, so a refused call cannot be used to learn which accounts exist.
 
-This method is about ending your own sessions everywhere. Ending a *different* account's sessions is a different capability, and the demo shows how to authorize it in its own action, where the target and the authority are resolved together rather than one being handed to the other.
+This method is about ending your own sessions everywhere. Ending *other* accounts' sessions, and everything else an operator does with other people's accounts, is [the account surface](#managing-accounts).
+
+### Managing accounts
+
+A sign-in is the hard half of operator onboarding and the store already had it. The easy half is six operations over the same store, which is what `createAccountAdmin` is:
+
+```ts
+import { createAccountAdmin } from "@yesvus/helmdeck/baseline";
+
+export const accounts = createAccountAdmin(store, {
+  roles: ["admin", "editor"],
+  may: {
+    list: (session) => session.role === "admin",
+    create: (session) => session.role === "admin",
+    setRole: (session, accountId) => session.role === "admin",
+    setDisabled: (session, accountId) => session.role === "admin",
+    listSessions: (session) => session.role === "admin",
+    endSession: (session) => session.role === "admin",
+  },
+});
+```
+
+`list`, `create`, `setRole`, `setDisabled`, `listSessions` and `endSession` each take the caller's session and return `{ ok: true, ... }` or `{ ok: false, message }`. The two predicates that need to decide about one record are handed its id rather than the row, so the question is asked before the store is reached; a host that wants to decide on the record looks it up in its own rule, which is where a store read belongs. **Every predicate is a host policy and absent means refused**, for the same reason as `mayEndAllSessions`. The package has no vocabulary for roles, so `may` is the only thing that knows what one is.
+
+Three decisions are worth stating, because each is the other answer too.
+
+**A role the host's rule does not define still signs in, and the rule is what refuses it.** The package stores a role as a string and never interprets one, so there is nothing here to refuse a sign-in with, and a rule that does not define a role grants it nothing anyway. The `roles` list is a typo-catcher consulted on the two writes that name a role, refused with the name and the list; it is not a gate on signing in. The alternative costs the person at the keyboard a login failure with a reason they cannot see, where a login that succeeds into an admin showing nothing is a rule the host can be asked about. A host that has declared no `roles` at all has said what none of its roles are, so any string is written and its own rule decides.
+
+**Turning an account off ends that account's sessions first, then flips the flag, and reports what it measured.** The order is the point. Ending the sessions and turning the account off are two writes, and which goes first decides what a failure leaves behind: revoke first and a store that cannot delete leaves the account still on, which is the state you asked to change away from and a retry can repeat. The other order leaves an account that is off with a session still live and a caller holding an exception rather than an answer.
+
+The count is measured, not believed. A store's own number is a claim about the store, and one that had not checked would put a "done" in your admin screen for somebody who is still signed in. So the sessions are counted before and after the delete, and any that survived is a refusal with `reason: "sessions-survived"` rather than a count. A store with no `listSessions` cannot be checked from here, and `ended` is `null` for that reason: a number it volunteered is still only its claim.
+
+**One row can outlive a disable, and it is a row rather than a credential.** The sign-in checks the password, then writes a session row. If the disable lands between those two, the row is written for an account that is now off. Two things bound that, and both are properties rather than intentions:
+
+- **The row cannot be used.** Every read of a session resolves the account, and a disabled account is refused and the row deleted with the refusal, so the next thing that presents it is refused and the row goes. It is also the only way to reach a row like that: nothing mints a cookie for a session nobody resolved, so a row nobody presents is a row nobody can use.
+- **On this package's sign-in path there is no window at all**, because `login` asks for the session after the write, so the refusal and the delete happen inside that one call and the table is left empty. A leftover row only comes from a caller writing session rows itself, through `store.createSession`, which is a host with its own session management.
+
+What is left is a row that expires on its own, is visible in `listSessions` with `disabled: true` beside it, can be ended by its id like any other, and is counted and ended by the next disable of the same account. That is the whole cost, and a sweep is not worth it: the rows have an expiry the read already checks, so a sweep would only reclaim rows nobody presents, and it would put a clock and a background job inside a package that has none.
+
+There is no re-check inside `createSession`, and that is a decision rather than an oversight. A re-check is a check followed by a write, so the disable can still land between them: it narrows the window and does not close it, and calling it a close would be the same claim this README refuses about `createUser`'s duplicate check. It would also add a third read of the account to every sign-in, where the second read already refuses and deletes. **A host writing its own session rows inherits this shape and owns the re-check**, because a host that manages its own sessions already owns what makes one valid.
+
+**A disable does not reach a session that is already resolved.** Every read of a session goes through the store, which sees the flag, refuses, and deletes the row with the refusal, so the next request on a disabled account is refused and a replayed cookie resolves to nothing. But two things hold a session value past that moment, and neither is a credential that keeps working:
+
+- **A server action that reads the session once and uses the value** for the rest of its request. `createAdminPermissionGuard` and `createAdminPermissionCheck` are handed a `session` resolver, so wiring them to a function that resolves per call gives you the store's answer every time, and wiring them to a captured value gives you the value you captured. The window is the request.
+- **`AdminAuthProvider` holds the session in browser state** until the host calls its `refresh`. A tab that was signed in when the account was disabled keeps rendering the shell's chrome until something re-reads it, and the server refuses everything it tries to do. Call `refresh()` when your admin screen shows a session it should not.
+
+Neither is a hole, and a value already resolved is a claim about a moment. It is stated here because a read-path check that is not described as having a window reads as a guarantee it is not.
+
+**Turning an account off is a flag, and it ends the sessions that account holds.** Not a delete, which orphans every row the account authored and the trail describing what it did, and which cannot be undone. The sessions go in the same operation, because a disabled account whose live session keeps working is a disabled account with a hole in it. The check is on the read as well as on the sign-in, since a sign-in already in flight writes its row after the disable has run, and the row is deleted with the refusal. A disabled account answers the sign-in exactly as a wrong password does, in message and in cost, so the form is not an oracle for which accounts are turned off. Turning it back on ends nothing and says so with a count of zero.
+
+**`AdminSession` gained an optional `id`, and it is off unless you ask.** The id is the session row's, read from the row the signed cookie names, so a request cannot write it. Pass `includeSessionId` to `createCredentialAuthAdapter` and the session your server action already resolved carries it, which is what lets a sessions list mark the caller's own row and lets `endSession` be called with an id you are already holding:
+
+```ts
+export const auth = createCredentialAuthAdapter({ secret, store, includeSessionId: true });
+```
+
+It is optional because a host with no session table has no id to have, so widening the type is what lets a host that does have one address a session at all. The migration is that option: a host that turns it on gets an `id` on its session and marks one row current; a host that does not is unaffected, because the field is absent rather than present and empty, so a session that was `{ email, role }` is still exactly that.
+
+A session that has already ended is a success with `ended: false`, not a refusal. Two browsers pressing the same button is the ordinary case and neither of them did anything wrong, and a refusal would train a host to retry and to show an error for a revoke that worked.
+
+Every refusal carries a `reason` beside its `message`: `no-session`, `not-permitted`, `no-account`, `store-unsupported`, `unknown-role`, `weak-password` or `email-taken`. The message is for the person who asked and the reason is for you, so an admin screen that renders "already invited" differently from "could not create" switches on a value rather than matching on prose.
+
+**Two people inviting the same address at once produce one account and one refusal.** The read that checks for an existing account is a read followed by a write, so it is not what makes that true, and the comment in the source says so rather than claiming the index does a job it may not be doing. What makes it true is that `create` serialises per normalised address within a process, and that `createUser` on the store is documented to refuse a duplicate address itself by throwing `AccountAlreadyExistsError`, which `create` turns into the same `email-taken` refusal either path reaches. Anything else a store throws is let through, because a refusal that reported success over a broken database would be worse than an exception.
+
+**An address is folded, on the way into the store and on the way out of it.** `createUser` writes `normalizeEmail(email)` and `findUserByEmail` looks up `normalizeEmail(email)`, so two spellings of one address are one account whether they arrive through the surface or straight at the store, and a row is always stored in the form the sign-in looks it up by. That is the store's identity model rather than a preference: the lookup is an exact match against a value in a column, so a row stored as `Ada@Example.test` is not found by a sign-in that looks up `ada@example.test`, and folding only the comparison would refuse the duplicate and then write an account nothing can sign in to.
+
+**The limit, because it is a decision and not a setting.** Two spellings your own collation would treat as different addresses are one account here. A host that disagrees writes its own `CredentialStore`, whose `findUserByEmail` and `createUser` use its own comparison, and says so in those two methods. There is no option to make this one case-sensitive, and adding one would produce a store that sometimes writes rows its own sign-in cannot find.
+
+**`createUserIfAbsent` is the one store method that is safe under concurrency, and it is the one that needs a database.** `createUser` refuses a duplicate it can see, and its docstring says plainly that a read followed by a write is a shape two callers interleave. Eight concurrent direct `createUser` calls for one address wrote eight rows on both shipped adapters before this existed, and they still would: the check inside it is a check, not a constraint.
+
+```ts
+const account = await store.createUserIfAbsent({ email, passwordHash });
+// null means an account for that address was already there. One statement, so the database decides.
+```
+
+`AdminPersistenceAdapter` gained the optional `insertIfAbsent(resource, key, value)` to carry it, because the database is the only thing in a process that can make the decision atomic. It is optional and **its absence is the answer**: a store whose persistence cannot do it does not offer `createUserIfAbsent` either, rather than offering a method that cannot keep the promise in its name. `create` uses the primitive when it is there and the per-address queue when it is not, both rather than either, so a host supplying neither still gets the in-process guarantee.
+
+What each adapter does, because they are honest in different ways:
+
+- **The SQLite adapter** creates a unique index on first use and inserts with `ON CONFLICT DO NOTHING`. The index is partial: `WHERE resource = 'users'` over `json_extract(data, '$.email')`, so it is invisible to every other resource in that shared table, since SQLite treats a NULL in a unique index as distinct from every other NULL. **The index outlives the call that made it**, so after one use the database refuses a duplicate address for that resource on every write, `create` included. That is a constraint appearing in a table you did not write, and it fails loudly and permanently if the table already held duplicates, with a message naming the resource and key.
+- **The memory adapter** has no `await` between its test and its push, and JavaScript runs one thing at a time, so the body cannot be interleaved. That is the whole guarantee and it is a property of that function's source rather than of a mechanism, so an `await` added between the two lines would silently turn it into the racy check-then-write it is not. There is a test that hammers it concurrently because nothing else would notice.
+
+**The cross-process half, for a host with a real schema, is a unique index on the column.** `CREDENTIAL_USERS_SCHEMA` declares one; neither shipped adapter runs that DDL, because they keep the address as a value inside a document rather than as a column. A host on its own mapped schema implements `insertIfAbsent` as `INSERT ... ON CONFLICT (email) DO NOTHING` and gets it from the column.
+
+Four store methods are optional: `listUsers`, `createUser`, `updateUser` and `listSessions`. A store written before them is a working sign-in, and a surface that reported an empty account list would be the one answer that cannot be told apart from an admin with nobody in it, so it names the method to add instead.
+
+**Hand-rolled instead:** six methods on your own `CredentialStore` and pass it to `createAccountAdmin`, or skip it and build the actions yourself. Nothing requires it, and the schema does not gain a table.
 
 ### The secret
 

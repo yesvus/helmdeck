@@ -13,6 +13,8 @@ export {
   CREDENTIAL_USERS_SCHEMA,
 } from "./baseline/credentials.js";
 export type {
+  AccountChanges,
+  AccountRecord,
   CredentialAuthAdapter,
   CredentialAuthOptions,
   CredentialRevocation,
@@ -20,7 +22,19 @@ export type {
   CredentialStore,
   CredentialStoreOptions,
   CredentialUser,
+  NewAccount,
 } from "./baseline/credentials.js";
+export { AccountAlreadyExistsError } from "./baseline/credentials.js";
+export { createAccountAdmin } from "./baseline/users.js";
+export type {
+  AccountAdmin,
+  AccountAdminPolicy,
+  AccountRefusal,
+  AccountRefusalReason,
+  AccountResult,
+  AccountSession,
+  CreateAccountInput,
+} from "./baseline/users.js";
 export { hashPassword, normalizeEmail, verifyPassword } from "./baseline/passwords.js";
 export { createSessionAuthAdapter, generateSessionSecret } from "./baseline/session.js";
 export type { AdminSessionCookieIO } from "./baseline/session.js";

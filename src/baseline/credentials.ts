@@ -54,6 +54,27 @@ export type CredentialUser = {
   passwordHash: string;
   role?: string;
   name?: string;
+  /**
+   * An account that has been turned off. It is not a delete: the row stays, so it can be turned
+   * back on, and it holds no session, because both the sign-in and the read of a live session
+   * refuse it.
+   */
+  disabled?: boolean;
+};
+
+/**
+ * A user row as an operator-facing surface reports it.
+ *
+ * There is nowhere in this type to put a password hash, which is the point: a listing, a form or a
+ * log line built from one cannot leak a credential because there was nothing to leak.
+ */
+export type AccountRecord = {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+  disabled: boolean;
+  createdAt?: string;
 };
 
 /** A session row. The cookie carries the id; this row is the authority on whether it still means anything. */
@@ -67,10 +88,74 @@ export type CredentialSession = {
    * rather than trusted to have arrived as a number.
    */
   expiresAt: number;
+  /** When the row was written, for a list that shows it. Absent from a store that does not hold it. */
+  createdAt?: string;
 };
 
-/** Where the rows live. Four methods, because a host's schema is its own. */
+/**
+ * The write a caller asks for on an account.
+ *
+ * An absent key is left alone. `role: null` is the one value that clears rather than sets, because
+ * "no role" and "leave the role as it is" are two different requests and a surface that could only
+ * say one of them would make taking a role away impossible.
+ */
+export type AccountChanges = {
+  role?: string | null;
+  disabled?: boolean;
+};
+
+/** What a caller hands over to have an account written, with the password in the clear exactly once. */
+export type NewAccount = {
+  /**
+   * Folded through `normalizeEmail` on the way in, so what lands in the column is the same value a
+   * sign-in will look the row up by. See `createUser` for why it is the stored form and not only the
+   * compared one.
+   */
+  email: string;
+  passwordHash: string;
+  role?: string;
+  name?: string;
+};
+
+/**
+ * A store refusing to write a second account for an address that already has one.
+ *
+ * `createUser` is documented as having to refuse a duplicate address, and this is how a store says
+ * it in a way `createAccountAdmin` can recognise. The alternative is a refusal recognisable only by
+ * the text of the store's error, and a host that improves that text would lose its account create
+ * rather than lose a message.
+ *
+ * The shipped adapters raise this rather than letting a duplicate through, because neither of them
+ * has a unique index to refuse one: the memory adapter holds typed records and the SQLite one holds
+ * JSON documents keyed by resource and id, so in both cases the address is a value inside a document
+ * and nothing in the store knows it was supposed to be one of a kind.
+ */
+export class AccountAlreadyExistsError extends Error {
+  readonly email: string;
+
+  constructor(email: string) {
+    super(`There is already an account for ${email}`);
+    this.name = "AccountAlreadyExistsError";
+    this.email = email;
+  }
+}
+
+/**
+ * Where the rows live. Six methods, because a host's schema is its own.
+ *
+ * The four the account surface needs are optional, and absent means the surface says the store
+ * cannot do it rather than reporting an empty list or a success. A store written before this
+ * interface grew them is a working sign-in, and it is a sign-in that refuses to become a
+ * management surface without its owner adding the writes.
+ */
 export type CredentialStore = {
+  /**
+   * Finds the account for an address, in whatever form this store treats as an address.
+   *
+   * The shipped store folds the address before looking, so a caller may pass what a person typed.
+   * A host whose identity is not a folded address implements this and `createUser` together, and
+   * says so there.
+   */
   findUserByEmail: (email: string) => Promise<CredentialUser | null>;
   findUserById: (id: string) => Promise<CredentialUser | null>;
   /** Writes the row and returns it. The store names the row, so one path covers any store. */
@@ -79,6 +164,48 @@ export type CredentialStore = {
   deleteSession: (id: string) => Promise<void>;
   /** Ends every session an account holds, and says how many there were. */
   deleteSessionsForUser: (userId: string) => Promise<number>;
+
+  /** Every account, for the list a host renders. The hash is not among the fields it answers with. */
+  listUsers?: () => Promise<AccountRecord[]>;
+  /**
+   * Writes one account, and **must refuse an address that already has one** by throwing
+   * `AccountAlreadyExistsError`.
+   *
+   * Not optional in the sense that a store which does not do this still works, and a store which
+   * writes a second row for one address is a host with two accounts for one person and a sign-in
+   * that depends on which of them the lookup happened to find. A store with a unique index gets the
+   * refusal from the database and rethrows it as this; a store without one has to check, which
+   * covers one process and not several, and the cross-process half is a schema question the host
+   * answers with an index rather than with anything in this interface.
+   *
+   * **This method is not safe under concurrency, and the check inside it is why.** It is a read
+   * followed by a write, so two callers in one process can both pass the read, and two callers in
+   * two processes always can. It refuses the duplicate a caller can see; it does not make the write
+   * atomic. A host that needs both implements `createUserIfAbsent` instead, which is the one that
+   * can, or calls this one knowing what it is.
+   *
+   * "The same address" has to mean the same thing here as it does in the lookup, or the store
+   * refuses a duplicate on one spelling and writes it on another. The shipped store folds both sides
+   * for that reason, and a store with a different idea of an address implements both methods to it.
+   */
+  createUser?: (account: NewAccount) => Promise<AccountRecord>;
+  /**
+   * Writes one account only if the address is free, and answers null when one is already there.
+   *
+   * **This is the one store method that is safe under concurrency, and it is optional for the same
+   * reason: only a store whose underlying persistence can make the decision in one statement can
+   * offer it.** `createUser` cannot, because a read followed by a write is a shape two processes
+   * interleave, and that is the reason this exists rather than `createUser` being documented harder.
+   * A host calling `createUser` from two instances at once will get two accounts for one person, and
+   * a host needing that not to happen implements this or puts a unique index on the column.
+   *
+   * Absent on the shipped persistence store when the persistence adapter has no `insertIfAbsent`,
+   * which is a host's own adapter rather than one of the two shipped here.
+   */
+  createUserIfAbsent?: (account: NewAccount) => Promise<AccountRecord | null>;
+  updateUser?: (id: string, changes: AccountChanges) => Promise<AccountRecord>;
+  /** Live sessions, newest first, optionally narrowed to one account. A lapsed row is not one. */
+  listSessions?: (userId?: string) => Promise<CredentialSession[]>;
 };
 
 /**
@@ -91,8 +218,17 @@ export type CredentialStore = {
  *
  * Constraints live in the database rather than only in this adapter, because an adapter can be
  * bypassed by a hand-edited request and a constraint the database does not enforce is a comment.
- * The role list is a starting point for a host with no users yet; a host that already has an
- * accounts table keeps it and points `createPersistenceCredentialStore` at its own columns.
+ * The address is the one constraint on the users table, because a duplicate address is a fact
+ * rather than a policy.
+ *
+ * **The role column is unconstrained, which is a change from the first version of this schema.**
+ * That one carried `NOT NULL CHECK (role IN ('admin', 'editor'))`, which froze a two-role
+ * vocabulary into the package for every host that ran it, including hosts whose own rule has
+ * nothing to do with those two names. It is nullable now for the same reason it is unconstrained:
+ * a role is whatever string the host's rule switches on, and a role the rule does not define grants
+ * nothing, which is the answer an account with nothing on it already gets. A table created by the
+ * earlier schema keeps its constraint, because SQLite cannot drop a CHECK from a column, so a host
+ * wanting a role outside those two names recreates the table.
  */
 export const CREDENTIAL_USERS_SCHEMA = `CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -100,7 +236,12 @@ export const CREDENTIAL_USERS_SCHEMA = `CREATE TABLE IF NOT EXISTS users (
   -- scrypt$<salt>$<key>. The parameters travel with the hash, so they can be raised later
   -- without invalidating the rows already written.
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin', 'editor')),
+  -- The host's own vocabulary, stored and never interpreted here. A null role is an account that
+  -- can sign in and may do nothing, which is what a role the rule does not define also gets.
+  role TEXT,
+  -- Turned off rather than removed. A disable has to be reversible, and a row that outlives the
+  -- person who held it is what the audit trail and every record they authored are attached to.
+  disabled INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -123,6 +264,12 @@ export type CredentialColumnOptions = {
   passwordHash?: string;
   role?: string;
   name?: string;
+  /**
+   * The disable flag. Defaults to `disabled`, and a host whose table has no such column reads
+   * `undefined`, which is an account that is not off rather than one that is.
+   */
+  disabled?: string;
+  createdAt?: string;
 };
 
 export type CredentialStoreOptions = {
@@ -154,6 +301,16 @@ export async function authenticate(
   const user = await store.findUserByEmail(normalizeEmail(email));
   if (!user) {
     await verifyPassword(password, await decoyHash());
+    return null;
+  }
+  // A disabled account answers exactly as a wrong password does, and that is deliberate. A distinct
+  // "this account is off" message is a second thing a public sign-in form can be asked, and it would
+  // turn the form into an account-existence oracle for the one state an operator is most likely to
+  // be asked about. The person signing in is told their credentials were not accepted, and whoever
+  // turned the account off sees `disabled` on the row, which is where the diagnosis belongs.
+  if (user.disabled) {
+    // The same work either way, because "faster than a real attempt" is itself an answer.
+    await verifyPassword(password, user.passwordHash);
     return null;
   }
   return (await verifyPassword(password, user.passwordHash)) ? user : null;
@@ -188,6 +345,8 @@ export function createPersistenceCredentialStore(
     passwordHash: "password_hash",
     role: "role",
     name: "name",
+    disabled: "disabled",
+    createdAt: "created_at",
     ...options.userColumns,
   };
   const sessionColumns = {
@@ -196,6 +355,21 @@ export function createPersistenceCredentialStore(
     expiresAt: "expires_at",
     ...options.sessionColumns,
   };
+
+  /**
+   * Whether a row has been turned off.
+   *
+   * `disabled INTEGER NOT NULL DEFAULT 0` is how a database spells false, and a host with a boolean
+   * column, a text column holding "true", or no column at all all have to land on the same answer.
+   * Only the literal zero and the literal false read as off; everything else that is not a string
+   * at all is treated as a number, so a column that arrived as `null` is off rather than unknown.
+   */
+  function isDisabled(row: Record<string, unknown>): boolean {
+    const value = row[userColumns.disabled];
+    if (value === undefined || value === null) return false;
+    if (typeof value === "string") return value !== "" && value !== "0" && value.toLowerCase() !== "false";
+    return Boolean(value);
+  }
 
   function toUser(row: Record<string, unknown> | null): CredentialUser | null {
     if (!row) return null;
@@ -213,15 +387,63 @@ export function createPersistenceCredentialStore(
       id: String(row.id),
       email,
       passwordHash,
-      ...(typeof role === "string" ? { role } : {}),
+      // A null role and an empty string are both no role, because the rule grants an empty role
+      // nothing and a listing should not show one as a role called "".
+      ...(typeof role === "string" && role !== "" ? { role } : {}),
       ...(typeof name === "string" ? { name } : {}),
+      ...(isDisabled(row) ? { disabled: true } : {}),
+    };
+  }
+
+  /**
+   * The same row as the account surface reports it, which is the row with the hash left off.
+   *
+   * A row the sign-in could not use at all is reported as no account rather than as an account with
+   * no hash, because there is nothing to turn off or hand a role to.
+   */
+  function toAccount(row: Record<string, unknown> | null): AccountRecord | null {
+    const user = toUser(row);
+    if (!user) return null;
+    const createdAt = row?.[userColumns.createdAt];
+    return {
+      id: user.id,
+      email: user.email,
+      ...(user.name !== undefined ? { name: user.name } : {}),
+      ...(user.role !== undefined ? { role: user.role } : {}),
+      disabled: user.disabled === true,
+      ...(typeof createdAt === "string" ? { createdAt } : {}),
+    };
+  }
+
+  /**
+   * A row that came back without an address or a hash in it is not an account, and a store that
+   * wrote one has a problem the caller needs to hear about rather than an `undefined` to render.
+   */
+  function unusableRow(resource: string, verb: string): never {
+    throw new Error(
+      `The ${resource} row ${verb} by this store cannot be read back as an account, because it has ` +
+        "no address or no password hash in it. A management surface cannot report a row it cannot sign in to.",
+    );
+  }
+
+  async function toSession(row: Record<string, unknown>): Promise<CredentialSession> {
+    return {
+      id: String(row.id),
+      userId: String(row[sessionColumns.userId]),
+      // Coerced because a host whose column is TEXT gets a number back as a string. A value
+      // that is not a number at all arrives here as NaN, which the expiry check treats as
+      // lapsed rather than as a session that never ends.
+      expiresAt: Number(row[sessionColumns.expiresAt]),
+      ...(typeof row[sessionColumns.createdAt] === "string"
+        ? { createdAt: row[sessionColumns.createdAt] as string }
+        : {}),
     };
   }
 
   return {
     async findUserByEmail(email) {
       const rows = await persistence.query<Record<string, unknown>>(users, {
-        [userColumns.email]: email,
+        [userColumns.email]: normalizeEmail(email),
       });
       return toUser(rows[0] ?? null);
     },
@@ -240,15 +462,7 @@ export function createPersistenceCredentialStore(
 
     readSession: async (id) => {
       const row = await persistence.read<Record<string, unknown>>(sessions, id);
-      if (!row) return null;
-      return {
-        id: String(row.id),
-        userId: String(row[sessionColumns.userId]),
-        // Coerced because a host whose column is TEXT gets a number back as a string. A value
-        // that is not a number at all arrives here as NaN, which the expiry check treats as
-        // lapsed rather than as a session that never ends.
-        expiresAt: Number(row[sessionColumns.expiresAt]),
-      };
+      return row ? toSession(row) : null;
     },
 
     deleteSession: async (id) => {
@@ -261,6 +475,111 @@ export function createPersistenceCredentialStore(
       });
       await Promise.all(rows.map((row) => persistence.delete(sessions, String(row.id))));
       return rows.length;
+    },
+
+    async listUsers() {
+      const rows = await persistence.query<Record<string, unknown>>(users);
+      // A half-written row is left out rather than reported, so a listing cannot show an account
+      // whose hash arrived as something other than a hash.
+      return rows.map(toAccount).filter((account): account is AccountRecord => account !== null);
+    },
+
+    async createUser(account) {
+      /**
+       * **Why the stored address is the folded one and not only the compared one.** The lookup is an
+       * exact match against a value in a column, so a row written as `Ada@Example.test` is not found
+       * by a sign-in that looks up `ada@example.test`. Folding the comparison but keeping the
+       * caller's spelling would refuse the duplicate and still write an account nothing can sign in
+       * to, which is a worse failure than the one this prevents, and it would be invisible until
+       * someone tried to use the account they had just been told was created.
+       *
+       * So the fold is the store's identity model, on the way in and on the way out, and the account
+       * surface folding too is not a second decision about it: the surface folds because it has to
+       * find the row the store wrote and to name the address in the message, and both are only true
+       * if the two agree.
+       *
+       * **The limit, stated because it is a decision this seam makes.** Two spellings a host's own
+       * collation would treat as different addresses are one account here. A host that disagrees
+       * writes its own `CredentialStore`, whose `findUserByEmail` and `createUser` use its own
+       * comparison; that is the same seam as every other part of this interface, and it is the only
+       * place a different identity model can come from. Nothing here can be configured into a
+       * case-sensitive address, and pretending otherwise would be a store that sometimes writes rows
+       * its own sign-in cannot find.
+       */
+      const email = normalizeEmail(account.email);
+
+      // The store's own duplicate refusal, and the reason it is here rather than only in
+      // `createAccountAdmin`: this method is exported, so a host calling it directly gets the same
+      // guarantee the surface gives. It is a check and not a constraint, and the interface says so:
+      // a read followed by a write is a shape two callers interleave, which is what
+      // `createUserIfAbsent` below exists to stop.
+      const existing = await persistence.query<Record<string, unknown>>(users, {
+        [userColumns.email]: email,
+      });
+      if (existing.length > 0) throw new AccountAlreadyExistsError(email);
+
+      const row = await persistence.create<Record<string, unknown>>(users, {
+        [userColumns.email]: email,
+        [userColumns.passwordHash]: account.passwordHash,
+        ...(account.role === undefined ? {} : { [userColumns.role]: account.role }),
+        ...(account.name === undefined ? {} : { [userColumns.name]: account.name }),
+      });
+      return toAccount(row) ?? unusableRow(users, "written");
+    },
+
+    /**
+     * Present only when the persistence can make the decision in one statement.
+     *
+     * A store that cannot be atomic must not offer this, because a method named for a guarantee it
+     * cannot make is worse than an absent one: a caller would skip the index it still needs. So the
+     * method is defined conditionally, and its absence is the store saying so.
+     */
+    ...(persistence.insertIfAbsent
+      ? {
+          async createUserIfAbsent(account: NewAccount): Promise<AccountRecord | null> {
+            const row = await persistence.insertIfAbsent!<Record<string, unknown>>(users, userColumns.email, {
+              [userColumns.email]: normalizeEmail(account.email),
+              [userColumns.passwordHash]: account.passwordHash,
+              ...(account.role === undefined ? {} : { [userColumns.role]: account.role }),
+              ...(account.name === undefined ? {} : { [userColumns.name]: account.name }),
+            });
+            // Null is the answer rather than a row to map: nothing was written, so there is nothing
+            // to read back, and asking for one would turn a refusal into a lookup.
+            if (row === null) return null;
+            return toAccount(row) ?? unusableRow(users, "written");
+          },
+        }
+      : {}),
+
+    async updateUser(id, changes) {
+      const existing = await persistence.read<Record<string, unknown>>(users, id);
+      if (!existing) throw new Error(`No ${users} record with id ${id}`);
+      const row = await persistence.update<Record<string, unknown>>(users, id, {
+        ...existing,
+        // A null role is written as a null rather than skipped, so clearing a role and not mentioning
+        // it are the two different writes they are.
+        ...(changes.role === undefined ? {} : { [userColumns.role]: changes.role }),
+        // Only written when the caller is changing it, so a host whose users table has no disable
+        // column can still change a role. `setDisabled` on such a table fails at the database,
+        // which is the honest answer: the table cannot hold what was asked of it.
+        ...(changes.disabled === undefined ? {} : { [userColumns.disabled]: changes.disabled ? 1 : 0 }),
+      });
+      return toAccount(row) ?? unusableRow(users, "updated");
+    },
+
+    async listSessions(userId) {
+      const rows = await persistence.query<Record<string, unknown>>(
+        sessions,
+        userId === undefined ? undefined : { [sessionColumns.userId]: userId },
+      );
+      const now = Math.floor(Date.now() / 1000);
+      const live = await Promise.all(rows.map(toSession));
+      // A lapsed row is not a live session, so a list of them would offer a revoke button for
+      // something that ended on its own. Newest first, which is the order a list of live sessions
+      // is read in and the only order a store of one is useful in.
+      return live
+        .filter((session) => Number.isFinite(session.expiresAt) && session.expiresAt > now)
+        .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""));
     },
   };
 }
@@ -276,6 +595,15 @@ export type CredentialAuthOptions = {
   sameSite?: "lax" | "strict" | "none";
   secure?: boolean;
   invalidMessage?: string;
+  /**
+   * Put the session row's id on the session this adapter resolves.
+   *
+   * Off by default, because the id is a revocation handle rather than something a shell needs to
+   * know who someone is, and a session the browser is handed should carry as little as it can. A
+   * host rendering a sessions list turns it on, so the list can mark the caller's own row and
+   * `createAccountAdmin`'s `endSession` can be called with a value the host is already holding.
+   */
+  includeSessionId?: boolean;
   /**
    * Whether the account resolved from the request may end every session it holds.
    *
@@ -369,7 +697,23 @@ export function createCredentialAuthAdapter(options: CredentialAuthOptions): Cre
       await store.deleteSession(row.id);
       return null;
     }
-    return { email: user.email, ...(user.name ? { name: user.name } : {}), ...(user.role ? { role: user.role } : {}) };
+
+    // The account was turned off while the row was live, which is the race a disable does not wait
+    // for: the disable ends the sessions it can see, and a sign-in already in flight writes its row
+    // afterwards. Without this the disabled account is signed in again for the full fourteen days.
+    // Checking on every read rather than only at the sign-in is what closes it, and the row goes
+    // with the answer, so the next read has nothing left to find.
+    if (user.disabled) {
+      await store.deleteSession(row.id);
+      return null;
+    }
+
+    return {
+      ...(options.includeSessionId ? { id: row.id } : {}),
+      email: user.email,
+      ...(user.name ? { name: user.name } : {}),
+      ...(user.role ? { role: user.role } : {}),
+    };
   }
 
   /**

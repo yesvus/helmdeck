@@ -802,8 +802,8 @@ const CATALOG_META: Record<string, CatalogMeta> = {
   CREDENTIAL_USERS_SCHEMA: {
     category: "Credentials and sessions",
     summary:
-      "The users table as SQL to run once, with the address and role constraints in the database rather than only in the adapter.",
-    keywords: "users table sql schema create password",
+      "The users table as SQL to run once, with the address constraint in the database rather than only in the adapter, and the role column unconstrained because the vocabulary is the host's.",
+    keywords: "users table sql schema create password disabled role",
   },
   CREDENTIAL_SESSIONS_SCHEMA: {
     category: "Credentials and sessions",
@@ -852,6 +852,21 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary:
       "The auth adapter over a user store and a session row, so a sign-out ends the row and not just this browser's copy of the cookie.",
     keywords: "auth adapter session cookie login logout revoke",
+  },
+  createAccountAdmin: {
+    category: "Credentials and sessions",
+    summary:
+      "The operator surface over a credential store: create an account, change a role, turn one off and back on, list accounts and live sessions, and end a session by its id. Every operation asks the host's own policy before the store is reached.",
+    keywords:
+      "accounts users roles invite disable enable revoke sessions operator onboarding manage list",
+  },
+  AccountAlreadyExistsError: {
+    category: "Credentials and sessions",
+    summary:
+      "What a credential store throws when an address already has an account, so the refusal is recognisable rather than something to match on the text of an error.",
+    keywords: "duplicate exists conflict unique error refuse address",
+    hostNote:
+      "An error a credential store raises to refuse a duplicate account. There is nothing to draw here: throw it from your own store's createUser, or rethrow the database's own refusal as it.",
   },
 
   AdminDashboardLayout: {
