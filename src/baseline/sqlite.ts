@@ -264,8 +264,10 @@ function predicateForFilter(filter: AdminResourceFilter): Predicate {
  * The class is the first term of an ordering and the value the second, both reading the same way,
  * because that is the one rule `comparisonFor` ranks with: a value sits against another by what it
  * is before it sits by how large it is. Leaving the class to the engine's own order of storage
- * classes returns the same rows, so writing it out changes no answer, and then a new class added to
- * `classOf` moves the comparison and leaves the ordering where it was, with nothing to catch it.
+ * classes returns the same rows, so writing it out changes no answer. What it buys is that the two
+ * cannot drift apart: a class added to `classOf`, or a case changed there, moves the comparison and
+ * the ordering together, where before it moved the comparison and left the ordering on whatever
+ * order the engine had.
  *
  * It costs nothing to say it out. `data` is one JSON document per row and the sort reads it through
  * `json_extract` bound to a path, which is nothing this table's `PRIMARY KEY (resource, id)` holds,
