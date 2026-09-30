@@ -34,6 +34,7 @@ import {
   ADMIN_DENSITIES,
   ADMIN_THEME_SETTING_KEYS,
   ADMIN_TEXT_CONTRAST,
+  DEFAULT_ADMIN_DENSITY,
   isAdminDensity,
   normalizeHex,
   resolveAdminThemeSettings,
@@ -50,12 +51,19 @@ export const SETTINGS_ROW_ID = "site";
 
 export const SETTINGS_PATH = "/shell/settings/site";
 
-/** What a site reads as before anybody has changed it, and what a missing row falls back to. */
+/**
+ * What a site reads as before anybody has changed it, and what a missing row falls back to.
+ *
+ * The density is the package's own `DEFAULT_ADMIN_DENSITY` rather than a value written beside it,
+ * so the demo cannot become the place the default is decided. It reads as `"comfortable"` today and
+ * that is what `0009_site_density.sql` gave every existing row, but the reason it agrees is this
+ * line, not the coincidence of two people writing the same word.
+ */
 export const DEFAULT_SETTINGS = {
   name: "Northstar Supply",
   accent: "#b45309",
   support_email: "support@northstar.example",
-  density: "comfortable",
+  density: DEFAULT_ADMIN_DENSITY,
 } as const;
 
 export type SiteSettings = {
