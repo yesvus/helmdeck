@@ -32,8 +32,12 @@ const packageDirectory = join(template, "node_modules", "@yesvus");
 /** Where the link points, as a path relative to the directory holding it. */
 const linkTarget = relative(packageDirectory, root);
 
-function tsc(binary, args) {
-  execFileSync(binary, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+function tsc(args) {
+  execFileSync(resolve(root, "node_modules", "typescript", "bin", "tsc"), args, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 }
 
 /**
@@ -55,17 +59,18 @@ function linkPackage() {
   symlinkSync(linkTarget, join(packageDirectory, "helmdeck"), "dir");
 }
 
-export function typecheckTemplate({ quiet = false } = {}) {
-  tsc(join(root, "node_modules", "typescript", "bin", "tsc"), ["-p", "tsconfig.build.json"]);
+/**
+ * Builds the package, links it into the template, and compiles the template.
+ *
+ * `execFileSync` captures the compiler's output and attaches it to the thrown error, which a person
+ * reading a CI log never sees: the log has the script's stack trace and not the line naming the file
+ * that failed. Written out here so both callers, the script and the test, report the same way.
+ */
+export function typecheckTemplate() {
+  tsc(["-p", "tsconfig.build.json"]);
   linkPackage();
-  const binary = join(root, "node_modules", "typescript", "bin", "tsc");
-  const args = ["--noEmit", "-p", join(template, "tsconfig.json")];
-  if (quiet) {
-    tsc(binary, args);
-    return;
-  }
   try {
-    tsc(binary, args);
+    tsc(["--noEmit", "-p", join(template, "tsconfig.json")]);
   } catch (cause) {
     const { stdout = "", stderr = "" } = cause;
     process.stdout.write(stdout);

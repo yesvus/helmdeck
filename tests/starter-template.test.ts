@@ -56,7 +56,7 @@ describe("the starter template", () => {
     // runs. One script for both, so they cannot answer differently, and the script links the package
     // in first so the check is over the template as a host receives it rather than over a version of
     // it this repository arranged.
-    expect(() => typecheckTemplate({ quiet: true })).not.toThrow();
+    expect(() => typecheckTemplate()).not.toThrow();
   }, 300_000);
 
   it("reaches the package by name and by nothing else", () => {
