@@ -375,6 +375,27 @@ describe("what a measure is allowed to answer", () => {
     );
   });
 
+  it("costs a measure that counts rows nothing, because no array is long enough to cross it", () => {
+    // The objection to one rule for every measure is that a host counting events should not be refused
+    // over a measure of money. It cannot happen, and this is the arithmetic rather than the assertion.
+    // A count of one per row would need 9007199254740991 rows to cross the boundary, and the largest
+    // array JavaScript can hold has 4294967295 elements, which is 2000 times too few.
+    expect(Number.MAX_SAFE_INTEGER).toBeGreaterThan(2 ** 32 - 1);
+    // The largest count a whole array of rows can produce, which is 2000 times inside the boundary.
+    expect(Number.isSafeInteger(2 ** 32 - 1)).toBe(true);
+
+    // The shape the capture layer actually uses, counted over a length a test can hold.
+    const result = adminAggregate({
+      rows: Array.from({ length: 100_000 }, (_, index) => ({ id: `e${index}` })),
+      range: ["d1"],
+      key: () => "d1",
+      measures: { views: () => 1, unattributed: () => 0 },
+    });
+    expect(result.totals.views).toBe(100_000);
+    expect(result.totals.unattributed).toBe(0);
+    expect(result.totalRecords).toBe(100_000);
+  });
+
   it("leaves a sum inside the boundary exactly as it was", () => {
     // Not a behaviour change for anyone whose totals fit, which is every caller that has not hit this
     // defect. Asserted against the same rows summed in bigint, so the float result is checked against
