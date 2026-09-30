@@ -1367,3 +1367,40 @@ Optional `hint`, `description`, `subtitle`, and stat `detail` content on the fie
   `pnpm build:fixtures && pnpm exec next start fixtures -p 4319`, then `pnpm verify:layout` in
   another shell. It uses the Playwright CLI, which is not a package dependency:
   `npm i -g @playwright/cli && playwright-cli install-browser chromium`.
+
+### Checking a deploy
+
+`node scripts/deploy-smoke.mjs <url>` (or `pnpm smoke <url>`) exercises a deployed fixture app and
+exits non-zero with a diagnosis when something is wrong. Run it after a deploy, before you believe one.
+
+The sign-in is the check that matters. It is the only request that reads a user row, and the only one
+that runs the seed and the migration runner before it does, so it is the only one that can see a
+deployment whose pages render and whose routes redirect while the store underneath them is broken.
+A request carrying no session cookie is answered by the cookie reader alone, which is why
+`GET /login -> 200` proves the page renders and nothing more. Run it against the alias, after the
+deploy is serving, not against a preview.
+
+- The credentials default to the published demo account, which the login page also prints. Pass
+  `--email` and `--password` to sign in as something else.
+- When a check fails, the output names the next thing to read: `vercel logs <url> --since 5m`. The
+  script does not run it, because that needs the Vercel CLI and credentials, and a check that only
+  works in one place is a check that gets skipped everywhere else.
+- The script exits `1` when a check fails and `2` when it could not run at all.
+
+#### What the smoke check cannot detect
+
+Read this before treating a pass as a verdict.
+
+- **A wrong password, a wrong role, or a permission that is too generous.** The sign-in proves the
+  store answers for one published account. Nothing here says anything about any other account.
+- **A slow query.** A timeout that fires is a failure, but a page that renders in 4.9 seconds is
+  reported as healthy.
+- **A bad visual, a missing stylesheet, or a page that renders the wrong thing.** The checks read
+  status codes and a few markers. A layout regression is invisible to them.
+- **An analytics number that is wrong.** Nothing reads what a page displays.
+- **A store that is configured at all.** A deployment that fell back to its in-memory store passes
+  every check here, because that store answers like a database until the next restart. Only the
+  deployment's own logs say which one answered.
+- **The action id.** It is a per-build hash, so it is read out of the build the deployment is
+  serving. A build where it cannot be found is reported as a failure, not skipped, because a check
+  that quietly stops testing is worse than one that is absent.
