@@ -75,10 +75,25 @@ export type AdminAggregateOptions<TRow, TMeasures extends Record<string, number>
  * being wrong, which is the one failure a number on a tile cannot be checked against. Refusing puts it
  * in the tile's error state where the reason is visible. A bigint is accepted because a driver
  * configured for 64-bit integers is still an integer.
+ *
+ * Refused as well is anything past `Number.MAX_SAFE_INTEGER`, and that is a second guard rather than a
+ * restatement of the first. `Number.isInteger(2 ** 53)` is true, so an integer check admits a value
+ * whose precision was already lost before this function saw it. `Number(bigint)` is worse: it does
+ * not merely admit an inexact value, it manufactures one from an exact input, turning 9007199254740993
+ * into 9007199254740992 with no error anywhere. A money total wrong by one and looking right is the
+ * failure this whole layer exists to make impossible.
  */
 export function adminWholeNumber(value: unknown, column: string): number {
-  if (typeof value === "bigint") return Number(value);
-  if (typeof value === "number" && Number.isInteger(value)) return value;
+  if (typeof value === "bigint") {
+    if (value > BigInt(Number.MAX_SAFE_INTEGER) || value < BigInt(Number.MIN_SAFE_INTEGER)) {
+      throw new Error(`${column} is past the largest exact integer: ${value.toString()}`);
+    }
+    return Number(value);
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value)) return value;
+  if (typeof value === "number" && Number.isInteger(value)) {
+    throw new Error(`${column} is an integer whose precision is already lost: ${value}`);
+  }
   throw new Error(`${column} is not a whole number: ${JSON.stringify(value)}`);
 }
 

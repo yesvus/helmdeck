@@ -240,8 +240,44 @@ describe("what a measure is allowed to answer", () => {
     expect(adminWholeNumber(1999, "total_cents")).toBe(1999);
   });
 
-  it("accepts a bigint, because a 64-bit driver is still an integer", () => {
-    expect(adminWholeNumber(9_007_199_254_740_993n, "total_cents")).toBe(9_007_199_254_740_992 + 1);
+  it("accepts a bigint inside the range a number can hold exactly", () => {
+    expect(adminWholeNumber(9_007_199_254_740_991n, "total_cents")).toBe(9_007_199_254_740_991);
+    expect(adminWholeNumber(-9_007_199_254_740_991n, "total_cents")).toBe(-9_007_199_254_740_991);
+    expect(adminWholeNumber(0n, "total_cents")).toBe(0);
+  });
+
+  it("refuses a bigint past that range rather than rounding it into a different amount", () => {
+    // 2^53 + 1. It is an integer and it is exactly representable as a bigint, so it passes every
+    // integer check, and `Number()` turns it into 2^53. A money total wrong by one and looking right
+    // is the failure this layer exists to make impossible, and the earlier version of this test
+    // asserted the rounding as correct.
+    expect(() => adminWholeNumber(9_007_199_254_740_993n, "total_cents")).toThrow(
+      /total_cents is past the largest exact integer/,
+    );
+    expect(() => adminWholeNumber(-(9_007_199_254_740_993n), "total_cents")).toThrow(/total_cents/);
+  });
+
+  it("refuses a number that is an integer only because its precision is already gone", () => {
+    // `Number.isInteger(2 ** 53)` is true, so an integer check admits this. The value is already
+    // inexact before the guard sees it, and no amount of checking downstream can recover it.
+    expect(Number.isInteger(2 ** 53)).toBe(true);
+    expect(() => adminWholeNumber(2 ** 53, "total_cents")).toThrow(
+      /total_cents is an integer whose precision is already lost/,
+    );
+  });
+
+  it("sums a run of exact values that a float could not hold, rather than the rounded one", () => {
+    // The end-to-end shape of the same defect: a total assembled from values that are individually
+    // refused would be refused, and the one that is not refused must still be exact.
+    const rows = Array.from({ length: 3 }, () => ({ id: "o1", total_cents: 4_000_000_000_000 }));
+    const result = adminAggregate({
+      rows,
+      range: ["d1"],
+      key: () => "d1",
+      measures: { cents: (row) => adminWholeNumber(row.total_cents, "total_cents") },
+    });
+    expect(result.totals.cents).toBe(12_000_000_000_000);
+    expect(result.buckets[0]?.values.cents).toBe(12_000_000_000_000);
   });
 
   it("refuses a measure that answered something which cannot be added up", () => {
