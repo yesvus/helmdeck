@@ -89,6 +89,7 @@ describe("published package under Node ESM", () => {
         encoding: "utf8",
       })).toBe(
         [
+          "AccountAlreadyExistsError",
           "CREDENTIAL_SESSIONS_SCHEMA",
           "CREDENTIAL_USERS_SCHEMA",
           "authenticate",

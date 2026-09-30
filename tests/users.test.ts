@@ -320,7 +320,7 @@ describe("a role the host's rule does not define", () => {
     // Every operation answers the same way, and the role column is refused before the write, so
     // the account cannot be promoted into a role the rule does define from outside the rule.
     for (const answer of answers) {
-      expect(answer).toEqual({ ok: false, message: "This account may not do that." });
+      expect(answer).toEqual({ ok: false, reason: "not-permitted",  message: "This account may not do that." });
     }
     // Asserted by the rule being asked with the stored role rather than by nothing rendering.
     expect(asked.map((entry) => entry.operation)).toEqual([
@@ -344,7 +344,8 @@ describe("a role the host's rule does not define", () => {
     });
 
     expect(created).toEqual({
-      ok: false,
+      ok: false, reason: "unknown-role",
+      
       message: 'This host has no role called "sorcerer". It has "admin", "editor".',
     });
     expect(counts.has("createUser")).toBe(false);
@@ -386,7 +387,7 @@ describe("every operation is refused to a session that may not do it", () => {
 
       const result = await call(admin, EDITOR_SESSION);
 
-      expect(result).toEqual({ ok: false, message: "This account may not do that." });
+      expect(result).toEqual({ ok: false, reason: "not-permitted",  message: "This account may not do that." });
       expect(writesAttempted(counts)).toEqual([]);
     });
   }
@@ -397,7 +398,8 @@ describe("every operation is refused to a session that may not do it", () => {
 
     for (const call of Object.values(CALLS)) {
       expect(await call(admin, null)).toEqual({
-        ok: false,
+        ok: false, reason: "no-session",
+        
         message: "There is no session to do this as.",
       });
     }
@@ -445,7 +447,7 @@ describe("every operation is refused to a session that may not do it", () => {
 
     expect(await admin.setRole(ADMIN_SESSION, editor, "editor")).toMatchObject({ ok: true });
     const refused = await admin.setRole(ADMIN_SESSION, other, "editor");
-    expect(refused).toEqual({ ok: false, message: "This account may not do that." });
+    expect(refused).toEqual({ ok: false, reason: "not-permitted",  message: "This account may not do that." });
     // The refusal reached neither a read nor a write, so a caller with no permission cannot tell an
     // id that exists from one that does not.
     expect((await userRows(db)).find((row) => row.id === other)?.role).toBe("admin");
@@ -471,7 +473,7 @@ describe("every operation is refused to a session that may not do it", () => {
       await admin.endSession(EDITOR_SESSION, row.id),
       await admin.endSession(EDITOR_SESSION, "no-such-session"),
     ]) {
-      expect(answer).toEqual({ ok: false, message: "This account may not do that." });
+      expect(answer).toEqual({ ok: false, reason: "not-permitted",  message: "This account may not do that." });
     }
     // Not one call, of any method, for any of the six.
     expect([...counts.keys()]).toEqual([]);
@@ -492,11 +494,13 @@ describe("every operation is refused to a session that may not do it", () => {
     const admin = createAccountAdmin(store, { roles: ROLES });
 
     expect(await admin.list(EDITOR_SESSION)).toEqual({
-      ok: false,
+      ok: false, reason: "not-permitted",
+      
       message: "This account may not do that.",
     });
     expect(await admin.create(EDITOR_SESSION, { email: "x@example.test", password: PASSWORD })).toEqual({
-      ok: false,
+      ok: false, reason: "not-permitted",
+      
       message: "This account may not do that.",
     });
     // And a permitted caller is told what to add, which is the other half of the same decision.
@@ -520,7 +524,7 @@ describe("every operation is refused to a session that may not do it", () => {
       await admin.setRole(EDITOR_SESSION, "any", "editor"),
       await admin.setDisabled(EDITOR_SESSION, "any", true),
     ]) {
-      expect(answer).toEqual({ ok: false, message: "This account may not do that." });
+      expect(answer).toEqual({ ok: false, reason: "not-permitted",  message: "This account may not do that." });
     }
   });
 
@@ -528,11 +532,13 @@ describe("every operation is refused to a session that may not do it", () => {
     const { admin } = harness({ policy: { may: { setRole: everythingMay, setDisabled: everythingMay } } });
 
     expect(await admin.setRole(ADMIN_SESSION, "nobody", "editor")).toEqual({
-      ok: false,
+      ok: false, reason: "no-account",
+      
       message: "There is no such account.",
     });
     expect(await admin.setDisabled(ADMIN_SESSION, "nobody", true)).toEqual({
-      ok: false,
+      ok: false, reason: "no-account",
+      
       message: "There is no such account.",
     });
   });

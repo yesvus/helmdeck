@@ -43,10 +43,34 @@
 
 import type { AdminSession } from "../adapters/index.js";
 import type { AccountRecord, CredentialStore } from "./credentials.js";
+import { AccountAlreadyExistsError } from "./credentials.js";
 import { hashPassword, normalizeEmail } from "./passwords.js";
 
+/**
+ * Why an operation was refused, as a value rather than as a sentence.
+ *
+ * A message is for the person who asked and is not for the host: "already invited" and "could not
+ * create" are two states an admin screen renders differently, and telling them apart by matching
+ * on prose is a check that breaks when someone improves the wording.
+ */
+export type AccountRefusalReason =
+  /** The request carried no session, so there is nobody to permit. */
+  | "no-session"
+  /** The host's own policy does not permit this caller to do this. */
+  | "not-permitted"
+  /** The account named does not exist. */
+  | "no-account"
+  /** The store has not implemented the method this operation needs. */
+  | "store-unsupported"
+  /** The role is not one this host declared. */
+  | "unknown-role"
+  /** The password is shorter than the host's floor. */
+  | "weak-password"
+  /** The address already has an account, whether this call found it or the store refused the write. */
+  | "email-taken";
+
 /** Why an operation was refused, and the sentence to show the person who asked. */
-export type AccountRefusal = { ok: false; message: string };
+export type AccountRefusal = { ok: false; reason: AccountRefusalReason; message: string };
 
 /**
  * One operation's answer: what it produced, or why it did not.
@@ -183,6 +207,41 @@ export type AccountAdmin = {
 const DEFAULT_MIN_PASSWORD_LENGTH = 12;
 
 /**
+ * The work in flight for one address, so two creates of the same address cannot both pass the check.
+ *
+ * **This is the part that makes the check-then-write atomic, and it is per process.** Two admin
+ * requests reaching the same instance are the case the finding describes, and serialising them here
+ * closes it without a schema question. It is not a uniqueness guarantee across processes: two
+ * instances of a deployed app racing on one database are not serialised by anything in this module,
+ * and the store's own constraint is what covers that. A store that has no constraint therefore gets
+ * the in-process guarantee and not the cross-process one, which is why `createUser` is documented as
+ * having to refuse a duplicate address itself.
+ *
+ * Keyed by the normalised address, which is why normalisation happens before this rather than
+ * inside it: two spellings of one address must reach the same queue or the queue is decoration.
+ *
+ * A `Map` rather than a promise chain per call because the entry has to be removed when the work
+ * finishes, or a long-running host accumulates one entry per address it has ever seen.
+ */
+const inFlight = new Map<string, Promise<unknown>>();
+
+function serialiseOnAddress<T>(email: string, work: () => Promise<T>): Promise<T> {
+  const running = inFlight.get(email) ?? Promise.resolve();
+  // A rejection here must not become the next call's failure, or one refused create would refuse
+  // every later create of that address for as long as the process ran.
+  const result = running.then(work, work);
+  const settled = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  inFlight.set(email, settled);
+  void settled.then(() => {
+    if (inFlight.get(email) === settled) inFlight.delete(email);
+  });
+  return result;
+}
+
+/**
  * The account and role surface over a credential store.
  *
  * Every operation is handed the caller's session rather than resolving one, so the identity the
@@ -218,7 +277,25 @@ export function createAccountAdmin(
   function unknownRole(role: string | undefined): AccountRefusal | null {
     if (policy.roles === undefined || !role || roles.includes(role)) return null;
     const known = roles.length === 0 ? "none" : roles.map((name) => `"${name}"`).join(", ");
-    return { ok: false, message: `This host has no role called "${role}". It has ${known}.` };
+    return {
+      ok: false,
+      reason: "unknown-role",
+      message: `This host has no role called "${role}". It has ${known}.`,
+    };
+  }
+
+  /**
+   * The address is spoken for, whether this call found the account or the store refused the write.
+   *
+   * One refusal for both, because a caller cannot tell which happened and an admin screen that can
+   * tell is showing the internals of a race to the operator rather than a state to act on.
+   */
+  function taken(email: string): AccountRefusal {
+    return {
+      ok: false,
+      reason: "email-taken",
+      message: `${email} already has an account. Change its role or turn it off rather than making a second one.`,
+    };
   }
 
   /**
@@ -230,6 +307,7 @@ export function createAccountAdmin(
   function capabilityMessage(what: string, method: string): AccountRefusal {
     return {
       ok: false,
+      reason: "store-unsupported",
       message: `This store cannot ${what}, because it does not implement ${method}.`,
     };
   }
@@ -238,19 +316,20 @@ export function createAccountAdmin(
     roles,
 
     async list(session) {
-      if (!session) return { ok: false, message: noSession };
-      if (!(await policy.may?.list?.(session))) return { ok: false, message: notPermitted };
+      if (!session) return { ok: false, reason: "no-session", message: noSession };
+      if (!(await policy.may?.list?.(session))) return { ok: false, reason: "not-permitted", message: notPermitted };
       if (!store.listUsers) return capabilityMessage("list its accounts", "listUsers");
       return { ok: true, accounts: await store.listUsers() };
     },
 
     async create(session, input) {
-      if (!session) return { ok: false, message: noSession };
-      if (!(await policy.may?.create?.(session, input))) return { ok: false, message: notPermitted };
+      if (!session) return { ok: false, reason: "no-session", message: noSession };
+      if (!(await policy.may?.create?.(session, input))) return { ok: false, reason: "not-permitted", message: notPermitted };
       if (!store.createUser) return capabilityMessage("create an account", "createUser");
       if (input.password.length < minPasswordLength) {
         return {
           ok: false,
+          reason: "weak-password",
           message: `That password is shorter than ${minPasswordLength} characters. Choose a longer one.`,
         };
       }
@@ -258,46 +337,63 @@ export function createAccountAdmin(
       if (roleRefusal) return roleRefusal;
 
       // Normalised here rather than by the store, so a pasted or capitalised address cannot become
-      // a second account for the same person, which is the answer the UNIQUE index cannot give once
+      // a second account for the same person, which is the answer a unique index cannot give once
       // the two spellings are already different.
       const email = normalizeEmail(input.email);
-      const existing = await store.findUserByEmail(email);
-      if (existing) {
-        return {
-          ok: false,
-          message: `${email} already has an account. Change its role or turn it off rather than making a second one.`,
-        };
-      }
-      const account = await store.createUser({
-        email,
-        passwordHash: await hashPassword(input.password),
-        ...(input.role === undefined ? {} : { role: input.role }),
-        ...(input.name === undefined ? {} : { name: input.name }),
+      const passwordHash = await hashPassword(input.password);
+      // Read once, outside the queue, because a narrowing that does not survive into a closure is a
+      // narrowing the compiler cannot see and the reader cannot either.
+      const createUser = store.createUser.bind(store);
+
+      return serialiseOnAddress(email, async () => {
+        // **What this check is for: the message, not the uniqueness.** It is a read followed by a
+        // write, so on its own it cannot prevent a duplicate, and it is not what does: the store's
+        // own constraint is, where the store has one. It is here because it turns the ordinary case,
+        // a second invite to an address that already has an account, into a sentence naming that
+        // address rather than an error raised and caught.
+        if (await store.findUserByEmail(email)) return taken(email);
+        try {
+          const account = await createUser({
+            email,
+            passwordHash,
+            ...(input.role === undefined ? {} : { role: input.role }),
+            ...(input.name === undefined ? {} : { name: input.name }),
+          });
+          return { ok: true, account };
+        } catch (cause) {
+          // The half of this that covers another process, and the reason the store has a documented
+          // way to refuse. A store whose address is unique refuses the second write itself, and
+          // that refusal arrives as whatever error the store raises; `AccountAlreadyExistsError` is
+          // how a store says it in a shape this can recognise. Anything else is a failure to create
+          // rather than a duplicate, and letting it through is the honest answer: a refusal here
+          // that reported success would be worse than a throw.
+          if (cause instanceof AccountAlreadyExistsError) return taken(email);
+          throw cause;
+        }
       });
-      return { ok: true, account };
     },
 
     async setRole(session, accountId, role) {
-      if (!session) return { ok: false, message: noSession };
+      if (!session) return { ok: false, reason: "no-session", message: noSession };
       if (!(await policy.may?.setRole?.(session, accountId))) {
-        return { ok: false, message: notPermitted };
+        return { ok: false, reason: "not-permitted", message: notPermitted };
       }
       if (!store.updateUser) return capabilityMessage("change an account", "updateUser");
       const roleRefusal = unknownRole(role);
       if (roleRefusal) return roleRefusal;
-      if (!(await store.findUserById(accountId))) return { ok: false, message: noAccount };
+      if (!(await store.findUserById(accountId))) return { ok: false, reason: "no-account", message: noAccount };
       // An empty role is written as a null, so a column a listing reads comes back as no role rather
       // than as a role nobody defined.
       return { ok: true, account: await store.updateUser(accountId, { role: role || null }) };
     },
 
     async setDisabled(session, accountId, disabled) {
-      if (!session) return { ok: false, message: noSession };
+      if (!session) return { ok: false, reason: "no-session", message: noSession };
       if (!(await policy.may?.setDisabled?.(session, accountId))) {
-        return { ok: false, message: notPermitted };
+        return { ok: false, reason: "not-permitted", message: notPermitted };
       }
       if (!store.updateUser) return capabilityMessage("change an account", "updateUser");
-      if (!(await store.findUserById(accountId))) return { ok: false, message: noAccount };
+      if (!(await store.findUserById(accountId))) return { ok: false, reason: "no-account", message: noAccount };
       const account = await store.updateUser(accountId, { disabled });
       // Turning back on ends nothing, so the count is zero rather than a number a host would have to
       // read twice to learn it was nothing.
@@ -306,8 +402,8 @@ export function createAccountAdmin(
     },
 
     async listSessions(session) {
-      if (!session) return { ok: false, message: noSession };
-      if (!(await policy.may?.listSessions?.(session))) return { ok: false, message: notPermitted };
+      if (!session) return { ok: false, reason: "no-session", message: noSession };
+      if (!(await policy.may?.listSessions?.(session))) return { ok: false, reason: "not-permitted", message: notPermitted };
       if (!store.listSessions) return capabilityMessage("list its sessions", "listSessions");
       const rows = await store.listSessions();
       const sessions = await Promise.all(
@@ -331,11 +427,11 @@ export function createAccountAdmin(
     },
 
     async endSession(session, sessionId) {
-      if (!session) return { ok: false, message: noSession };
+      if (!session) return { ok: false, reason: "no-session", message: noSession };
       // Asked before the store is read, so a caller without the capability cannot use this to ask
       // which session ids exist, which is what a read-then-refuse would hand them.
       if (!(await policy.may?.endSession?.(session, sessionId))) {
-        return { ok: false, message: notPermitted };
+        return { ok: false, reason: "not-permitted", message: notPermitted };
       }
       const row = await store.readSession(sessionId);
       if (!row) return { ok: true, ended: false };

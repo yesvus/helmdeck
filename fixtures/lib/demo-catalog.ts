@@ -860,6 +860,14 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords:
       "accounts users roles invite disable enable revoke sessions operator onboarding manage list",
   },
+  AccountAlreadyExistsError: {
+    category: "Credentials and sessions",
+    summary:
+      "What a credential store throws when an address already has an account, so the refusal is recognisable rather than something to match on the text of an error.",
+    keywords: "duplicate exists conflict unique error refuse address",
+    hostNote:
+      "An error a credential store raises to refuse a duplicate account. There is nothing to draw here: throw it from your own store's createUser, or rethrow the database's own refusal as it.",
+  },
 
   AdminDashboardLayout: {
     category: "Dashboard and widgets",

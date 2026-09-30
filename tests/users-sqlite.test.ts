@@ -226,7 +226,7 @@ describe("the account surface over the SQLite adapter", () => {
       await closed.listSessions({ email: OWNER, role: "editor" }),
       await closed.endSession({ email: OWNER, role: "editor" }, "any"),
     ]) {
-      expect(answer).toEqual({ ok: false, message: "This account may not do that." });
+      expect(answer).toEqual({ ok: false, reason: "not-permitted",  message: "This account may not do that." });
     }
     // The role on the row is the one it was given, so nothing was written by any of the six.
     const listed = await admin.list(ADMIN);
@@ -240,7 +240,8 @@ describe("the account surface over the SQLite adapter", () => {
     const { admin } = host();
 
     expect(await admin.create(ADMIN, { email: "odd@example.test", password: PASSWORD, role: "sorcerer" })).toEqual({
-      ok: false,
+      ok: false, reason: "unknown-role",
+      
       message: 'This host has no role called "sorcerer". It has "admin", "editor".',
     });
     expect(await admin.create(ADMIN, { email: "ok@example.test", password: PASSWORD, role: "editor" })).toMatchObject({

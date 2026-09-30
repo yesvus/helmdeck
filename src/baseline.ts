@@ -24,11 +24,13 @@ export type {
   CredentialUser,
   NewAccount,
 } from "./baseline/credentials.js";
+export { AccountAlreadyExistsError } from "./baseline/credentials.js";
 export { createAccountAdmin } from "./baseline/users.js";
 export type {
   AccountAdmin,
   AccountAdminPolicy,
   AccountRefusal,
+  AccountRefusalReason,
   AccountResult,
   AccountSession,
   CreateAccountInput,

@@ -113,6 +113,29 @@ export type NewAccount = {
 };
 
 /**
+ * A store refusing to write a second account for an address that already has one.
+ *
+ * `createUser` is documented as having to refuse a duplicate address, and this is how a store says
+ * it in a way `createAccountAdmin` can recognise. The alternative is a refusal recognisable only by
+ * the text of the store's error, and a host that improves that text would lose its account create
+ * rather than lose a message.
+ *
+ * The shipped adapters raise this rather than letting a duplicate through, because neither of them
+ * has a unique index to refuse one: the memory adapter holds typed records and the SQLite one holds
+ * JSON documents keyed by resource and id, so in both cases the address is a value inside a document
+ * and nothing in the store knows it was supposed to be one of a kind.
+ */
+export class AccountAlreadyExistsError extends Error {
+  readonly email: string;
+
+  constructor(email: string) {
+    super(`There is already an account for ${email}`);
+    this.name = "AccountAlreadyExistsError";
+    this.email = email;
+  }
+}
+
+/**
  * Where the rows live. Six methods, because a host's schema is its own.
  *
  * The four the account surface needs are optional, and absent means the surface says the store
@@ -132,6 +155,17 @@ export type CredentialStore = {
 
   /** Every account, for the list a host renders. The hash is not among the fields it answers with. */
   listUsers?: () => Promise<AccountRecord[]>;
+  /**
+   * Writes one account, and **must refuse an address that already has one** by throwing
+   * `AccountAlreadyExistsError`.
+   *
+   * Not optional in the sense that a store which does not do this still works, and a store which
+   * writes a second row for one address is a host with two accounts for one person and a sign-in
+   * that depends on which of them the lookup happened to find. A store with a unique index gets the
+   * refusal from the database and rethrows it as this; a store without one has to check, which
+   * covers one process and not several, and the cross-process half is a schema question the host
+   * answers with an index rather than with anything in this interface.
+   */
   createUser?: (account: NewAccount) => Promise<AccountRecord>;
   updateUser?: (id: string, changes: AccountChanges) => Promise<AccountRecord>;
   /** Live sessions, newest first, optionally narrowed to one account. A lapsed row is not one. */
@@ -415,6 +449,17 @@ export function createPersistenceCredentialStore(
     },
 
     async createUser(account) {
+      // The store's own duplicate refusal, and the reason it is here rather than only in
+      // `createAccountAdmin`: this method is exported, so a host calling it directly gets the same
+      // guarantee the surface gives. It is a check and not a constraint, because these two adapters
+      // store the address as a value inside a document and have no index that could refuse one, so
+      // the check is the strongest thing available here and a host with a real unique address
+      // column gets a stronger one from the database as well.
+      const existing = await persistence.query<Record<string, unknown>>(users, {
+        [userColumns.email]: account.email,
+      });
+      if (existing.length > 0) throw new AccountAlreadyExistsError(account.email);
+
       const row = await persistence.create<Record<string, unknown>>(users, {
         [userColumns.email]: account.email,
         [userColumns.passwordHash]: account.passwordHash,
