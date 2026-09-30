@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 0.5.1
+
 ### Fixed
 
 - **A write could carry any column the store accepted.** `createAdminResourceActions` authorized which

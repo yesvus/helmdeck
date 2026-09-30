@@ -11,4 +11,4 @@
  * a build whose VERSION file is missing or malformed fails in the generator, so the absence is
  * reported where it can still be fixed instead of being rendered as `0.0.0`.
  */
-export const HELMDECK_VERSION = "0.5.0";
+export const HELMDECK_VERSION = "0.5.1";

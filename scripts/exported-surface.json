@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
+  "version": "v0.5.1",
   "exports": [
     "ADMIN_ANALYTICS_BATCH_SIZE",
     "ADMIN_ANALYTICS_FAILURE_HISTORY",
