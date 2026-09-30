@@ -211,13 +211,20 @@ describe("the analytics page draws what the store holds", () => {
       { id: "c", total_cents: 12500, status: "paid", created_at: "2026-09-29 01:00:00" },
       { id: "d", total_cents: 99999, status: "paid", created_at: "not a date" },
     ];
-    const totals = revenueByDay(orders);
+    // The range is named rather than assumed, because the bucketing now takes it from the caller: the
+    // package holds the guarantee that a period with no rows is a zero, and it can only hold it for a
+    // range somebody stated. Three days here, holding the two the rows name and one that holds
+    // nothing, which is the shape a trailing window really has.
+    const totals = revenueByDay(orders, ["2026-09-27", "2026-09-28", "2026-09-29"]);
 
     // The two shapes the store produces are the same day, and the unparseable row is not counted
     // anywhere rather than landing in a bucket that never appears on the axis.
     expect(totals.get("2026-09-28")).toBe(8100);
     expect(totals.get("2026-09-29")).toBe(12500);
     expect([...totals.values()].reduce((total, value) => total + value, 0)).toBe(20600);
+    // The empty day is present rather than absent, so a chart built from these buckets has a point
+    // there instead of a line straight across it.
+    expect(totals.get("2026-09-27")).toBe(0);
   });
 
   it("ranks the products the rows describe, largest first, and prints each value", async () => {

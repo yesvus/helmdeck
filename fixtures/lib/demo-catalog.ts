@@ -353,6 +353,24 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "One point per day including the zeros, so a day the store holds no row for reads as a gap rather than a line straight across it.",
     keywords: "fill days zero gap points series",
   },
+  adminAggregate: {
+    category: "Charts",
+    summary:
+      "Buckets rows into the points a chart draws over an explicit range, with every period present and a total summed from the buckets themselves.",
+    keywords: "aggregate bucket measure range total chart group",
+  },
+  adminAggregateTotals: {
+    category: "Charts",
+    summary:
+      "The same measures over the same rows with nothing grouped, for the figures a tile reads beside its chart rather than on it.",
+    keywords: "aggregate totals measure sum total count",
+  },
+  adminWholeNumber: {
+    category: "Charts",
+    summary:
+      "An integer column read for a measure, refusing a value that is not one rather than summing it into a total that reads correctly and is wrong.",
+    keywords: "whole number integer column measure cents guard",
+  },
   defaultAdminChartSeriesClasses: {
     category: "Charts",
     summary:

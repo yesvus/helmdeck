@@ -24,7 +24,14 @@
  * `demo-widgets-types.ts`, which carries no directive and is erased before the bundle is built.
  */
 
-import { adminChartDayRange, adminChartFillDays } from "@yesvus/helmdeck";
+import {
+  adminAggregate,
+  adminAggregateTotals,
+  adminChartDayKey,
+  adminChartDayRange,
+  adminChartFillDays,
+  adminWholeNumber,
+} from "@yesvus/helmdeck";
 import { queryResourceAction } from "./resource-actions";
 import { listPostRevisions } from "./demo-revisions";
 import { currentDemoSession } from "./demo-session";
@@ -53,23 +60,16 @@ const DAY_IN_MS = 86_400_000;
 
 const dayLabel = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-/**
- * A column an aggregate is built from, refused rather than coerced.
- *
- * The store holds integers, and a total computed from anything else reads correctly on screen while
- * being wrong. A bigint is accepted because a driver configured for 64-bit integers is still an
- * integer.
- */
-function wholeNumber(row: Record<string, unknown>, column: string): number {
-  const value = row[column];
-  if (typeof value === "bigint") return Number(value);
-  if (typeof value === "number" && Number.isInteger(value)) return value;
-  throw new Error(`${column} is not a whole number: ${JSON.stringify(value)}`);
-}
+/** The store's own guard, now the package's, so a tile here and a host's tile refuse the same column alike. */
+const wholeNumber = (row: Record<string, unknown>, column: string) =>
+  adminWholeNumber(row[column], column);
 
-/** The UTC day a timestamp falls on, which is the prefix SQLite's `datetime('now')` and ISO share. */
-function dayKey(value: unknown): string {
-  return /^(\d{4}-\d{2}-\d{2})/.exec(String(value ?? "").trim())?.[1] ?? "";
+/** The two windows the stat tile colours itself from, split at a moment named by the caller. */
+function earnedBefore(rows: readonly OrderRow[], splitAt: number): OrderRow[] {
+  return rows.filter((order) => {
+    const at = Date.parse(order.created_at ?? "");
+    return Number.isFinite(at) && at < splitAt;
+  });
 }
 
 /** Whether any of the texts a person would recognise carries the term, compared without regard to case. */
@@ -93,7 +93,10 @@ function earned(rows: readonly OrderRow[]): OrderRow[] {
 }
 
 function sumCents(rows: readonly OrderRow[]): number {
-  return rows.reduce((total, order) => total + wholeNumber(order, "total_cents"), 0);
+  return adminAggregateTotals({
+    rows,
+    measures: { cents: (order) => wholeNumber(order, "total_cents") },
+  }).cents;
 }
 
 /**
@@ -113,14 +116,16 @@ export async function loadWindowedRevenueAction(days: number, term: string): Pro
   const splitAt = Date.now() - Math.max(0, Math.floor(days)) * DAY_IN_MS;
 
   const recent: OrderRow[] = [];
-  const before: OrderRow[] = [];
   for (const order of rows) {
     const at = Date.parse(order.created_at ?? "");
-    if (!Number.isFinite(at)) continue;
-    (at >= splitAt ? recent : before).push(order);
+    if (Number.isFinite(at) && at >= splitAt) recent.push(order);
   }
 
-  return { cents: sumCents(recent), previousCents: sumCents(before), orders: recent.length };
+  return {
+    cents: sumCents(recent),
+    previousCents: sumCents(earnedBefore(rows, splitAt)),
+    orders: recent.length,
+  };
 }
 
 /**
@@ -194,21 +199,24 @@ export async function loadStockValueRankAction(term: string): Promise<RankedProd
  */
 export async function loadDailyRevenueAction(end: Date, days: number, term: string): Promise<DailyRevenue> {
   const dayKeys = adminChartDayRange(days, end);
-  const firstDay = dayKeys[0] ?? "";
-  const lastDay = dayKeys[dayKeys.length - 1] ?? "";
-  const totals = new Map<string, number>();
-  for (const order of earned(await orders(term))) {
-    const day = dayKey(order.created_at);
-    // Bounded at both ends, because the total this answers with is the one the tile reads aloud beside
-    // the drawing. A row dated after the last day of the range would be in that sentence and not on
-    // the axis, which is a total the chart does not show.
-    if (!day || day < firstDay || day > lastDay) continue;
-    totals.set(day, (totals.get(day) ?? 0) + wholeNumber(order, "total_cents"));
-  }
+  // Bounded at both ends of the stated range, because the total this answers with is the one the tile
+  // reads aloud beside the drawing. A row dated after the last day of the range would be in that
+  // sentence and not on the axis, which is a total the chart does not show. The package holds that,
+  // and holds it for the zeros too: every day in the range comes back holding one.
+  const revenue = adminAggregate({
+    rows: earned(await orders(term)),
+    range: dayKeys,
+    key: (order) => adminChartDayKey(order.created_at),
+    measures: { cents: (order) => wholeNumber(order, "total_cents") },
+  });
 
   return {
-    cents: [...totals.values()].reduce((total, value) => total + value, 0),
-    days: adminChartFillDays(dayKeys, totals, (key) => dayLabel.format(new Date(`${key}T00:00:00Z`))),
+    cents: revenue.totals.cents,
+    days: adminChartFillDays(
+      dayKeys,
+      new Map(revenue.buckets.map((bucket) => [bucket.key, bucket.values.cents])),
+      (key) => dayLabel.format(new Date(`${key}T00:00:00Z`)),
+    ),
   };
 }
 
