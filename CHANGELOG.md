@@ -8,6 +8,44 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Fixed
+
+- **A write could carry any column the store accepted.** `createAdminResourceActions` authorized which
+  operation a session may perform and never restricted which columns that operation reached the store
+  with. A definition declaring `name` and `sku` stored whatever the adapter accepted:
+
+  ```json
+  {"id":"attacker-chosen","name":"Widget","sku":"W-1","role":"admin","is_privileged":true}
+  ```
+
+  Authorization passed because the operation was allowed, and reference checking passed because none of
+  those keys name a row. **This is a behaviour change a host may notice**, because a write that used to
+  succeed now refuses.
+
+  The writable set is the definition's declared **`columns`**, because that is the stored shape. An
+  undeclared key is **refused by name**, not dropped: a silently dropped column leaves the author
+  believing a privilege column was written when it was not, which is the same defect pointed the other
+  way. `id` is writable on a create, where a host may generate record keys in the browser, and refused
+  on an update, where the route already named the record.
+
+  **`writable?: string[]`** on `AdminResourceDefinition` is how a host declares columns its list does not
+  show: timestamps, soft-delete flags, denormalised counters. It is additive, per definition, and never
+  a global switch.
+
+  A resource **no definition names** is not checked, because the host told the seam nothing about its
+  shape, and a single settings row written by a site's own module is exactly that case. A definition
+  declaring **no** columns is refused, which is a different statement: that host has said what it
+  stores, and what it stores is nothing.
+
+  Two hosts had each written this boundary privately, in their own adapter, which is why it survived:
+  the demo and the starter template were protected and the shipped seam was not. Both copies are
+  deleted. What the demo keeps is its own policy, that it names every record itself.
+
+  The refusal is decided **after** every permission decision, which is load-bearing: it is a validation
+  answer, and `checkReferences` carries a second one, so deciding validation first would let a caller
+  learn which keys a definition declares by sending an undeclared one beside a forbidden reference and
+  reading which refusal came back.
+
 ## 0.5.0
 
 The package now ships working authentication and server-side authorization, both of which it
