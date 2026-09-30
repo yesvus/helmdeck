@@ -1,6 +1,63 @@
 import assert from "node:assert/strict";
+import { join as joinPath } from "node:path";
 import { test } from "node:test";
-import { nextTag, rewriteChangelogHeading, rewriteInstallUrls } from "./release-version.mjs";
+import { nextTag, recordExportedSurface, rewriteChangelogHeading, rewriteInstallUrls } from "./release-version.mjs";
+
+/** Records the call instead of shelling out, so the release path is asserted rather than exercised. */
+function fakeSpawn(status = 0) {
+  const calls = [];
+  const spawn = (command, args, options) => {
+    calls.push({ command, args, options });
+    return { status };
+  };
+  return { spawn, calls };
+}
+
+test("records the exported surface as part of moving the version", () => {
+  const { spawn, calls } = fakeSpawn();
+  recordExportedSurface("v0.5.0", { root: "/repo", spawn });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].args[0], joinPath("/repo", "scripts", "exported-surface.cli.mjs"));
+  assert.equal(calls[0].args[1], "record");
+});
+
+test("records the release being cut, not the version package.json still holds", () => {
+  // `write` and `bump` move the version after recording, so the version package.json holds at the
+  // moment of the call is the one before. A ledger labelled with that one names a release it is not
+  // the baseline of, which is the whole thing the label exists to prevent.
+  const { spawn, calls } = fakeSpawn();
+  recordExportedSurface("v0.5.0", { root: "/repo", spawn });
+
+  assert.equal(calls[0].args[2], "v0.5.0");
+});
+
+test("runs the recorder from the repository, not the caller's directory", () => {
+  const { spawn, calls } = fakeSpawn();
+  recordExportedSurface("v0.5.0", { root: "/repo", spawn });
+
+  assert.equal(calls[0].options.cwd, "/repo");
+});
+
+test("refuses to move the version when the surface cannot be recorded", () => {
+  // A release whose baseline was never captured is a release whose removals cannot be checked
+  // afterwards, and the failure has to land before the version moves rather than after it.
+  const { spawn } = fakeSpawn(1);
+
+  assert.throws(() => recordExportedSurface("v0.5.0", { root: "/repo", spawn }), /record mode exited 1/);
+});
+
+test("a failing recorder never reaches the filesystem it was pointed at", () => {
+  const { spawn, calls } = fakeSpawn(1);
+
+  try {
+    recordExportedSurface("v0.5.0", { root: "/repo", spawn });
+  } catch {
+    // the refusal above is the assertion
+  }
+
+  assert.equal(calls.length, 1, "one attempt, then stop");
+});
 
 test("increments an alpha prerelease", () => {
   assert.equal(nextTag("v0.1.0-alpha.1", "alpha"), "v0.1.0-alpha.2");

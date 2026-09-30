@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: MIT
 
+import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { VERSION_TAG_PATTERN as tagPattern, GENERATED_PATH, versionSource } from "./version-source.mjs";
@@ -92,6 +93,34 @@ function assertGeneratedSourceInSync(tag) {
 // Keeps the owner, repository, and asset naming already in the README and moves only the
 // version. The tag and the artifact filename are rewritten independently, because a
 // half-updated URL points at a release asset that does not exist.
+/**
+ * Rewrites the exported-surface ledger from the built root entry.
+ *
+ * Called by the commands that move the version, so the baseline is the surface of the release being
+ * cut rather than the last time somebody noticed it was stale. Recorded by hand it drifts, and a
+ * ledger two features behind reports additions that were already made and cannot say what a release
+ * actually shipped.
+ *
+ * Delegates to the checker's own record mode so there is one writer of the ledger and one place that
+ * knows which build it is reading.
+ *
+ * `spawn` is a parameter because this is a side effect in the middle of a release: a test that cannot
+ * substitute it can only assert on the parts around it, which is how a broken record step ships.
+ */
+export function recordExportedSurface(version, options = {}) {
+  const base = options.root ?? root;
+  const spawn = options.spawn ?? spawnSync;
+  const result = spawn(
+    process.execPath,
+    [join(base, "scripts", "exported-surface.cli.mjs"), "record", version],
+    { cwd: base, stdio: "inherit" },
+  );
+  if (result.status !== 0) {
+    fail(`could not record the exported surface: record mode exited ${result.status}`);
+  }
+  return result;
+}
+
 export function rewriteInstallUrls(readme, version) {
   return readme.replace(installUrlPattern, (match, command) => {
     const current = versionInUrl(command);
@@ -239,6 +268,9 @@ export function main(args = process.argv.slice(2)) {
     if (!value) {
       fail("Usage: release-version.mjs write <version>");
     }
+    // Recorded before the tag moves: a failure here then leaves the version unmoved rather than
+    // shipping a release whose baseline was never captured.
+    recordExportedSurface(value);
     writeTag(value);
     return;
   }
@@ -247,6 +279,7 @@ export function main(args = process.argv.slice(2)) {
     if (!value) {
       fail("Usage: release-version.mjs bump <alpha|beta|stable|patch|minor|major>");
     }
+    recordExportedSurface(nextTag(readState().tag, value));
     writeTag(nextTag(readState().tag, value));
     return;
   }

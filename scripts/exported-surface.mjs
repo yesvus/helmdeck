@@ -16,10 +16,21 @@
  */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const LEDGER = "scripts/exported-surface.json";
 const INDEX = "dist/index.js";
+
+/**
+ * The repository root, resolved from this file rather than from `process.cwd()`.
+ *
+ * Every path here is joined onto a root, and a root taken from the working directory means the same
+ * command reads one ledger from a subdirectory and writes another at the top level.
+ */
+export function repoRoot(moduleUrl = import.meta.url) {
+  return resolve(dirname(fileURLToPath(moduleUrl)), "..");
+}
 
 /** Every name a host can import, from the built root entry. */
 export async function exportedNames(indexModule) {
@@ -70,14 +81,19 @@ export function readLedger(path) {
   return JSON.parse(readFileSync(path, "utf8")).exports ?? [];
 }
 
-export function writeLedger(path, names) {
-  writeFileSync(path, `${JSON.stringify({ exports: names }, null, 2)}\n`);
+export function writeLedger(path, names, version) {
+  writeFileSync(path, `${JSON.stringify({ version: version ?? null, exports: names }, null, 2)}\n`);
 }
 
-export function surfacePath(root = process.cwd()) {
+export function readLedgerVersion(path) {
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, "utf8")).version ?? null;
+}
+
+export function surfacePath(root = repoRoot()) {
   return join(root, LEDGER);
 }
 
-export function indexPath(root = process.cwd()) {
+export function indexPath(root = repoRoot()) {
   return join(root, INDEX);
 }
