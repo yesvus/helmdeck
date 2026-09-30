@@ -109,7 +109,14 @@ export type AdminLoginThrottle = {
    * cost `2 * limit` of budget rather than `limit`.
    */
   failed: (attempt: AdminLoginAttempt) => Promise<void> | void;
-  /** Called when the credentials were accepted, which clears that key's count. */
+  /**
+   * Called when the credentials were accepted, which clears that key's count.
+   *
+   * Clears the reservations with the count, not only the failures. A key left holding the slots of
+   * attempts that did sign in is a key whose next few attempts are refused by a sign-in that
+   * worked, which is how somebody who fumbled three times and then got it right ends up one typo
+   * from a lockout.
+   */
   succeeded: (attempt: AdminLoginAttempt) => Promise<void> | void;
 };
 
