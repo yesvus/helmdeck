@@ -14,18 +14,41 @@ export type AdminResourceField = {
   hint?: string;
   type?: "text" | "textarea" | "number" | "checkbox" | "date";
   required?: boolean;
-  /** Rendered instead of the default control, for a field the primitives do not cover. */
+  /**
+   * Rendered instead of the default control, for a field the primitives do not cover. Code, and
+   * irreducibly so: a control is a component, so a definition declaring one has to be built on the
+   * side of the client boundary that renders the form.
+   */
   render?: (value: unknown, formId: string) => ReactNode;
-  /** Pulled out of the submitted value rather than sent as a string. */
+  /** Pulled out of the submitted value rather than sent as a string. Code, as `render` is. */
   parse?: (raw: FormDataEntryValue | null) => unknown;
 };
+
+/** Prints a column's stored value, with the whole row for a cell that reads more than one field. */
+export type AdminResourceFormatter = (value: unknown, row: Record<string, unknown>) => ReactNode;
+
+/**
+ * How a column prints its value, named rather than written.
+ *
+ * `money` and `count` are the two the package prints itself, the first reading the stored integer as
+ * whole cents. Anything else is the host's, in an object, because a name the host has to register is
+ * a name the host is saying out loud rather than one this package happens to recognise.
+ */
+export type AdminResourceColumnFormat = "money" | "count" | { name: string };
 
 /** One column on a resource's list view. */
 export type AdminResourceColumn = {
   key: string;
   header: ReactNode;
-  /** Formats the stored value. The default renders it as text. */
-  format?: (value: unknown, row: Record<string, unknown>) => ReactNode;
+  /**
+   * Names a formatter, which the list resolves from its `formatters` prop.
+   *
+   * A name and not a function, because `AdminResourceList` is a client component: a definition
+   * handed to one from a server component travels as data, and the framework refuses a function in
+   * it at prerender, where the page that declares it is not in the stack. The code that prints the
+   * value belongs to the client component that draws the table.
+   */
+  format?: AdminResourceColumnFormat;
   align?: "left" | "right";
   width?: string;
   /**
@@ -47,7 +70,11 @@ export type AdminResourceFilterDefinition = {
   label: string;
   operator?: AdminResourceFilterOperator;
   options?: Array<{ value: string; label: string }>;
-  /** Reads a control's value into what the adapter compares against. */
+  /**
+   * Reads a control's value into what the adapter compares against. Code, as a field's `render` is,
+   * so a definition declaring one has to be built on the side that renders the list. The product's
+   * own filter declares none, and sends a typed term to the store as the string it is.
+   */
   parse?: (value: string) => AdminResourceFilterValue | AdminResourceFilterValue[] | undefined;
 };
 
@@ -78,6 +105,11 @@ export type AdminResourceDefinition = {
  * hand-write for every resource. It is a plain description: nothing here reads or writes, so a
  * host can inspect a registry, filter it by permission, or generate routes from it without
  * running any of it.
+ *
+ * Most of a definition crosses the client boundary as data, so a server component can hand one to
+ * `AdminResourceList` or `AdminResourceForm` and let the client render it. A field's `render` and
+ * `parse` and a filter's `parse` are code and do not, which is the one thing a definition has to be
+ * built on the side that renders it for.
  */
 export function defineAdminResource(definition: AdminResourceDefinition): AdminResourceDefinition {
   const seenColumns = new Set<string>();

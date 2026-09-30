@@ -8,9 +8,11 @@ export {
 } from "./registry.js";
 export type {
   AdminResourceColumn,
+  AdminResourceColumnFormat,
   AdminResourceDefinition,
   AdminResourceField,
   AdminResourceFilterDefinition,
+  AdminResourceFormatter,
   AdminResourceRecord,
 } from "./registry.js";
 export { defaultAdminResourceListQueryLabels } from "./list-labels.js";

@@ -13,6 +13,7 @@ import { AdminEmptyState } from "../primitives/empty-state.js";
 import { AdminField, AdminFieldGrid, AdminFormActions } from "../primitives/field.js";
 import { AdminInput, AdminTextarea } from "../primitives/input.js";
 import { AdminPageHeader } from "../shell/admin-page-header.js";
+import { adminFormatCents, adminFormatCount } from "../charts/money.js";
 import { AdminCan, useAdminPermission } from "../shell/permissions.js";
 import { useAdminHref, useAdminMessages } from "../i18n.js";
 import { cn } from "../cn.js";
@@ -27,14 +28,64 @@ import {
   adminResourcePath,
   adminResourceRecordId,
   adminResourceValues,
+  type AdminResourceColumnFormat,
   type AdminResourceDefinition,
   type AdminResourceFilterDefinition,
+  type AdminResourceFormatter,
   type AdminResourceRecord,
 } from "./registry.js";
 import { defaultAdminResourceListQueryLabels } from "./list-labels.js";
 
 /** Rows a list asks for per page. Enough to read, few enough that a wide table still fits. */
 const PAGE_SIZE = 40;
+
+/**
+ * The format names this package answers, and the code behind each.
+ *
+ * A column names one rather than carrying it, because this list is a client component: a definition
+ * reaches it as data, and a function in that data is refused at prerender. A number the store holds
+ * in whole cents is the case worth shipping, since the division belongs at the moment of display and
+ * nowhere earlier, and a plain count is the other half of the same pair. A missing value prints an
+ * em dash rather than nothing, because a blank cell and a cell holding a value no cell can show are
+ * different claims and a column of prices has to make one of them.
+ */
+const SHIPPED_FORMATTERS: Record<"money" | "count", AdminResourceFormatter> = {
+  money: (value) => (typeof value === "number" ? adminFormatCents(value) : "—"),
+  count: (value) => (typeof value === "number" ? adminFormatCount(value) : "—"),
+};
+
+/** The name a column's `format` asks for, with the package's own two written as bare words. */
+function formatName(format: AdminResourceColumnFormat): string {
+  return typeof format === "string" ? format : format.name;
+}
+
+/**
+ * The function that prints a column, or nothing for a column that names no format.
+ *
+ * The host's map is asked before the shipped names, so a host that registers `money` for another
+ * currency gets its own rather than being quietly given the package's.
+ *
+ * A name nothing answers is refused rather than ignored. A column silently showing `4900` where its
+ * definition promised `$49.00` is a wrong number on a page that looks right, and a host whose
+ * formatter is missing learns about it from their own test rather than from a reader.
+ */
+function columnFormatter(
+  column: { key: string; format?: AdminResourceColumnFormat },
+  formatters: Readonly<Record<string, AdminResourceFormatter>> | undefined,
+): AdminResourceFormatter | undefined {
+  if (column.format === undefined) return undefined;
+  const name = formatName(column.format);
+  const formatter = formatters?.[name] ?? SHIPPED_FORMATTERS[name as "money" | "count"];
+  if (!formatter) {
+    throw new Error(
+      `Column ${column.key} formats as ${JSON.stringify(name)}, which nothing answers. ` +
+        `The list ships ${Object.keys(SHIPPED_FORMATTERS).join(" and ")}; ` +
+        `pass anything else in formatters. Known names: ` +
+        `${[...Object.keys(formatters ?? {}), ...Object.keys(SHIPPED_FORMATTERS)].join(", ")}.`,
+    );
+  }
+  return formatter;
+}
 
 /** Long enough that a term is not a query per keystroke, short enough to feel immediate. */
 const SEARCH_SETTLE_MS = 250;
@@ -86,6 +137,7 @@ export function AdminResourceList({
   persistence,
   detailBaseHref,
   pageSize = PAGE_SIZE,
+  formatters,
   labels,
   onError,
 }: {
@@ -95,6 +147,12 @@ export function AdminResourceList({
   detailBaseHref?: string;
   /** Rows per page, asked of an adapter that answers a window. */
   pageSize?: number;
+  /**
+   * The formatters a column's `format` can name, by that name. What a host registers here is the
+   * code the definition cannot carry, which is why it is a prop of the client component rather than
+   * part of the description: a server component can hand down the names and not these.
+   */
+  formatters?: Readonly<Record<string, AdminResourceFormatter>>;
   labels?: {
     empty?: string;
     new?: string;
@@ -285,41 +343,46 @@ export function AdminResourceList({
   const nonEmpty = (permission: string | undefined) => permission !== undefined && permission.length > 0;
   const hasRowActions = nonEmpty(permissions.update) || nonEmpty(permissions.delete);
   const columns: AdminTableColumn<AdminResourceRecord>[] = [
-    ...definition.columns.map((column) => ({
-      key: column.key,
-      // A header is a ReactNode, so the sort control is a button inside one and the table
-      // primitive needs nothing added to it for this. Not drawn for an adapter that cannot order,
-      // for the same reason the search box is not: a control that cannot work is not drawn.
-      header:
-        column.sortable === true && paged ? (
-          <button
-            type="button"
-            onClick={() => toggleSort(column.key)}
-            aria-pressed={active.sort[0]?.field === column.key}
-            className="inline-flex items-center gap-1 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-zinc-100"
-          >
-            {column.header}
-            {active.sort[0]?.field === column.key ? (
-              <>
-                {active.sort[0].direction === "asc" ? (
-                  <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
-                ) : (
-                  <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
-                )}
-                <span className="sr-only">
-                  {active.sort[0].direction === "asc" ? copy.ascending : copy.descending}
-                </span>
-              </>
-            ) : null}
-          </button>
-        ) : (
-          column.header
-        ),
-      align: column.align,
-      width: column.width,
-      cell: (row: AdminResourceRecord) =>
-        column.format ? column.format(row[column.key], row) : renderValue(row[column.key]),
-    })),
+    // Resolved once per column rather than once per cell, so a name nothing answers is refused
+    // while the table is being built rather than on whichever row happens to be drawn.
+    ...definition.columns.map((column) => {
+      const format = columnFormatter(column, formatters);
+      return {
+        key: column.key,
+        // A header is a ReactNode, so the sort control is a button inside one and the table
+        // primitive needs nothing added to it for this. Not drawn for an adapter that cannot order,
+        // for the same reason the search box is not: a control that cannot work is not drawn.
+        header:
+          column.sortable === true && paged ? (
+            <button
+              type="button"
+              onClick={() => toggleSort(column.key)}
+              aria-pressed={active.sort[0]?.field === column.key}
+              className="inline-flex items-center gap-1 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-zinc-100"
+            >
+              {column.header}
+              {active.sort[0]?.field === column.key ? (
+                <>
+                  {active.sort[0].direction === "asc" ? (
+                    <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  <span className="sr-only">
+                    {active.sort[0].direction === "asc" ? copy.ascending : copy.descending}
+                  </span>
+                </>
+              ) : null}
+            </button>
+          ) : (
+            column.header
+          ),
+        align: column.align,
+        width: column.width,
+        cell: (row: AdminResourceRecord) =>
+          format ? format(row[column.key], row) : renderValue(row[column.key]),
+      };
+    }),
     ...(hasRowActions
       ? [{
       key: "__actions",

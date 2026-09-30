@@ -178,6 +178,30 @@ describe("the controls the demo's product list draws", () => {
     expect(count()).toBe(`Showing 1 to 40 of ${held.length}`);
     expect(await names()).toHaveLength(40);
   });
+
+  it("prints the price and the stock the way the definition asked for", async () => {
+    render(tree(<ProductsPage />));
+    await screen.findByRole("table");
+
+    // Asserted on the page rather than on the definition, because a definition naming a formatter
+    // says nothing about what the reader is shown. `LAMP-001` is 4900 cents with 34 in stock and
+    // `RISR-001` has none, so these are the two cells a list printing the stored number would get
+    // wrong: `$49.00` rather than `4900`, and a reader told there is stock where there is none.
+    //
+    // The four declared columns, and the row carries a fifth cell for the row actions the
+    // permissions draw, which is why the price and stock are read by position rather than the whole
+    // row compared: an empty cell from an unrelated control would otherwise fail this for a reason
+    // that has nothing to do with the formatting.
+    const cellsFor = (sku: string) => {
+      const row = within(screen.getByRole("table"))
+        .getAllByRole("row")
+        .find((candidate) => within(candidate).queryByText(sku) !== null);
+      return within(row!).getAllByRole("cell").map((cell) => cell.textContent).slice(0, 4);
+    };
+
+    expect(cellsFor("LAMP-001")).toEqual(["Amber desk lamp", "LAMP-001", "$49.00", "34"]);
+    expect(cellsFor("RISR-001")).toEqual(["Walnut monitor riser", "RISR-001", "$59.00", "Out of stock"]);
+  });
 });
 
 describe("what each control asks the store for", () => {
@@ -300,13 +324,17 @@ describe("a host whose adapter cannot page", () => {
     // and the rows are still the store's.
     const { clientPersistence } = await import("../fixtures/lib/client-persistence");
     const { AdminResourceList } = await import("@yesvus/helmdeck");
+    const { demoFormatters } = await import("../fixtures/lib/admin-resources");
 
+    // The same props the page's own client component passes, since the definition names the demo's
+    // `stock` formatter and a list that nobody registered it for has no way to print that column.
     render(
       tree(
         <AdminResourceList
           definition={productsResource}
           persistence={clientPersistence}
           detailBaseHref="/shell/products"
+          formatters={demoFormatters}
         />,
       ),
     );

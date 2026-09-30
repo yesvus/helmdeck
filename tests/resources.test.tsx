@@ -370,16 +370,73 @@ describe("AdminResourceList", () => {
     expect(await screen.findByText("Nothing here yet.")).toBeInTheDocument();
   });
 
-  it("uses a column's own formatter when it declares one", async () => {
+  it("prints a column through the formatter its name resolves to, and the host's own when it is the host's", async () => {
     const db = createMemoryPersistenceAdapter();
-    await db.create("posts", { title: "First", views: 1200 });
+    await db.create("posts", { title: "First", views: 1200, price_cents: 4900 });
     const definition = defineAdminResource({
       ...posts,
-      columns: [{ key: "views", header: "Views", format: (value) => `${value} views` }],
+      columns: [
+        { key: "views", header: "Views", format: { name: "views" } },
+        { key: "price_cents", header: "Price", format: "money" },
+      ],
     });
 
-    wrap(<AdminResourceList definition={definition} persistence={db} />);
+    // Two names, two sources. `money` is one the list ships, and a number stored in whole cents
+    // reads as `$49.00`; `views` is the host's, and only the host's map can answer it, which is why
+    // a definition naming one is a promise the client half keeps rather than a value it carries.
+    wrap(
+      <AdminResourceList
+        definition={definition}
+        persistence={db}
+        formatters={{ views: (value) => `${String(value)} views` }}
+      />,
+    );
     expect(await screen.findByText("1200 views")).toBeInTheDocument();
+    expect(await screen.findByText("$49.00")).toBeInTheDocument();
+  });
+
+  it("refuses a column naming a format nothing answers, rather than printing the stored value", () => {
+    const db = createMemoryPersistenceAdapter();
+    const definition = defineAdminResource({
+      ...posts,
+      columns: [{ key: "views", header: "Views", format: { name: "views" } }],
+    });
+
+    // A list that quietly fell back to the raw number would put `1200` on the page where its own
+    // definition promised `1200 views`, and the page would look right. The message names the column,
+    // the name it wanted and the names that do exist, because a developer reading it has to be able
+    // to act on it without opening this file. React logs the throw as well, and the log is not the
+    // assertion, so it is silenced rather than inspected.
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const renderList = () => wrap(<AdminResourceList definition={definition} persistence={db} />);
+
+    expect(renderList).toThrow(/Column views formats as "views"/);
+    expect(renderList).toThrow(/Known names: money, count/);
+    consoleError.mockRestore();
+  });
+
+  it("lets a host register a name the package ships, and its own wins", async () => {
+    // `money` is the package's, and a host whose amounts are in another currency has to be able to
+    // say so without a definition that names something else. The host's map is asked first, so
+    // registering the name is what changes the output rather than which spelling of it was used, and
+    // the shipped `$` is asserted absent so a resolution that ignored the host would fail here.
+    const db = createMemoryPersistenceAdapter();
+    await db.create("posts", { title: "First", views: 4900 });
+    const definition = defineAdminResource({
+      ...posts,
+      columns: [{ key: "views", header: "Price", format: "money" }],
+    });
+
+    wrap(
+      <AdminResourceList
+        definition={definition}
+        persistence={db}
+        formatters={{ money: (value) => `${String(value)} cents` }}
+      />,
+    );
+
+    expect(await screen.findByText("4900 cents")).toBeInTheDocument();
+    expect(screen.queryByText("$49.00")).not.toBeInTheDocument();
   });
 
   it("offers create only when the resource declares the permission and it is held", async () => {

@@ -5,6 +5,7 @@ import { signInAction } from "../fixtures/app/login/actions";
 import { productsResource } from "../fixtures/lib/admin-resources";
 import { clientPersistence, pagedClientPersistence } from "../fixtures/lib/client-persistence";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
+import { demoPersistence } from "../fixtures/lib/demo-persistence";
 import { ensureDemoSeeded } from "../fixtures/lib/ensure-seeded";
 import { queryPageAction } from "../fixtures/lib/resource-actions";
 import { seedProducts } from "../fixtures/lib/seed-data";
@@ -125,6 +126,35 @@ describe("what the demo's list is told its store can do", () => {
     // filter and no pager, and sees the rows it saw before.
     expect(typeof pagedClientPersistence.queryPage).toBe("function");
     expect(clientPersistence.queryPage).toBeUndefined();
+  });
+
+  it("is what both list pages read off the store, and pass down as the one boolean they can", async () => {
+    // The reason the two pages are server components at all. A client page has no store to ask, so it
+    // would be guessing, and a guess would put a search box over a store that cannot search. The
+    // answer is a fact about the adapter, and the two pages read it the same way rather than each
+    // deciding for itself.
+    const { default: ProductsPage } = await import("../fixtures/app/shell/products/page");
+    const { default: OrdersPage } = await import("../fixtures/app/shell/orders/page");
+    const { DemoResourceList } = await import("../fixtures/components/demo-resource-list");
+    const paged = typeof demoPersistence().adapter.queryPage === "function";
+
+    expect(paged, "the demo's store answers a window, so both pages must say so").toBe(true);
+
+    // The page is called rather than mounted, and what comes back is read, because the claim is about
+    // the props the page hands the client component. Mounting would render through the adapter and
+    // tell us what a visitor sees, which `demo-products-list.test.tsx` already does; a page that
+    // computed the answer and dropped it would still render a working list, and only the props say so.
+    for (const [name, page, resource] of [
+      ["products", ProductsPage, "products"],
+      ["orders", OrdersPage, "orders"],
+    ] as const) {
+      const child = page() as React.ReactElement<{ paged: boolean; definition: { resource: string } }>;
+      expect(child.type, `${name} renders the demo's client list`).toBe(DemoResourceList);
+      expect(child.props.paged, `${name} hands the client the store's own answer`).toBe(paged);
+      // And the definition goes down with it, as the data it is, which is the property the prerender
+      // refused before a column's format was a name rather than a function.
+      expect(child.props.definition.resource, `${name} hands its own definition down`).toBe(resource);
+    }
   });
 
   it("gives the products definition a control that can do something", () => {

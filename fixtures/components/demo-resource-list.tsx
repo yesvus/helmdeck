@@ -2,6 +2,7 @@
 "use client";
 
 import { AdminResourceList, type AdminResourceDefinition } from "@yesvus/helmdeck";
+import { demoFormatters } from "../lib/admin-resources";
 import { clientPersistence, pagedClientPersistence } from "../lib/client-persistence";
 
 /**
@@ -13,6 +14,11 @@ import { clientPersistence, pagedClientPersistence } from "../lib/client-persist
  * no search box, no sortable headers, no filter controls and no pager, and sees the list it saw
  * before. Passing the flag down is what keeps those two from disagreeing, since a flag the client
  * guessed would put a search box over a store that cannot search.
+ *
+ * The formatters live here for the same reason the page is a server component. A definition names
+ * the format a column wants, and this is the side that can hold the code behind the name, so the two
+ * definitions in `admin-resources` travel as data from the page and are rendered against the
+ * formatters registered here.
  */
 export function DemoResourceList({
   definition,
@@ -28,6 +34,7 @@ export function DemoResourceList({
       definition={definition}
       persistence={paged ? pagedClientPersistence : clientPersistence}
       detailBaseHref={detailBaseHref}
+      formatters={demoFormatters}
     />
   );
 }

@@ -440,7 +440,7 @@ const posts = defineAdminResource({
 });
 ```
 
-`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input.
+`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
 
 #### Searching, sorting, filtering and paging a generated list
 
@@ -507,6 +507,33 @@ const posts = defineAdminResource({
 - `filters` are the controls the list draws. A field the definition does not declare has no control, and a control whose value `parse` answers with `undefined` sends no comparison.
 - `pageSize` is how many rows a window asks for, 40 by default.
 - The count, the search box, the sort directions, the filter label and the "no records match" copy are the `labels` prop, so a host translates one object. Pagination keeps its own labels, which live in the message dictionary.
+
+#### Printing a column's value
+
+A column's `format` **names** a formatter rather than being one. `"money"` and `"count"` are the two the package prints, the first reading the stored integer as whole cents, and the division by a hundred happens at the moment of display and nowhere earlier. Any other name is the host's, written `{ name: "..." }`, and the list resolves it from its `formatters` prop:
+
+```tsx
+const posts = defineAdminResource({
+  resource: "posts",
+  label: "Posts",
+  columns: [
+    { key: "title", header: "Title" },
+    { key: "price_cents", header: "Price", align: "right", format: "money" },
+    { key: "status", header: "Status", format: { name: "status" } },
+  ],
+  fields: [{ name: "title", label: "Title", required: true }],
+});
+
+<AdminResourceList
+  definition={posts}
+  persistence={db}
+  formatters={{ status: (value) => <StatusPill value={String(value)} /> }}
+/>;
+```
+
+A name nothing answers is refused while the table is built, naming the column and the name it wanted, rather than falling back to the stored value. A column silently printing `4900` where its own definition promised `$49.00` is a wrong number on a page that looks right.
+
+**Most of a definition crosses the client boundary; the rest is code and does not.** `AdminResourceList` and `AdminResourceForm` are client components, so a definition passed to one from a server component travels as data. A column's `format` is a name for that reason. A field's `render` and `parse` and a filter's `parse` are functions and cannot be serialised at all, so a definition declaring one has to be built on the side that renders the view, and its page has to be a client component. Nothing about that is a limitation of the framework's convenience: a custom control and a custom comparison are code, and code has to be on the side that runs it.
 
 **A query that crosses the server is read or refused.** `createAdminResourceActions` reads the query it is handed before it asks about the session, and refuses anything it cannot read: a part that is not part of a query, a field name that is not a field, an ordering that is not ascending or descending, a comparison with nothing to compare to, an offset that is not a whole record, a window of no rows, and a window larger than the contract allows. The refusal is deliberate, because the adapters this contract grew out of read every key they are given as a field to match exactly: a `sort` was a column named `sort`, and a `limit` was a filter nothing matched. A store is not handed a guess about what a caller meant.
 

@@ -2,7 +2,7 @@
 "use client";
 
 import { AdminResourceList } from "@yesvus/helmdeck";
-import { contentPosts } from "./content-registry";
+import { contentFormatters, contentPosts } from "./content-registry";
 import { contentPersistence } from "./content-persistence";
 
 /**
@@ -15,7 +15,9 @@ import { contentPersistence } from "./content-persistence";
  *
  * A client component because `AdminResourceList` reads through its adapter from an effect, and the
  * adapter is a set of server actions. A server component cannot pass that object down: functions do
- * not cross the boundary, so the page has to be on the same side as the adapter.
+ * not cross the boundary, so the page has to be on the same side as the adapter. The definition
+ * crosses no worse: it names its two formatters and the code behind those names is a prop, which is
+ * the same shape the demo's server-rendered product and order lists use.
  */
 export default function ContentPage() {
   return (
@@ -23,6 +25,7 @@ export default function ContentPage() {
       definition={contentPosts}
       persistence={contentPersistence}
       detailBaseHref="/shell/content"
+      formatters={contentFormatters}
     />
   );
 }
