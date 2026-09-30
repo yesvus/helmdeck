@@ -133,13 +133,15 @@ jobs:
           fi
           git config user.name "helmdeck-release"
           git config user.email "helmdeck-release@users.noreply.github.com"
-          # scripts/exported-surface.json is written by `release-version.mjs write` immediately above,
-          # which is the whole point of putting the record there: the baseline is the surface of the
-          # release being cut. It has to be committed with the version, or the recording happens on the
-          # runner and is thrown away, and the tag ships a baseline labelled with the previous release.
-          git add VERSION package.json README.md CHANGELOG.md scripts/exported-surface.json
+          # Three files here are written by `release-version.mjs write` immediately above, not by the
+          # release's own hand: src/version.ts and scripts/exported-surface.json are generated from
+          # VERSION and from the build. They have to be committed with the version, or the release
+          # regenerates them on the runner and throws them away, and the tag ships a repository whose
+          # VERSION disagrees with its own generated source. That is not hypothetical: v0.5.0 left
+          # main red with VERSION at v0.5.0 and src/version.ts still reading 0.4.0.
+          git add VERSION package.json README.md CHANGELOG.md src/version.ts scripts/exported-surface.json
           changed="$(git diff --cached --name-only | LC_ALL=C sort)"
-          expected="$(printf '%s\n' CHANGELOG.md README.md VERSION package.json scripts/exported-surface.json | LC_ALL=C sort)"
+          expected="$(printf '%s\n' CHANGELOG.md README.md VERSION package.json src/version.ts scripts/exported-surface.json | LC_ALL=C sort)"
           if [[ "$changed" != "$expected" ]]; then
             echo "Unexpected release version files: $changed" >&2
             exit 1
