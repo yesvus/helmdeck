@@ -149,6 +149,62 @@ describe("the record's own key", () => {
   });
 });
 
+describe("a definition that declares `id` as a column", () => {
+  // Found while upgrading cindral, and it is the same P0 reopened through a definition that looks
+  // harmless. `id` was refused on an update only because no definition declared it, so a host that
+  // declared it to show ids in a list handed the row-moving write straight back. Reading a column and
+  // writing it are different permissions.
+  const withIdColumn = defineAdminResource({
+    resource: "jobs",
+    label: "Jobs",
+    columns: [
+      { key: "id", header: "ID" },
+      { key: "name", header: "Name" },
+    ],
+    fields: [{ name: "name", label: "Name", type: "text" }],
+  });
+
+  it("still refuses a row-moving write on an update", async () => {
+    const { actions } = host([withIdColumn]);
+    const made = await actions.create<{ id: string }>("jobs", { name: "First" });
+
+    await expect(
+      actions.update("jobs", made.id, { name: "renamed", id: "somewhere-else" }),
+    ).rejects.toBeInstanceOf(AdminResourceFieldError);
+  });
+
+  it("still lets a create name the record, because that is the record's own key", async () => {
+    const { actions } = host([withIdColumn]);
+
+    const made = await actions.create<{ id: string }>("jobs", { id: "job_client_named", name: "First" });
+
+    expect(made.id).toBe("job_client_named");
+  });
+
+  it("still writes every other declared column", async () => {
+    const { actions } = host([withIdColumn]);
+    const made = await actions.create<{ id: string }>("jobs", { name: "First" });
+
+    const updated = await actions.update<{ name: string }>("jobs", made.id, { name: "renamed" });
+
+    expect(updated.name).toBe("renamed");
+  });
+
+  it("reports `id` as the offending field and not the whole record", async () => {
+    const { actions } = host([withIdColumn]);
+    const made = await actions.create<{ id: string }>("jobs", { name: "First" });
+
+    const refusal = await actions
+      .update("jobs", made.id, { name: "renamed", id: "somewhere-else" })
+      .then(
+        () => null,
+        (error: unknown) => error as AdminResourceFieldError,
+      );
+
+    expect(refusal?.fields).toEqual(["id"]);
+  });
+});
+
 describe("a definition declaring more than its list shows", () => {
   it("accepts a column the host declared writable and the list does not show", async () => {
     const withTimestamps = defineAdminResource({

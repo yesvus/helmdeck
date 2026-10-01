@@ -409,6 +409,26 @@ export function createAdminResourceActions({
    * one key the caller gets without declaring it, on a create only, where it is the record's own key
    * and a host may generate it.
    */
+  /** The writable set without `id`, for an operation the route has already located. */
+  function withoutId(allowed: Set<string>): Set<string> {
+    if (!allowed.has("id")) return allowed;
+    const rest = new Set(allowed);
+    rest.delete("id");
+    return rest;
+  }
+
+  /**
+   * The writable set with `id` added, for a create where the record does not exist yet.
+   *
+   * Declared or not: on a create the value carries the row's own key and a host is entitled to generate
+   * it, so requiring a definition to list `id` to name a new row would be refusing the one operation
+   * where naming the record is the point.
+   */
+  function withId(allowed: Set<string>): Set<string> {
+    if (allowed.has("id")) return allowed;
+    return new Set([...allowed, "id"]);
+  }
+
   function refuseUndeclared(
     resource: string,
     operation: AdminResourceOperation,
@@ -417,9 +437,15 @@ export function createAdminResourceActions({
     const allowed = writableKeys(resource);
     if (allowed === null) return;
     if (value === null || typeof value !== "object" || Array.isArray(value)) return;
-    const refused = Object.keys(value as Record<string, unknown>)
-      .filter((key) => !allowed.has(key) && !(key === "id" && operation === "create"))
-      .sort();
+      // `id` is writable on a create, where it is the record's own key and a host may generate it, and
+      // refused on an update, where the route already named the record. That has to hold even when the
+      // definition declares `id` as a column, which is an ordinary thing to do so a list can show it.
+      // Reading a column and writing it are different permissions, and letting a display re-open the
+      // move is how a harmless-looking definition hands back the row-moving write this closes.
+      const writable = operation === "create" ? withId(allowed) : withoutId(allowed);
+      const refused = Object.keys(value as Record<string, unknown>)
+        .filter((key) => !writable.has(key))
+        .sort();
     if (refused.length > 0) {
       throw new AdminResourceFieldError({ resource, operation, fields: refused });
     }
