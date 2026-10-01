@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
-import type { LandingSection } from "../fixtures/app/shell/pages/landing-registry";
+import type { LandingSection } from "../fixtures/app/(helmdeck)/shell/pages/landing-registry";
 
 /**
  * The host contract: what the page owes the engine's editor, and what it owes the store.
@@ -29,8 +29,8 @@ vi.mock("../fixtures/lib/demo-collections", () => ({
   readLandingSections: vi.fn(async () => stored.sections),
 }));
 
-const { LandingPageEditor } = await import("../fixtures/app/shell/pages/section-editor");
-const { default: PagesPage } = await import("../fixtures/app/shell/pages/page");
+const { LandingPageEditor } = await import("../fixtures/app/(helmdeck)/shell/pages/section-editor");
+const { default: PagesPage } = await import("../fixtures/app/(helmdeck)/shell/pages/page");
 
 const arrangement: LandingSection[] = [
   { id: "sec_hero", widget: "hero", size: "xl", title: "A sofa that arrives early" },

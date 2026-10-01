@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: MIT
+
+/**
+ * Payload's global styling, pointed at helmdeck's own tokens.
+ *
+ * Payload styles its admin panel entirely through CSS custom properties, which is what makes this
+ * file short rather than long: the panel has no hard-coded colours of its own to override, only
+ * variables. Mapping them here rather than copying values means retuning helmdeck's accent moves both
+ * surfaces at once, which is the part of "one look" that holds up after the first commit.
+ *
+ * The token file is the same one helmdeck's shell imports, so there is one definition of what the
+ * brand colour is. Payload reads `--admin-*` from it and this file translates.
+ */
+
+@import '../../../src/theme/tokens.css';
+
+/* Payload names its surfaces by elevation. These are the four that carry a page, a card, a control
+   and a rule, mapped onto the tokens helmdeck's shell already uses for the same jobs. */
+:root,
+[data-theme='dark'] {
+  --theme-bg: var(--admin-surface-subtle);
+  --theme-bg-color: var(--admin-text-primary);
+  --theme-elevation-0: var(--admin-surface);
+  --theme-elevation-50: var(--admin-surface);
+  --theme-elevation-100: var(--admin-surface-muted);
+  --theme-elevation-150: var(--admin-surface-muted);
+  --theme-elevation-200: var(--admin-surface-muted);
+  --theme-elevation-250: var(--admin-skeleton);
+  --theme-elevation-400: var(--admin-border);
+  --theme-elevation-450: var(--admin-border);
+  --theme-elevation-500: var(--admin-border);
+  --theme-elevation-550: var(--admin-border-strong);
+  --theme-elevation-600: var(--admin-border-strong);
+  --theme-elevation-650: var(--admin-border-strong);
+  --theme-elevation-700: var(--admin-text-disabled);
+  --theme-elevation-800: var(--admin-text-secondary);
+  --theme-elevation-850: var(--admin-text-secondary);
+  --theme-elevation-900: var(--admin-text-primary);
+  --theme-elevation-950: var(--admin-text-primary);
+  --theme-elevation-1000: var(--admin-text-primary);
+  --theme-border-color: var(--admin-border);
+  --theme-input-bg: var(--admin-surface);
+  --theme-overlay: var(--admin-overlay);
+  --theme-success-500: var(--admin-success-action, #15803d);
+  --theme-error-500: var(--admin-danger-action);
+  --theme-warning-500: var(--admin-warning-border);
+  --theme-success-100: var(--admin-success-surface);
+  --theme-error-100: var(--admin-danger-surface);
+  --theme-warning-100: var(--admin-warning-surface);
+  --theme-success-600: var(--admin-success-text);
+  --theme-error-600: var(--admin-danger-text);
+  --theme-warning-600: var(--admin-warning-text);
+  --theme-success-900: var(--admin-success-text);
+  --theme-error-900: var(--admin-danger-text);
+  --theme-warning-900: var(--admin-warning-text);
+  --theme-success-950: var(--admin-success-text);
+  --theme-error-950: var(--admin-danger-text);
+  --theme-warning-950: var(--admin-warning-text);
+  --theme-success-800: var(--admin-success-text);
+  --theme-error-800: var(--admin-danger-text);
+  --theme-warning-800: var(--admin-warning-text);
+  --theme-success-300: var(--admin-success-border);
+  --theme-error-300: var(--admin-danger-border);
+  --theme-warning-300: var(--admin-warning-border);
+}
+
+/* The font and the radius. Payload's defaults are a wider face and a smaller corner than helmdeck's
+   shell uses, and those two are what a person notices before any colour. */
+:root {
+  --theme-font: var(--admin-font-family);
+  --theme-baseline: 1rem;
+  --style-radius-s: calc(var(--admin-control-radius) * 0.6);
+  --style-radius-m: var(--admin-control-radius);
+  --style-radius-l: var(--admin-card-radius);
+}
+
+/* The brand mark on the login screen, in helmdeck's accent rather than Payload's ink. */
+.payload-brand-logo {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.payload-brand-logo__mark {
+  background: var(--admin-brand-500);
+  border-radius: var(--admin-control-radius);
+  display: inline-block;
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.payload-brand-logo__text {
+  color: var(--admin-text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.payload-brand-logo__suffix {
+  color: var(--admin-text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* The line that says what this panel is, and the way back out of it. */
+.payload-dashboard-brief {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-radius);
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.payload-dashboard-brief__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.payload-dashboard-brief__line {
+  color: var(--admin-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+  max-width: 60ch;
+}
+
+.payload-back-link {
+  border-top: 1px solid var(--admin-border);
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.payload-back-link__anchor {
+  color: var(--admin-brand-text);
+  display: inline-block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.payload-back-link__anchor:hover {
+  text-decoration: underline;
+}

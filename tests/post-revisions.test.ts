@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hashPassword } from "@yesvus/helmdeck/baseline";
-import { signInAction } from "../fixtures/app/login/actions";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
 import {
   listPostRevisionsAction,
   publishPostAction,
   restorePostRevisionAction,
   savePostAction,
   unpublishPostAction,
-} from "../fixtures/app/shell/revisions/actions";
+} from "../fixtures/app/(helmdeck)/shell/revisions/actions";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { demoCan } from "../fixtures/lib/demo-rules";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";

@@ -2,7 +2,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { adminChartAxis, adminChartFormatters } from "../src/charts";
-import { catalogPreviews } from "../fixtures/app/catalog/previews";
+import { catalogPreviews } from "../fixtures/app/(helmdeck)/catalog/previews";
 import { componentCatalog } from "../fixtures/lib/demo-catalog";
 
 /**

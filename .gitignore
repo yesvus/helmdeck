@@ -5,6 +5,10 @@ examples/independent-host/next-env.d.ts
 template/next-env.d.ts
 template/helmdeck.db
 template/helmdeck.db-journal
+# Payload's local database, for a clone with no Turso environment. The demo's own rows are Turso when the
+# environment supplies it, so this is only ever a developer's throwaway file.
+fixtures/payload-demo.db
+fixtures/payload-demo.db-journal
 coverage
 *.log
 *.tsbuildinfo

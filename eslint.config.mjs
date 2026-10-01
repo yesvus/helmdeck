@@ -36,6 +36,16 @@ export default tseslint.config(
     },
   },
   {
+    // Payload's migrations. Payload generates each file's signature as
+    // `({ db, payload, req })` whether or not the body uses the last two, and its migrate loader calls
+    // `up` and `down` with that exact argument object, so a rename to `_payload` would be a lie about
+    // what the function receives. The unused-parameter rule is off here for the same reason.
+    files: ["fixtures/payload-migrations/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
     // The Node-side modules: the typecheck gate, the database URL, and the command that creates an
     // account. Without this they lint as files in no environment at all, which is what `process` and
     // `console` being undefined means.

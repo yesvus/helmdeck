@@ -3,10 +3,10 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { adminDashboardValidate } from "@yesvus/helmdeck";
-import ShippedTilesPage from "../fixtures/app/dashboard/tiles/page";
-import { buildShippedTileDashboard } from "../fixtures/app/dashboard/tiles/arrangement";
-import { shippedTileRegistry } from "../fixtures/app/dashboard/tiles/registry";
-import { dashboardRegistry } from "../fixtures/app/dashboard/registry";
+import ShippedTilesPage from "../fixtures/app/(helmdeck)/dashboard/tiles/page";
+import { buildShippedTileDashboard } from "../fixtures/app/(helmdeck)/dashboard/tiles/arrangement";
+import { shippedTileRegistry } from "../fixtures/app/(helmdeck)/dashboard/tiles/registry";
+import { dashboardRegistry } from "../fixtures/app/(helmdeck)/dashboard/registry";
 
 /**
  * The route, with the store's answers stood in for.
@@ -118,7 +118,7 @@ vi.mock("../fixtures/lib/demo-widgets-data", async (importOriginal) => {
  * measuring a page that cannot mount.
  */
 async function signedIn(email?: string) {
-  const { signInAction } = await import("../fixtures/app/login/actions");
+  const { signInAction } = await import("../fixtures/app/(helmdeck)/login/actions");
   const { DEMO_PASSWORD, demoAccounts } = await import("../fixtures/lib/demo-accounts");
   const account = demoAccounts.find((candidate) => candidate.email === email) ?? demoAccounts[0];
   const result = await signInAction({ email: account.email, password: DEMO_PASSWORD }, null);

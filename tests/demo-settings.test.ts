@@ -5,7 +5,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hashPassword } from "@yesvus/helmdeck/baseline";
-import { signInAction } from "../fixtures/app/login/actions";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { ensureDemoSeeded } from "../fixtures/lib/ensure-seeded";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";

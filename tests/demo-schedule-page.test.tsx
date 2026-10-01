@@ -3,9 +3,9 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "@yesvus/helmdeck";
-import { signInAction } from "../fixtures/app/login/actions";
-import SchedulePage from "../fixtures/app/shell/schedule/page";
-import { ScheduleRow } from "../fixtures/app/shell/schedule/schedule-form";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
+import SchedulePage from "../fixtures/app/(helmdeck)/shell/schedule/page";
+import { ScheduleRow } from "../fixtures/app/(helmdeck)/shell/schedule/schedule-form";
 import { hashPassword } from "../fixtures/lib/demo-users";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";
@@ -30,7 +30,7 @@ const actions = vi.hoisted(() => ({
   schedule: vi.fn(async () => ({})),
 }));
 
-vi.mock("../fixtures/app/shell/schedule/actions", () => ({
+vi.mock("../fixtures/app/(helmdeck)/shell/schedule/actions", () => ({
   cancelScheduleAction: actions.cancel,
   listPostSchedulesAction: vi.fn(async () => []),
   listSchedulablePostsAction: vi.fn(async () => []),

@@ -40,7 +40,7 @@ async function coldProcess() {
   vi.resetModules();
   const { demoPersistence } = await import("../fixtures/lib/demo-persistence");
   const { demoAuth } = await import("../fixtures/lib/demo-session");
-  const actions = await import("../fixtures/app/login/actions");
+  const actions = await import("../fixtures/app/(helmdeck)/login/actions");
   return { persistence: demoPersistence(), auth: demoAuth(), ...actions };
 }
 

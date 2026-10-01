@@ -17,7 +17,9 @@ import { sampleNav, sampleSearchEntries } from "../fixtures/nav";
  * The route is resolved to a file rather than a framework's own routing table, so this holds without
  * a build and without a running server.
  */
-const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../fixtures/app");
+// The demo's routes live in the `(helmdeck)` route group, beside Payload's own group. A route group is
+// invisible in a URL, so hrefs are unchanged and only the directory a route resolves to has moved.
+const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../fixtures/app/(helmdeck)");
 
 /** Where a href lands: `app/<href>/page.tsx`, or `app/page.tsx` at the root. */
 function pageFileFor(href: string): string {

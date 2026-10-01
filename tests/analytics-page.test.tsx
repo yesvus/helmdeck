@@ -3,8 +3,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { adminChartAxis, adminChartDayRange, adminChartFormatters } from "../src/charts";
-import AnalyticsPage from "../fixtures/app/shell/analytics/page";
-import { rankByStock, revenueByDay, sumCents, type AnalyticsOrderRow } from "../fixtures/app/shell/analytics/shape";
+import AnalyticsPage from "../fixtures/app/(helmdeck)/shell/analytics/page";
+import { rankByStock, revenueByDay, sumCents, type AnalyticsOrderRow } from "../fixtures/app/(helmdeck)/shell/analytics/shape";
 
 /**
  * The page and the engine's charts, with the store stood in for.
@@ -25,7 +25,7 @@ const backend = vi.hoisted(() => ({
   totals: vi.fn(),
 }));
 
-vi.mock("../fixtures/app/shell/analytics/data", () => ({
+vi.mock("../fixtures/app/(helmdeck)/shell/analytics/data", () => ({
   loadDailyRevenueAction: backend.revenue,
   loadStockByProductAction: backend.stock,
   loadAnalyticsTotalsAction: backend.totals,

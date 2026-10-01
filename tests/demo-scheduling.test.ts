@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { signInAction } from "../fixtures/app/login/actions";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
 import {
   cancelScheduleAction,
   listPostSchedulesAction,
@@ -8,7 +8,7 @@ import {
   moveScheduleAction,
   runDuePublishesAction,
   schedulePostAction,
-} from "../fixtures/app/shell/schedule/actions";
+} from "../fixtures/app/(helmdeck)/shell/schedule/actions";
 import { hashPassword } from "../fixtures/lib/demo-users";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { demoCan } from "../fixtures/lib/demo-rules";

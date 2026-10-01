@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
 import { ShellThemeProvider, useShellTheme } from "../fixtures/components/shell-theme-provider";
-import ThemePage from "../fixtures/app/theme/page";
+import ThemePage from "../fixtures/app/(helmdeck)/theme/page";
 import { themeBootScript } from "../fixtures/components/theme-boot";
 
 afterEach(() => {

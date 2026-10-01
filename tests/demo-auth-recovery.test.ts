@@ -14,7 +14,7 @@ import {
   type RecoveryDelivery,
   type RecoveryTransport,
 } from "../fixtures/lib/demo-auth-recovery";
-import { requestPasswordRecoveryAction } from "../fixtures/app/login/actions";
+import { requestPasswordRecoveryAction } from "../fixtures/app/(helmdeck)/login/actions";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 

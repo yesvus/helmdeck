@@ -13,8 +13,8 @@ const { pathname, searchParams } = vi.hoisted(() => ({
 }));
 vi.mock("next/navigation.js", () => ({ usePathname: pathname, useSearchParams: searchParams }));
 
-import CatalogPage from "../fixtures/app/catalog/page";
-import { catalogPreviews } from "../fixtures/app/catalog/previews";
+import CatalogPage from "../fixtures/app/(helmdeck)/catalog/page";
+import { catalogPreviews } from "../fixtures/app/(helmdeck)/catalog/previews";
 import { componentCatalog } from "../fixtures/lib/demo-catalog";
 
 /**
