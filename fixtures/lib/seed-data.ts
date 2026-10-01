@@ -91,12 +91,20 @@ export const seedPosts = [
 /**
  * The demo dashboard's arrangement, as rows rather than as widget ids, because position is what the
  * table stores and because the same arrangement has to be expressible in a memory-backed demo.
+ *
+ * Every widget named here has a loader that answers. It used to name `signups`, which queries the
+ * accounts table on purpose and is therefore always refused, and `orders` and `notes`, which have no
+ * loader at all. On the deployed demo that put a "Try again" button that could never work as the first
+ * tile, with two placeholders beside it. The refusal demonstration is still registered and reachable
+ * from the arrange page; a demonstration is worth showing when asked for and worth hiding from the page
+ * every visitor lands on.
  */
 export const seedPlacements = [
-  { id: "plc_signups", dashboard: "overview", widget: "signups", size: "sm", position: 0 },
-  { id: "plc_orders", dashboard: "overview", widget: "orders", size: "md", position: 1 },
-  { id: "plc_revenue", dashboard: "overview", widget: "revenue", size: "lg", position: 2 },
-  { id: "plc_notes", dashboard: "overview", widget: "notes", size: "sm", position: 3 },
+  { id: "plc_revenue", dashboard: "overview", widget: "revenue", size: "md", position: 0 },
+  { id: "plc_catalog", dashboard: "overview", widget: "catalog", size: "sm", position: 1 },
+  { id: "plc_reorder", dashboard: "overview", widget: "reorder", size: "md", position: 2 },
+  { id: "plc_review", dashboard: "overview", widget: "reviewQueue", size: "sm", position: 3 },
+  { id: "plc_average", dashboard: "overview", widget: "averageOrder", size: "sm", position: 4 },
 ] as const;
 
 /**

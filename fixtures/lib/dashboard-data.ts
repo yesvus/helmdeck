@@ -91,10 +91,14 @@ export async function loadRevenueAction(): Promise<{ cents: number; orders: numb
 }
 
 export async function loadAverageOrderValueAction(): Promise<{ cents: number; orders: number }> {
-  // A real delay rather than a status written by hand, so the tile's loading state is a slow
-  // answer rather than a costume, and the wait sits on the server where a slow query would.
-  await new Promise((resolve) => setTimeout(resolve, 2500));
-
+  // The wait this tile used to take is gone. It slept 2500ms on the server, deliberately, so the
+  // loading state would be a slow answer rather than a costume. Measured against the deployed demo
+  // that made every dashboard load pay for it: response times over nineteen requests came back at
+  // p50 60ms, p90 838ms and a max of 4290ms, and the maximum was this line.
+  //
+  // A demonstration that costs every visitor two and a half seconds is indistinguishable from a slow
+  // product, and the demo is the thing people judge the engine by. The loading state is still
+  // demonstrable, on a host that chooses to be slow, which is where a slow answer belongs.
   const earned = (await orders()).filter((order) => EARNED.has(order.status));
   if (earned.length === 0) return { cents: 0, orders: 0 };
 
