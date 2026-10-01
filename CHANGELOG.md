@@ -8,6 +8,24 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Fixed
+
+- **A write could still move a row when the definition declared `id` as a column.** 0.5.1 refused an
+  update carrying an `id`, but only because no definition happened to declare it. A host that declared
+  `id` so a list could show ids handed the row-moving write straight back:
+
+  ```json
+  {"id":"somewhere-else","name":"renamed"}
+  ```
+
+  **Reading a column and writing it are different permissions.** `id` is now removed from the writable set
+  on an update whether or not the definition declares it, and added on a create whether or not it is
+  declared, because on a create the value carries the row's own key and a host is entitled to generate it.
+
+  Found by a workstream upgrading **cindral**, which wrote a test the writing forced out: its `jobs`
+  definition omits `id` and a sibling declares it, and that difference turned out to be the whole
+  boundary. **Hosts on 0.5.1 should move to this release**, since 0.5.1 carries the hole.
+
 ### Added
 
 - **Saving a record in the starter left the person on the form with nothing to show for it.**
