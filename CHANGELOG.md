@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 0.5.2
+
 ### Fixed
 
 - **A write could still move a row when the definition declared `id` as a column.** 0.5.1 refused an
