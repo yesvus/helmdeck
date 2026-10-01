@@ -16,11 +16,6 @@ const nextConfig = {
   // The demo is the repository root's `fixtures` directory, so Next needs to be told where the
   // workspace's own files are. Without this, a route that reaches outside `fixtures` cannot resolve.
   outputFileTracingRoot: new URL('../', import.meta.url).pathname,
-  eslint: {
-    // The demo is linted by the repository's own `pnpm lint`, which reads `eslint.config.mjs` at the
-    // root. Duplicating that here would run the same rules twice and report the same file twice.
-    ignoreDuringBuilds: true,
-  },
 }
 
 export default withPayload(nextConfig)
