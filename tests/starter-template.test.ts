@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { typecheckTemplate } from "../scripts/typecheck-template.mjs";
@@ -282,6 +282,46 @@ describe("the starter template", () => {
 
     for (const { slug, absent } of OMISSIONS) {
       expect(absent(), `the template does not leave out ${slug}`).toBe(true);
+    }
+  });
+
+  it("leaves the person somewhere that shows a record they just saved", () => {
+    // Found by driving the generated project in a browser, not by reading it: `AdminResourceForm`
+    // writes through the store and then stops, so a create page that passes no `onSaved` leaves the
+    // person on the form they just submitted, holding the values, with nothing saying the record
+    // exists and no link to it. The save works and the page says nothing, which is the failure a
+    // person reports as "it did not save".
+    //
+    // So every generated form has to say where a saved record went, and that destination has to be a
+    // page the template mounts, since a redirect into nothing is the same silence with a 404 instead
+    // of a form. Both the create form and the update one are covered, because an update leaves the
+    // person on a form still holding what they typed, and only a fresh read proves the store took it.
+    const forms = sources.filter((path) => /<AdminResourceForm/.test(code(path)));
+    expect(forms.length, "a generated form").toBeGreaterThan(1);
+
+    const silent = forms.filter((path) => {
+      const form = code(path).match(/<AdminResourceForm[\s\S]*?\/>/)?.[0] ?? "";
+      return !/\bonSaved=/.test(form);
+    });
+    expect(silent, "a form that says nothing after a save").toEqual([]);
+
+    // And the route each one sends a saved record to is a page that exists, because a redirect into
+    // nothing is the same silence with a 404 instead of a form. Read from the whole file rather than
+    // the element, because the destination is named in the callback the prop is handed to.
+    const destinations = forms.flatMap((path) =>
+      [...code(path).matchAll(/\brouter\.push\(\s*["'`]([^"'`]+)["'`]\s*\)/g)].map((match) => ({
+        path: name(path),
+        href: match[1],
+      })),
+    );
+    expect(destinations.length, "a form that says where a saved record went").toBe(forms.length);
+
+    for (const { path, href } of destinations) {
+      const route = href.split(/[?#]/, 1)[0].replace(/^\//, "");
+      const file = route === "" ? join(template, "app", "page.tsx") : join(template, "app", route, "page.tsx");
+      expect(existsSync(file), `${path} sends a saved record to /${href}, which no page is mounted at`).toBe(
+        true,
+      );
     }
   });
 

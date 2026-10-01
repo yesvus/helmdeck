@@ -10,6 +10,16 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ### Added
 
+- **Saving a record in the starter left the person on the form with nothing to show for it.**
+  `AdminResourceForm` writes through the store and then stops, and neither generated page passed
+  `onSaved`, so creating a product left the form holding the values just submitted, with no message
+  and no link to the record. The save worked; the page said nothing, which is what a person reports
+  as "it did not save". Both pages now return to the list, where the row is, and
+  `tests/starter-template.test.ts` fails if a generated form goes back to saying nothing.
+
+  Found by driving a generated project in a browser, which is the only way this shows up: the store
+  holds the row either way.
+
 - **One command writes a project from the starter template.** `scripts/create-admin-app.mjs <dir>`
   copies `template/` into a directory, rewrites the manifest to pin `@yesvus/helmdeck` to the
   published release tarball rather than to `link:..`, mints `HELMDECK_SESSION_SECRET` into a
