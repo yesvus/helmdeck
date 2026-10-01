@@ -292,7 +292,13 @@ function comparisonFor(
   // are the nulls.
   const across = operator === "<" || operator === "<=" ? "<" : ">";
   const measured = rank === 1 ? numberValue(field, params) : textValue(field, params);
-  const bound = rank === 1 ? `(${params.bind(value)}::numeric)` : `((${params.bind(value)}::text) ${C})`;
+  // **A boolean bound as its own number, not cast.** `numberValue` already reads a stored boolean
+    // as 1 or 0, so both sides of this comparison are numbers, and casting the bound value straight
+    // to `numeric` is what broke it: `invalid input syntax for type numeric: "true"`. Every
+    // inequality on a boolean threw while `eq` on the same field worked, because equality compares
+    // jsonb and never reaches this line.
+    const spelled = rank === 1 && typeof value === "boolean" ? (value ? 1 : 0) : value;
+    const bound = rank === 1 ? `(${params.bind(spelled)}::numeric)` : `((${params.bind(value)}::text) ${C})`;
   return {
     sql: `(${klass.sql} ${across} ${rank} OR (${klass.sql} = ${rank} AND ${measured.sql} ${operator} ${bound}))`,
   };

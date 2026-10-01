@@ -357,6 +357,28 @@ describeWithServer("the paged query, against a real server", () => {
     expect(await ids({ filter: [{ field: "count", operator: "notNull" }] })).toEqual(["a", "b", "c"]);
   });
 
+  it("compares a boolean on every operator, rather than only on equality", async () => {
+      const { db } = await store();
+      await db.create("posts", { id: "on", active: true });
+      await db.create("posts", { id: "off", active: false });
+
+      const ids = async (operator: "eq" | "ne" | "gt" | "gte" | "lt" | "lte") =>
+        (await db.queryPage<{ id: string }>("posts", { filter: [{ field: "active", operator, value: true }] }))
+          .rows.map((row) => row.id)
+          .sort();
+
+      // **Every inequality on a boolean used to throw** `invalid input syntax for type numeric:
+      // "true"`, because the stored side is read as 1 or 0 and the bound side was cast to `numeric`
+      // without being translated. `eq` worked, which is why a suite covering only equality could not
+      // see it. A boolean is ranked with the numbers, so every operator that ranks has to accept one.
+      expect(await ids("eq")).toEqual(["on"]);
+      expect(await ids("ne")).toEqual(["off"]);
+      expect(await ids("gt")).toEqual([]);
+      expect(await ids("gte")).toEqual(["on"]);
+      expect(await ids("lt")).toEqual(["off"]);
+      expect(await ids("lte")).toEqual(["off", "on"]);
+    });
+
   it("ranks a null as the lowest class for every direction a filter can ask", async () => {
     const { db } = await store();
     await db.create("posts", { id: "a", title: null });
