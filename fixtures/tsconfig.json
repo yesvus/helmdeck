@@ -21,7 +21,12 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "paths": {
+      // Payload's generated route files import the config by this name rather than by a relative path,
+      // because the import map it writes assumes the alias the docs prescribe.
+      "@payload-config": ["./payload.config.ts"]
+    }
   },
   "include": [
     "next-env.d.ts",

@@ -3,8 +3,8 @@ import { render, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider, adminDashboardAddPlacement, type AdminDashboard } from "@yesvus/helmdeck";
-import DashboardView from "../fixtures/app/dashboard/view";
-import { dashboardRegistry } from "../fixtures/app/dashboard/registry";
+import DashboardView from "../fixtures/app/(helmdeck)/dashboard/view";
+import { dashboardRegistry } from "../fixtures/app/(helmdeck)/dashboard/registry";
 
 /**
  * The dashboard's server actions, stood in for.

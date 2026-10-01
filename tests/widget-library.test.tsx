@@ -15,7 +15,7 @@ import { adminWidgetState, createAdminWidgetRegistry } from "../src/widgets/regi
 import { AdminWidget } from "../src/widgets/render";
 import type { AdminWidgetDefinition, AdminWidgetState } from "../src/widgets/types";
 import { useAdminWidgetData } from "../src/widgets/data";
-import { dashboardRegistry } from "../fixtures/app/dashboard/registry";
+import { dashboardRegistry } from "../fixtures/app/(helmdeck)/dashboard/registry";
 import { adminDashboardAddPlacement } from "../src/dashboard/model";
 import { AdminDashboardLayout } from "../src/dashboard/layout";
 

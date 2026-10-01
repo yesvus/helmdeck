@@ -15,7 +15,7 @@ import { componentCatalog } from "../fixtures/lib/demo-catalog";
 
 /** Renders one catalogue preview the way the page does, in the surface the page puts it in. */
 async function card(name: string) {
-  const { catalogPreviews } = await import("../fixtures/app/catalog/previews");
+  const { catalogPreviews } = await import("../fixtures/app/(helmdeck)/catalog/previews");
   const Preview = catalogPreviews[name];
   if (!Preview) throw new Error(`no preview is registered for ${name}`);
   return render(<Preview />);

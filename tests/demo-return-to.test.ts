@@ -36,7 +36,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 const ORIGIN = "https://demo.helmdeck.test";
-const APP = resolve(import.meta.dirname, "..", "fixtures", "app");
+// The demo's routes, in the `(helmdeck)` group. A route group is invisible in a URL, so the routes
+// below are unchanged; the directory they resolve against is not, because Payload's `(payload)` group
+// sits beside this one and its routes are not this demo's business.
+const APP = resolve(import.meta.dirname, "..", "fixtures", "app", "(helmdeck)");
 
 function filesUnder(directory: string): string[] {
   const found: string[] = [];

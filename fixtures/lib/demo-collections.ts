@@ -11,7 +11,7 @@ import { demoCan } from "./demo-rules";
 import { requireDemoSession } from "./demo-guard";
 import { demoPersistence } from "./demo-persistence";
 import { ensureDemoSeeded } from "./ensure-seeded";
-import type { LandingSection } from "../app/shell/pages/landing-registry";
+import type { LandingSection } from "../app/(helmdeck)/shell/pages/landing-registry";
 
 /**
  * The landing page's sections, persisted as rows, over a server action.

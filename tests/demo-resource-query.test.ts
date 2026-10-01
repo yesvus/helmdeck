@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminResourceNotExposedError } from "@yesvus/helmdeck";
-import { signInAction } from "../fixtures/app/login/actions";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
 import { productsResource } from "../fixtures/lib/admin-resources";
 import { clientPersistence, pagedClientPersistence } from "../fixtures/lib/client-persistence";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
@@ -133,8 +133,8 @@ describe("what the demo's list is told its store can do", () => {
     // would be guessing, and a guess would put a search box over a store that cannot search. The
     // answer is a fact about the adapter, and the two pages read it the same way rather than each
     // deciding for itself.
-    const { default: ProductsPage } = await import("../fixtures/app/shell/products/page");
-    const { default: OrdersPage } = await import("../fixtures/app/shell/orders/page");
+    const { default: ProductsPage } = await import("../fixtures/app/(helmdeck)/shell/products/page");
+    const { default: OrdersPage } = await import("../fixtures/app/(helmdeck)/shell/orders/page");
     const { DemoResourceList } = await import("../fixtures/components/demo-resource-list");
     const paged = typeof demoPersistence().adapter.queryPage === "function";
 

@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { revalidatePath } from "next/cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { adminDashboardValidate } from "@yesvus/helmdeck";
-import { signInAction } from "../fixtures/app/login/actions";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { queryResourceAction } from "../fixtures/lib/resource-actions";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";
@@ -13,9 +13,9 @@ import {
   loadDashboardArrangementAction,
   type DashboardArrangementEntry,
 } from "../fixtures/lib/demo-dashboard-arrangement";
-import DashboardPage from "../fixtures/app/dashboard/page";
-import DashboardArranger from "../fixtures/app/dashboard/arrange/arranger";
-import { dashboardRegistry } from "../fixtures/app/dashboard/registry";
+import DashboardPage from "../fixtures/app/(helmdeck)/dashboard/page";
+import DashboardArranger from "../fixtures/app/(helmdeck)/dashboard/arrange/arranger";
+import { dashboardRegistry } from "../fixtures/app/(helmdeck)/dashboard/registry";
 
 /**
  * The arrangement the dashboard renders, read from and written back to the store.

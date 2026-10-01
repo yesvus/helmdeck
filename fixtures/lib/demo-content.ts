@@ -12,7 +12,7 @@ import {
   CONTENT_RESOURCE,
   isContentStatus,
   type ContentStatus,
-} from "../app/shell/content/content-status";
+} from "../app/(helmdeck)/shell/content/content-status";
 
 /**
  * The demo's posts, over the persistence actions every other resource goes through.

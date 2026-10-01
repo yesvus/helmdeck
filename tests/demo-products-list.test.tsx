@@ -11,7 +11,7 @@ import {
   type AdminPermissionsAdapter,
   type AdminSession,
 } from "@yesvus/helmdeck";
-import ProductsPage from "../fixtures/app/shell/products/page";
+import ProductsPage from "../fixtures/app/(helmdeck)/shell/products/page";
 import { productsResource } from "../fixtures/lib/admin-resources";
 import { demoCan } from "../fixtures/lib/demo-rules";
 import { ensureDemoSeeded } from "../fixtures/lib/ensure-seeded";

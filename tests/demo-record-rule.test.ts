@@ -6,7 +6,7 @@ import {
   type AdminPermissionContext,
   type AdminSession,
 } from "@yesvus/helmdeck";
-import { signInAction } from "../fixtures/app/login/actions";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { ensureDemoSeeded } from "../fixtures/lib/ensure-seeded";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";

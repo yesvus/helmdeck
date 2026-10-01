@@ -15,9 +15,9 @@ import {
   resolveAdminThemeSettings,
   type AdminSession,
 } from "@yesvus/helmdeck";
-import { signInAction } from "../fixtures/app/login/actions";
-import SiteSettingsPage from "../fixtures/app/shell/settings/site/page";
-import ShellLayout from "../fixtures/app/shell/layout";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
+import SiteSettingsPage from "../fixtures/app/(helmdeck)/shell/settings/site/page";
+import ShellLayout from "../fixtures/app/(helmdeck)/shell/layout";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";
 import {
@@ -125,7 +125,7 @@ vi.mock("next/link.js", () => ({
 }));
 
 // The sign-out and the permission rule reach the store, which a rendering test has no session for.
-vi.mock("../fixtures/app/shell/sign-out-action", () => ({ signOutAction: vi.fn() }));
+vi.mock("../fixtures/app/(helmdeck)/shell/sign-out-action", () => ({ signOutAction: vi.fn() }));
 vi.mock("../fixtures/lib/demo-permissions", () => ({
   demoPermissionsAdapter: () => ({ can: () => true }),
 }));

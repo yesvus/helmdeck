@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { defineAdminResource, type AdminResourceDefinition } from "../src/resources/index";
-import { contentPosts } from "../fixtures/app/shell/content/content-registry";
+import { contentPosts } from "../fixtures/app/(helmdeck)/shell/content/content-registry";
 import { ordersResource, productsResource } from "../fixtures/lib/admin-resources";
 
 /**

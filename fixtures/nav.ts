@@ -70,6 +70,16 @@ export const sampleNav: AdminNavGroup[] = [
         keywords: ["posts", "draft", "published", "edit"],
       },
       {
+        // The door into Payload. helmdeck's shell keeps the dashboard, the charts and the CRUD over the
+        // demo's own tables; content editing is Payload's, and this is the link that says so rather than
+        // a second content editor competing with the first.
+        href: "/shell/studio",
+        label: "Content studio",
+        shortLabel: "Studio",
+        icon: "sparkles",
+        keywords: ["payload", "rich text", "lexical", "blocks", "versions", "cms"],
+      },
+      {
         href: "/shell/revisions",
         label: "History",
         shortLabel: "History",

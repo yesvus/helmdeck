@@ -1,0 +1,6 @@
+# Payload's SQLite adapter pulls in drizzle-kit, which pulls in esbuild. esbuild's postinstall
+# fetches the platform binary it compiles with, so a build script pnpm blocks leaves a package that
+# installs cleanly and then fails the first time it is run. pnpm 12 refuses the whole install rather
+# than skipping them, so the allowlist has to name it.
+allowBuilds:
+  esbuild: true

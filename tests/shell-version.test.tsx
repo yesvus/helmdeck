@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import ts from "typescript";
 import { AdminI18nProvider, HELMDECK_VERSION, type AdminSession } from "@yesvus/helmdeck";
-import { ShellClient } from "../fixtures/app/shell/shell-client";
+import { ShellClient } from "../fixtures/app/(helmdeck)/shell/shell-client";
 import { sampleNav } from "../fixtures/nav";
 
 /**
@@ -36,7 +36,7 @@ vi.mock("next/link.js", () => ({
 
 // The sign-out and the permission rule reach the store, which a rendering test has no session for.
 // Neither is what is under test here.
-vi.mock("../fixtures/app/shell/sign-out-action", () => ({ signOutAction: vi.fn() }));
+vi.mock("../fixtures/app/(helmdeck)/shell/sign-out-action", () => ({ signOutAction: vi.fn() }));
 vi.mock("../fixtures/lib/demo-permissions", () => ({
   demoPermissionsAdapter: () => ({ can: () => true }),
 }));
@@ -85,9 +85,9 @@ describe("the shell naming the version it is running", () => {
     // comments explaining this failure can name the version they are about without being read as
     // having set it.
     const files = [
-      "fixtures/app/shell/version-readout.tsx",
-      "fixtures/app/shell/shell-client.tsx",
-      "fixtures/app/shell/layout.tsx",
+      "fixtures/app/(helmdeck)/shell/version-readout.tsx",
+      "fixtures/app/(helmdeck)/shell/shell-client.tsx",
+      "fixtures/app/(helmdeck)/shell/layout.tsx",
     ];
     const literals = files.flatMap((file) => {
       const path = join(process.cwd(), file);

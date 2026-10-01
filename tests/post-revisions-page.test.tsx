@@ -4,9 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "@yesvus/helmdeck";
 import { hashPassword } from "@yesvus/helmdeck/baseline";
-import { signInAction } from "../fixtures/app/login/actions";
-import PostRevisionsPage from "../fixtures/app/shell/revisions/[id]/page";
-import { PostHistory } from "../fixtures/app/shell/revisions/post-history";
+import { signInAction } from "../fixtures/app/(helmdeck)/login/actions";
+import PostRevisionsPage from "../fixtures/app/(helmdeck)/shell/revisions/[id]/page";
+import { PostHistory } from "../fixtures/app/(helmdeck)/shell/revisions/post-history";
 import { DEMO_PASSWORD, demoAccounts } from "../fixtures/lib/demo-accounts";
 import { demoPersistence } from "../fixtures/lib/demo-persistence";
 import { ensureDemoSeeded } from "../fixtures/lib/ensure-seeded";
@@ -29,7 +29,7 @@ const actions = vi.hoisted(() => ({
   unpublish: vi.fn(async () => ({})),
 }));
 
-vi.mock("../fixtures/app/shell/revisions/actions", () => ({
+vi.mock("../fixtures/app/(helmdeck)/shell/revisions/actions", () => ({
   publishPostAction: actions.publish,
   restorePostRevisionAction: actions.restore,
   savePostAction: actions.save,

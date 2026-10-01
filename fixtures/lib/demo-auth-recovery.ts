@@ -306,7 +306,16 @@ function webhook(url: string): RecoveryTransport {
  * accepting a request it cannot serve. A token that goes nowhere leaves nothing behind to be
  * replayed from, which is the whole reason the default is off rather than a console line.
  */
-export function demoRecoveryTransport(env: NodeJS.ProcessEnv = process.env): RecoveryTransport | undefined {
+/**
+ * The environment, as this module reads it.
+ *
+ * `Record<string, string | undefined>` rather than `NodeJS.ProcessEnv`. Next augments the latter with a
+ * **required** `NODE_ENV`, so once any file in the same typecheck program pulls in Next's types, every
+ * caller passing a literal environment is a type error over a variable this function never reads.
+ */
+export function demoRecoveryTransport(
+  env: Record<string, string | undefined> = process.env,
+): RecoveryTransport | undefined {
   const url = env.HELMDECK_RECOVERY_WEBHOOK?.trim();
   return url ? webhook(url) : undefined;
 }

@@ -8,7 +8,7 @@ import { demoPersistence } from "../fixtures/lib/demo-persistence";
 import { seedDemo } from "../fixtures/lib/seed";
 import { demoAuth, demoCredentialStore, SESSION_TTL_SECONDS } from "../fixtures/lib/demo-session";
 import { DEFAULT_AFTER_LOGIN, requireDemoSession } from "../fixtures/lib/demo-guard";
-import { endEverySessionAction, signInAction, signOutAction } from "../fixtures/app/login/actions";
+import { endEverySessionAction, signInAction, signOutAction } from "../fixtures/app/(helmdeck)/login/actions";
 
 /**
  * The request scope, stood in for.
