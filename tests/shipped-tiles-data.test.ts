@@ -260,9 +260,15 @@ describe("the reads behind the shipped tiles", () => {
     const chart = await loadDailyRevenueAction(end, 30, "");
 
     expect(chart.days).toHaveLength(30);
+    // The first, second-last and last days of the range, named from the range rather than written out,
+    // so the assertion describes the window instead of three dates that quietly stop being its edges.
+    const dayKey = (offset: number) =>
+      new Date(end.getTime() - offset * 86_400_000).toISOString().slice(0, 10);
     expect(chart.days.map((day) => day.key)).toEqual(
-      expect.arrayContaining(["2026-09-01", "2026-09-29", "2026-09-30"]),
+      expect.arrayContaining([dayKey(29), dayKey(1), dayKey(0)]),
     );
+    expect(chart.days[0].key).toBe(dayKey(29));
+    expect(chart.days[29].key).toBe(dayKey(0));
     // A chart built from the rows alone would have one point per order and would draw a straight line
     // across the days that hold nothing.
     expect(chart.days.every((day) => Number.isFinite(day.value))).toBe(true);
