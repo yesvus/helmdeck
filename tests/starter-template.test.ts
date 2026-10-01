@@ -327,10 +327,10 @@ describe("the starter template", () => {
       const href = body.match(/\brouter\.push\(\s*["'`]([^"'`]+)["'`]\s*\)/)?.[1];
       expect(href, `${file}: onSaved is ${prop}, which navigates nowhere`).toBeTruthy();
 
-      const route = href!.split(/[?#]/, 1)[0].replace(/^\//, "");
+      const route = resolveDynamicSegments(href!, file);
       const mounted =
         route === "" ? join(template, "app", "page.tsx") : join(template, "app", route, "page.tsx");
-      expect(existsSync(mounted), `${file} sends a saved record to /${href}, which no page is mounted at`).toBe(
+      expect(existsSync(mounted), `${file} sends a saved record to ${href}, which no page is mounted at`).toBe(
         true,
       );
     }
@@ -409,6 +409,48 @@ const OMISSIONS = [
 
 function anyFile(pattern: RegExp): boolean {
   return sources.some((path) => pattern.test(code(path)));
+}
+
+/**
+ * A destination with an interpolated segment, resolved against the template's own route directories.
+ *
+ * `\`/admin/products/${id}\`` is the natural companion to a save that returns to the list, and it names
+ * the id the save produced, so the route it lands on is the `[id]` directory rather than a path any
+ * file holds. Refusing the shape outright would make the guard fail a correct page the moment a host
+ * wrote one, so each interpolated segment is looked up as a `[name]` directory. A segment that
+ * accounts for no directory is left as it is, and the caller's `existsSync` then fails, which is the
+ * answer a destination into nothing deserves.
+ */
+function resolveDynamicSegments(href: string, file: string): string {
+  const walked: string[] = [];
+  return href
+    .split(/[?#]/, 1)[0]
+    .replace(/^\//, "")
+    .split("/")
+    .map((segment) => {
+      if (!segment.includes("${")) {
+        walked.push(segment);
+        return segment;
+      }
+      // The directory the segment would name is a sibling of the one the walk has reached, so this
+      // lists the route directories at the current depth rather than the template's whole `app/`.
+      const parent = join(template, "app", ...walked);
+      const dynamic = existsSync(parent)
+        ? readdirSync(parent, { withFileTypes: true }).find(
+            (entry) => entry.isDirectory() && /^\[.+\]$/.test(entry.name),
+          )
+        : undefined;
+      if (!dynamic) {
+        throw new Error(
+          `${file} interpolates \`${segment}\` into its destination, and no dynamic route segment ` +
+            `accounts for it.\nLooked in: ${parent}\nA dynamic route is a directory named [something], ` +
+            `which is how Next.js mounts one.`,
+        );
+      }
+      walked.push(dynamic.name);
+      return dynamic.name;
+    })
+    .join("/");
 }
 
 function existsInTemplate(relativePath: string): boolean {

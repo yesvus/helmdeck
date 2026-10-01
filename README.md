@@ -59,15 +59,17 @@ grid, modals that do not centre. The path is relative to the stylesheet that dec
 
 ```sh
 git clone --depth 1 https://github.com/yesvus/helmdeck.git
-node helmdeck/scripts/create-admin-app.mjs my-admin --install
+node helmdeck/scripts/create-admin-app.mjs my-admin --package-manager npm --install
 cd my-admin
 node scripts/create-user.mjs you@example.com admin
 npm run dev
 ```
 
-`create-admin-app.mjs` copies the template, rewrites the manifest to pin `@yesvus/helmdeck` to the release tarball above rather than to a path in a neighbouring checkout, and mints `HELMDECK_SESSION_SECRET` into a `.env.local` the copied `.gitignore` already ignores. It reaches no network, so a machine without one still gets a directory; the install is where the pinned URL is used. `--version v0.5.1` pins a release other than the checkout's own, `--package-manager` chooses the install command, `--force` writes over a directory that already holds files, and `--help` prints the rest.
+`create-admin-app.mjs` copies the template, rewrites the manifest to pin `@yesvus/helmdeck` to the release tarball above rather than to a path in a neighbouring checkout, and mints `HELMDECK_SESSION_SECRET` into a `.env.local` the copied `.gitignore` already ignores. It reaches no network, so a machine without one still gets a directory; the install is where the pinned URL is used.
 
-**Clone the default branch, not a release tag.** The command ships in the repository, and a tag is cut at a release, so a checkout of a tag cut before this command existed has no `scripts/create-admin-app.mjs` to run. The default branch always has the command; pass `--version` to pin a release other than the one the branch is on.
+The example pins `--package-manager npm` so the block above is the same on every machine. Without it the command picks pnpm when pnpm is on `PATH`, and prints the install and run commands for whichever it picked, so use the ones it prints.
+
+**Clone the default branch, not a release tag.** The command ships in the repository, and a tag is cut at a release, so a checkout of a tag cut before this command existed has no `scripts/create-admin-app.mjs` to run. The default branch always has the command; `--version v0.4.0` pins an earlier release than the branch is on. `--force` writes over a directory that already holds files, and `--help` prints the rest.
 
 Beyond the account, the list of what the template leaves out is in [`template/README.md`](./template/README.md), which the generated project carries with it: no registration route, no password reset, no settings page, no media adapter, no audit trail, no per-record rule, and one interface language. Each is absent on purpose and each is a decision you make rather than one you find later, so read that list before building on the project. You also need a repository of your own (`git init` and a first commit) and a deployment story for the SQLite file, which is a file on the machine that ran `dev`.
 

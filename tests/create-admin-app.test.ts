@@ -277,8 +277,13 @@ describe("the command says where it got to, because a wall of prose is not a mes
     // names are what tells a person whether they pointed at the wrong path or meant to.
     const directory = workspace();
     try {
+      // Planted at a path the template does not hold. The first version of this planted
+      // `app/page.tsx`, which the template also holds, so the forced copy overwrote it and the
+      // assertion that it was still there passed on the template's own file.
+      const marker = join(directory, "my-admin", "app", "keep-me.tsx");
       mkdirSync(join(directory, "my-admin", "app"), { recursive: true });
-      writeFileSync(join(directory, "my-admin", "app", "page.tsx"), "a project somebody started");
+      writeFileSync(marker, "a project somebody started");
+
       const result = run([join(directory, "my-admin")]);
       expect(result.code).toBe(1);
       expect(result.stdout).toBe("");
@@ -287,12 +292,15 @@ describe("the command says where it got to, because a wall of prose is not a mes
       expect(result.stderr).toContain("--force");
       // Nothing was written, so the refusal is not also a partial copy.
       expect(readdirSync(join(directory, "my-admin"))).toEqual(["app"]);
+      expect(readApp(join(directory, "my-admin"), "app/keep-me.tsx")).toBe("a project somebody started");
 
       // And --force is the documented way through, so a host who means to overwrite is not stuck.
+      // It writes over what it holds rather than emptying the directory first, which is the one
+      // behaviour a host pointing at a real project needs to be told about, so it is asserted.
       const forced = run([join(directory, "my-admin"), "--force"]);
       expect(forced.code).toBe(0);
-      expect(existsSync(join(directory, "my-admin", "app", "page.tsx")), "the file that was there").toBe(true);
       expect(existsSync(join(directory, "my-admin", "lib", "rules.ts")), "the template's own file").toBe(true);
+      expect(readApp(join(directory, "my-admin"), "app/keep-me.tsx")).toBe("a project somebody started");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

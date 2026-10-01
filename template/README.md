@@ -18,13 +18,15 @@ node path/to/helmdeck/scripts/create-admin-app.mjs my-admin
 That copies these files, rewrites the manifest to pin `@yesvus/helmdeck` to a published release
 tarball rather than to a path in a neighbouring checkout, and mints the session secret into a
 `.env.local` the copied `.gitignore` already ignores. It reaches no network; the install is where the
-pinned URL is used. Run `node path/to/helmdeck/scripts/create-admin-app.mjs --help` for the options,
-which include `--install` and a `--version` for a release other than the checkout's own.
+pinned URL is used, which is why it is a separate step below. Run
+`node path/to/helmdeck/scripts/create-admin-app.mjs --help` for the options, which include `--install`
+for the install and a `--version` for a release other than the branch's own.
 
 Then, in the directory it wrote:
 
 ```sh
 cd my-admin
+npm install
 node scripts/create-user.mjs you@example.com admin
 npm run dev
 ```
