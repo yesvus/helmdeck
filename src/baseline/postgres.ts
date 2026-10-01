@@ -184,6 +184,11 @@ type Fragment = { sql: string };
  * to agree and a record cannot move between pages when a host changes store.
  */
 function rankOf(field: string, params: Params): Fragment {
+  // **Bound once, and the SQL below may be interpolated more than once.** A bound parameter may be
+  // referenced any number of times while being bound once, which is what makes `comparisonFor` able
+  // to write `klass.sql` twice without threading arguments through: Postgres resolves `$n` per use
+  // and the value is supplied per bind. What it refuses is a placeholder the statement never
+  // mentions, which is the opposite mistake.
   const path = params.bind(pathLiteral(fieldPath(field)));
   return {
     sql: `CASE COALESCE(jsonb_typeof(data #> ${path}), 'null')
