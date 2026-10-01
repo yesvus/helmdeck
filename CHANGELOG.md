@@ -44,6 +44,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
   a missing template is refused naming every path it looked at, in the same shape as the migrations
   directory.
 
+  Obtain it from a clone of the default branch rather than of a release tag. The command ships in the
+  repository and a tag is cut at a release, so a checkout of a tag cut before this change has no
+  `scripts/create-admin-app.mjs` in it. `--version` pins a release other than the branch's.
+
 ## 0.5.1
 
 ### Fixed

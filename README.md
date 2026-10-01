@@ -58,7 +58,7 @@ grid, modals that do not centre. The path is relative to the stylesheet that dec
 `template/` is a Next.js App Router project that runs before you have written any of it. One command writes it into a directory of your choosing, and you have a sign-in that checks a password against a stored hash, a resource whose list searches, sorts, filters and pages, a form generated from the same description, and a shell around both. There is no database to configure, no schema to design, and no migration to plan: the store is a SQLite file created on the first query, and moving it to a hosted one is two environment variables.
 
 ```sh
-git clone --depth 1 --branch v0.5.1 https://github.com/yesvus/helmdeck.git
+git clone --depth 1 https://github.com/yesvus/helmdeck.git
 node helmdeck/scripts/create-admin-app.mjs my-admin --install
 cd my-admin
 node scripts/create-user.mjs you@example.com admin
@@ -66,6 +66,8 @@ npm run dev
 ```
 
 `create-admin-app.mjs` copies the template, rewrites the manifest to pin `@yesvus/helmdeck` to the release tarball above rather than to a path in a neighbouring checkout, and mints `HELMDECK_SESSION_SECRET` into a `.env.local` the copied `.gitignore` already ignores. It reaches no network, so a machine without one still gets a directory; the install is where the pinned URL is used. `--version v0.5.1` pins a release other than the checkout's own, `--package-manager` chooses the install command, `--force` writes over a directory that already holds files, and `--help` prints the rest.
+
+**Clone the default branch, not a release tag.** The command ships in the repository, and a tag is cut at a release, so a checkout of a tag cut before this command existed has no `scripts/create-admin-app.mjs` to run. The default branch always has the command; pass `--version` to pin a release other than the one the branch is on.
 
 Beyond the account, the list of what the template leaves out is in [`template/README.md`](./template/README.md), which the generated project carries with it: no registration route, no password reset, no settings page, no media adapter, no audit trail, no per-record rule, and one interface language. Each is absent on purpose and each is a decision you make rather than one you find later, so read that list before building on the project. You also need a repository of your own (`git init` and a first commit) and a deployment story for the SQLite file, which is a file on the machine that ran `dev`.
 

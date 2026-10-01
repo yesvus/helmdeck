@@ -306,20 +306,31 @@ describe("the starter template", () => {
     expect(silent, "a form that says nothing after a save").toEqual([]);
 
     // And the route each one sends a saved record to is a page that exists, because a redirect into
-    // nothing is the same silence with a 404 instead of a form. Read from the whole file rather than
-    // the element, because the destination is named in the callback the prop is handed to.
-    const destinations = forms.flatMap((path) =>
-      [...code(path).matchAll(/\brouter\.push\(\s*["'`]([^"'`]+)["'`]\s*\)/g)].map((match) => ({
-        path: name(path),
-        href: match[1],
-      })),
-    );
-    expect(destinations.length, "a form that says where a saved record went").toBe(forms.length);
+    // nothing is the same silence with a 404 instead of a form.
+    //
+    // The destination is read out of the callback the `onSaved` prop is handed, not from every
+    // navigation in the file. Scanning the file would pass a form whose `onSaved` is a no-op as long
+    // as the file pushes somewhere else, which is the regression this test exists for, and it would
+    // fail a page that gains an unrelated navigation, which is not a regression at all.
+    for (const path of forms) {
+      const file = name(path);
+      const source = code(path);
+      const prop = source.match(/\bonSaved=\{\s*(\w+)\s*\}/)?.[1];
+      expect(prop, `${file} passes onSaved a name this file does not declare`).toBeTruthy();
 
-    for (const { path, href } of destinations) {
-      const route = href.split(/[?#]/, 1)[0].replace(/^\//, "");
-      const file = route === "" ? join(template, "app", "page.tsx") : join(template, "app", route, "page.tsx");
-      expect(existsSync(file), `${path} sends a saved record to /${href}, which no page is mounted at`).toBe(
+      // The handler's own body, bounded by the dependency array that closes a `useCallback`. Matching
+      // to the next `}` at the start of a line would run past it, because React closes the callback
+      // with `}, [router]` on an indented line, and a body that swallowed the rest of the component
+      // would read a navigation belonging to some other handler as this one's.
+      const body =
+        source.match(new RegExp(`\\b${prop}\\s*=\\s*useCallback\\([\\s\\S]*?\\},\\s*\\[`))?.[0] ?? "";
+      const href = body.match(/\brouter\.push\(\s*["'`]([^"'`]+)["'`]\s*\)/)?.[1];
+      expect(href, `${file}: onSaved is ${prop}, which navigates nowhere`).toBeTruthy();
+
+      const route = href!.split(/[?#]/, 1)[0].replace(/^\//, "");
+      const mounted =
+        route === "" ? join(template, "app", "page.tsx") : join(template, "app", route, "page.tsx");
+      expect(existsSync(mounted), `${file} sends a saved record to /${href}, which no page is mounted at`).toBe(
         true,
       );
     }

@@ -7,7 +7,9 @@ schema to design, and no second place where a permission is decided.
 
 ## Setup
 
-From a checkout of the Helmdeck repository, one command writes a project from this directory:
+From a checkout of the Helmdeck repository's default branch, one command writes a project from this
+directory. A checkout of a release tag may predate the command, so clone the branch and pass
+`--version` if you want to pin an earlier release:
 
 ```sh
 node path/to/helmdeck/scripts/create-admin-app.mjs my-admin

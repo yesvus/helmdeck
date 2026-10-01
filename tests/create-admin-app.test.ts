@@ -73,6 +73,18 @@ function readApp(directory: string, path: string): string {
   return readFileSync(join(directory, path), "utf8");
 }
 
+/**
+ * Comments stripped before a source file is read for what it declares.
+ *
+ * The same two passes `tests/starter-template.test.ts` uses, for the same reason: a `//` inside a
+ * string would truncate a line, and this file reads source for a platform branch and a path separator
+ * that a comment can mention without declaring.
+ */
+const code = (path: string): string =>
+  readFileSync(path, "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^[^\S\n]*|[^\S\n])\/\/[^\n]*/g, "$1");
+
 describe("one command writes a project a host can install", () => {
   it("writes every file the template holds, and none of what a checkout accumulated", () => {
     const directory = workspace();
@@ -375,6 +387,60 @@ describe("the command says where it got to, because a wall of prose is not a mes
       // And a PATH entry that does not exist, or an empty PATH, is no rather than a throw.
       expect(onPath("pnpm", { platform: "linux", path: join(directory, "absent") })).toBe(false);
       expect(onPath("pnpm", { platform: "linux", path: "" })).toBe(false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves a destination that sits inside the template it is copying, on any platform", () => {
+    // The refusal exists because the copy would otherwise walk into the directory it is writing and
+    // read its own output. The check compared a path against a `"/"` prefix, which is right on Linux
+    // and wrong on Windows, where `resolve` answers with backslashes: the check passed and the copy
+    // recursed. `path.sep` is the only spelling that is right on both, so the containment is
+    // asserted by name rather than by a platform this test cannot be.
+    const source = code(join(root, "scripts", "create-admin-app.mjs"));
+    expect(source, "a hardcoded path separator in the containment check").not.toMatch(
+      /sourcePath\s*\+\s*"\/"/,
+    );
+    expect(source).toMatch(/sourcePath\s*\+\s*sep/);
+
+    // And the check refuses for real, on this platform, which is the same code path.
+    const result = run([join(template, "generated")]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("inside the template");
+    expect(existsSync(join(template, "generated"))).toBe(false);
+  });
+
+  it("installs through a shell on Windows, where a package manager is a .cmd file", () => {
+    // `execFileSync` reaches `CreateProcessW` directly, which cannot run a `.cmd` batch file, so
+    // `--install` there threw ENOENT for a package manager that was installed and working. The
+    // option is read from the source because the branch is `process.platform === "win32"` and this
+    // test runs on Linux, where the option correctly stays off.
+    const source = code(join(root, "scripts", "create-admin-app.mjs"));
+    expect(source).toMatch(/shell:\s*true/);
+    expect(source).toMatch(/platform === "win32"\s*\?\s*\{\s*shell: true \}/);
+
+    // And on this platform the install really runs, through a stand-in for the package manager, so
+    // the call is exercised rather than only its source read.
+    const directory = workspace();
+    try {
+      const calls: Array<[string, string[], { cwd?: string } | undefined]> = [];
+      createAdminApp({
+        destination: join(directory, "my-admin"),
+        packageManager: "pnpm",
+        install: true,
+        run: (file, args, options) => {
+          calls.push([file, args, options]);
+          return "";
+        },
+      });
+      expect(calls).toHaveLength(1);
+      expect(calls[0][0]).toBe("pnpm");
+      expect(calls[0][1]).toEqual(["install"]);
+      expect(calls[0][2]?.cwd).toBe(join(directory, "my-admin"));
+      // No shell on this platform, which is what keeps a directory name with a space in it from
+      // being re-parsed by one.
+      expect(calls[0][2]).not.toHaveProperty("shell");
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

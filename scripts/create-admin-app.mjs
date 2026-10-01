@@ -20,7 +20,7 @@
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, join, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { readVersion, root, versionFromTag } from "./version-source.mjs";
@@ -287,7 +287,9 @@ export function createAdminApp({
     );
   }
 
-  if (target === sourcePath || target.startsWith(sourcePath + "/")) {
+  // `sep`, and not a literal "/": on Windows `resolve` answers with backslashes, so a forward-slash
+  // prefix answers false and the copy walks into the directory it is writing.
+  if (target === sourcePath || target.startsWith(sourcePath + sep)) {
     throw new Error(
       `${target} is inside the template being copied, so the copy would read its own output. ` +
         `Give a directory outside ${sourcePath}.`,
@@ -341,7 +343,13 @@ export function createAdminApp({
 
   const report = { destination: target, name, version, url, packageManager, files, skipped, secretPath };
   if (install) {
-    run(packageManager, ["install"], { cwd: target, stdio: "inherit" });
+    // `shell` on Windows, where a package manager is a `.cmd` batch file rather than an executable,
+    // so `CreateProcessW` alone answers ENOENT for a command that is installed and working.
+    run(packageManager, ["install"], {
+      cwd: target,
+      stdio: "inherit",
+      ...(process.platform === "win32" ? { shell: true } : {}),
+    });
     report.installed = true;
   }
   return report;
