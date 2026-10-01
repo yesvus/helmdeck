@@ -17,6 +17,7 @@
  */
 
 import { sqliteAdapter, type SQLiteAdapterArgs } from "@payloadcms/db-sqlite";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -60,7 +61,45 @@ export function payloadDatabaseClient(env: PayloadEnv = process.env): {
  * are decisions with a consequence, and a test that re-declared them would prove nothing about the
  * config that actually runs.
  */
-export function payloadDatabaseOptions(env: PayloadEnv = process.env): SQLiteAdapterArgs {
+/**
+ * Where Payload's generated migrations are, whichever of the three layouts this is running in.
+ *
+ * `process.cwd()` is the repository root in development and `/var/task` on Vercel, because the build sets
+ * `outputDirectory: fixtures/.next`. Joining a path onto that assumes a layout, and this project has
+ * already paid for that assumption twice: once for the demo's own migrations, where the deployed working
+ * directory produced a bare `ENOENT` on a path nobody had ever seen, and once for a fixture elsewhere that
+ * resolved to the wrong tree entirely. Both were deploy-time failures that no test caught, because neither
+ * exists on a machine that is not the deployed one.
+ *
+ * So the candidates are tried and the first that is a directory wins, and when none is, the error names
+ * every path that was tried. A missing file that says where it looked is a five-second fix.
+ */
+export function payloadMigrationsDir(cwd: string = process.cwd()): string {
+  const candidates = [
+    join(cwd, "fixtures", "payload-migrations"),
+    join(cwd, "payload-migrations"),
+    join(cwd, "lib", "payload-migrations"),
+  ];
+  for (const dir of candidates) {
+    if (existsSync(dir)) return dir;
+  }
+  throw new Error(
+    `Payload's migrations directory is not at any of: ${candidates.join(", ")}. Working directory was ${cwd}.`,
+  );
+}
+
+/**
+ * The adapter's options, for `cwd` rather than the process's own working directory.
+ *
+ * `cwd` is a parameter so the option this returns can be asserted under a layout that is not this
+ * machine's. Every test that passed a temporary root exercised the resolver but not the call site, so
+ * replacing the call back with an assumed `process.cwd()` path failed nothing: the deploy bug would have
+ * returned with a green suite, which is the exact failure the suite exists to prevent.
+ */
+export function payloadDatabaseOptions(
+  env: PayloadEnv = process.env,
+  cwd: string = process.cwd(),
+): SQLiteAdapterArgs {
   return {
     client: payloadDatabaseClient(env),
     // `push` lets Drizzle alter the database to match the config at startup, which is convenient and
@@ -68,7 +107,8 @@ export function payloadDatabaseOptions(env: PayloadEnv = process.env): SQLiteAda
     // added columns to it would be a schema change nobody approved. Payload writes the migration for
     // those tables instead, and applying it is a separate, deliberate step.
     push: false,
-    migrationDir: join(process.cwd(), "fixtures", "payload-migrations"),
+    // Resolved by candidate rather than assumed: this path has broken two deploys in this project already.
+    migrationDir: payloadMigrationsDir(cwd),
     // Text ids, because the accounts collection reads the demo's own `users` table and those ids are
     // strings like `usr_owner`. SQLite is dynamically typed so it would store them either way, but
     // Payload's default is an autoincrementing integer, and an integer-typed id column over text ids makes
