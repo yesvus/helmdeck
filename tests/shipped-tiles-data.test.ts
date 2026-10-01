@@ -249,8 +249,13 @@ describe("the reads behind the shipped tiles", () => {
 
   it("gives the chart a point for every day in the range, so a day with no sales is a zero", async () => {
     await signIn(owner);
-    await dateEveryOrder();
-    const end = new Date("2026-09-30T00:00:00.000Z");
+    // The orders are dated from this clock and the range ends on the same one. A hard-coded end date
+    // beside a `new Date()` default is a test that passes until the calendar crosses it: this one held
+    // through 30 September and failed on 1 October, when every order fell outside the window and the
+    // single carrying day became none.
+    const now = new Date();
+    await dateEveryOrder(now.toISOString());
+    const end = new Date(`${now.toISOString().slice(0, 10)}T00:00:00.000Z`);
 
     const chart = await loadDailyRevenueAction(end, 30, "");
 
@@ -261,11 +266,11 @@ describe("the reads behind the shipped tiles", () => {
     // A chart built from the rows alone would have one point per order and would draw a straight line
     // across the days that hold nothing.
     expect(chart.days.every((day) => Number.isFinite(day.value))).toBe(true);
-    // The four earned orders all landed today, so exactly one day carries money and the other
-    // twenty-nine are zeros rather than holes.
+    // The four earned orders all landed on the day the range ends, so exactly one day carries money and
+    // the other twenty-nine are zeros rather than holes.
     const carrying = chart.days.filter((day) => day.value > 0);
     expect(carrying).toHaveLength(1);
-    expect(carrying[0].key).toBe("2026-09-30");
+    expect(carrying[0].key).toBe(end.toISOString().slice(0, 10));
     expect(chart.cents).toBe(25500);
   });
 

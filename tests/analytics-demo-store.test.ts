@@ -137,12 +137,26 @@ describe("the demo's own store holds captured events", () => {
     ]);
   });
 
-  it("is created by the last migration file, because the runner applies them in name order", () => {
+  it("is created by a migration that runs before every migration touching it", () => {
     // Keyed by file name, so a file that sorts early would run before the tables it assumes exist.
+    //
+    // This used to assert that the creating file was the *last* one, which is a proxy for the property
+    // that matters and is stricter than it: it forbids any later migration, including one that touches
+    // an unrelated table. Migration 0011, which only rewrites dashboard placements, failed it. The
+    // property is ordering against the files that depend on this table, so that is what is asserted.
     const files = readdirSync(MIGRATIONS).filter((name) => name.endsWith(".sql")).sort();
-    const ours = files.findIndex((name) => name.startsWith("0010_"));
-    expect(ours).toBeGreaterThan(0);
-    expect(files[ours + 1]).toBeUndefined();
-    expect(readFileSync(join(MIGRATIONS, files[ours]!), "utf8")).toContain("CREATE TABLE IF NOT EXISTS analytics_events");
+    const creator = files.findIndex((name) =>
+      readFileSync(join(MIGRATIONS, name), "utf8").includes("CREATE TABLE IF NOT EXISTS analytics_events"),
+    );
+    expect(creator).toBeGreaterThan(0);
+    expect(files[creator]).toMatch(/^\d{4}_/);
+
+    const later = files.slice(creator + 1);
+    for (const name of later) {
+      const body = readFileSync(join(MIGRATIONS, name), "utf8");
+      // A later file may use the table, never drop or redefine it, or the demo would lose its own rows.
+      expect(body).not.toMatch(/DROP\s+TABLE[^;]*analytics_events/);
+      expect(body).not.toMatch(/CREATE\s+TABLE(?!\s+IF\s+NOT\s+EXISTS)[^;]*analytics_events/);
+    }
   });
 });
