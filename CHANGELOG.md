@@ -8,6 +8,25 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Added
+
+- **One command writes a project from the starter template.** `scripts/create-admin-app.mjs <dir>`
+  copies `template/` into a directory, rewrites the manifest to pin `@yesvus/helmdeck` to the
+  published release tarball rather than to `link:..`, mints `HELMDECK_SESSION_SECRET` into a
+  `.env.local` the copied `.gitignore` already ignores, and writes a setup section describing the
+  project it just wrote rather than the checkout it was copied from.
+
+  The manifest a host received by copying the directory carried `link:..`, which resolves in this
+  repository and nowhere else, so the copy installed a project that built here and failed anywhere
+  else. Pinning the release tarball is what makes the starter's value the same question for a host as
+  it is here.
+
+  Options: `--version <tag>` for a release other than the checkout's `VERSION`, `--package-manager`
+  for the install command, `--install` to run it, `--force` to write over a directory that already
+  holds files, and `--help`. A directory that already holds files is refused with the names in it, and
+  a missing template is refused naming every path it looked at, in the same shape as the migrations
+  directory.
+
 ## 0.5.1
 
 ### Fixed

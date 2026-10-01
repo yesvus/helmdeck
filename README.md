@@ -55,17 +55,19 @@ grid, modals that do not centre. The path is relative to the stylesheet that dec
 
 ## Starter template
 
-`template/` is a Next.js App Router project that runs before you have written any of it. Copy it, install, create one account, and you have a sign-in that checks a password against a stored hash, a resource whose list searches, sorts, filters and pages, a form generated from the same description, and a shell around both. There is no database to configure, no schema to design, and no migration to plan: the store is a SQLite file created on the first query, and moving it to a hosted one is two environment variables.
+`template/` is a Next.js App Router project that runs before you have written any of it. One command writes it into a directory of your choosing, and you have a sign-in that checks a password against a stored hash, a resource whose list searches, sorts, filters and pages, a form generated from the same description, and a shell around both. There is no database to configure, no schema to design, and no migration to plan: the store is a SQLite file created on the first query, and moving it to a hosted one is two environment variables.
 
 ```sh
-cp -r path/to/helmdeck/template my-admin && cd my-admin
-npm install
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"   # into .env.local as HELMDECK_SESSION_SECRET
+git clone --depth 1 --branch v0.5.1 https://github.com/yesvus/helmdeck.git
+node helmdeck/scripts/create-admin-app.mjs my-admin --install
+cd my-admin
 node scripts/create-user.mjs you@example.com admin
 npm run dev
 ```
 
-Read [`template/README.md`](./template/README.md) before building on it, because the list of what the template deliberately does not include is the part it cannot do for you.
+`create-admin-app.mjs` copies the template, rewrites the manifest to pin `@yesvus/helmdeck` to the release tarball above rather than to a path in a neighbouring checkout, and mints `HELMDECK_SESSION_SECRET` into a `.env.local` the copied `.gitignore` already ignores. It reaches no network, so a machine without one still gets a directory; the install is where the pinned URL is used. `--version v0.5.1` pins a release other than the checkout's own, `--package-manager` chooses the install command, `--force` writes over a directory that already holds files, and `--help` prints the rest.
+
+Two commands are left to you, and both are deliberately so: creating the first account is a person with a password rather than a fixture, and the list of what the template leaves out is in [`template/README.md`](./template/README.md), which the generated project carries with it. Read that list before building on it, because each item is one you have to make rather than one you have to find later.
 
 **It exists because an example cannot do this job.** [`examples/independent-host/`](./examples/independent-host) is the working reference: 18 files that show the package's public exports and nothing else. What it cannot show is which parts are load-bearing, because an example is allowed to inline a rule to keep itself short, and a host that copies the inline rule has copied the shortcut rather than the seam. The template's one deliberate difference is that it has exactly one authorization rule, in `lib/rules.ts`, with no inlined shortcut anywhere else, and `tests/starter-template.test.ts` fails if a second one appears.
 
@@ -75,9 +77,9 @@ Three things in it are arranged so that the shortcuts are hard to write by accid
 - The exposed set of resource names is built from those definitions rather than listed again, so a resource cannot be reachable through the store and invisible to the rule.
 - The accounts and the sessions are in the store and in no definition, which keeps a password hash out of a table browser that exists for everything else. That is a property of what is absent, not of a rule somebody has to remember.
 
-The template ships no records, no fixture account and no password. The first row is created through the form, which is also how you find out the form works, and `scripts/create-user.mjs` is the only thing that writes an account: a registration route would be an unauthenticated write path you have to remember to close, and a printed password is a published credential.
+The template ships no records, no fixture account and no password. The first row is created through the form, which is also how you find out the form works, and `scripts/create-user.mjs` is the only thing that writes an account: a registration route would be an unauthenticated write path you have to remember to close, and a printed password is a published credential. The command mints a session secret, which is not a credential in that sense: it signs a cookie nobody can sign in with, and it lands in a file `.gitignore` already excludes.
 
-`pnpm typecheck:template` compiles it after linking this repository into `template/node_modules`, which is what keeps a template nobody compiles from being copied stale. `examples/independent-host` is checked the same way by `pnpm typecheck:example`, and the two are separate scripts on purpose: a host copying the template gets a dependency manifest that resolves against an installed package rather than a link, and a single script that grew a second mode would have a failure message that could not say which tree broke.
+`pnpm typecheck:template` compiles it after linking this repository into `template/node_modules`, which is what keeps a template nobody compiles from being copied stale. `examples/independent-host` is checked the same way by `pnpm typecheck:example`, and the two are separate scripts on purpose: a host copying the template gets a dependency manifest that resolves against an installed package rather than a link, and a single script that grew a second mode would have a failure message that could not say which tree broke. `tests/create-admin-app.test.ts` covers the command itself: that it writes every file and none of what a checkout accumulated, that the manifest it writes carries the release tarball and the same URL this README documents, that a refusal names the paths it looked at, and that the README it leaves behind is one true of the directory it sits in.
 
 ## Themes and design tokens
 
