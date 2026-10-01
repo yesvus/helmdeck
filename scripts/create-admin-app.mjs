@@ -124,17 +124,27 @@ function detectPackageManager(requested, onPath) {
  * Whether a command is on PATH, read from the environment rather than by running a shell.
  *
  * `sh -c "command -v pnpm"` answers the same question and needs a shell this project does not
- * otherwise require, so the lookup is over the PATH entries themselves.
+ * otherwise require, so the lookup is over the PATH entries themselves. The suffixes are there
+ * because a package manager on Windows is a `.cmd` and a bare name would answer no, which would fall
+ * every Windows host back to npm without saying so.
+ *
+ * Exported for the test that drives the lookup against a PATH it controls, since a detection this
+ * project cannot exercise on its own platform is a detection nobody should rely on.
  */
-function onPath(command) {
-  const separator = process.platform === "win32" ? ";" : ":";
-  return (process.env.PATH ?? "").split(separator).some((directory) => {
-    try {
-      return statSync(join(directory, command)).isFile();
-    } catch {
-      return false;
-    }
-  });
+export function onPath(command, { platform = process.platform, path = process.env.PATH } = {}) {
+  const windows = platform === "win32";
+  const names = windows ? [command, `${command}.cmd`, `${command}.exe`, `${command}.ps1`] : [command];
+  return (path ?? "")
+    .split(windows ? ";" : ":")
+    .some((directory) =>
+      names.some((name) => {
+        try {
+          return statSync(join(directory, name)).isFile();
+        } catch {
+          return false;
+        }
+      }),
+    );
 }
 
 /**

@@ -4,7 +4,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createAdminApp, releaseTarballUrl } from "../scripts/create-admin-app.mjs";
+import { createAdminApp, onPath, releaseTarballUrl } from "../scripts/create-admin-app.mjs";
 import { readVersion } from "../scripts/version-source.mjs";
 
 /**
@@ -332,6 +332,52 @@ describe("the command says where it got to, because a wall of prose is not a mes
     expect(result.code).toBe(1);
     expect(result.stderr).toContain("inside the template");
     expect(existsSync(join(template, "generated"))).toBe(false);
+  });
+
+  it("pins the version the checkout is on, with one v, on the path a host takes", () => {
+    // The double-`v` shape is the failure this rules out: `VERSION` holds `v0.5.1`, and a reader
+    // seeing `/releases/download/v` in the code and a version already carrying a `v` in the value
+    // cannot tell from reading that `readVersion` returns the bare form. Asserted by running the
+    // command the way a host does, not by reading what it returns.
+    const directory = workspace();
+    try {
+      const withFlag = join(directory, "by-flag");
+      const without = join(directory, "by-default");
+      const flagged = createAdminApp({ destination: withFlag, version: "v0.5.1" });
+      const defaulted = createAdminApp({ destination: without });
+
+      expect(defaulted.version, "readVersion returns the bare version").toBe("0.5.1");
+      expect(flagged.version).toBe(defaulted.version);
+      expect(defaulted.url).toBe(`https://github.com/yesvus/helmdeck/releases/download/v${version}/${url.split("/").pop()}`);
+      expect(defaulted.url).not.toContain("vv");
+      expect(JSON.parse(readApp(without, "package.json")).dependencies["@yesvus/helmdeck"]).toBe(url);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("finds a package manager on PATH, whatever the platform calls it", () => {
+    // Driven against a PATH the test writes, because this project's own platform answers one half of
+    // the question and a detection it cannot exercise is a detection nobody should rely on. Windows
+    // installs package managers as `.cmd` and `.exe`, and a lookup that only knows the bare name
+    // answers no there, which would silently fall a Windows host back to npm.
+    const directory = workspace();
+    try {
+      const bin = join(directory, "bin");
+      mkdirSync(bin, { recursive: true });
+      writeFileSync(join(bin, "pnpm"), "#!/bin/sh\n");
+      writeFileSync(join(bin, "npm.cmd"), "");
+
+      expect(onPath("pnpm", { platform: "linux", path: bin })).toBe(true);
+      expect(onPath("pnpm", { platform: "darwin", path: bin })).toBe(true);
+      expect(onPath("npm", { platform: "win32", path: bin })).toBe(true);
+      expect(onPath("yarn", { platform: "linux", path: bin })).toBe(false);
+      // And a PATH entry that does not exist, or an empty PATH, is no rather than a throw.
+      expect(onPath("pnpm", { platform: "linux", path: join(directory, "absent") })).toBe(false);
+      expect(onPath("pnpm", { platform: "linux", path: "" })).toBe(false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it("names every path it looked for when the template is not there", () => {
