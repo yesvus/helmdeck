@@ -5,13 +5,36 @@ password against a stored hash, a resource whose list searches, sorts, filters a
 generated from the same description, and a shell around both. There is no database to set up, no
 schema to design, and no second place where a permission is decided.
 
-Copy this directory into a project, install, create one account, and run it. Then read
-[What you still have to add](#what-you-still-have-to-add) before you build anything on top of it,
-because that list is the part this template cannot do for you.
-
 ## Setup
 
-From this directory:
+From a checkout of the Helmdeck repository's default branch, one command writes a project from this
+directory. A checkout of a release tag may predate the command, so clone the branch and pass
+`--version` if you want to pin an earlier release:
+
+```sh
+node path/to/helmdeck/scripts/create-admin-app.mjs my-admin
+```
+
+That copies these files, rewrites the manifest to pin `@yesvus/helmdeck` to a published release
+tarball rather than to a path in a neighbouring checkout, and mints the session secret into a
+`.env.local` the copied `.gitignore` already ignores. It reaches no network; the install is where the
+pinned URL is used, which is why it is a separate step below. Run
+`node path/to/helmdeck/scripts/create-admin-app.mjs --help` for the options, which include `--install`
+for the install and a `--version` for a release other than the branch's own.
+
+Then, in the directory it wrote:
+
+```sh
+cd my-admin
+npm install
+node scripts/create-user.mjs you@example.com admin
+npm run dev
+```
+
+Open <http://localhost:3000>, which redirects to `/admin` and then to the sign-in page.
+
+Reading this file in a checkout instead? The two commands above run from here, and the manifest's
+`link:..` resolves in this repository only:
 
 ```sh
 npm install
@@ -22,20 +45,15 @@ npm run dev
 
 `create-user.mjs` asks for the password and does not echo it. Pass a role as the second argument; the
 roles are the keys of `ROLE_OPERATIONS` in `lib/rules.ts`, and an account holding a role that map does
-not define can sign in and may do nothing at all. `npm run create-user` is the same command. Open
-<http://localhost:3000>, which redirects to `/admin` and then to the sign-in page.
+not define can sign in and may do nothing at all. `npm run create-user` is the same command.
 
 `HELMDECK_SESSION_SECRET` has no default on purpose. Without it the app refuses to load and says so,
 because a secret held in a repository is not a secret, and a per-process random signs every instance
 differently so every visitor would read as signed out.
 
-Two notes on the manifest, because a template is copied rather than read:
-
-- `@yesvus/helmdeck` is `link:..` because that is what this repository's own typecheck resolves
-  against. Change it to the release tarball for the version you want, the same way the root README
-  tells consumers to.
-- The package's peer dependencies are declared here rather than left to be installed transitively.
-  They are the reason the shell lays out: its components are written with Tailwind utilities.
+One note on the manifest, because a template is copied rather than read: the package's peer
+dependencies are declared here rather than left to be installed transitively. They are the reason the
+shell lays out, because its components are written with Tailwind utilities.
 
 The database is `./helmdeck.db`, created on the first query, and nothing has to be configured for
 that. `HELMDECK_DATABASE_URL` overrides it, and a `libsql://` URL with `HELMDECK_DATABASE_TOKEN` beside

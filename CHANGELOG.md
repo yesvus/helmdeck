@@ -8,6 +8,46 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Added
+
+- **Saving a record in the starter left the person on the form with nothing to show for it.**
+  `AdminResourceForm` writes through the store and then stops, and neither generated page passed
+  `onSaved`, so creating a product left the form holding the values just submitted, with no message
+  and no link to the record. The save worked; the page said nothing, which is what a person reports
+  as "it did not save". Both pages now return to the list, where the row is, and
+  `tests/starter-template.test.ts` fails if a generated form goes back to saying nothing.
+
+  Found by driving a generated project in a browser, which is the only way this shows up: the store
+  holds the row either way.
+
+- **One command writes a project from the starter template.** `scripts/create-admin-app.mjs <dir>`
+  copies `template/` into a directory, rewrites the manifest to pin `@yesvus/helmdeck` to the
+  published release tarball rather than to `link:..`, mints `HELMDECK_SESSION_SECRET` into a
+  `.env.local` the copied `.gitignore` already ignores, and writes a setup section describing the
+  project it just wrote rather than the checkout it was copied from.
+
+  The manifest a host received by copying the directory carried `link:..`, which resolves in this
+  repository and nowhere else, so the copy installed a project that built here and failed anywhere
+  else. Pinning the release tarball is what makes the starter's value the same question for a host as
+  it is here.
+
+  This is a script in the repository rather than `pnpm create` or a published `create-helmdeck`,
+  because the package is distributed as a GitHub release tarball and npm publication is postponed, so
+  there is no registry for `create-helmdeck` to be resolved from. `npx degit` was the alternative
+  considered and rejected: it copies the directory and leaves the manifest holding `link:..`, which is
+  the defect above, and it has no step in which to pin a version. A host with no checkout still needs
+  one `git clone` first, which is the honest limit of this and the reason the README shows it.
+
+  Options: `--version <tag>` for a release other than the checkout's `VERSION`, `--package-manager`
+  for the install command, `--install` to run it, `--force` to write over a directory that already
+  holds files, and `--help`. A directory that already holds files is refused with the names in it, and
+  a missing template is refused naming every path it looked at, in the same shape as the migrations
+  directory.
+
+  Obtain it from a clone of the default branch rather than of a release tag. The command ships in the
+  repository and a tag is cut at a release, so a checkout of a tag cut before this change has no
+  `scripts/create-admin-app.mjs` in it. `--version` pins a release other than the branch's.
+
 ## 0.5.1
 
 ### Fixed

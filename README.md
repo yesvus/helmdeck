@@ -55,17 +55,23 @@ grid, modals that do not centre. The path is relative to the stylesheet that dec
 
 ## Starter template
 
-`template/` is a Next.js App Router project that runs before you have written any of it. Copy it, install, create one account, and you have a sign-in that checks a password against a stored hash, a resource whose list searches, sorts, filters and pages, a form generated from the same description, and a shell around both. There is no database to configure, no schema to design, and no migration to plan: the store is a SQLite file created on the first query, and moving it to a hosted one is two environment variables.
+`template/` is a Next.js App Router project that runs before you have written any of it. One command writes it into a directory of your choosing, and you have a sign-in that checks a password against a stored hash, a resource whose list searches, sorts, filters and pages, a form generated from the same description, and a shell around both. There is no database to configure, no schema to design, and no migration to plan: the store is a SQLite file created on the first query, and moving it to a hosted one is two environment variables.
 
 ```sh
-cp -r path/to/helmdeck/template my-admin && cd my-admin
-npm install
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"   # into .env.local as HELMDECK_SESSION_SECRET
+git clone --depth 1 https://github.com/yesvus/helmdeck.git
+node helmdeck/scripts/create-admin-app.mjs my-admin --package-manager npm --install
+cd my-admin
 node scripts/create-user.mjs you@example.com admin
 npm run dev
 ```
 
-Read [`template/README.md`](./template/README.md) before building on it, because the list of what the template deliberately does not include is the part it cannot do for you.
+`create-admin-app.mjs` copies the template, rewrites the manifest to pin `@yesvus/helmdeck` to the release tarball above rather than to a path in a neighbouring checkout, and mints `HELMDECK_SESSION_SECRET` into a `.env.local` the copied `.gitignore` already ignores. It reaches no network, so a machine without one still gets a directory; the install is where the pinned URL is used.
+
+The example pins `--package-manager npm` so the block above is the same on every machine. Without it the command picks pnpm when pnpm is on `PATH`, and prints the install and run commands for whichever it picked, so use the ones it prints.
+
+**Clone the default branch, not a release tag.** The command ships in the repository, and a tag is cut at a release, so a checkout of a tag cut before this command existed has no `scripts/create-admin-app.mjs` to run. The default branch always has the command; `--version v0.4.0` pins an earlier release than the branch is on. `--force` writes over a directory that already holds files, and `--help` prints the rest.
+
+Beyond the account, the list of what the template leaves out is in [`template/README.md`](./template/README.md), which the generated project carries with it: no registration route, no password reset, no settings page, no media adapter, no audit trail, no per-record rule, and one interface language. Each is absent on purpose and each is a decision you make rather than one you find later, so read that list before building on the project. You also need a repository of your own (`git init` and a first commit) and a deployment story for the SQLite file, which is a file on the machine that ran `dev`.
 
 **It exists because an example cannot do this job.** [`examples/independent-host/`](./examples/independent-host) is the working reference: 18 files that show the package's public exports and nothing else. What it cannot show is which parts are load-bearing, because an example is allowed to inline a rule to keep itself short, and a host that copies the inline rule has copied the shortcut rather than the seam. The template's one deliberate difference is that it has exactly one authorization rule, in `lib/rules.ts`, with no inlined shortcut anywhere else, and `tests/starter-template.test.ts` fails if a second one appears.
 
@@ -75,9 +81,9 @@ Three things in it are arranged so that the shortcuts are hard to write by accid
 - The exposed set of resource names is built from those definitions rather than listed again, so a resource cannot be reachable through the store and invisible to the rule.
 - The accounts and the sessions are in the store and in no definition, which keeps a password hash out of a table browser that exists for everything else. That is a property of what is absent, not of a rule somebody has to remember.
 
-The template ships no records, no fixture account and no password. The first row is created through the form, which is also how you find out the form works, and `scripts/create-user.mjs` is the only thing that writes an account: a registration route would be an unauthenticated write path you have to remember to close, and a printed password is a published credential.
+The template ships no records, no fixture account and no password. The first row is created through the form, which is also how you find out the form works, and `scripts/create-user.mjs` is the only thing that writes an account: a registration route would be an unauthenticated write path you have to remember to close, and a printed password is a published credential. The command mints a session secret, which is not a credential in that sense: it signs a cookie nobody can sign in with, and it lands in a file `.gitignore` already excludes.
 
-`pnpm typecheck:template` compiles it after linking this repository into `template/node_modules`, which is what keeps a template nobody compiles from being copied stale. `examples/independent-host` is checked the same way by `pnpm typecheck:example`, and the two are separate scripts on purpose: a host copying the template gets a dependency manifest that resolves against an installed package rather than a link, and a single script that grew a second mode would have a failure message that could not say which tree broke.
+`pnpm typecheck:template` compiles it after linking this repository into `template/node_modules`, which is what keeps a template nobody compiles from being copied stale. `examples/independent-host` is checked the same way by `pnpm typecheck:example`, and the two are separate scripts on purpose: a host copying the template gets a dependency manifest that resolves against an installed package rather than a link, and a single script that grew a second mode would have a failure message that could not say which tree broke. `tests/create-admin-app.test.ts` covers the command itself: that it writes every file and none of what a checkout accumulated, that the manifest it writes carries the release tarball and the same URL this README documents, that a refusal names the paths it looked at, and that the README it leaves behind is one true of the directory it sits in.
 
 ## Themes and design tokens
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { typecheckTemplate } from "../scripts/typecheck-template.mjs";
@@ -285,6 +285,57 @@ describe("the starter template", () => {
     }
   });
 
+  it("leaves the person somewhere that shows a record they just saved", () => {
+    // Found by driving the generated project in a browser, not by reading it: `AdminResourceForm`
+    // writes through the store and then stops, so a create page that passes no `onSaved` leaves the
+    // person on the form they just submitted, holding the values, with nothing saying the record
+    // exists and no link to it. The save works and the page says nothing, which is the failure a
+    // person reports as "it did not save".
+    //
+    // So every generated form has to say where a saved record went, and that destination has to be a
+    // page the template mounts, since a redirect into nothing is the same silence with a 404 instead
+    // of a form. Both the create form and the update one are covered, because an update leaves the
+    // person on a form still holding what they typed, and only a fresh read proves the store took it.
+    const forms = sources.filter((path) => /<AdminResourceForm/.test(code(path)));
+    expect(forms.length, "a generated form").toBeGreaterThan(1);
+
+    const silent = forms.filter((path) => {
+      const form = code(path).match(/<AdminResourceForm[\s\S]*?\/>/)?.[0] ?? "";
+      return !/\bonSaved=/.test(form);
+    });
+    expect(silent, "a form that says nothing after a save").toEqual([]);
+
+    // And the route each one sends a saved record to is a page that exists, because a redirect into
+    // nothing is the same silence with a 404 instead of a form.
+    //
+    // The destination is read out of the callback the `onSaved` prop is handed, not from every
+    // navigation in the file. Scanning the file would pass a form whose `onSaved` is a no-op as long
+    // as the file pushes somewhere else, which is the regression this test exists for, and it would
+    // fail a page that gains an unrelated navigation, which is not a regression at all.
+    for (const path of forms) {
+      const file = name(path);
+      const source = code(path);
+      const prop = source.match(/\bonSaved=\{\s*(\w+)\s*\}/)?.[1];
+      expect(prop, `${file} passes onSaved a name this file does not declare`).toBeTruthy();
+
+      // The handler's own body, bounded by the dependency array that closes a `useCallback`. Matching
+      // to the next `}` at the start of a line would run past it, because React closes the callback
+      // with `}, [router]` on an indented line, and a body that swallowed the rest of the component
+      // would read a navigation belonging to some other handler as this one's.
+      const body =
+        source.match(new RegExp(`\\b${prop}\\s*=\\s*useCallback\\([\\s\\S]*?\\},\\s*\\[`))?.[0] ?? "";
+      const href = body.match(/\brouter\.push\(\s*["'`]([^"'`]+)["'`]\s*\)/)?.[1];
+      expect(href, `${file}: onSaved is ${prop}, which navigates nowhere`).toBeTruthy();
+
+      const route = resolveDynamicSegments(href!, file);
+      const mounted =
+        route === "" ? join(template, "app", "page.tsx") : join(template, "app", route, "page.tsx");
+      expect(existsSync(mounted), `${file} sends a saved record to ${href}, which no page is mounted at`).toBe(
+        true,
+      );
+    }
+  });
+
   it("offers a sidebar entry only where a page exists", () => {
     // A link a person cannot follow reads as a feature that is there. Every href the template writes
     // down, in the nav and in the shell's own props, is resolved to a route file.
@@ -358,6 +409,48 @@ const OMISSIONS = [
 
 function anyFile(pattern: RegExp): boolean {
   return sources.some((path) => pattern.test(code(path)));
+}
+
+/**
+ * A destination with an interpolated segment, resolved against the template's own route directories.
+ *
+ * `\`/admin/products/${id}\`` is the natural companion to a save that returns to the list, and it names
+ * the id the save produced, so the route it lands on is the `[id]` directory rather than a path any
+ * file holds. Refusing the shape outright would make the guard fail a correct page the moment a host
+ * wrote one, so each interpolated segment is looked up as a `[name]` directory. A segment that
+ * accounts for no directory is left as it is, and the caller's `existsSync` then fails, which is the
+ * answer a destination into nothing deserves.
+ */
+function resolveDynamicSegments(href: string, file: string): string {
+  const walked: string[] = [];
+  return href
+    .split(/[?#]/, 1)[0]
+    .replace(/^\//, "")
+    .split("/")
+    .map((segment) => {
+      if (!segment.includes("${")) {
+        walked.push(segment);
+        return segment;
+      }
+      // The directory the segment would name is a sibling of the one the walk has reached, so this
+      // lists the route directories at the current depth rather than the template's whole `app/`.
+      const parent = join(template, "app", ...walked);
+      const dynamic = existsSync(parent)
+        ? readdirSync(parent, { withFileTypes: true }).find(
+            (entry) => entry.isDirectory() && /^\[.+\]$/.test(entry.name),
+          )
+        : undefined;
+      if (!dynamic) {
+        throw new Error(
+          `${file} interpolates \`${segment}\` into its destination, and no dynamic route segment ` +
+            `accounts for it.\nLooked in: ${parent}\nA dynamic route is a directory named [something], ` +
+            `which is how Next.js mounts one.`,
+        );
+      }
+      walked.push(dynamic.name);
+      return dynamic.name;
+    })
+    .join("/");
 }
 
 function existsInTemplate(relativePath: string): boolean {
