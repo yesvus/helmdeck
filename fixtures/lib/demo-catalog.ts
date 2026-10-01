@@ -33,6 +33,7 @@ export const CATALOG_CATEGORIES = [
   "Internationalisation",
   "Theme and colour",
   "Adapters",
+  "Tenancy",
   "Package",
 ] as const;
 
@@ -1918,6 +1919,82 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Adapters",
     summary: "A persistence adapter over SQLite, which is what the demo's own store runs on.",
     keywords: "persistence sqlite libsql adapter baseline",
+  },
+  createPostgresPersistenceAdapter: {
+    category: "Adapters",
+    summary:
+      "A persistence adapter over PostgreSQL, taking a connection the host already has rather than a driver this package chose.",
+    keywords: "persistence postgres postgresql pg adapter baseline",
+  },
+  postgresSchema: {
+    category: "Adapters",
+    summary: "The statements that create the table the PostgreSQL adapter stores in, for a host to run in its own migrations.",
+    keywords: "postgres schema migration table ddl baseline",
+  },
+  postgresTenancyMigration: {
+    category: "Adapters",
+    summary: "The statements that turn a single-tenant table into one holding a tenant per row.",
+    keywords: "postgres tenancy tenant migration baseline",
+  },
+  postgresIndexStatement: {
+    category: "Adapters",
+    summary: "An expression index for one field, which is what turns a filter on it from a scan into a lookup.",
+    keywords: "postgres index performance field filter baseline",
+  },
+  runWithAdminTenant: {
+    category: "Tenancy",
+    summary:
+      "Runs work with a tenant in context, and hands back what it returned. From @yesvus/helmdeck/tenant-scope, because it needs node:async_hooks.",
+    keywords: "tenancy tenant scope context server baseline",
+  },
+  currentAdminTenant: {
+    category: "Tenancy",
+    summary:
+      "The tenant in context, or nothing when there is none. The resolver a store is given. From @yesvus/helmdeck/tenant-scope.",
+    keywords: "tenancy tenant current context resolver server baseline",
+  },
+  hasAdminTenant: {
+    category: "Tenancy",
+    summary:
+      "Whether a tenant is in context, for a caller choosing between a scoped and an unscoped path. From @yesvus/helmdeck/tenant-scope.",
+    keywords: "tenancy tenant context server baseline",
+  },
+  requireAdminTenant: {
+    category: "Tenancy",
+    summary:
+      "The tenant in context, or a refusal. A resolver for a store that will not guess. From @yesvus/helmdeck/tenant-scope.",
+    keywords: "tenancy tenant require refuse resolver server baseline",
+  },
+  resolveAdminTenant: {
+    category: "Tenancy",
+    summary: "Reads a tenant resolver and refuses what it does not return.",
+    keywords: "tenancy tenant resolver baseline",
+  },
+  assertAdminTenant: {
+    category: "Tenancy",
+    summary: "Checks a tenant key before it reaches a statement, where an empty one would select somebody's rows.",
+    keywords: "tenancy tenant validate baseline",
+  },
+  missingTenantReason: {
+    category: "Tenancy",
+    summary:
+      "The words a store uses when there is no tenant, so a host's own resolver refuses in the same words as this one.",
+    keywords: "tenancy tenant refusal error message baseline",
+  },
+  createTenantScopedPersistenceAdapter: {
+    category: "Tenancy",
+    summary: "Wraps a host's own store so every call carries a tenant in context and refuses to run without one.",
+    keywords: "tenancy tenant scope adapter wrapper server baseline",
+  },
+  AdminTenantError: {
+    category: "Tenancy",
+    summary: "Raised when a resolver returns no tenant, so a host can send the operator to a login page.",
+    keywords: "tenancy tenant error resolver baseline",
+    hostNote:
+      "An error a store or a wrapper raises rather than answering for itself. There is nothing to draw " +
+      "here: throw it where the tenant would otherwise be guessed, and catch it where an operator " +
+      "belongs. The alternative is a default tenant, and every default reaches a tenant's rows. " +
+      "Exported from the baseline subpath; the ambient scope that fills one in is on tenant-scope.",
   },
   createAuditAdapter: {
     category: "Adapters",

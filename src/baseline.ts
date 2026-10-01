@@ -56,3 +56,24 @@ export { createSessionAuthAdapter, generateSessionSecret } from "./baseline/sess
 export type { AdminSessionCookieIO } from "./baseline/session.js";
 export { createSqlitePersistenceAdapter } from "./baseline/sqlite.js";
 export type { SqlitePersistenceOptions } from "./baseline/sqlite.js";
+export {
+  createPostgresPersistenceAdapter,
+  postgresIndexStatement,
+  postgresSchema,
+  postgresTenancyMigration,
+} from "./baseline/postgres.js";
+export type {
+  PostgresClient,
+  PostgresPersistenceOptions,
+  PostgresResult,
+  PostgresSchemaOptions,
+} from "./baseline/postgres.js";
+// The parts of tenancy that are safe to bundle for a browser: the key's rules, the resolver shape,
+// and the refusal. The ambient scope is on `./tenant-scope` because it needs `node:async_hooks`.
+export {
+  AdminTenantError,
+  assertAdminTenant,
+  missingTenantReason,
+  resolveAdminTenant,
+} from "./baseline/tenant-core.js";
+export type { AdminTenant, AdminTenantResolver } from "./baseline/tenant-core.js";
