@@ -9,7 +9,8 @@
  */
 
 import type { CollectionConfig } from "payload";
-import { demoPayloadCan, payloadAccess } from "./payload-access";
+import { payloadAccess } from "./payload-access";
+import { demoPrincipal } from "./payload-accounts";
 import { payloadAuthStrategies } from "./payload-auth-strategy";
 
 /**
@@ -52,10 +53,20 @@ export const DemoAccounts: CollectionConfig = {
   },
   access: {
     create: () => false,
-    read: ({ req: { user } }) => demoPayloadCan(user, "read"),
+    // Administrators only, which is a narrower answer than the content collections get.
+    //
+    // The demo's own rule deliberately keeps `users` and `sessions` out of its exposed set, because a
+    // table browser that reached them would put password hashes and session rows behind a form. Payload's
+    // admin panel is exactly such a browser, so an editor who could list this collection would be doing
+    // the thing that rule refuses. The role is read off the account row rather than asked of the rule,
+    // because `demoCan` answers about a resource in its exposed set and `users` is not in it: there is no
+    // permission string that means "may read accounts", because the demo decided there should not be one.
+    read: ({ req: { user } }) => demoPrincipal(user)?.role === "admin",
     update: () => false,
     delete: () => false,
-    admin: ({ req: { user } }) => demoPayloadCan(user, "read"),
+    // Whether the panel is reachable at all, rather than what may be read once it is. An editor gets the
+    // content collections and not this one, so the panel renders for them with the accounts entry absent.
+    admin: ({ req: { user } }) => demoPrincipal(user)?.role === "admin",
   },
   fields: [
     {
@@ -68,7 +79,7 @@ export const DemoAccounts: CollectionConfig = {
       // a request that could not list the collection. Write access is off: an account row is what the
       // credential store reads, and nothing over HTTP is how a role is granted.
       access: {
-        read: ({ req: { user } }) => demoPayloadCan(user, "read"),
+        read: ({ req: { user } }) => demoPrincipal(user)?.role === "admin",
         create: () => false,
         update: () => false,
       },
@@ -84,7 +95,7 @@ export const DemoAccounts: CollectionConfig = {
         { label: "Editor", value: "editor" },
       ],
       access: {
-        read: ({ req: { user } }) => demoPayloadCan(user, "read"),
+        read: ({ req: { user } }) => demoPrincipal(user)?.role === "admin",
         create: () => false,
         update: () => false,
       },

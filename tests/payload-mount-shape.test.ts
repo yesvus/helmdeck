@@ -70,6 +70,23 @@ describe("Payload is mounted inside the demo rather than beside it", () => {
     expect(access.delete?.({ req: {} } as never)).toBe(false);
   });
 
+  it("shows the accounts table to administrators and not to editors", () => {
+    // The demo's own rule keeps `users` out of its exposed set on purpose, because a table browser that
+    // reached it would put password hashes and session rows behind a form. Payload's admin panel is such a
+    // browser, so the collection carries that decision across rather than re-deciding it more permissively.
+    const access = collection("demo-accounts")?.access ?? {};
+    const admin = { id: "usr_owner", email: "owner@demo.helmdeck.dev", role: "admin" };
+    const editor = { id: "usr_editor", email: "editor@demo.helmdeck.dev", role: "editor" };
+
+    expect(access.read?.({ req: { user: admin } } as never)).toBe(true);
+    expect(access.read?.({ req: { user: editor } } as never)).toBe(false);
+    expect(access.read?.({ req: { user: null } } as never)).toBe(false);
+
+    // And the panel itself, which is what decides whether the entry appears in the navigation at all.
+    expect(access.admin?.({ req: { user: admin } } as never)).toBe(true);
+    expect(access.admin?.({ req: { user: editor } } as never)).toBe(false);
+  });
+
   it("hands Payload's access rules the demo's own rule", () => {
     // The point of `overrideAccess: false` is that Payload asks somebody. That somebody is `demoCan`, so
     // the editor's abilities in the admin panel are the same values the shell's buttons and the resource
