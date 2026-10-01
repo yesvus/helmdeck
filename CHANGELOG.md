@@ -31,6 +31,13 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
   else. Pinning the release tarball is what makes the starter's value the same question for a host as
   it is here.
 
+  This is a script in the repository rather than `pnpm create` or a published `create-helmdeck`,
+  because the package is distributed as a GitHub release tarball and npm publication is postponed, so
+  there is no registry for `create-helmdeck` to be resolved from. `npx degit` was the alternative
+  considered and rejected: it copies the directory and leaves the manifest holding `link:..`, which is
+  the defect above, and it has no step in which to pin a version. A host with no checkout still needs
+  one `git clone` first, which is the honest limit of this and the reason the README shows it.
+
   Options: `--version <tag>` for a release other than the checkout's `VERSION`, `--package-manager`
   for the install command, `--install` to run it, `--force` to write over a directory that already
   holds files, and `--help`. A directory that already holds files is refused with the names in it, and
