@@ -8,6 +8,81 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 0.6.0
+
+### Added
+
+- **A PostgreSQL persistence adapter, which a host with an existing schema can adopt without
+  reorganising its database.** One table of JSON documents keyed by resource and id, the same shape
+  the SQLite adapter uses, so a resource works on the first call without anyone declaring its columns.
+
+  **The package depends on no PostgreSQL driver.** The adapter is handed anything with
+  `query(text, values)`, which is what `pg`'s pool has, because the drivers worth using differ most from
+  each other: `pg`, `@neondatabase/serverless` over HTTP, `postgres.js` with tagged templates. Making one
+  a dependency would put it in the install of every host on SQLite, to serve the hosts that are not.
+
+  What `jsonb` buys over a document in text: a filter compares types rather than casting them, so `1`,
+  `"1"` and `true` are three different answers with nothing to cast either side to. The SQLite adapter
+  needed `json_type` beside its comparison and still got three such cases wrong.
+
+  Text compares under `COLLATE "C"`, which orders by code point. The in-memory adapter orders by code
+  point, and a server's default collation is a locale's idea of alphabetical order, so without this a
+  host on `en_US.UTF-8` would page a list differently from one on `C` running the same package.
+
+  **Refuses**, rather than answering something plausible: a filter on a document, because only a scalar
+  can be compared with one; a table or key that is not an identifier; an unbounded tenant key.
+
+  The adapter does not create its own table. It checks and names the statement `postgresSchema()`
+  returns, because a schema a host cannot see is a schema a host cannot review. `postgresIndexStatement`
+  writes an expression index for one field, which is what turns a filter on it from a scan into a
+  lookup.
+
+- **Tenancy, which is a refusal rather than a guess.** The persistence contract has no parameter for a
+  tenant, and adding one would break every adapter a host already wrote, so the tenant reaches a store
+  ambiently and the rule that matters is the other one: **a store configured for tenancy refuses a call
+  with no tenant rather than defaulting to one.** Every default is a leak: the first tenant, all of
+  them, or the last one seen.
+
+  A store takes a **resolver**, so reading the ambient scope is one implementation a host chooses rather
+  than something the adapter reaches for. `postgresTenancyMigration` turns a single-tenant table into a
+  tenant-per-row one and **will not guess** which tenant the existing rows belong to: a row with no
+  tenant is readable by whichever tenant is asked for first, which is every tenant.
+
+  **The ambient scope is on a separate entry point**, `@yesvus/helmdeck/tenant-scope`. The rules and the
+  `AdminTenantError` are on `@yesvus/helmdeck/baseline`, and that subpath is reachable from a browser
+  bundle, so the module holding the scope imports `node:async_hooks` and must not be reachable from
+  there. A test walks the real import graph from the entry point and names any file that imports it.
+
+- **`scripts/prove-birted-adapter`**, which runs this adapter against a real host's schema rather than
+  one it creates. It applies **birtedcom**'s own migrations to a throwaway PostgreSQL 16 and points the
+  adapter's statements at its real `products` table. An adapter that only handled its own JSON documents
+  would pass every test in this repository and fail on the first host that already had a schema.
+
+### Fixed
+
+- **A boolean could not be compared with anything but equality.** `gte`, `gt`, `lt` and `lte` on a
+  boolean field threw `invalid input syntax for type numeric: "true"`, because the stored side was read
+  as 1 or 0 and the bound side was cast to `numeric` without being translated. Equality compares `jsonb`
+  and never reached that line, so a suite covering booleans through `eq` could not see it.
+
+Found by the **cubic** reviewer, confirmed against a real PostgreSQL 16 before anything changed.
+
+- **`insertIfAbsent` gave every tenant the same index name.** The uniqueness lives in the index's own
+  `WHERE` clause, so a second tenant's `CREATE INDEX IF NOT EXISTS` was a no-op against the first
+  tenant's index and that tenant's duplicates went unrefused for the life of the table.
+
+### Changed
+
+- **The starter's version check follows the pin instead of a hardcoded version.** It held one release in
+  three places, so bumping the dependency reported `pnpm-lock.yaml has no resolution`, which reads like a
+  corrupt lockfile and is not one.
+
+### For hosts
+
+**Nothing breaks.** `exports: 297 -> 297, none removed`, and both existing adopters,
+**cindral** and **titiz-dashboard**, are already on a release this builds on. The `id`-on-update hole
+closed in 0.5.2; this release adds to it rather than changing any existing behaviour.
+
 ## 0.5.2
 
 ### Fixed
