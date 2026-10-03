@@ -46,6 +46,10 @@ export type AdminWidgetDefinition<TData> = {
   /** Overrides the engine's default for each state. A widget that omits one still renders. */
   renderLoading?(): ReactNode;
   renderEmpty?(): ReactNode;
+  /**
+   * `onRetry` is **absent** when retrying cannot help, rather than present and inert. See
+   * `adminWidgetRetryIsWorthwhile`.
+   */
   renderError?(error: Error, onRetry: () => void): ReactNode;
 };
 

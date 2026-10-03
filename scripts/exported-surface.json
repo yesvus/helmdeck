@@ -1,5 +1,5 @@
 {
-  "version": "v0.6.0",
+  "version": "0.6.0",
   "exports": [
     "ADMIN_ANALYTICS_BATCH_SIZE",
     "ADMIN_ANALYTICS_FAILURE_HISTORY",
@@ -126,6 +126,7 @@
     "AdminUrlFeedback",
     "AdminWidget",
     "AdminWidgetPanel",
+    "AdminWidgetPermanentError",
     "Button",
     "DEFAULT_ADMIN_DENSITY",
     "DEFAULT_ADMIN_THEME_SETTINGS",
@@ -216,6 +217,7 @@
     "adminWholeNumber",
     "adminWidgetBody",
     "adminWidgetLoadAll",
+    "adminWidgetRetryIsWorthwhile",
     "adminWidgetSizes",
     "adminWidgetState",
     "buttonVariants",
