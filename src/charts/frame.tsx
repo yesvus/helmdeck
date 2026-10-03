@@ -15,6 +15,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import { AdminBanner } from "../primitives/layout.js";
+import { AdminWidgetPermanentError, adminWidgetRetryIsWorthwhile } from "../widgets/retry.js";
 import { AdminEmptyState } from "../primitives/empty-state.js";
 import { AdminSectionCard } from "../primitives/layout.js";
 import { AdminSkeleton } from "../primitives/skeleton.js";
@@ -90,12 +91,24 @@ export function AdminChartFrame({
 
       {status === "error" ? (
         <div className="space-y-3">
-          <AdminBanner tone="danger" title={merged.errorTitle} body={error?.message ?? ""} />
-          {onRetry ? (
-            <Button type="button" size="sm" variant="ghost" onClick={onRetry}>
-              {merged.retry}
-            </Button>
-          ) : null}
+            <AdminBanner
+              tone="danger"
+              title={merged.errorTitle}
+              // A permanent refusal says what to do instead, so the operator is not left with a failure
+              // and no way forward.
+              body={
+                error instanceof AdminWidgetPermanentError
+                  ? `${error.message} ${error.remedy}`
+                  : error?.message ?? ""
+              }
+            />
+            {/* Offered only when repeating the request could help. A chart refused for a reason no retry
+                removes would otherwise show a control that can only fail again. */}
+            {onRetry !== undefined && adminWidgetRetryIsWorthwhile(error) ? (
+              <Button type="button" size="sm" variant="ghost" onClick={onRetry}>
+                {merged.retry}
+              </Button>
+            ) : null}
         </div>
       ) : null}
 

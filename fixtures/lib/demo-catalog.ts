@@ -1132,6 +1132,23 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The branch on a widget's state: pending, failed, empty, or the rendered data.",
     keywords: "body branch state render",
   },
+  adminWidgetRetryIsWorthwhile: {
+    category: "Dashboard and widgets",
+    summary:
+      "Whether a widget's failure is worth retrying. Says no for a refusal repeating the request cannot fix, yes for anything it does not recognise.",
+    keywords: "widget retry error failure refuse permanent dashboard",
+  },
+  AdminWidgetPermanentError: {
+    category: "Dashboard and widgets",
+    summary:
+      "A widget failure that repeating the request cannot fix, carrying what to do instead so the operator is not left with a dead end.",
+    keywords: "widget permanent error failure remedy refuse dashboard",
+    hostNote:
+      "An error a widget's loader throws when the failure is not transient. There is nothing to draw " +
+      "here: throw it instead of retrying, and its remedy is shown beside the message while the retry " +
+      "button is withheld. A plain Error is treated as worth retrying, so a host that does not adopt " +
+      "this gets the safer default rather than a widget with no way forward.",
+  },
   adminWidgetSizes: {
     category: "Dashboard and widgets",
     summary: "Every size a tile may occupy, smallest first, for a host validating an arrangement.",
