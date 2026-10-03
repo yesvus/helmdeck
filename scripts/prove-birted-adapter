@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Prove the PostgreSQL adapter against birtedcom's real schema rather than one of its own.
+#
+# The adapter's own 51 tests run against a table it creates, which proves it works against the shape
+# it makes. It says nothing about whether it works against the shape a host already has, and the
+# first adopter would find that out on their own data.
+#
+# **Nothing in /home/yesvus/src/birtedcom is modified.** Its migrations are read and applied to a
+# throwaway PostgreSQL on kamikaze, four products are seeded, and the database is dropped afterwards.
+#
+# Usage:
+#   scripts/prove-birted-adapter            # start a database, prove, tear it down
+#   scripts/prove-birted-adapter --keep     # leave the database up to inspect
+set -euo pipefail
+
+BIRTED="${BIRTED_REPO:-/home/yesvus/src/birtedcom}"
+HOST="${PROOF_HOST:-kamikaze}"
+PORT="${PROOF_PORT:-55433}"
+CONTAINER=birted-proof
+KEEP=false
+[[ "${1:-}" == "--keep" ]] && KEEP=true
+
+if [[ ! -d "$BIRTED/drizzle" ]]; then
+  echo "prove-birted-adapter: no drizzle migrations at $BIRTED" >&2
+  echo "  set BIRTED_REPO to the birtedcom checkout" >&2
+  exit 1
+fi
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+proof="$here/../tests/fixtures/birted-proof.mjs"
+
+cleanup() {
+  if [[ "$KEEP" == true ]]; then
+    echo "  left $CONTAINER running on $HOST:$PORT"
+  else
+    ssh -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "docker rm -f $CONTAINER" >/dev/null 2>&1 || true
+    echo "  removed $CONTAINER"
+  fi
+}
+trap cleanup EXIT
+
+echo "  starting a throwaway PostgreSQL 16 on $HOST"
+ssh -o BatchMode=yes -o ConnectTimeout=20 "$HOST" \
+  "docker rm -f $CONTAINER >/dev/null 2>&1; docker run -d --name $CONTAINER \
+     -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=birted -p $PORT:5432 pgvector/pgvector:pg16" \
+  >/dev/null
+sleep 8
+
+applied=0
+for file in $(ls "$BIRTED"/drizzle/*.sql | sort); do
+  if ! ssh -o BatchMode=yes -o ConnectTimeout=20 "$HOST" \
+      "docker exec -i $CONTAINER psql -q -v ON_ERROR_STOP=1 -U postgres -d birted" < "$file" >/dev/null 2>&1; then
+    echo "prove-birted-adapter: $(basename "$file") did not apply" >&2
+    exit 1
+  fi
+  applied=$((applied + 1))
+done
+echo "  applied birtedcom's $applied migrations"
+
+PROOF_DATABASE_URL="postgres://postgres:postgres@$HOST:$PORT/birted" node "$proof"

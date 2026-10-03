@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# The PostgreSQL suite skips itself when this is unset, printing a warning that a test run does not
+# interrupt anyone for. That is right for a local `pnpm test` and wrong for a gate: a green run that
+# silently skipped every question about real SQL is the exact shape of failure this repository has
+# hit repeatedly. So the gate requires the address rather than reporting that it had none.
+if [[ -z "${HELMDECK_TEST_POSTGRES_URL:-}" ]]; then
+  echo "ci: HELMDECK_TEST_POSTGRES_URL is unset." >&2
+  echo "" >&2
+  echo "  tests/postgres-persistence.test.ts needs a real server and skips itself without one." >&2
+  echo "  Export a connection string to run it, for example:" >&2
+  echo "" >&2
+  echo "    export HELMDECK_TEST_POSTGRES_URL=postgres://user:pass@localhost:5432/helmdeck_test" >&2
+  echo "" >&2
+  echo "  Any version will do. The suite creates and drops a table per case and nothing else." >&2
+  exit 1
+fi
+
 pnpm version:check
 pnpm typecheck
 pnpm lint

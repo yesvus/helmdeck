@@ -359,14 +359,21 @@ describe("the command says where it got to, because a wall of prose is not a mes
     // seeing `/releases/download/v` in the code and a version already carrying a `v` in the value
     // cannot tell from reading that `readVersion` returns the bare form. Asserted by running the
     // command the way a host does, not by reading what it returns.
+    //
+    // **The version comes from `VERSION`, not written out here.** It was written out, and the test
+    // broke on the 0.5.2 release with no change of its own: a check that names the version it is
+    // checking stops passing the moment the version moves. The bare form is derived the same way
+    // rather than as a second literal that could drift from the first.
     const directory = workspace();
     try {
       const withFlag = join(directory, "by-flag");
       const without = join(directory, "by-default");
-      const flagged = createAdminApp({ destination: withFlag, version: "v0.5.1" });
+      const bare = version.replace(/^v/, "");
+      const flagged = createAdminApp({ destination: withFlag, version });
       const defaulted = createAdminApp({ destination: without });
 
-      expect(defaulted.version, "readVersion returns the bare version").toBe("0.5.1");
+      expect(defaulted.version, "readVersion returns the bare version").toBe(bare);
+      expect(bare, "the bare form has no v of its own").not.toContain("v");
       expect(flagged.version).toBe(defaulted.version);
       expect(defaulted.url).toBe(`https://github.com/yesvus/helmdeck/releases/download/v${version}/${url.split("/").pop()}`);
       expect(defaulted.url).not.toContain("vv");
