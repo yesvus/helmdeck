@@ -21,7 +21,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 ## Install
 
 ```bash
-pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.5.2/yesvus-helmdeck-0.5.2.tgz
+pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.6.0/yesvus-helmdeck-0.6.0.tgz
 ```
 
 Release artifacts are distributed through GitHub releases. npm publication is postponed indefinitely.

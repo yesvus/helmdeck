@@ -10,6 +10,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## 0.6.0
 
+## 0.6.0
+
 ### Added
 
 - **A PostgreSQL persistence adapter, which a host with an existing schema can adopt without
