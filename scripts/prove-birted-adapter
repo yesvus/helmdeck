@@ -6,15 +6,21 @@
 # first adopter would find that out on their own data.
 #
 # **Nothing in /home/yesvus/src/birtedcom is modified.** Its migrations are read and applied to a
-# throwaway PostgreSQL on kamikaze, four products are seeded, and the database is dropped afterwards.
+# throwaway PostgreSQL, four products are seeded, and the container is removed afterwards.
+#
+# **Local, since kamikaze was retired on 2026-10-11.** This used to ssh to a compute host to start the
+# container; Docker is right here, and a throwaway PostgreSQL is small enough for this host. `PROOF_HOST`
+# is gone rather than kept as a setting, because a name that reaches for a machine that no longer exists
+# is a setting nobody updates.
 #
 # Usage:
 #   scripts/prove-birted-adapter            # start a database, prove, tear it down
 #   scripts/prove-birted-adapter --keep     # leave the database up to inspect
+#
+# Needs about 200 MiB of memory for the container. `docker` must be on PATH.
 set -euo pipefail
 
 BIRTED="${BIRTED_REPO:-/home/yesvus/src/birtedcom}"
-HOST="${PROOF_HOST:-kamikaze}"
 PORT="${PROOF_PORT:-55433}"
 CONTAINER=birted-proof
 KEEP=false
@@ -30,26 +36,37 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 proof="$here/../tests/fixtures/birted-proof.mjs"
 
 cleanup() {
-  if [[ "$KEEP" == true ]]; then
-    echo "  left $CONTAINER running on $HOST:$PORT"
-  else
-    ssh -o BatchMode=yes -o ConnectTimeout=20 "$HOST" "docker rm -f $CONTAINER" >/dev/null 2>&1 || true
-    echo "  removed $CONTAINER"
-  fi
-}
-trap cleanup EXIT
+    if [[ "$KEEP" == true ]]; then
+      echo "  left $CONTAINER running on 127.0.0.1:$PORT"
+    else
+      docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+      echo "  removed $CONTAINER"
+    fi
+  }
+  trap cleanup EXIT
 
-echo "  starting a throwaway PostgreSQL 16 on $HOST"
-ssh -o BatchMode=yes -o ConnectTimeout=20 "$HOST" \
-  "docker rm -f $CONTAINER >/dev/null 2>&1; docker run -d --name $CONTAINER \
-     -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=birted -p $PORT:5432 pgvector/pgvector:pg16" \
-  >/dev/null
-sleep 8
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "prove-birted-adapter: docker is not on PATH, so there is nowhere to run the database." >&2
+    exit 1
+  fi
+
+  echo "  starting a throwaway PostgreSQL 16 on 127.0.0.1:$PORT"
+  docker rm -f "$CONTAINER" >/dev/null 2>&1
+  if ! docker run -d --name "$CONTAINER" \
+      -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=birted -p "127.0.0.1:$PORT:5432" \
+      pgvector/pgvector:pg16 >/dev/null 2>&1; then
+    echo "prove-birted-adapter: could not start the container. Port $PORT may be in use." >&2
+    exit 1
+  fi
+  # Waiting on the readiness probe rather than a fixed sleep, so a slow start does not read as a failure.
+  for _ in $(seq 1 30); do
+    docker exec "$CONTAINER" pg_isready -U postgres >/dev/null 2>&1 && break
+    sleep 1
+  done
 
 applied=0
 for file in $(ls "$BIRTED"/drizzle/*.sql | sort); do
-  if ! ssh -o BatchMode=yes -o ConnectTimeout=20 "$HOST" \
-      "docker exec -i $CONTAINER psql -q -v ON_ERROR_STOP=1 -U postgres -d birted" < "$file" >/dev/null 2>&1; then
+  if ! docker exec -i "$CONTAINER" psql -q -v ON_ERROR_STOP=1 -U postgres -d birted < "$file" >/dev/null 2>&1; then
     echo "prove-birted-adapter: $(basename "$file") did not apply" >&2
     exit 1
   fi
@@ -57,4 +74,4 @@ for file in $(ls "$BIRTED"/drizzle/*.sql | sort); do
 done
 echo "  applied birtedcom's $applied migrations"
 
-PROOF_DATABASE_URL="postgres://postgres:postgres@$HOST:$PORT/birted" node "$proof"
+PROOF_DATABASE_URL="postgres://postgres:postgres@127.0.0.1:$PORT/birted" node "$proof"
