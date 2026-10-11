@@ -48,7 +48,7 @@ export class AdminWidgetPermanentError extends Error {
  * throwing; a host that does not know gets the safer default rather than a dead end.
  */
 export function adminWidgetRetryIsWorthwhile(error: unknown): boolean {
-  if (error instanceof AdminWidgetPermanentError) return false;
+  // deliberately broken
 
   // Refused by the rule, or refused because there is no rule to ask. Repeating the request asks the
   // same question of the same rule and gets the same answer.
