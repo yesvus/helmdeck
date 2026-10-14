@@ -877,6 +877,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "settings page schema site",
     hostNote: "A page built on the host's settings adapter and schema, which the catalogue does not declare.",
   },
+  AdminSettingsFooter: {
+    category: "Auth and permissions",
+    summary: "The settings footer, with the installed Helmdeck version and room for host metadata.",
+    keywords: "settings footer version metadata build",
+    hostNote: "A footer for a host settings page; the catalogue has no settings page to attach it to.",
+  },
   adminReturnTo: {
     category: "Auth and permissions",
     summary: "The same-site path a sign-in should return to, or null when the request offers none.",

@@ -5,6 +5,8 @@ import { AdminI18nProvider } from "../src/i18n";
 import { AdminShell } from "../src/shell/admin-shell";
 import { AdminProfilePage } from "../src/shell/admin-profile-page";
 import { AdminSettingsPage } from "../src/shell/admin-settings-page";
+import { AdminSettingsFooter } from "../src/shell/admin-settings-footer";
+import { HELMDECK_VERSION } from "../src/version";
 import type { AdminSession } from "../src/adapters/index";
 import { fireEvent } from "@testing-library/react";
 
@@ -357,6 +359,31 @@ describe("AdminSettingsPage", () => {
     renderPage("en", <AdminSettingsPage />);
 
     expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo").textContent).toContain(`Helmdeck v${HELMDECK_VERSION}`);
+  });
+
+  it("keeps the installed version at the bottom, after sections and host content", () => {
+    renderPage(
+      "en",
+      <AdminSettingsPage sections={[{ id: "general", title: "General", content: <p>Setting fields</p> }]}>
+        <p>Host settings</p>
+      </AdminSettingsPage>,
+    );
+
+    const footer = screen.getByRole("contentinfo");
+    const hostContent = screen.getByText("Host settings");
+    expect(hostContent.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(footer.textContent).toContain(`Helmdeck v${HELMDECK_VERSION}`);
+  });
+});
+
+describe("AdminSettingsFooter", () => {
+  it("names the installed package and leaves room for host metadata", () => {
+    renderPage("en", <AdminSettingsFooter>Host build 42</AdminSettingsFooter>);
+
+    const footer = screen.getByRole("contentinfo");
+    expect(footer.textContent).toContain(`Helmdeck v${HELMDECK_VERSION}`);
+    expect(footer).toHaveTextContent("Host build 42");
   });
 });
 

@@ -9,6 +9,7 @@ import { useAdminShell } from "./context.js";
 import { mergeAdminLabels } from "./labels.js";
 import type { AdminShellLabels } from "./labels.js";
 import { useAdminMessages } from "../i18n.js";
+import { AdminSettingsFooter } from "./admin-settings-footer.js";
 
 /**
  * A landing page for settings, so a host has somewhere to point `settingsHref` on the first
@@ -43,6 +44,7 @@ export function AdminSettingsPage({
         </AdminSectionCard>
       ))}
       {children}
+      <AdminSettingsFooter />
     </div>
   );
 }

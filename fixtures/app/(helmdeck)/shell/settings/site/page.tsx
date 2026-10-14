@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { FixtureCard } from "../../../../../components/fixture-card";
+import { AdminSettingsFooter } from "@yesvus/helmdeck";
 import { currentDemoSession } from "../../../../../lib/demo-session";
 import {
   SETTINGS_FIELDS,
@@ -126,6 +127,7 @@ export default async function SiteSettingsPage({
           </p>
         )}
       </div>
+      <AdminSettingsFooter />
     </FixtureCard>
   );
 }
