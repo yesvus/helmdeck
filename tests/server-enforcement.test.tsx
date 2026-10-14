@@ -688,13 +688,19 @@ describe("the server path carries no client boundary", () => {
    * the module, so both can pull in a `"use client"` boundary. A first version of this matcher required
    * `from`, which silently dropped both: the walker got more accurate about erased edges and less accurate
    * about real ones in the same commit, which is a bad trade and was caught in review.
+   *
+   * **A clause cannot cross into the next statement.** This repository writes semicolonless, so nothing
+   * stops a clause from running past the end of its own import and swallowing the next one. `import "./a.js"`
+   * followed by `import b from "./b.js"` matched only the second, because the lazy clause had to find a
+   * `from` and the first statement has none. The side-effect edge vanished, silently. An import clause can
+   * never contain the word `import` or `export`, so the matcher refuses to cross one.
    */
   const relativeImports = (source: string) => {
     const found: { specifier: string; typeOnly: boolean }[] = [];
 
-    // `import ... from "x"`, `export ... from "x"`, and `import("x")`, with or without a `type` keyword.
+    // `import ... from "x"`, `export ... from "x"`, `import("./x")`, and a bare side-effect `import "x"`.
     for (const match of source.matchAll(
-      /(?:\b(?:import|export)\b(?<kwType>\s+type)?\s(?<clause>[^;]*?)\bfrom\s*(?:\(\s*)?|\bimport\s*\(\s*|\bimport\s+)["'](?<spec>\.[^"']+)["']/g,
+      /(?:\b(?:import|export)\b(?<kwType>\s+type)?\s(?<clause>(?:(?!import|export)[\s\S])*?)\bfrom\s*(?:\(\s*)?|\bimport\s*\(\s*|\bimport\s+)["'](?<spec>\.[^"']+)["']/g,
     )) {
       const clause = match.groups?.clause ?? "";
       const named = /\{(?<specifiers>[^}]*)\}/.exec(clause)?.groups?.specifiers;
@@ -838,6 +844,21 @@ describe("the server path carries no client boundary", () => {
 
     it("keeps a side-effect import, which loads the module and has no from clause", () => {
       expect(specifiersIn(`import "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a side-effect import that the next import would otherwise swallow", () => {
+      // This repository is semicolonless, so nothing ends the first statement for the matcher to notice.
+      // With a lazy clause that runs to the next `from`, the first import is consumed as part of the
+      // second one's clause and its edge disappears without a word.
+      expect(specifiersIn(`import "./a.js"\nimport b from "./b.js"\n`)).toEqual(["./a.js", "./b.js"]);
+      expect(specifiersIn(`import "./a.js"\nimport type { T } from "./b.js"\n`)).toEqual([
+        "./a.js",
+        "./b.js (erased)",
+      ]);
+    });
+
+    it("keeps two consecutive plain imports, semicolonless", () => {
+      expect(specifiersIn(`import b from "./b.js"\nimport c from "./c.js"\n`)).toEqual(["./b.js", "./c.js"]);
     });
 
     it("keeps a dynamic import", () => {
