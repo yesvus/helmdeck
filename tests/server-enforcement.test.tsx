@@ -662,8 +662,25 @@ describe("what a missing rule does to the view", () => {
 describe("the server path carries no client boundary", () => {
   const root = resolve(import.meta.dirname, "..");
   const isClient = (path: string) => /^\s*["']use client["']/m.test(readFileSync(path, "utf8"));
+
+  /**
+   * The relative imports of a module, as specifier and whether the import survives compilation.
+   *
+   * **`import type` is erased.** It has no edge in the emitted bundle, so following one reports a client
+   * boundary that the build never creates. That is not a harmless over-approximation here: it is the
+   * difference between a check that passes on a genuinely server-renderable module and one that fails on
+   * it, and a check that fails on correct code is a check people learn to disable.
+   *
+   * `src/dashboard/grid.tsx` reached `src/i18n/provider.tsx` — a `"use client"` module — through
+   * `import type ... from "../i18n.js"` and nothing else. TypeScript emits no import there at all, and
+   * `AdminDashboardLayout` is server-renderable, which is the property this describe block exists to
+   * prove. So the erased edge is dropped, and the walker sees the graph the bundler sees.
+   */
   const relativeImports = (source: string) =>
-    [...source.matchAll(/(?:from|import)\s*\(?\s*["'](\.[^"']+)["']/g)].map((match) => match[1]);
+    [...source.matchAll(/(import|export)(\s+type)?\s[^;]*?from\s*\(?\s*["'](\.[^"']+)["']/g)].map((match) => ({
+      specifier: match[3],
+      typeOnly: Boolean(match[2]),
+    }));
 
   /** The modules an entry reaches, following its own relative imports. */
   function reachable(entry: string): string[] {
@@ -673,7 +690,8 @@ describe("the server path carries no client boundary", () => {
       const path = pending.pop() as string;
       if (found.has(path)) continue;
       found.add(path);
-      for (const specifier of relativeImports(readFileSync(path, "utf8"))) {
+      for (const { specifier, typeOnly } of relativeImports(readFileSync(path, "utf8"))) {
+        if (typeOnly) continue;
         const base = resolve(path, "..", specifier.replace(/\.js$/, ""));
         const resolved = [".ts", ".tsx"]
           .map((extension) => `${base}${extension}`)
@@ -704,5 +722,37 @@ describe("the server path carries no client boundary", () => {
     // A walk that resolved nothing would report nothing and pass, which is the shape of a check
     // that cannot fail.
     expect(modules.length).toBeGreaterThan(2);
+  });
+
+  it("keeps the server-renderable dashboard free of the client boundary", () => {
+    // `AdminDashboardLayout` is documented as the server-renderable dashboard: the host resolves every
+    // widget's data and hands it over, so the module takes its copy as a prop rather than reading the
+    // interface dictionary from a client context. That is the property that lets a host render a
+    // dashboard in a server component, and it was a claim in a doc comment with nothing behind it.
+    //
+    // It nearly reads as false, which is why this is worth pinning. `src/dashboard/grid.tsx` reaches the
+    // `"use client"` module `src/i18n/provider.tsx`, but only through `import type`, which TypeScript
+    // erases. The direct `"use client"` is obvious in a diff; this transitive, erased edge is not, and it
+    // is exactly the shape that would turn a host's build red in their repository rather than here.
+    const modules = reachable("src/dashboard/layout.tsx");
+    const clientModules = modules.filter(isClient).map((path) => path.slice(root.length + 1));
+
+    expect({ clientModules }, "the server-renderable dashboard must not reach a client module").toEqual({
+      clientModules: [],
+    });
+    // Resolving almost nothing would satisfy the assertion above while proving nothing.
+    expect(modules.length).toBeGreaterThan(2);
+  });
+
+  it("does not follow a type-only import, because the bundler does not emit one", () => {
+    // The walker's own correctness, since a check that over-reports is a check that fails on correct code.
+    // `src/dashboard/grid.tsx` is the live case: its only path to a client module is an erased edge.
+    const grid = readFileSync(join(root, "src/dashboard/grid.tsx"), "utf8");
+    const imports = relativeImports(grid);
+    const i18n = imports.filter(({ specifier }) => specifier.includes("i18n"));
+
+    expect(i18n.length).toBeGreaterThan(0);
+    expect(i18n.every(({ typeOnly }) => typeOnly)).toBe(true);
+    expect(reachable("src/dashboard/grid.tsx").some(isClient)).toBe(false);
   });
 });
