@@ -616,7 +616,7 @@ const posts = defineAdminResource({
 });
 ```
 
-`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` reads only the declared fields, so a field removed from the definition cannot be smuggled back in through a hand-edited request. The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
+`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` shapes the generated form's submission from its declared fields; it runs in the browser and does not protect a server action called directly. The server write boundary must receive the resource definitions, as shown in [Enforcing a permission on the server](#enforcing-a-permission-on-the-server). The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
 
 #### Searching, sorting, filtering and paging a generated list
 
@@ -889,7 +889,11 @@ A `"use server"` file exports async functions, so a factory's result is handed t
 
 ```ts
 // lib/resource-store.ts
-export const store = createAdminResourceActions({ guard: requirePermission, persistence });
+export const store = createAdminResourceActions({
+  guard: requirePermission,
+  persistence,
+  definitions: [posts],
+});
 
 // app/lib/resource-actions.ts
 "use server";
@@ -901,6 +905,8 @@ export const deleteResource = async (resource: string, id: string) => store.dele
 ```
 
 `AdminResourceList` and `AdminResourceForm` take an object of those as their `persistence` prop, so the reads a list performs are the ones that were refused, and a delete reaches the store only after the rule allows it. A resource name arrives from the browser as a string the caller chose, so `expose` is a closed set of names and is checked before the session is resolved. `before` runs after the refusal and before the effect, for a store that has to be prepared first. Passing no guard throws at construction rather than handing back calls that decide nothing. The set carries a sixth call, `queryPage`, when the host's adapter has one, and omits it when it does not.
+
+`definitions` is optional for the factory, but required to enforce a resource's stored shape. Include every resource whose writes accept browser-controlled values. A resource without a definition is not field-checked, which is suitable for host-owned values but not for records written by generated forms. For a defined resource, an undeclared key raises `AdminResourceFieldError` before persistence; its `fields` property names the keys. The write is refused rather than silently dropping them.
 
 ### Recording the writes and dropping the caches
 
@@ -947,27 +953,7 @@ Which rows a read returns is your own row scoping, alongside whatever else filte
 
 **Hand-rolled instead:** call your own function from your own route handler and your own server action. The point of this section is one rule asked twice rather than two rules, not the package's code.
 
-**Your write boundary must do the same, and the views are not what does it.** `adminResourceValues` is what the generated forms call, in the browser. A hand-edited request does not go through a form, so a server action that hands its argument straight to the adapter stores whatever it was sent. The demo's actions run the incoming value through `adminResourceValues` on the server before the write, which is what makes the claim true of the boundary rather than only of the form:
-
-```ts
-function declaredValue(resource: string, value: unknown): Record<string, unknown> {
-  const definition = adminResources.find((candidate) => candidate.resource === resource);
-  if (!definition) throw new Error(`No resource definition named ${resource}`);
-  const incoming = (value ?? {}) as Record<string, unknown>;
-  const form = new FormData();
-  for (const [key, entry] of Object.entries(incoming)) {
-    form.append(key, entry === null || entry === undefined ? "" : String(entry));
-  }
-  return adminResourceValues(definition, form);
-}
-
-export async function createResourceAction(resource: string, value: unknown): Promise<unknown> {
-  await requirePermission(resource, "create");
-  return adapter.create(resource, declaredValue(resource, value));
-}
-```
-
-That also means the server names the record: `id` is a field only if the definition declares it, so a caller cannot choose one and write over a row that already exists. The persistence layer's column check is not a substitute. It asks whether a name is a column of the table, and `id`, `created_at` and `updated_at` all are.
+**A server action must use the same boundary, and the views are not what does it.** `adminResourceValues` shapes the generated form's submission in the browser. A direct action call bypasses it. The example above passes `definitions` to `createAdminResourceActions`, which refuses undeclared keys before the adapter receives a write. Do not hand a browser-controlled value directly to the adapter. That also means the server names the record: `id` is accepted on create, where it names a new record, and refused on update, where the route already names the record. The persistence layer's column check is not a substitute. It asks whether a name is a column of the table, and `id`, `created_at` and `updated_at` all are.
 
 **Hand-rolled instead:** implement `AdminPermissionsAdapter` and `AdminPersistenceAdapter` yourself. Nothing in the views requires the memory adapter; it is one implementation for fixtures and tests.
 

@@ -125,6 +125,19 @@ describe("the getting-started documentation matches the package", () => {
     // And the lists are not simply a copy of the exports, which would make the rest vacuous.
     expect(ALL.length).toBeLessThan(rootNames.size + baselineNames.size);
   });
+
+  it("documents resource field checks at the configured server boundary", () => {
+    const start = README.indexOf("### Enforcing a permission on the server");
+    const end = README.indexOf("### Recording the writes and dropping the caches", start);
+    const actions = README.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(README).toContain("does not protect a server action called directly");
+    expect(actions).toContain("definitions: [posts]");
+    expect(actions).toContain("not field-checked");
+    expect(README).not.toContain("demo's actions run the incoming value through `adminResourceValues`");
+  });
 });
 
 /**
