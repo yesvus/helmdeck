@@ -144,6 +144,8 @@ describe("the getting-started documentation matches the package", () => {
     expect(actions).toContain("`AdminResourceFieldError` before persistence receives the write");
     expect(actions).toContain("its `fields` property names the keys");
     expect(audit).toContain("definitions: [posts]");
+    expect(audit).toContain("complete configuration");
+    expect(audit).toContain("Keep `definitions` when adding either adapter");
     expect(README).not.toContain("demo's actions run the incoming value through `adminResourceValues`");
   });
 });

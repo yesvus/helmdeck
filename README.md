@@ -912,6 +912,8 @@ export const deleteResource = async (resource: string, id: string) => store.dele
 
 `AdminAuditAdapter` and `AdminCacheInvalidationAdapter` are two more options on the same call, so a host hands them where it already hands the guard:
 
+The following is a complete configuration, so it repeats the guard, persistence and `definitions` alongside the audit and cache adapters. Keep `definitions` when adding either adapter.
+
 ```ts
 import { createAuditAdapter, createCacheAdapter } from "@yesvus/helmdeck/baseline";
 
