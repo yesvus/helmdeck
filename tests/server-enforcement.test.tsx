@@ -700,7 +700,12 @@ describe("the server path carries no client boundary", () => {
       const named = /\{(?<specifiers>[^}]*)\}/.exec(clause)?.groups?.specifiers;
       // No braces means a default or namespace import, which is a value and therefore a real edge.
       const allInlineTypes =
-        named !== undefined && named.trim().length > 0 && named.split(",").every((part) => /^\s*type\s/.test(part));
+        named !== undefined &&
+        named
+          .split(",")
+          .map((part) => part.trim())
+          .filter((part) => part.length > 0)
+          .every((part) => /^type\s/.test(part));
       found.push({
         specifier: match.groups?.spec ?? "",
         typeOnly: Boolean(match.groups?.kwType) || allInlineTypes,
@@ -793,6 +798,15 @@ describe("the server path carries no client boundary", () => {
 
     it("erases an all-type named import, which is what this repository writes too", () => {
       expect(specifiersIn(`import { type A, type B } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
+
+    it("erases an all-type named import written across lines with a trailing comma", () => {
+      // A trailing comma leaves an empty final element, and an element that is not a `type` keyword read
+      // as a value. That misclassifies a correct import as a real edge, and since the module behind it is
+      // `"use client"`, the check fails on correct code — the one outcome a check in this file must never
+      // produce, because it teaches people to disable it.
+      expect(specifiersIn(`import {\n  type A,\n  type B,\n} from "./a.js";`)).toEqual(["./a.js (erased)"]);
+      expect(specifiersIn(`import { type A, } from "./a.js";`)).toEqual(["./a.js (erased)"]);
     });
 
     it("keeps a mixed import, because the value specifier still loads the module", () => {
