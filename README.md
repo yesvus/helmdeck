@@ -906,7 +906,7 @@ export const deleteResource = async (resource: string, id: string) => store.dele
 
 `AdminResourceList` and `AdminResourceForm` take an object of those as their `persistence` prop, so the reads a list performs are the ones that were refused, and a delete reaches the store only after the rule allows it. A resource name arrives from the browser as a string the caller chose, so `expose` is a closed set of names and is checked before the session is resolved. `before` runs after the refusal and before the effect, for a store that has to be prepared first. Passing no guard throws at construction rather than handing back calls that decide nothing. The set carries a sixth call, `queryPage`, when the host's adapter has one, and omits it when it does not.
 
-`definitions` is optional for the factory, but required to enforce a resource's stored shape. Include every resource whose writes accept browser-controlled values. A resource without a definition is not field-checked, which is suitable for host-owned values but not for records written by generated forms. For a defined resource, an undeclared key raises `AdminResourceFieldError` before persistence; its `fields` property names the keys. The write is refused rather than silently dropping them.
+`definitions` is optional for the factory, but required to enforce a resource's stored shape. Include every resource whose writes accept browser-controlled values. A resource without a definition is not field-checked, which is suitable for host-owned values but not for records written by generated forms. After permission and reference checks pass, an undeclared key raises `AdminResourceFieldError` before persistence receives the write; its `fields` property names the keys. The write is refused rather than silently dropping them.
 
 ### Recording the writes and dropping the caches
 
@@ -919,6 +919,7 @@ export const store = createAdminResourceActions({
   guard: requirePermission,
   persistence,
   expose: exposedResource,
+  definitions: [posts],
   audit: createAuditAdapter({ sink: (event) => log.write(event), onError: report }),
   cache: createCacheAdapter({ invalidate: (keys) => Promise.all(keys.map(dropKey)) }),
 });
