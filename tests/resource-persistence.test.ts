@@ -8,10 +8,16 @@ import type { AdminResourceQuery } from "../src/adapters/query";
 
 describe("createReadOnlyPersistenceAdapter", () => {
   it("forwards reads and refuses every write with its operation and resource", async () => {
-    const query = vi.fn(async (_resource: string, _query?: Record<string, unknown>) => [
-      { id: "r1", title: "Quarterly report" },
-    ]);
-    const read = vi.fn(async (_resource: string, _id: string) => ({ id: "r1", title: "Quarterly report" }));
+    const query = vi.fn(async (resource: string, query?: Record<string, unknown>) => {
+      void resource;
+      void query;
+      return [{ id: "r1", title: "Quarterly report" }];
+    });
+    const read = vi.fn(async (resource: string, id: string) => {
+      void resource;
+      void id;
+      return { id: "r1", title: "Quarterly report" };
+    });
     const adapter = createReadOnlyPersistenceAdapter({ query, read });
 
     await expect(adapter.query("reports")).resolves.toEqual([{ id: "r1", title: "Quarterly report" }]);
@@ -26,10 +32,11 @@ describe("createReadOnlyPersistenceAdapter", () => {
   });
 
   it("keeps paging absent unless the source implements it", async () => {
-    const queryPage = vi.fn(async (_resource: string, _query?: AdminResourceQuery) => ({
-      rows: [{ id: "r1" }],
-      total: 6,
-    }));
+    const queryPage = vi.fn(async (resource: string, query?: AdminResourceQuery) => {
+      void resource;
+      void query;
+      return { rows: [{ id: "r1" }], total: 6 };
+    });
     const adapter = createReadOnlyPersistenceAdapter({
       query: async () => [],
       read: async () => null,
@@ -46,16 +53,28 @@ describe("createReadOnlyPersistenceAdapter", () => {
 
 describe("createAdminResourceActionPersistenceAdapter", () => {
   it("forwards the host action calls and preserves optional paging", async () => {
-    const query = vi.fn(async (_resource: string, _query?: Record<string, unknown>) => [{ id: "r1" }]);
-    const read = vi.fn(async (_resource: string, _id: string) => ({ id: "r1" }));
+    const query = vi.fn(async (resource: string, query?: Record<string, unknown>) => {
+      void resource;
+      void query;
+      return [{ id: "r1" }];
+    });
+    const read = vi.fn(async (resource: string, id: string) => {
+      void resource;
+      void id;
+      return { id: "r1" };
+    });
     const create = vi.fn(async (resource: string, value: unknown) => ({ resource, id: "r2", value }));
     const update = vi.fn(async (resource: string, id: string, value: unknown) => ({ resource, id, value }));
-    const remove = vi.fn(async (_resource: string, _id: string) => {});
+    const remove = vi.fn(async (resource: string, id: string) => {
+      void resource;
+      void id;
+    });
     const base = createAdminResourceActionPersistenceAdapter({ query, read, create, update, delete: remove });
-    const queryPage = vi.fn(async (_resource: string, _query?: AdminResourceQuery) => ({
-      rows: [{ id: "r1" }],
-      total: 6,
-    }));
+    const queryPage = vi.fn(async (resource: string, query?: AdminResourceQuery) => {
+      void resource;
+      void query;
+      return { rows: [{ id: "r1" }], total: 6 };
+    });
     const paged = createAdminResourceActionPersistenceAdapter({
       query,
       read,
