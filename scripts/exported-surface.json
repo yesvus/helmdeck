@@ -1,5 +1,5 @@
 {
-  "version": "0.6.0",
+  "version": "v0.7.0",
   "exports": [
     "ADMIN_ANALYTICS_BATCH_SIZE",
     "ADMIN_ANALYTICS_FAILURE_HISTORY",
@@ -102,6 +102,7 @@
     "AdminSectionIntro",
     "AdminSelect",
     "AdminSessionRequiredError",
+    "AdminSettingsFooter",
     "AdminSettingsPage",
     "AdminShell",
     "AdminSkeleton",
