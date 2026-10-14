@@ -662,8 +662,84 @@ describe("what a missing rule does to the view", () => {
 describe("the server path carries no client boundary", () => {
   const root = resolve(import.meta.dirname, "..");
   const isClient = (path: string) => /^\s*["']use client["']/m.test(readFileSync(path, "utf8"));
-  const relativeImports = (source: string) =>
-    [...source.matchAll(/(?:from|import)\s*\(?\s*["'](\.[^"']+)["']/g)].map((match) => match[1]);
+
+  /**
+   * The relative imports of a module, as specifier and whether the import survives compilation.
+   *
+   * **`import type` is erased.** It has no edge in the emitted bundle, so following one reports a client
+   * boundary that the build never creates. That is not a harmless over-approximation here: it is the
+   * difference between a check that passes on a genuinely server-renderable module and one that fails on
+   * it, and a check that fails on correct code is a check people learn to disable.
+   *
+   * `src/dashboard/grid.tsx` reached `src/i18n/provider.tsx` — a `"use client"` module — through
+   * `import type ... from "../i18n.js"` and nothing else. TypeScript emits no import there at all, and
+   * `AdminDashboardLayout` is server-renderable, which is the property this describe block exists to
+   * prove. So the erased edge is dropped, and the walker sees the graph the bundler sees.
+   *
+   * **Erased means every specifier is a type, not merely that one is.** `import { type A } from "./x.js"`
+   * emits nothing, but `import { value, type A } from "./x.js"` still loads `./x.js`, and the walker has to
+   * say so or a client module can hide behind a value import in the same statement. This repository does
+   * not set `verbatimModuleSyntax`, which is the setting that decides it: with it on, an inline type
+   * specifier keeps the module edge for its side effects; with it off, an all-type statement is elided.
+   * Assuming it off is the reading that matches the emitted bundles here, and the mixed form — which is
+   * what this codebase actually writes — is handled correctly either way.
+   *
+   * **Side-effect and dynamic imports are edges too.** `import "./x.js"` and `import("./x.js")` both load
+   * the module, so both can pull in a `"use client"` boundary. A first version of this matcher required
+   * `from`, which silently dropped both: the walker got more accurate about erased edges and less accurate
+   * about real ones in the same commit, which is a bad trade and was caught in review.
+   *
+   * **A clause cannot cross into the next statement.** This repository writes semicolonless, so nothing
+   * stops a clause from running past the end of its own import and swallowing the next one. `import "./a.js"`
+   * followed by `import b from "./b.js"` matched only the second, because the lazy clause had to find a
+   * `from` and the first statement has none. The side-effect edge vanished, silently. An import clause can
+   * never contain the word `import` or `export`, so the matcher refuses to cross one — as a whole word, since
+   * a binding called `important` is a perfectly ordinary name.
+   *
+   * **`type` right after `import` is a keyword only when something follows it.** `import type from "./x.js"`
+   * binds a value whose name happens to be `type`; `import type { A } from "./x.js"` and
+   * `import type * as ns from "./x.js"` are ordinary type-only imports and compile fine. TypeScript tells
+   * them apart by what follows the word, not by the word itself, so the matcher does too: the keyword is
+   * recognised only when it is not immediately followed by `from`.
+   *
+   * Verified rather than argued: `tsc --noEmit` accepts `import type from "./dep.js"` and then lets the
+   * binding be used as a value, while the same binding from `import type { A }` raises TS2693, "only
+   * refers to a type, but is being used as a value here".
+   *
+   * **Inside braces the same word needs a stricter test still.** `import { type as Foo } from "./x.js"` renames
+   * a value whose name is `type`; `import { type } from "./x.js"` imports it outright. Neither is a type-only
+   * marker, and reading either as one drops a real edge. The marker is `type` followed by whitespace and then
+   * something that is not `as`, which covers `type A`, `type A as B` and rejects both rename forms.
+   */
+  const relativeImports = (source: string) => {
+    const found: { specifier: string; typeOnly: boolean }[] = [];
+
+    // `import ... from "x"`, `export ... from "x"`, `import("./x")`, and a bare side-effect `import "x"`.
+    for (const match of source.matchAll(
+      /(?:\b(?:import|export)\b(?<kwType>\s+type\b(?!\s*from\b))?\s(?<clause>(?:(?!\b(?:import|export)\b)[\s\S])*?)\bfrom\s*(?:\(\s*)?|\bimport\s*\(\s*|\bimport\s+)["'](?<spec>\.[^"']+)["']/g,
+    )) {
+      const clause = match.groups?.clause ?? "";
+      const named = /\{(?<specifiers>[^}]*)\}/.exec(clause)?.groups?.specifiers;
+      // Anything outside the braces is a default or namespace binding, and a default binding is a value
+      // even when every specifier inside the braces is a type. `import Default, { type A } from "./x.js"`
+      // loads `./x.js`; reading only the braces would call it erased and hide a real client edge behind
+      // the one construct that looks erased.
+      const outsideBraces = clause.replace(/\{[^}]*\}/g, "").replace(/,/g, "").trim();
+      const allInlineTypes =
+        outsideBraces.length === 0 &&
+        named !== undefined &&
+        named
+          .split(",")
+          .map((part) => part.trim())
+          .filter((part) => part.length > 0)
+          .every((part) => /^type\s+(?!as\b)/.test(part));
+      found.push({
+        specifier: match.groups?.spec ?? "",
+        typeOnly: Boolean(match.groups?.kwType) || allInlineTypes,
+      });
+    }
+    return found;
+  };
 
   /** The modules an entry reaches, following its own relative imports. */
   function reachable(entry: string): string[] {
@@ -673,7 +749,8 @@ describe("the server path carries no client boundary", () => {
       const path = pending.pop() as string;
       if (found.has(path)) continue;
       found.add(path);
-      for (const specifier of relativeImports(readFileSync(path, "utf8"))) {
+      for (const { specifier, typeOnly } of relativeImports(readFileSync(path, "utf8"))) {
+        if (typeOnly) continue;
         const base = resolve(path, "..", specifier.replace(/\.js$/, ""));
         const resolved = [".ts", ".tsx"]
           .map((extension) => `${base}${extension}`)
@@ -704,5 +781,145 @@ describe("the server path carries no client boundary", () => {
     // A walk that resolved nothing would report nothing and pass, which is the shape of a check
     // that cannot fail.
     expect(modules.length).toBeGreaterThan(2);
+  });
+
+  it("keeps the server-renderable dashboard free of the client boundary", () => {
+    // `AdminDashboardLayout` is documented as the server-renderable dashboard: the host resolves every
+    // widget's data and hands it over, so the module takes its copy as a prop rather than reading the
+    // interface dictionary from a client context. That is the property that lets a host render a
+    // dashboard in a server component, and it was a claim in a doc comment with nothing behind it.
+    //
+    // It nearly reads as false, which is why this is worth pinning. `src/dashboard/grid.tsx` reaches the
+    // `"use client"` module `src/i18n/provider.tsx`, but only through `import type`, which TypeScript
+    // erases. The direct `"use client"` is obvious in a diff; this transitive, erased edge is not, and it
+    // is exactly the shape that would turn a host's build red in their repository rather than here.
+    const modules = reachable("src/dashboard/layout.tsx");
+    const clientModules = modules.filter(isClient).map((path) => path.slice(root.length + 1));
+
+    expect({ clientModules }, "the server-renderable dashboard must not reach a client module").toEqual({
+      clientModules: [],
+    });
+    // Resolving almost nothing would satisfy the assertion above while proving nothing.
+    expect(modules.length).toBeGreaterThan(2);
+  });
+
+  it("does not follow a type-only import, because the bundler does not emit one", () => {
+    // The walker's own correctness, since a check that over-reports is a check that fails on correct code.
+    // `src/dashboard/grid.tsx` is the live case: its only path to a client module is an erased edge.
+    const grid = readFileSync(join(root, "src/dashboard/grid.tsx"), "utf8");
+    const imports = relativeImports(grid);
+    const i18n = imports.filter(({ specifier }) => specifier.includes("i18n"));
+
+    expect(i18n.length).toBeGreaterThan(0);
+    expect(i18n.every(({ typeOnly }) => typeOnly)).toBe(true);
+    expect(reachable("src/dashboard/grid.tsx").some(isClient)).toBe(false);
+  });
+
+  describe("which imports the compiler keeps", () => {
+    const specifiersIn = (source: string) =>
+      relativeImports(source).map(({ specifier, typeOnly }) => `${specifier}${typeOnly ? " (erased)" : ""}`);
+
+    it("erases a whole-statement type import", () => {
+      expect(specifiersIn(`import type { A } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
+
+    it("erases an all-type named import, which is what this repository writes too", () => {
+      expect(specifiersIn(`import { type A, type B } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
+
+    it("erases an all-type named import written across lines with a trailing comma", () => {
+      // A trailing comma leaves an empty final element, and an element that is not a `type` keyword read
+      // as a value. That misclassifies a correct import as a real edge, and since the module behind it is
+      // `"use client"`, the check fails on correct code — the one outcome a check in this file must never
+      // produce, because it teaches people to disable it.
+      expect(specifiersIn(`import {\n  type A,\n  type B,\n} from "./a.js";`)).toEqual(["./a.js (erased)"]);
+      expect(specifiersIn(`import { type A, } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
+
+    it("keeps a mixed import, because the value specifier still loads the module", () => {
+      // Getting this wrong hides a client module behind a value import in the same statement, which is
+      // the whole failure the walker exists to catch.
+      expect(specifiersIn(`import { value, type A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a default import paired with type-only specifiers", () => {
+      // The mirror of the trailing-comma case, and the more dangerous direction. Every specifier inside
+      // the braces is a type, so reading only the braces calls this erased — but the default binding is a
+      // value, so the module is loaded. An erased reading hides a real client edge.
+      expect(specifiersIn(`import Default, { type A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a namespace import paired with type-only specifiers", () => {
+      expect(specifiersIn(`import * as NS, { type A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a default and namespace import", () => {
+      expect(specifiersIn(`import A from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import * as A from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a side-effect import, which loads the module and has no from clause", () => {
+      expect(specifiersIn(`import "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a side-effect import that the next import would otherwise swallow", () => {
+      // This repository is semicolonless, so nothing ends the first statement for the matcher to notice.
+      // With a lazy clause that runs to the next `from`, the first import is consumed as part of the
+      // second one's clause and its edge disappears without a word.
+      expect(specifiersIn(`import "./a.js"\nimport b from "./b.js"\n`)).toEqual(["./a.js", "./b.js"]);
+      expect(specifiersIn(`import "./a.js"\nimport type { T } from "./b.js"\n`)).toEqual([
+        "./a.js",
+        "./b.js (erased)",
+      ]);
+    });
+
+    it("keeps two consecutive plain imports, semicolonless", () => {
+      expect(specifiersIn(`import b from "./b.js"\nimport c from "./c.js"\n`)).toEqual(["./b.js", "./c.js"]);
+    });
+
+    it("keeps a dynamic import", () => {
+      expect(specifiersIn(`const m = await import("./a.js");`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a re-export, which is an edge in the other direction", () => {
+      expect(specifiersIn(`export { A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("erases a type re-export", () => {
+      expect(specifiersIn(`export type { A } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
+
+    it("ignores a bare package specifier, because the walk is about this repository's own modules", () => {
+      expect(specifiersIn(`import { useState } from "react";`)).toEqual([]);
+    });
+
+    it("reads a binding named type as a value, not as the keyword", () => {
+      // `import type from "./x.js"` binds a value called `type`. Reading `type` as the keyword would drop a
+      // real edge. Checked against the compiler rather than remembered: tsc accepts the statement and lets
+      // the binding be used as a value, where the same name from `import type { A }` is TS2693.
+      expect(specifiersIn(`import type from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import type, { b } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("reads a binding whose name merely contains the keyword as a value", () => {
+      // The statement-boundary guard has to be a whole-word match, or an ordinary binding name is read as
+      // the start of the next statement and the clause is cut short.
+      expect(specifiersIn(`import important from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import { exportedThing } from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import { important, type A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("reads a renamed binding named type as a value, not as the keyword", () => {
+      // `type as Foo` is a rename of a binding called `type`, and `{ type }` imports it outright. Both are
+      // values. Reading either as a type-only marker hides a real edge, which is the direction of error that
+      // costs a client boundary rather than a false alarm.
+      expect(specifiersIn(`import { type as Foo } from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import { type } from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import { type as Foo, type B } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("still reads a renamed type specifier as erased", () => {
+      expect(specifiersIn(`import { type A as B } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
   });
 });
