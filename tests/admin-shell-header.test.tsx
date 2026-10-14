@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminShell } from "../src/shell/admin-shell";
 import { AdminPageHeader } from "../src/shell/admin-page-header";
 import { AdminShellProvider } from "../src/shell/context";
 import type { AdminShellContextValue } from "../src/shell/context";
 
 vi.mock("next/navigation.js", () => ({ usePathname: () => "/shell/products/new" }));
+
+afterEach(() => {
+  window.localStorage.clear();
+});
 
 const shellValue = { currentPageTitle: "Catalog", nav: [] } as unknown as AdminShellContextValue;
 const nav = [{
@@ -70,7 +74,7 @@ describe("persistent shell page context", () => {
     expect(screen.getByText("Yeni", { selector: '[aria-current="page"]' })).toBeInTheDocument();
   });
 
-  it("expands only the first navigation category on initial render", () => {
+  it("opens the first category and the category containing the active route", () => {
     render(
       <AdminShell nav={[
         { label: "Overview", items: [{ label: "Dashboard", href: "/shell" }] },
@@ -81,7 +85,7 @@ describe("persistent shell page context", () => {
     );
 
     expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: "Content" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Content" })).toHaveAttribute("aria-expanded", "true");
   });
 
   it("lets the active group collapse without showing the current page in the group header", () => {

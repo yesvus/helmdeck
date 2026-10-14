@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link.js";
 import { usePathname } from "next/navigation.js";
@@ -22,6 +22,8 @@ import { mergeAdminLabels } from "./labels.js";
 import { useAdminBranding } from "../theme/branding.js";
 import { useBreadcrumbs } from "./use-breadcrumbs.js";
 import { useAdminHref, useAdminMessages } from "../i18n.js";
+
+const OPEN_GROUPS_STORAGE_KEY = "yesvus:helmdeck:open-nav-groups:v1";
 
 export function AdminShell({
   nav,
@@ -74,12 +76,19 @@ export function AdminShell({
         : value.toLocaleLowerCase(i18n.searchLocale).normalize("NFKD"),
     [i18n.searchLocale, searchNormalize],
   );
-  const visibleNav = filterNavGroups(nav, session?.role);
+  const visibleNav = useMemo(() => filterNavGroups(nav, session?.role), [nav, session?.role]);
   const branding = useAdminBranding(brand?.accent);
   const [collapsed, setCollapsed] = useState(false);
   const internalContentScrollRef = useRef<HTMLDivElement>(null);
+  const groupPreferences = useRef<Record<string, boolean> | null>(null);
+  const [groupPreferencesLoaded, setGroupPreferencesLoaded] = useState(false);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(visibleNav.map((group, index) => [group.label, index === 0])),
+    Object.fromEntries(
+      visibleNav.map((group, index) => [
+        group.label,
+        index === 0 || group.items.some((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined)),
+      ]),
+    ),
   );
   const trail = useBreadcrumbs(nav);
   const pageTitle = currentPageTitle ?? trail?.item.label;
@@ -87,6 +96,42 @@ export function AdminShell({
   const brandHref = toHref(brand?.href ?? homeHref);
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(OPEN_GROUPS_STORAGE_KEY);
+      const parsed: unknown = saved ? JSON.parse(saved) : {};
+      groupPreferences.current =
+        parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? Object.fromEntries(
+              Object.entries(parsed).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),
+            )
+          : {};
+    } catch {
+      groupPreferences.current = {};
+    }
+
+    setOpenGroups((current) => ({ ...current, ...groupPreferences.current }));
+    setGroupPreferencesLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!groupPreferencesLoaded) return;
+    const activeGroup = visibleNav.find((group) =>
+      group.items.some((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined)),
+    );
+    if (!activeGroup || groupPreferences.current?.[activeGroup.label] !== undefined) return;
+    setOpenGroups((current) => (current[activeGroup.label] ? current : { ...current, [activeGroup.label]: true }));
+  }, [groupPreferencesLoaded, homeHref, pathname, visibleNav]);
+
+  useEffect(() => {
+    if (!groupPreferencesLoaded) return;
+    try {
+      localStorage.setItem(OPEN_GROUPS_STORAGE_KEY, JSON.stringify(groupPreferences.current ?? {}));
+    } catch {
+      return;
+    }
+  }, [groupPreferencesLoaded, openGroups]);
 
   // Writing to the local ref is fine. A host callback is invoked directly, because
   // calling a prop function is not a mutation, and that keeps it correct across remounts.
@@ -199,7 +244,7 @@ export function AdminShell({
                     .filter((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined))
                     .sort((a, b) => b.href.length - a.href.length)[0];
                   const GroupIcon = resolveNavIcon(group.icon);
-                  const isOpen = openGroups[group.label] !== false;
+                  const isOpen = groupPreferencesLoaded && openGroups[group.label] !== false;
 
                   return (
                     <section key={group.label} className="mb-1">
@@ -207,10 +252,11 @@ export function AdminShell({
                         <button
                           type="button"
                           onClick={() =>
-                            setOpenGroups((current) => ({
-                              ...current,
-                              [group.label]: !current[group.label],
-                            }))
+                            setOpenGroups((current) => {
+                              const next = { ...current, [group.label]: current[group.label] !== false ? false : true };
+                              groupPreferences.current = { ...groupPreferences.current, [group.label]: next[group.label] };
+                              return next;
+                            })
                           }
                           aria-expanded={isOpen}
                           className={cn(
