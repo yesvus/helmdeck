@@ -125,6 +125,29 @@ describe("the getting-started documentation matches the package", () => {
     // And the lists are not simply a copy of the exports, which would make the rest vacuous.
     expect(ALL.length).toBeLessThan(rootNames.size + baselineNames.size);
   });
+
+  it("documents resource field checks at the configured server boundary", () => {
+    const start = README.indexOf("### Enforcing a permission on the server");
+    const end = README.indexOf("### Recording the writes and dropping the caches", start);
+    const actions = README.slice(start, end);
+    const auditStart = end;
+    const auditEnd = README.indexOf("### The memory adapter", auditStart);
+    const audit = README.slice(auditStart, auditEnd);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(auditEnd).toBeGreaterThan(auditStart);
+    expect(README).toContain("does not protect a server action called directly");
+    expect(actions).toContain("definitions: [posts]");
+    expect(actions).toContain("not field-checked");
+    expect(actions).toContain("After permission and reference checks pass");
+    expect(actions).toContain("`AdminResourceFieldError` before persistence receives the write");
+    expect(actions).toContain("its `fields` property names the keys");
+    expect(audit).toContain("definitions: [posts]");
+    expect(audit).toContain("complete configuration");
+    expect(audit).toContain("Keep `definitions` when adding either adapter");
+    expect(README).not.toContain("demo's actions run the incoming value through `adminResourceValues`");
+  });
 });
 
 /**
