@@ -699,6 +699,11 @@ describe("the server path carries no client boundary", () => {
    * **`type` is a keyword only when something follows it.** `import type from "./x.js"` imports a value whose
    * name happens to be `type`. `import type { A } from "./x.js"` and `import type * as ns from "./x.js"` do not
    * compile at all, so the marker is only real when a clause follows it.
+   *
+   * **Inside braces the same word needs a stricter test still.** `import { type as Foo } from "./x.js"` renames
+   * a value whose name is `type`; `import { type } from "./x.js"` imports it outright. Neither is a type-only
+   * marker, and reading either as one drops a real edge. The marker is `type` followed by whitespace and then
+   * something that is not `as`, which covers `type A`, `type A as B` and rejects both rename forms.
    */
   const relativeImports = (source: string) => {
     const found: { specifier: string; typeOnly: boolean }[] = [];
@@ -721,7 +726,7 @@ describe("the server path carries no client boundary", () => {
           .split(",")
           .map((part) => part.trim())
           .filter((part) => part.length > 0)
-          .every((part) => /^type\s/.test(part));
+          .every((part) => /^type\s+(?!as\b)/.test(part));
       found.push({
         specifier: match.groups?.spec ?? "",
         typeOnly: Boolean(match.groups?.kwType) || allInlineTypes,
@@ -896,6 +901,19 @@ describe("the server path carries no client boundary", () => {
       expect(specifiersIn(`import important from "./a.js";`)).toEqual(["./a.js"]);
       expect(specifiersIn(`import { exportedThing } from "./a.js";`)).toEqual(["./a.js"]);
       expect(specifiersIn(`import { important, type A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("reads a renamed binding named type as a value, not as the keyword", () => {
+      // `type as Foo` is a rename of a binding called `type`, and `{ type }` imports it outright. Both are
+      // values. Reading either as a type-only marker hides a real edge, which is the direction of error that
+      // costs a client boundary rather than a false alarm.
+      expect(specifiersIn(`import { type as Foo } from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import { type } from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import { type as Foo, type B } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("still reads a renamed type specifier as erased", () => {
+      expect(specifiersIn(`import { type A as B } from "./a.js";`)).toEqual(["./a.js (erased)"]);
     });
   });
 });
