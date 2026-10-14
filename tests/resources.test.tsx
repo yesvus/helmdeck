@@ -662,8 +662,8 @@ describe("AdminResourceForm", () => {
     wrap(<AdminResourceList definition={definition} persistence={persistence} />);
     expect(await screen.findByText("Quarterly report")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "New" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Delete:/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Edit:/ })).not.toBeInTheDocument();
 
     cleanup();
     wrap(<AdminResourceForm definition={definition} persistence={persistence} id="r1" />);
