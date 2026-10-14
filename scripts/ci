@@ -18,6 +18,7 @@ if [[ -z "${HELMDECK_TEST_POSTGRES_URL:-}" ]]; then
 fi
 
 pnpm version:check
+pnpm node-floor:check
 pnpm typecheck
 pnpm lint
 pnpm test
