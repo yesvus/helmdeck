@@ -696,9 +696,15 @@ describe("the server path carries no client boundary", () => {
    * never contain the word `import` or `export`, so the matcher refuses to cross one — as a whole word, since
    * a binding called `important` is a perfectly ordinary name.
    *
-   * **`type` is a keyword only when something follows it.** `import type from "./x.js"` imports a value whose
-   * name happens to be `type`. `import type { A } from "./x.js"` and `import type * as ns from "./x.js"` do not
-   * compile at all, so the marker is only real when a clause follows it.
+   * **`type` right after `import` is a keyword only when something follows it.** `import type from "./x.js"`
+   * binds a value whose name happens to be `type`; `import type { A } from "./x.js"` and
+   * `import type * as ns from "./x.js"` are ordinary type-only imports and compile fine. TypeScript tells
+   * them apart by what follows the word, not by the word itself, so the matcher does too: the keyword is
+   * recognised only when it is not immediately followed by `from`.
+   *
+   * Verified rather than argued: `tsc --noEmit` accepts `import type from "./dep.js"` and then lets the
+   * binding be used as a value, while the same binding from `import type { A }` raises TS2693, "only
+   * refers to a type, but is being used as a value here".
    *
    * **Inside braces the same word needs a stricter test still.** `import { type as Foo } from "./x.js"` renames
    * a value whose name is `type`; `import { type } from "./x.js"` imports it outright. Neither is a type-only
@@ -888,9 +894,9 @@ describe("the server path carries no client boundary", () => {
     });
 
     it("reads a binding named type as a value, not as the keyword", () => {
-      // `import type from "./x.js"` imports a value whose name is `type`. Reading `type` as the keyword
-      // would drop a real edge, and `import type { A } from "./x.js"` does not compile, so there is no
-      // ambiguity to resolve in the other direction.
+      // `import type from "./x.js"` binds a value called `type`. Reading `type` as the keyword would drop a
+      // real edge. Checked against the compiler rather than remembered: tsc accepts the statement and lets
+      // the binding be used as a value, where the same name from `import type { A }` is TS2693.
       expect(specifiersIn(`import type from "./a.js";`)).toEqual(["./a.js"]);
       expect(specifiersIn(`import type, { b } from "./a.js";`)).toEqual(["./a.js"]);
     });
