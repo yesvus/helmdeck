@@ -45,6 +45,20 @@ describe("whether this process must have a database", () => {
   it("takes an explicit opt-in for a deployment on a platform that does not set VERCEL", () => {
     expect(demoPersistenceRequired({ HELMDECK_DEMO_REQUIRE_DATABASE: "1" })).toBe(true);
   });
+
+  it("does not insist during a production build, which runs with VERCEL set and no database", () => {
+    // `next build` on Vercel has VERCEL=1 and connects to nothing on purpose. Keying the refusal on the
+    // host rather than on the phase would fail every build there, and it would look like a database
+    // outage rather than like a build that was never supposed to have one.
+    expect(demoPersistenceRequired({ VERCEL: "1", NEXT_PHASE: "phase-production-build" })).toBe(false);
+    expect(demoPersistenceRequired({ HELMDECK_DEMO_REQUIRE_DATABASE: "1", NEXT_PHASE: "phase-production-build" })).toBe(
+      false,
+    );
+  });
+
+  it("still insists while serving, which is the phase a deployment actually runs in", () => {
+    expect(demoPersistenceRequired({ VERCEL: "1", NEXT_PHASE: "phase-production-server" })).toBe(true);
+  });
 });
 
 describe("the guard itself", () => {
@@ -68,7 +82,7 @@ describe("the call site in the boot path, which is the part that was missing", (
 
   beforeEach(() => {
     vi.resetModules();
-    for (const key of ["VERCEL", "HELMDECK_DEMO_REQUIRE_DATABASE", "HELMDECK_TURSO_URL", "HELMDECK_TURSO_TOKEN"]) {
+    for (const key of ["VERCEL", "HELMDECK_DEMO_REQUIRE_DATABASE", "HELMDECK_TURSO_URL", "HELMDECK_TURSO_TOKEN", "NEXT_PHASE"]) {
       delete process.env[key];
     }
   });
@@ -95,18 +109,43 @@ describe("the call site in the boot path, which is the part that was missing", (
 });
 
 describe("the boot hook", () => {
-  it("insists at boot in a deployment, and is the reason the refusal does not wait for a visitor", async () => {
+  const original = { ...process.env };
+
+  // Every discriminator is cleared, not just VERCEL. A test whose outcome depends on ambient variables
+  // passes here and fails on a machine that happens to set them, which is the worst way for a test to be
+  // wrong: it looks like the suite is broken rather than the test.
+  beforeEach(() => {
     vi.resetModules();
+    for (const key of [
+      "VERCEL",
+      "HELMDECK_DEMO_REQUIRE_DATABASE",
+      "HELMDECK_TURSO_URL",
+      "HELMDECK_TURSO_TOKEN",
+      "NEXT_PHASE",
+    ]) {
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    process.env = { ...original };
+    vi.resetModules();
+  });
+
+  it("insists at boot in a deployment, and is the reason the refusal does not wait for a visitor", async () => {
     process.env.VERCEL = "1";
-    delete process.env.HELMDECK_TURSO_URL;
-    delete process.env.HELMDECK_TURSO_TOKEN;
     const { register } = await import("../fixtures/instrumentation");
     expect(() => register()).toThrow(/HELMDECK_TURSO_URL/);
   });
 
   it("does nothing at all in a local run", async () => {
-    vi.resetModules();
-    delete process.env.VERCEL;
+    const { register } = await import("../fixtures/instrumentation");
+    expect(() => register()).not.toThrow();
+  });
+
+  it("does nothing during a production build, even with VERCEL set", async () => {
+    process.env.VERCEL = "1";
+    process.env.NEXT_PHASE = "phase-production-build";
     const { register } = await import("../fixtures/instrumentation");
     expect(() => register()).not.toThrow();
   });

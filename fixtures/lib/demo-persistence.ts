@@ -79,8 +79,20 @@ export function demoPersistence(): DemoPersistence {
  *
  * `HELMDECK_DEMO_REQUIRE_DATABASE` is the host-neutral escape hatch, for a deployment on a platform that
  * does not set `VERCEL` and for a test that wants the deployed behaviour without a real deployment.
+ *
+ * **A production build is not a deployment.** `next build` runs with `VERCEL` set and the database
+ * deliberately absent, which is how this repository proves every admin page is dynamic, so refusing there
+ * would fail every build on the platform that hosts the demo. `NEXT_PHASE` separates the two:
+ * `phase-production-build` while building, `phase-production-server` while serving.
+ *
+ * Today nothing reaches this during a build, because every page is dynamic and no static page touches
+ * persistence. That is a property of how the pages happen to be written rather than something the guard
+ * enforces, and it would change silently: the first static page that reads a store would turn every Vercel
+ * build red, and it would read as a database problem rather than as a page that was made static by
+ * accident. Excluding the phase here means that mistake costs a page instead of the deployment.
  */
 export function demoPersistenceRequired(env: DemoEnv = process.env): boolean {
+  if (env.NEXT_PHASE === "phase-production-build") return false;
   if (env.HELMDECK_DEMO_REQUIRE_DATABASE) return true;
   return Boolean(env.VERCEL);
 }
