@@ -693,14 +693,19 @@ describe("the server path carries no client boundary", () => {
    * stops a clause from running past the end of its own import and swallowing the next one. `import "./a.js"`
    * followed by `import b from "./b.js"` matched only the second, because the lazy clause had to find a
    * `from` and the first statement has none. The side-effect edge vanished, silently. An import clause can
-   * never contain the word `import` or `export`, so the matcher refuses to cross one.
+   * never contain the word `import` or `export`, so the matcher refuses to cross one — as a whole word, since
+   * a binding called `important` is a perfectly ordinary name.
+   *
+   * **`type` is a keyword only when something follows it.** `import type from "./x.js"` imports a value whose
+   * name happens to be `type`. `import type { A } from "./x.js"` and `import type * as ns from "./x.js"` do not
+   * compile at all, so the marker is only real when a clause follows it.
    */
   const relativeImports = (source: string) => {
     const found: { specifier: string; typeOnly: boolean }[] = [];
 
     // `import ... from "x"`, `export ... from "x"`, `import("./x")`, and a bare side-effect `import "x"`.
     for (const match of source.matchAll(
-      /(?:\b(?:import|export)\b(?<kwType>\s+type)?\s(?<clause>(?:(?!import|export)[\s\S])*?)\bfrom\s*(?:\(\s*)?|\bimport\s*\(\s*|\bimport\s+)["'](?<spec>\.[^"']+)["']/g,
+      /(?:\b(?:import|export)\b(?<kwType>\s+type\b(?!\s*from\b))?\s(?<clause>(?:(?!\b(?:import|export)\b)[\s\S])*?)\bfrom\s*(?:\(\s*)?|\bimport\s*\(\s*|\bimport\s+)["'](?<spec>\.[^"']+)["']/g,
     )) {
       const clause = match.groups?.clause ?? "";
       const named = /\{(?<specifiers>[^}]*)\}/.exec(clause)?.groups?.specifiers;
@@ -875,6 +880,22 @@ describe("the server path carries no client boundary", () => {
 
     it("ignores a bare package specifier, because the walk is about this repository's own modules", () => {
       expect(specifiersIn(`import { useState } from "react";`)).toEqual([]);
+    });
+
+    it("reads a binding named type as a value, not as the keyword", () => {
+      // `import type from "./x.js"` imports a value whose name is `type`. Reading `type` as the keyword
+      // would drop a real edge, and `import type { A } from "./x.js"` does not compile, so there is no
+      // ambiguity to resolve in the other direction.
+      expect(specifiersIn(`import type from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import type, { b } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("reads a binding whose name merely contains the keyword as a value", () => {
+      // The statement-boundary guard has to be a whole-word match, or an ordinary binding name is read as
+      // the start of the next statement and the clause is cut short.
+      expect(specifiersIn(`import important from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import { exportedThing } from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import { important, type A } from "./a.js";`)).toEqual(["./a.js"]);
     });
   });
 });
