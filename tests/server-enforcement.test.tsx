@@ -675,12 +675,39 @@ describe("the server path carries no client boundary", () => {
    * `import type ... from "../i18n.js"` and nothing else. TypeScript emits no import there at all, and
    * `AdminDashboardLayout` is server-renderable, which is the property this describe block exists to
    * prove. So the erased edge is dropped, and the walker sees the graph the bundler sees.
+   *
+   * **Erased means every specifier is a type, not merely that one is.** `import { type A } from "./x.js"`
+   * emits nothing, but `import { value, type A } from "./x.js"` still loads `./x.js`, and the walker has to
+   * say so or a client module can hide behind a value import in the same statement. This repository does
+   * not set `verbatimModuleSyntax`, which is the setting that decides it: with it on, an inline type
+   * specifier keeps the module edge for its side effects; with it off, an all-type statement is elided.
+   * Assuming it off is the reading that matches the emitted bundles here, and the mixed form — which is
+   * what this codebase actually writes — is handled correctly either way.
+   *
+   * **Side-effect and dynamic imports are edges too.** `import "./x.js"` and `import("./x.js")` both load
+   * the module, so both can pull in a `"use client"` boundary. A first version of this matcher required
+   * `from`, which silently dropped both: the walker got more accurate about erased edges and less accurate
+   * about real ones in the same commit, which is a bad trade and was caught in review.
    */
-  const relativeImports = (source: string) =>
-    [...source.matchAll(/(import|export)(\s+type)?\s[^;]*?from\s*\(?\s*["'](\.[^"']+)["']/g)].map((match) => ({
-      specifier: match[3],
-      typeOnly: Boolean(match[2]),
-    }));
+  const relativeImports = (source: string) => {
+    const found: { specifier: string; typeOnly: boolean }[] = [];
+
+    // `import ... from "x"`, `export ... from "x"`, and `import("x")`, with or without a `type` keyword.
+    for (const match of source.matchAll(
+      /(?:\b(?:import|export)\b(?<kwType>\s+type)?\s(?<clause>[^;]*?)\bfrom\s*(?:\(\s*)?|\bimport\s*\(\s*|\bimport\s+)["'](?<spec>\.[^"']+)["']/g,
+    )) {
+      const clause = match.groups?.clause ?? "";
+      const named = /\{(?<specifiers>[^}]*)\}/.exec(clause)?.groups?.specifiers;
+      // No braces means a default or namespace import, which is a value and therefore a real edge.
+      const allInlineTypes =
+        named !== undefined && named.trim().length > 0 && named.split(",").every((part) => /^\s*type\s/.test(part));
+      found.push({
+        specifier: match.groups?.spec ?? "",
+        typeOnly: Boolean(match.groups?.kwType) || allInlineTypes,
+      });
+    }
+    return found;
+  };
 
   /** The modules an entry reaches, following its own relative imports. */
   function reachable(entry: string): string[] {
@@ -754,5 +781,49 @@ describe("the server path carries no client boundary", () => {
     expect(i18n.length).toBeGreaterThan(0);
     expect(i18n.every(({ typeOnly }) => typeOnly)).toBe(true);
     expect(reachable("src/dashboard/grid.tsx").some(isClient)).toBe(false);
+  });
+
+  describe("which imports the compiler keeps", () => {
+    const specifiersIn = (source: string) =>
+      relativeImports(source).map(({ specifier, typeOnly }) => `${specifier}${typeOnly ? " (erased)" : ""}`);
+
+    it("erases a whole-statement type import", () => {
+      expect(specifiersIn(`import type { A } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
+
+    it("erases an all-type named import, which is what this repository writes too", () => {
+      expect(specifiersIn(`import { type A, type B } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
+
+    it("keeps a mixed import, because the value specifier still loads the module", () => {
+      // Getting this wrong hides a client module behind a value import in the same statement, which is
+      // the whole failure the walker exists to catch.
+      expect(specifiersIn(`import { value, type A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a default and namespace import", () => {
+      expect(specifiersIn(`import A from "./a.js";`)).toEqual(["./a.js"]);
+      expect(specifiersIn(`import * as A from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a side-effect import, which loads the module and has no from clause", () => {
+      expect(specifiersIn(`import "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a dynamic import", () => {
+      expect(specifiersIn(`const m = await import("./a.js");`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a re-export, which is an edge in the other direction", () => {
+      expect(specifiersIn(`export { A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("erases a type re-export", () => {
+      expect(specifiersIn(`export type { A } from "./a.js";`)).toEqual(["./a.js (erased)"]);
+    });
+
+    it("ignores a bare package specifier, because the walk is about this repository's own modules", () => {
+      expect(specifiersIn(`import { useState } from "react";`)).toEqual([]);
+    });
   });
 });
