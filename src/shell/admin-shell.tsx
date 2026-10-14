@@ -127,7 +127,7 @@ export function AdminShell({
   useEffect(() => {
     if (!groupPreferencesLoaded) return;
     try {
-      localStorage.setItem(OPEN_GROUPS_STORAGE_KEY, JSON.stringify(openGroups));
+      localStorage.setItem(OPEN_GROUPS_STORAGE_KEY, JSON.stringify(groupPreferences.current ?? {}));
     } catch {
       return;
     }
@@ -244,7 +244,7 @@ export function AdminShell({
                     .filter((item) => isAdminNavItemActive(pathname, item.href, item.href === homeHref ? homeHref : undefined))
                     .sort((a, b) => b.href.length - a.href.length)[0];
                   const GroupIcon = resolveNavIcon(group.icon);
-                  const isOpen = openGroups[group.label] !== false;
+                  const isOpen = groupPreferencesLoaded && openGroups[group.label] !== false;
 
                   return (
                     <section key={group.label} className="mb-1">
@@ -253,7 +253,7 @@ export function AdminShell({
                           type="button"
                           onClick={() =>
                             setOpenGroups((current) => {
-                              const next = { ...current, [group.label]: !current[group.label] };
+                              const next = { ...current, [group.label]: current[group.label] !== false ? false : true };
                               groupPreferences.current = { ...groupPreferences.current, [group.label]: next[group.label] };
                               return next;
                             })

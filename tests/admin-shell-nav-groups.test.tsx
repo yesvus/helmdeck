@@ -21,9 +21,9 @@ const nav = [
   { label: "Settings", items: [{ label: "Site", href: "/shell/settings/site" }] },
 ];
 
-function renderShell() {
+function renderShell(groups = nav) {
   return render(
-    <AdminShell nav={nav} homeHref="/shell" session={{ email: "ada@example.com" }}>
+    <AdminShell nav={groups} homeHref="/shell" session={{ email: "ada@example.com" }}>
       <p>Page content</p>
     </AdminShell>,
   );
@@ -32,6 +32,7 @@ function renderShell() {
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  pathname.value = "/shell/settings/site";
 });
 
 describe("sidebar navigation group state", () => {
@@ -62,5 +63,45 @@ describe("sidebar navigation group state", () => {
 
     expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Site" })).toBeInTheDocument();
+  });
+
+  it.each(["null", "[]", JSON.stringify({ Settings: "false" })])(
+    "ignores saved state with an invalid shape: %s",
+    (saved) => {
+      window.localStorage.setItem("yesvus:helmdeck:open-nav-groups:v1", saved);
+
+      renderShell();
+
+      expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByRole("link", { name: "Site" })).toBeInTheDocument();
+    },
+  );
+
+  it("does not persist default closed groups as explicit preferences", () => {
+    pathname.value = "/shell";
+    renderShell();
+
+    expect(screen.getByRole("button", { name: "Settings" })).toHaveAttribute("aria-expanded", "false");
+    expect(JSON.parse(window.localStorage.getItem("yesvus:helmdeck:open-nav-groups:v1") ?? "null")).toEqual({});
+    pathname.value = "/shell/settings/site";
+  });
+
+  it("lets a newly visible group collapse on its first click", async () => {
+    const user = userEvent.setup();
+    const view = renderShell();
+    view.rerender(
+      <AdminShell
+        nav={[...nav, { label: "Reports", items: [{ label: "Monthly", href: "/shell/reports" }] }]}
+        homeHref="/shell"
+        session={{ email: "ada@example.com" }}
+      >
+        <p>Page content</p>
+      </AdminShell>,
+    );
+
+    const reports = screen.getByRole("button", { name: "Reports" });
+    expect(reports).toHaveAttribute("aria-expanded", "true");
+    await user.click(reports);
+    expect(reports).toHaveAttribute("aria-expanded", "false");
   });
 });
