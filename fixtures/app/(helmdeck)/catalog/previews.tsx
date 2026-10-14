@@ -64,6 +64,7 @@ import {
   AdminSearch,
   AdminSectionCard,
   AdminSectionIntro,
+  AdminSettingsFooter,
   AdminSelect,
   AdminSkeleton,
   AdminSortableCard,
@@ -496,6 +497,8 @@ function BulkActionsSample() {
 }
 
 export const catalogPreviews: Record<string, ComponentType> = {
+  AdminSettingsFooter: () => <AdminSettingsFooter>Host build 42</AdminSettingsFooter>,
+
   Button: () => (
     <div className="flex flex-wrap items-center gap-2">
       <Button>Primary</Button>
