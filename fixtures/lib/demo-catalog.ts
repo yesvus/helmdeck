@@ -1484,6 +1484,16 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "The five resource calls a client makes, each refusing through a guard before the store is reached, so a name from the browser is never a capability on its own.",
     keywords: "actions server guard persistence boundary capability",
   },
+  createAdminResourceActionPersistenceAdapter: {
+    category: "Resources",
+    summary: "Maps host Server Actions onto the resource persistence contract, preserving optional paging.",
+    keywords: "server actions client bridge persistence queryPage",
+  },
+  createReadOnlyPersistenceAdapter: {
+    category: "Resources",
+    summary: "Adapts a read-only resource source and refuses writes with the operation and resource named.",
+    keywords: "read only remote source query read create update delete",
+  },
   AdminResourceNotExposedError: {
     category: "Resources",
     summary:

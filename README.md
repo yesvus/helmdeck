@@ -618,6 +618,53 @@ const posts = defineAdminResource({
 
 `AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` shapes the generated form's submission from its declared fields; it runs in the browser and does not protect a server action called directly. The server write boundary must receive the resource definitions, as shown in [Enforcing a permission on the server](#enforcing-a-permission-on-the-server). The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
 
+#### Read-only sources and server actions
+
+`createReadOnlyPersistenceAdapter` adapts a source with `query` and `read` but no writes. An optional `queryPage` is preserved when the source supports it; otherwise the list draws no paging controls. Write calls reject with an error naming the operation and resource. Leave `create`, `update` and `delete` permissions off the definition as well, so the generated list and form show no New, Delete or Save actions:
+
+```ts
+import { createReadOnlyPersistenceAdapter, defineAdminResource } from "@yesvus/helmdeck";
+
+const reports = defineAdminResource({
+  resource: "reports",
+  label: "Reports",
+  columns: [{ key: "title", header: "Title" }],
+  fields: [{ name: "title", label: "Title" }],
+  permissions: { read: "reports.read" },
+});
+
+const persistence = createReadOnlyPersistenceAdapter({
+  query: queryReports,
+  read: readReport,
+});
+```
+
+When data access must stay on the server, expose the host's guarded functions as Server Actions from a module with `"use server"`. In a client module, create the adapter once from those imported actions and pass it to the generated views:
+
+```tsx
+"use client";
+import { createAdminResourceActionPersistenceAdapter } from "@yesvus/helmdeck";
+import {
+  queryReportsAction,
+  queryReportsPageAction,
+  readReportAction,
+  createReportAction,
+  updateReportAction,
+  deleteReportAction,
+} from "./actions";
+
+export const persistence = createAdminResourceActionPersistenceAdapter({
+  query: queryReportsAction,
+  queryPage: queryReportsPageAction,
+  read: readReportAction,
+  create: createReportAction,
+  update: updateReportAction,
+  delete: deleteReportAction,
+});
+```
+
+The adapter preserves `queryPage` only when supplied, so a source that cannot page does not advertise controls it cannot answer. Each Server Action remains responsible for authenticating the request, authorizing the operation and validating its inputs; the client bridge only maps the actions to the resource-view contract. For a read-only remote API, use `createReadOnlyPersistenceAdapter` with its read-only Server Actions instead.
+
 #### Searching, sorting, filtering and paging a generated list
 
 A list is a window onto a collection, so the collection's size is part of what the list has to say. An adapter answers that with `queryPage`, beside the rows-only `query`:

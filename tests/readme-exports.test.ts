@@ -69,6 +69,8 @@ const DOCUMENTED_FUNCTIONS = [
   "createAdminPermissionCheck",
   "createAdminPermissionGuard",
   "createAdminResourceActions",
+  "createAdminResourceActionPersistenceAdapter",
+  "createReadOnlyPersistenceAdapter",
   "createAdminSessionGuard",
   "readAdminSession",
   "AdminSessionRequiredError",
@@ -147,6 +149,20 @@ describe("the getting-started documentation matches the package", () => {
     expect(audit).toContain("complete configuration");
     expect(audit).toContain("Keep `definitions` when adding either adapter");
     expect(README).not.toContain("demo's actions run the incoming value through `adminResourceValues`");
+  });
+
+  it("documents read-only and server-action persistence adapters", () => {
+    const start = README.indexOf("#### Read-only sources and server actions");
+    const end = README.indexOf("#### Searching, sorting, filtering and paging", start);
+    const persistence = README.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(persistence).toContain("createReadOnlyPersistenceAdapter");
+    expect(persistence).toContain("error naming the operation and resource");
+    expect(persistence).toContain("createAdminResourceActionPersistenceAdapter");
+    expect(persistence).toContain("preserves `queryPage` only when supplied");
+    expect(persistence).toContain("Each Server Action remains responsible for authenticating");
   });
 });
 
