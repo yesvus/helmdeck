@@ -881,7 +881,7 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Auth and permissions",
     summary: "The settings footer, with the installed Helmdeck version and room for host metadata.",
     keywords: "settings footer version metadata build",
-    hostNote: "A footer for a host settings page; the catalogue has no settings page to attach it to.",
+    renderable: true,
   },
   adminReturnTo: {
     category: "Auth and permissions",

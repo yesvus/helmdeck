@@ -11,7 +11,7 @@ import { HELMDECK_VERSION } from "../version.js";
  */
 export function AdminSettingsFooter({ children }: { children?: ReactNode }) {
   return (
-    <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-admin-border pt-4 text-xs text-admin-muted">
+    <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-admin-border pt-4 text-xs text-zinc-500">
       <span>
         Helmdeck <span className="tabular-nums">v{HELMDECK_VERSION}</span>
       </span>

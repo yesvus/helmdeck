@@ -372,6 +372,8 @@ describe("AdminSettingsPage", () => {
 
     const footer = screen.getByRole("contentinfo");
     const hostContent = screen.getByText("Host settings");
+    const settingFields = screen.getByText("Setting fields");
+    expect(settingFields.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(hostContent.compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(footer.textContent).toContain(`Helmdeck v${HELMDECK_VERSION}`);
   });
