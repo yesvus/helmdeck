@@ -698,8 +698,13 @@ describe("the server path carries no client boundary", () => {
     )) {
       const clause = match.groups?.clause ?? "";
       const named = /\{(?<specifiers>[^}]*)\}/.exec(clause)?.groups?.specifiers;
-      // No braces means a default or namespace import, which is a value and therefore a real edge.
+      // Anything outside the braces is a default or namespace binding, and a default binding is a value
+      // even when every specifier inside the braces is a type. `import Default, { type A } from "./x.js"`
+      // loads `./x.js`; reading only the braces would call it erased and hide a real client edge behind
+      // the one construct that looks erased.
+      const outsideBraces = clause.replace(/\{[^}]*\}/g, "").replace(/,/g, "").trim();
       const allInlineTypes =
+        outsideBraces.length === 0 &&
         named !== undefined &&
         named
           .split(",")
@@ -813,6 +818,17 @@ describe("the server path carries no client boundary", () => {
       // Getting this wrong hides a client module behind a value import in the same statement, which is
       // the whole failure the walker exists to catch.
       expect(specifiersIn(`import { value, type A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a default import paired with type-only specifiers", () => {
+      // The mirror of the trailing-comma case, and the more dangerous direction. Every specifier inside
+      // the braces is a type, so reading only the braces calls this erased — but the default binding is a
+      // value, so the module is loaded. An erased reading hides a real client edge.
+      expect(specifiersIn(`import Default, { type A } from "./a.js";`)).toEqual(["./a.js"]);
+    });
+
+    it("keeps a namespace import paired with type-only specifiers", () => {
+      expect(specifiersIn(`import * as NS, { type A } from "./a.js";`)).toEqual(["./a.js"]);
     });
 
     it("keeps a default and namespace import", () => {
