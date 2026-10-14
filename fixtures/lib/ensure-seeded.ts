@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { DEMO_PASSWORD } from "./demo-accounts";
-import { demoPersistence } from "./demo-persistence";
+import { assertDemoPersistenceConfigured, demoPersistenceRequired, demoPersistence } from "./demo-persistence";
 import { migrateDemo } from "./migrate";
 import { seedDemo } from "./seed";
 
@@ -27,6 +27,10 @@ let ready: Promise<void> | null = null;
 
 export function ensureDemoSeeded(): Promise<void> {
   ready ??= (async () => {
+    // Before the migration, before the seed, before the store is built. A deployment with no database
+    // must refuse rather than come up holding twelve rows that vanish on the next restart, and the
+    // cheapest moment to say so is before anything has been written.
+    if (demoPersistenceRequired()) assertDemoPersistenceConfigured();
     const { adapter, sql } = demoPersistence();
     if (sql) await migrateDemo(sql);
     await seedDemo(adapter, DEMO_PASSWORD);
