@@ -12,6 +12,7 @@ import {
   adminResourceValues,
   defineAdminResource,
 } from "../src/resources/index";
+import { createReadOnlyPersistenceAdapter } from "../src/resources/persistence";
 import { createMemoryPersistenceAdapter } from "../src/baseline";
 import type { AdminPermissionsAdapter, AdminPersistenceAdapter } from "../src/adapters/index";
 
@@ -641,6 +642,36 @@ describe("AdminResourceList", () => {
 });
 
 describe("AdminResourceForm", () => {
+  it("renders a read-only resource without new, delete, or save controls", async () => {
+    const definition = defineAdminResource({
+      resource: "reports",
+      label: "Reports",
+      columns: [{ key: "title", header: "Title" }],
+      fields: [{ name: "title", label: "Title" }],
+      permissions: { read: "reports.read" },
+    });
+    const persistence = createReadOnlyPersistenceAdapter({
+      async query() {
+        return [{ id: "r1", title: "Quarterly report" }];
+      },
+      async read() {
+        return { id: "r1", title: "Quarterly report" };
+      },
+    });
+
+    wrap(<AdminResourceList definition={definition} persistence={persistence} />);
+    expect(await screen.findByText("Quarterly report")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "New" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+
+    cleanup();
+    wrap(<AdminResourceForm definition={definition} persistence={persistence} id="r1" />);
+    await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue("Quarterly report"));
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
   it("renders a control per declared field, labelled and linked", async () => {
     const db = createMemoryPersistenceAdapter();
     wrap(<AdminResourceForm definition={posts} persistence={db} />);

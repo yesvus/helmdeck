@@ -37,6 +37,14 @@ export type {
 } from "./references.js";
 export { AdminResourceForm, AdminResourceList } from "./views.js";
 export {
+  createAdminResourceActionPersistenceAdapter,
+  createReadOnlyPersistenceAdapter,
+} from "./persistence.js";
+export type {
+  AdminResourceActionHandlers,
+  AdminResourceReadOnlySource,
+} from "./persistence.js";
+export {
   AdminResourceNotExposedError,
   AdminResourceReferenceError,
   AdminResourceFieldError,
