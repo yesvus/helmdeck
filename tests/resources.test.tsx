@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
 import { AdminPermissionsProvider } from "../src/shell/permissions";
@@ -13,7 +14,7 @@ import {
   defineAdminResource,
 } from "../src/resources/index";
 import { createReadOnlyPersistenceAdapter } from "../src/resources/persistence";
-import { AdminScopeProvider } from "../src/scope";
+import { AdminScopeProvider, useAdminScopedPersistence } from "../src/scope";
 import { createMemoryPersistenceAdapter } from "../src/baseline";
 import type { AdminPermissionsAdapter, AdminPersistenceAdapter, AdminScopeAdapter } from "../src/adapters/index";
 
@@ -100,6 +101,22 @@ function tree(element: React.ReactElement, adapter: AdminPermissionsAdapter = al
 
 function wrap(element: React.ReactElement, adapter: AdminPermissionsAdapter = allowAll()) {
   return render(tree(element, adapter));
+}
+
+function ScopedQueryProbe({
+  persistence,
+  query,
+  onRows,
+}: {
+  persistence: AdminPersistenceAdapter;
+  query: Record<string, unknown>;
+  onRows: (rows: unknown[]) => void;
+}) {
+  const scoped = useAdminScopedPersistence(persistence);
+  useEffect(() => {
+    void scoped.query("posts", query).then(onRows);
+  }, [onRows, query, scoped]);
+  return null;
 }
 
 describe("defineAdminResource", () => {
@@ -312,6 +329,33 @@ describe("AdminResourceList", () => {
     expect(await screen.findByText("Acme only")).toBeInTheDocument();
     expect(screen.queryByText("Globex only")).not.toBeInTheDocument();
     expect(query).toHaveBeenCalledWith("posts", { tenant: "acme" });
+  });
+
+  it("keeps a rows-only query inside scope when caller filters disagree", async () => {
+    const base = createMemoryPersistenceAdapter({
+      posts: [
+        { id: "a1", title: "Acme", tenant: "acme", status: "published" },
+        { id: "g1", title: "Globex", tenant: "globex", status: "published" },
+      ],
+    });
+    const persistence = { ...base, query: vi.spyOn(base, "query") };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href) => href,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+    const onRows = vi.fn();
+    const query = { tenant: "globex", status: "published" };
+
+    wrap(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <ScopedQueryProbe persistence={persistence} query={query} onRows={onRows} />
+      </AdminScopeProvider>,
+    );
+
+    await waitFor(() => expect(onRows).toHaveBeenCalledWith([
+      { id: "a1", title: "Acme", tenant: "acme", status: "published" },
+    ]));
+    expect(persistence.query).toHaveBeenCalledWith("posts", { tenant: "acme", status: "published" });
   });
 
   it("renders a row per record, with the declared columns", async () => {
