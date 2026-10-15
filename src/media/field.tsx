@@ -116,7 +116,7 @@ export function AdminMediaField({
           style={{ backgroundImage: `url("${(youtubeThumbnail || imagePreview).replaceAll('"', "%22")}")` }}
         />
       ) : videoPreview ? (
-        <video src={value} controls preload="metadata" className="h-full w-full bg-admin-media-backdrop object-contain" />
+        <video aria-label={selectedItem?.name ?? label} src={value} controls preload="metadata" className="h-full w-full bg-admin-media-backdrop object-contain" />
       ) : (
         <AdminMediaPlaceholder kind={value && isPdfMediaUrl(value) ? "pdf" : "image"} />
       )}
@@ -169,7 +169,12 @@ export function AdminMediaField({
           )}
           {value ? <p className="mt-3 break-all rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">{selectedItem?.name ?? value}</p> : null}
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              aria-label={value ? mergedLabels.replace : mergedLabels.select}
+              onClick={() => setOpen(true)}
+            >
               <ImagePlus className="h-4 w-4" />
               {value ? mergedLabels.replace : mergedLabels.select}
             </Button>

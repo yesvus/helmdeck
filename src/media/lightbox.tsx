@@ -2,7 +2,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import type { KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import {
   AdminModal,
   AdminModalClose,
@@ -35,23 +35,34 @@ export function AdminMediaLightbox({
   onIndexChange: (index: number) => void;
 }) {
   const messages = useAdminMessages();
+  const activeIndex = images.length > 0 && Number.isFinite(index)
+    ? Math.min(Math.max(Math.trunc(index), 0), images.length - 1)
+    : 0;
+  const navigationIndex = useRef(activeIndex);
+  useLayoutEffect(() => {
+    navigationIndex.current = activeIndex;
+  }, [activeIndex]);
+
   if (!images.length) return null;
 
   const previousLabel = labels?.previousMedia ?? messages.media.previousMedia;
   const nextLabel = labels?.nextMedia ?? messages.media.nextMedia;
-  const activeIndex = Number.isFinite(index)
-    ? Math.min(Math.max(Math.trunc(index), 0), images.length - 1)
-    : 0;
   const image = images[activeIndex];
+
+  function selectIndex(nextIndex: number) {
+    const wrappedIndex = ((nextIndex % images.length) + images.length) % images.length;
+    navigationIndex.current = wrappedIndex;
+    onIndexChange(wrappedIndex);
+  }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (images.length < 2) return;
     if (event.key === "ArrowLeft") {
       event.preventDefault();
-      onIndexChange((activeIndex + images.length - 1) % images.length);
+      selectIndex(navigationIndex.current - 1);
     } else if (event.key === "ArrowRight") {
       event.preventDefault();
-      onIndexChange((activeIndex + 1) % images.length);
+      selectIndex(navigationIndex.current + 1);
     }
   }
 
@@ -74,7 +85,7 @@ export function AdminMediaLightbox({
               <button
                 type="button"
                 aria-label={previousLabel}
-                onClick={() => onIndexChange((activeIndex + images.length - 1) % images.length)}
+                onClick={() => selectIndex(navigationIndex.current - 1)}
                 className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-admin-media-backdrop/80 text-white transition hover:bg-admin-inverted-surface hover:text-admin-inverted-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-6"
               >
                 <ChevronLeft className="h-6 w-6" />
@@ -82,7 +93,7 @@ export function AdminMediaLightbox({
               <button
                 type="button"
                 aria-label={nextLabel}
-                onClick={() => onIndexChange((activeIndex + 1) % images.length)}
+                onClick={() => selectIndex(navigationIndex.current + 1)}
                 className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/50 bg-admin-media-backdrop/80 text-white transition hover:bg-admin-inverted-surface hover:text-admin-inverted-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-6"
               >
                 <ChevronRight className="h-6 w-6" />

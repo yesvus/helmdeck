@@ -40,7 +40,9 @@ describe("AdminMediaLightbox", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next media" }));
     expect(onIndexChange).toHaveBeenCalledWith(1);
     fireEvent.keyDown(dialog, { key: "ArrowLeft" });
-    expect(onIndexChange).toHaveBeenNthCalledWith(2, 1);
+    expect(onIndexChange).toHaveBeenNthCalledWith(2, 0);
+    fireEvent.keyDown(dialog, { key: "ArrowRight" });
+    expect(onIndexChange).toHaveBeenNthCalledWith(3, 1);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
   });
@@ -63,7 +65,7 @@ describe("AdminMediaLightbox", () => {
     expect(screen.getByRole("dialog", { name: "Product photo" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Product photo" })).toHaveAttribute("src", item.publicUrl);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.getByText("Replace").closest("button")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
   });
 
   it("keeps video controls outside buttons and leaves replacement available", () => {
@@ -88,8 +90,10 @@ describe("AdminMediaLightbox", () => {
 
     const videoElement = container.querySelector("video");
     expect(videoElement).toBeInTheDocument();
+    expect(videoElement).toHaveAttribute("controls");
+    expect(videoElement).toHaveAttribute("aria-label", "Product video");
     expect(videoElement?.closest("button")).toBeNull();
-    expect(screen.getByText("Replace").closest("button")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
   });
 
   it("opens a gallery image and navigates across the image entries", () => {
