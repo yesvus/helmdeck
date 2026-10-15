@@ -117,7 +117,7 @@ export function AdminNavLink({
         <motion.span
           aria-hidden="true"
           layoutId="admin-nav-active-indicator"
-          className="pointer-events-none absolute -left-[10px] top-0 bottom-0 z-10 w-[3px] rounded-full bg-brand-500"
+          className="pointer-events-none absolute left-[calc(-1*var(--spacing,0.25rem)*2-1.5px)] top-0 bottom-0 z-10 w-[3px] rounded-full bg-brand-500"
           transition={shouldReduceMotion ? { duration: 0 } : { type: "tween", duration: 0.16, ease: "easeOut" }}
         />
       ) : null}

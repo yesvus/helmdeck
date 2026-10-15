@@ -286,7 +286,8 @@ export function AdminShell({
                         }}
                         transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
                         className={cn(
-                          "relative overflow-hidden",
+                          "relative",
+                          isOpen ? "overflow-visible" : "overflow-hidden",
                           !collapsed && "ml-2 border-l pl-2 transition-colors duration-200 motion-reduce:transition-none",
                           !collapsed && (isOpen ? "border-zinc-200" : "border-transparent"),
                         )}
