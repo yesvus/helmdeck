@@ -410,18 +410,12 @@ describe("AdminResourceList", () => {
     expect(queryRows).toHaveBeenCalledWith("posts", { tenant: "acme", status: "published" });
   });
 
-  it("refuses dotted scope fields on rows-only persistence", async () => {
+  it("refuses dotted scope fields on direct queries even when paging is available", async () => {
     const base = createMemoryPersistenceAdapter();
     const query = vi.fn(async <T,>(resource: string, filters?: Record<string, unknown>) =>
       base.query<T>(resource, filters),
     ) as AdminPersistenceAdapter["query"];
-    const persistence: AdminPersistenceAdapter = {
-      read: base.read,
-      query,
-      create: base.create,
-      update: base.update,
-      delete: base.delete,
-    };
+    const persistence: AdminPersistenceAdapter = { ...base, query };
     const scopeAdapter: AdminScopeAdapter = {
       toHref: (href) => href,
       resourceFilter: () => ({ field: "organization.tenant", value: "acme" }),
@@ -436,7 +430,7 @@ describe("AdminResourceList", () => {
     );
 
     await waitFor(() => expect(onError).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining("implement queryPage") }),
+      expect.objectContaining({ message: expect.stringContaining("use queryPage") }),
     ));
     expect(query).not.toHaveBeenCalled();
   });

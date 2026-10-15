@@ -77,8 +77,8 @@ export function useAdminScopedPersistence(persistence: AdminPersistenceAdapter) 
       read: (resource, id) => persistence.read(resource, id),
       query: async (resource, query) => {
         const filter = requestScope.resourceFilter(resource);
-        if (!persistence.queryPage && filter.field.includes(".")) {
-          throw new Error(`Rows-only persistence cannot filter dotted scope field ${filter.field}; implement queryPage`);
+        if (filter.field.includes(".")) {
+          throw new Error(`Scoped query cannot filter dotted scope field ${filter.field}; use queryPage`);
         }
         return persistence.query(resource, { ...query, [filter.field]: filter.value });
       },
