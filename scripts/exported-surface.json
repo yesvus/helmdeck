@@ -97,6 +97,7 @@
     "AdminRevisionMalformedError",
     "AdminRevisionUnknownError",
     "AdminSaveButton",
+    "AdminScopeProvider",
     "AdminSearch",
     "AdminSectionCard",
     "AdminSectionIntro",

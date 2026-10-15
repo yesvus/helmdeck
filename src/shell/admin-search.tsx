@@ -8,7 +8,7 @@ import type { AdminNavGroup } from "../adapters/index.js";
 import { useAdminShell } from "./context.js";
 import type { AdminShellLabels } from "./labels.js";
 import { mergeAdminLabels } from "./labels.js";
-import { useAdminMessages } from "../i18n.js";
+import { useAdminHref, useAdminMessages } from "../i18n.js";
 
 export type AdminSearchEntry = {
   href: string;
@@ -37,6 +37,7 @@ export function AdminSearch({
   normalize?: (value: string) => string;
 }) {
   const shell = useAdminShell();
+  const toHref = useAdminHref();
   const i18n = useAdminMessages();
   const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...shell?.labels, ...labels });
   const normalizeText = useMemo(
@@ -133,7 +134,7 @@ export function AdminSearch({
             results.map((entry) => (
               <Link
                 key={`${entry.href}:${entry.label}`}
-                href={entry.href}
+                href={toHref(entry.href)}
                 onClick={() => setQuery("")}
                 className="block border-b border-zinc-100 px-3 py-2.5 last:border-0 hover:bg-admin-surface-muted"
               >

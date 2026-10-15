@@ -19,6 +19,7 @@ export * from "./widgets/render.js";
 export * from "./widgets/index.js";
 export * from "./collections/registry.js";
 export * from "./i18n.js";
+export { AdminScopeProvider } from "./scope.js";
 export * from "./lifecycle/index.js";
 export * from "./media/index.js";
 export * from "./primitives/index.js";

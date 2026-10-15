@@ -540,6 +540,17 @@ describeWithServer("tenancy, against a real server", () => {
     expect(await runWithAdminTenant("acme", () => db.read("posts", "p1"))).not.toBeNull();
   });
 
+  it("answers a record outside the tenant exactly like a record that does not exist", async () => {
+    const { db } = await store({ tenancy: "scope" });
+    await runWithAdminTenant("acme", () => db.create("posts", { id: "private", title: "Private" }));
+
+    const outsideScope = await runWithAdminTenant("globex", () => db.read("posts", "private"));
+    const absent = await runWithAdminTenant("globex", () => db.read("posts", "missing"));
+
+    expect(outsideScope).toBeNull();
+    expect(JSON.stringify(outsideScope)).toBe(JSON.stringify(absent));
+  });
+
   it("refuses a statement with no tenant rather than defaulting to one", async () => {
     const { db } = await store({ tenancy: "scope" });
     await runWithAdminTenant("acme", () => db.create("posts", { id: "p1" }));

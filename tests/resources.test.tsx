@@ -13,8 +13,9 @@ import {
   defineAdminResource,
 } from "../src/resources/index";
 import { createReadOnlyPersistenceAdapter } from "../src/resources/persistence";
+import { AdminScopeProvider } from "../src/scope";
 import { createMemoryPersistenceAdapter } from "../src/baseline";
-import type { AdminPermissionsAdapter, AdminPersistenceAdapter } from "../src/adapters/index";
+import type { AdminPermissionsAdapter, AdminPersistenceAdapter, AdminScopeAdapter } from "../src/adapters/index";
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/posts",
@@ -239,6 +240,80 @@ describe("adminResourceValues", () => {
 });
 
 describe("AdminResourceList", () => {
+  it("applies the request scope to rows for each session using the same resource definition", async () => {
+    const definition = defineAdminResource({
+      resource: "posts",
+      label: "Posts",
+      columns: [{ key: "title", header: "Title" }],
+      fields: [],
+      permissions: { update: "posts.update" },
+    });
+    const persistence = createMemoryPersistenceAdapter({
+      posts: [
+        { id: "a1", title: "Acme only", tenant: "acme" },
+        { id: "g1", title: "Globex only", tenant: "globex" },
+      ],
+    });
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href, scope) => `${href}?scope=${encodeURIComponent(scope)}`,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+
+    const acme = render(tree(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceList definition={definition} persistence={persistence} />
+      </AdminScopeProvider>,
+    ));
+    expect(await screen.findByText("Acme only")).toBeInTheDocument();
+    expect(screen.queryByText("Globex only")).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Edit: a1" })).toHaveAttribute(
+      "href",
+      "posts/a1?scope=acme",
+    );
+
+    acme.rerender(tree(
+      <AdminScopeProvider scope="globex" adapter={scopeAdapter}>
+        <AdminResourceList definition={definition} persistence={persistence} />
+      </AdminScopeProvider>,
+    ));
+    expect(screen.queryByText("Acme only")).not.toBeInTheDocument();
+    expect(await screen.findByText("Globex only")).toBeInTheDocument();
+    expect(screen.queryByText("Acme only")).not.toBeInTheDocument();
+  });
+
+  it("passes the request scope to a rows-only persistence adapter", async () => {
+    const base = createMemoryPersistenceAdapter({
+      posts: [
+        { id: "a1", title: "Acme only", tenant: "acme" },
+        { id: "g1", title: "Globex only", tenant: "globex" },
+      ],
+    });
+    const query = vi.fn(async <T,>(resource: string, filters?: Record<string, unknown>) =>
+      base.query<T>(resource, filters),
+    ) as AdminPersistenceAdapter["query"];
+    const persistence: AdminPersistenceAdapter = {
+      read: base.read,
+      query,
+      create: base.create,
+      update: base.update,
+      delete: base.delete,
+    };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href, scope) => `${href}?scope=${encodeURIComponent(scope)}`,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+
+    wrap(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceList definition={posts} persistence={persistence} />
+      </AdminScopeProvider>,
+    );
+
+    expect(await screen.findByText("Acme only")).toBeInTheDocument();
+    expect(screen.queryByText("Globex only")).not.toBeInTheDocument();
+    expect(query).toHaveBeenCalledWith("posts", { tenant: "acme" });
+  });
+
   it("renders a row per record, with the declared columns", async () => {
     const db = createMemoryPersistenceAdapter();
     await db.create("posts", { title: "First", status: "draft" });
@@ -642,6 +717,35 @@ describe("AdminResourceList", () => {
 });
 
 describe("AdminResourceForm", () => {
+  it("renders a scoped record miss exactly like an absent record", async () => {
+    const persistence = {
+      ...createMemoryPersistenceAdapter(),
+      async read<T>() {
+        return null as T | null;
+      },
+    };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href, scope) => `${href}?scope=${encodeURIComponent(scope)}`,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+    const hidden = render(tree(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceForm definition={posts} persistence={persistence} id="outside-scope" labels={{ notFound: "Record unavailable" }} />
+      </AdminScopeProvider>,
+    ));
+    expect(await screen.findByText("Record unavailable")).toBeInTheDocument();
+    const hiddenHtml = hidden.container.innerHTML;
+
+    cleanup();
+    const absent = render(tree(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceForm definition={posts} persistence={persistence} id="does-not-exist" labels={{ notFound: "Record unavailable" }} />
+      </AdminScopeProvider>,
+    ));
+    expect(await screen.findByText("Record unavailable")).toBeInTheDocument();
+    expect(absent.container.innerHTML).toBe(hiddenHtml);
+  });
+
   it("renders a read-only resource without new, delete, or save controls", async () => {
     const definition = defineAdminResource({
       resource: "reports",
