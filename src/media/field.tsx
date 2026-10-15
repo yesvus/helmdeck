@@ -7,6 +7,7 @@ import type { AdminMediaAdapter, AdminMediaItem, AdminMediaKind } from "../adapt
 import { Button } from "../primitives/button.js";
 import { AdminField } from "../primitives/field.js";
 import { useAdminFormValueSignal } from "../primitives/managed-form.js";
+import { AdminMediaLightbox } from "./lightbox.js";
 import { AdminMediaPlaceholder } from "./placeholder.js";
 import {
   AdminMediaPicker,
@@ -79,9 +80,11 @@ export function AdminMediaField({
   onValueChange?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [value, setValue] = useState(defaultValue ?? "");
   const i18n = useAdminMessages();
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
+  const previewLabel = mergedLabels.preview ?? defaultAdminMediaLabels.preview;
   const hiddenValueRef = useAdminFormValueSignal<HTMLInputElement>(value, {
     name,
     restore: setValue,
@@ -117,7 +120,8 @@ export function AdminMediaField({
         <div className="rounded-lg border border-zinc-200 bg-admin-surface p-4">
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={() => imagePreview ? setLightboxOpen(true) : setOpen(true)}
+            aria-label={imagePreview ? `${previewLabel}: ${selectedItem?.name ?? label}` : mergedLabels.select}
             className={cn(
               "block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left transition hover:border-zinc-400",
               !value && "border-dashed",
@@ -160,6 +164,18 @@ export function AdminMediaField({
           </div>
         </div>
       </AdminField>
+      <AdminMediaLightbox
+        images={imagePreview ? [{
+          src: imagePreview,
+          alt: selectedItem?.defaultAltText ?? selectedItem?.name ?? label,
+        }] : []}
+        index={0}
+        labels={mergedLabels}
+        onClose={() => setLightboxOpen(false)}
+        onIndexChange={() => {}}
+        open={lightboxOpen}
+        title={selectedItem?.name ?? label}
+      />
       <AdminMediaPicker
         adapter={adapter}
         allowExternal={allowExternal}

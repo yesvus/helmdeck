@@ -1335,15 +1335,21 @@ const CATALOG_META: Record<string, CatalogMeta> = {
 
   AdminMediaField: {
     category: "Media",
-    summary: "A form field holding one asset, with a picker, a preview and an upload.",
-    keywords: "field asset image picker",
+    summary: "A form field holding one asset, with a picker, image lightbox and upload.",
+    keywords: "field asset image picker preview lightbox",
     hostNote: "The picker it opens needs a media adapter, which is the host's own storage.",
   },
   AdminMediaGalleryField: {
     category: "Media",
-    summary: "A form field holding a gallery of assets, with the same picker and upload.",
-    keywords: "gallery field assets images",
+    summary: "A form field holding a gallery of assets, with image lightbox, picker and upload.",
+    keywords: "gallery field assets images preview lightbox",
     hostNote: "The picker it opens needs a media adapter, which is the host's own storage.",
+  },
+  AdminMediaLightbox: {
+    category: "Media",
+    summary: "A full-screen image viewer with keyboard and button navigation for image sequences.",
+    keywords: "lightbox image preview gallery zoom keyboard",
+    renderable: true,
   },
   AdminMediaPicker: {
     category: "Media",

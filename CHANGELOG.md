@@ -12,6 +12,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Read-only resource persistence and a Server Action persistence bridge, with optional paging preserved.
 - Request-scoped resource filters and shell-link mapping, with server-side guidance for tenant isolation and indistinguishable scoped misses.
+- Full-screen image previews for media fields and galleries, with accessible close controls and keyboard navigation.
 
 ## 0.7.0
 

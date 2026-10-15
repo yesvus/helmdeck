@@ -1789,6 +1789,8 @@ on a host's behalf.
 
 The package does not choose a storage provider. Implement `AdminMediaAdapter` for the host's list, upload, external-link, rename, and delete operations, then pass it to `AdminMediaUpload`, `AdminMediaPicker`, `AdminMediaField`, or `AdminMediaGalleryField`.
 
+`AdminMediaField` opens a full-screen preview when its selected value is an image. `AdminMediaGalleryField` opens an image lightbox from each image thumbnail and supports previous/next navigation with buttons or arrow keys. Hosts can also use the exported `AdminMediaLightbox` with a controlled list of image URLs and alt text.
+
 ## Development
 
 ### Contextual help

@@ -8,6 +8,7 @@ import { Button } from "../primitives/button.js";
 import { AdminField } from "../primitives/field.js";
 import { AdminInput } from "../primitives/input.js";
 import { useAdminFormValueSignal } from "../primitives/managed-form.js";
+import { AdminMediaLightbox, type AdminMediaLightboxImage } from "./lightbox.js";
 import { AdminMediaPlaceholder } from "./placeholder.js";
 import {
   AdminMediaPicker,
@@ -19,6 +20,7 @@ import { useAdminMessages } from "../i18n.js";
 import {
   getAdminMediaThumbnailUrl,
   isImageMediaItem,
+  isImageMediaUrl,
   isVisualMediaItem,
   isYouTubeMediaItem,
 } from "./utils.js";
@@ -73,6 +75,7 @@ export function AdminMediaGalleryField({
 }) {
   const [open, setOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [entries, setEntries] = useState<GalleryEntry[]>(() => parseGalleryValue(defaultValue));
   const hiddenValueRef = useAdminFormValueSignal<HTMLTextAreaElement>(entries, {
     name,
@@ -80,6 +83,7 @@ export function AdminMediaGalleryField({
   });
   const i18n = useAdminMessages();
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
+  const previewLabel = mergedLabels.preview ?? defaultAdminMediaLabels.preview;
   const availableItems = useMemo(
     () => items.filter(mode === "image" ? isImageMediaItem : isVisualMediaItem),
     [items, mode],
@@ -88,6 +92,14 @@ export function AdminMediaGalleryField({
     if (mode === "image") return ["image"];
     return ["image", "video", "youtube"];
   }, [mode]);
+  const lightboxImages = useMemo<AdminMediaLightboxImage[]>(
+    () => entries.flatMap((entry) => {
+      const item = items.find((candidate) => candidate.publicUrl === entry.url);
+      if (item ? !isImageMediaItem(item) : !isImageMediaUrl(entry.url)) return [];
+      return [{ src: entry.url, alt: entry.alt || item?.defaultAltText || item?.name || label }];
+    }),
+    [entries, items, label],
+  );
 
   function openPicker(index: number | null) {
     setEditingIndex(index);
@@ -116,6 +128,7 @@ export function AdminMediaGalleryField({
                 const item = items.find((candidate) => candidate.publicUrl === entry.url);
                 const thumbnail = item ? getAdminMediaThumbnailUrl(item) : "";
                 const youtube = Boolean(item && isYouTubeMediaItem(item));
+                const imageIndex = lightboxImages.findIndex((image) => image.src === entry.url);
                 return (
                   <div
                     key={`${entry.url}-${index}`}
@@ -123,8 +136,12 @@ export function AdminMediaGalleryField({
                   >
                     <button
                       type="button"
-                      onClick={() => openPicker(index)}
-                      className="overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 transition hover:border-zinc-400"
+                      aria-label={`${imageIndex >= 0 ? previewLabel : mergedLabels.replace}: ${entry.alt || item?.name || label}`}
+                      onClick={() => {
+                        if (imageIndex >= 0) setLightboxIndex(imageIndex);
+                        else openPicker(index);
+                      }}
+                      className="relative overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 transition hover:border-zinc-400"
                     >
                       {thumbnail ? (
                         <div
@@ -189,6 +206,15 @@ export function AdminMediaGalleryField({
           </Button>
         </div>
       </AdminField>
+      <AdminMediaLightbox
+        images={lightboxImages}
+        index={lightboxIndex ?? 0}
+        labels={mergedLabels}
+        onClose={() => setLightboxIndex(null)}
+        onIndexChange={setLightboxIndex}
+        open={lightboxIndex !== null}
+        title={label}
+      />
       <AdminMediaPicker
         adapter={adapter}
         allowExternal={allowExternal}
