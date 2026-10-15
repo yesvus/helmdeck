@@ -718,12 +718,11 @@ describe("AdminResourceList", () => {
 
 describe("AdminResourceForm", () => {
   it("renders a scoped record miss exactly like an absent record", async () => {
-    const persistence = {
-      ...createMemoryPersistenceAdapter(),
-      async read<T>() {
-        return null as T | null;
-      },
-    };
+    const persistence = createMemoryPersistenceAdapter({
+      posts: [{ id: "outside-scope", title: "Private", tenant: "globex" }],
+    });
+    const read = vi.spyOn(persistence, "read");
+    const query = vi.spyOn(persistence, "query");
     const scopeAdapter: AdminScopeAdapter = {
       toHref: (href, scope) => `${href}?scope=${encodeURIComponent(scope)}`,
       resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
@@ -735,6 +734,8 @@ describe("AdminResourceForm", () => {
     ));
     expect(await screen.findByText("Record unavailable")).toBeInTheDocument();
     const hiddenHtml = hidden.container.innerHTML;
+    expect(read).not.toHaveBeenCalled();
+    expect(query).toHaveBeenCalledWith("posts", { id: "outside-scope", tenant: "acme" });
 
     cleanup();
     const absent = render(tree(
@@ -744,6 +745,7 @@ describe("AdminResourceForm", () => {
     ));
     expect(await screen.findByText("Record unavailable")).toBeInTheDocument();
     expect(absent.container.innerHTML).toBe(hiddenHtml);
+    expect(query).toHaveBeenLastCalledWith("posts", { id: "does-not-exist", tenant: "acme" });
   });
 
   it("renders a read-only resource without new, delete, or save controls", async () => {

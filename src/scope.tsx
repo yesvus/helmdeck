@@ -72,7 +72,11 @@ export function useAdminScopedPersistence(persistence: AdminPersistenceAdapter) 
     };
 
     const scoped: AdminPersistenceAdapter = {
-      read: (resource, id) => persistence.read(resource, id),
+      read: async <T,>(resource: string, id: string) => {
+        const filter = requestScope.resourceFilter(resource);
+        const rows = await persistence.query<T>(resource, { id, [filter.field]: filter.value });
+        return rows[0] ?? null;
+      },
       query: (resource, query) => {
         const filter = requestScope.resourceFilter(resource);
         return persistence.query(resource, { ...query, [filter.field]: filter.value });
