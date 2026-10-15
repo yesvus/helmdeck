@@ -106,6 +106,29 @@ export function AdminMediaField({
       ? value
       : "";
   const videoPreview = !youtubeThumbnail && value && isVideoMediaUrl(value);
+  const previewSurface = (
+    <div className={cn("relative w-full", getMediaAspectRatioClassName(aspectRatio))}>
+      {youtubeThumbnail || imagePreview ? (
+        <div
+          role="img"
+          aria-label={selectedItem?.name ?? label}
+          className="h-full w-full bg-cover bg-center"
+          style={{ backgroundImage: `url("${(youtubeThumbnail || imagePreview).replaceAll('"', "%22")}")` }}
+        />
+      ) : videoPreview ? (
+        <video src={value} controls preload="metadata" className="h-full w-full bg-admin-media-backdrop object-contain" />
+      ) : (
+        <AdminMediaPlaceholder kind={value && isPdfMediaUrl(value) ? "pdf" : "image"} />
+      )}
+      {youtubeThumbnail ? (
+        <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55">
+            <Play className="ml-0.5 h-6 w-6 fill-current" />
+          </span>
+        </span>
+      ) : null}
+    </div>
+  );
 
   function updateValue(nextValue: string) {
     setValue(nextValue);
@@ -118,37 +141,32 @@ export function AdminMediaField({
         <input ref={hiddenValueRef} type="hidden" name={name} value={value} />
         <AdminMediaAspectRatioHint aspectRatio={aspectRatio} />
         <div className="rounded-lg border border-zinc-200 bg-admin-surface p-4">
-          <button
-            type="button"
-            onClick={() => imagePreview ? setLightboxOpen(true) : setOpen(true)}
-            aria-label={imagePreview ? `${previewLabel}: ${selectedItem?.name ?? label}` : mergedLabels.select}
-            className={cn(
-              "block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left transition hover:border-zinc-400",
-              !value && "border-dashed",
-            )}
-          >
-            <div className={cn("relative w-full", getMediaAspectRatioClassName(aspectRatio))}>
-              {youtubeThumbnail || imagePreview ? (
-                <div
-                  role="img"
-                  aria-label={selectedItem?.name ?? label}
-                  className="h-full w-full bg-cover bg-center"
-                  style={{ backgroundImage: `url("${(youtubeThumbnail || imagePreview).replaceAll('"', "%22")}")` }}
-                />
-              ) : videoPreview ? (
-                <video src={value} controls preload="metadata" className="h-full w-full bg-admin-media-backdrop object-contain" />
-              ) : (
-                <AdminMediaPlaceholder kind={value && isPdfMediaUrl(value) ? "pdf" : "image"} />
-              )}
-              {youtubeThumbnail ? (
-                <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55">
-                    <Play className="ml-0.5 h-6 w-6 fill-current" />
-                  </span>
-                </span>
-              ) : null}
+          {imagePreview ? (
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              aria-label={`${previewLabel}: ${selectedItem?.name ?? label}`}
+              className="block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left transition hover:border-zinc-400"
+            >
+              {previewSurface}
+            </button>
+          ) : videoPreview ? (
+            <div className="block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left">
+              {previewSurface}
             </div>
-          </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label={mergedLabels.select}
+              className={cn(
+                "block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left transition hover:border-zinc-400",
+                !value && "border-dashed",
+              )}
+            >
+              {previewSurface}
+            </button>
+          )}
           {value ? <p className="mt-3 break-all rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">{selectedItem?.name ?? value}</p> : null}
           <div className="mt-4 flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(true)}>

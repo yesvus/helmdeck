@@ -63,7 +63,33 @@ describe("AdminMediaLightbox", () => {
     expect(screen.getByRole("dialog", { name: "Product photo" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Product photo" })).toHaveAttribute("src", item.publicUrl);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
+    expect(screen.getByText("Replace").closest("button")).toBeInTheDocument();
+  });
+
+  it("keeps video controls outside buttons and leaves replacement available", () => {
+    const video = {
+      name: "Product video",
+      path: "media/product.mp4",
+      publicUrl: "/media/product.mp4",
+      source: "uploaded" as const,
+      kind: "video" as const,
+    };
+    const { container } = render(
+      <English>
+        <AdminMediaField
+          defaultValue={video.publicUrl}
+          items={[video]}
+          label="Product media"
+          mode="visual"
+          name="media"
+        />
+      </English>,
+    );
+
+    const videoElement = container.querySelector("video");
+    expect(videoElement).toBeInTheDocument();
+    expect(videoElement?.closest("button")).toBeNull();
+    expect(screen.getByText("Replace").closest("button")).toBeInTheDocument();
   });
 
   it("opens a gallery image and navigates across the image entries", () => {
