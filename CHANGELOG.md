@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 0.8.0
+
 ### Added
 
 - Read-only resource persistence and a Server Action persistence bridge, with optional paging preserved.
