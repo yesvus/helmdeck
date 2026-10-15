@@ -71,6 +71,7 @@ export function useAdminScopedPersistence(persistence: AdminPersistenceAdapter) 
       };
     };
 
+    // Mutations stay behind host authorization because this client scope is caller-controlled.
     const scoped: AdminPersistenceAdapter = {
       read: async <T,>(resource: string, id: string) => {
         const filter = requestScope.resourceFilter(resource);

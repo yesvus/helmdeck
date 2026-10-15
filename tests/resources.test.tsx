@@ -748,6 +748,30 @@ describe("AdminResourceForm", () => {
     expect(query).toHaveBeenLastCalledWith("posts", { id: "does-not-exist", tenant: "acme" });
   });
 
+  it("leaves tenant assignment on scoped creates to the host action", async () => {
+    const persistence = createMemoryPersistenceAdapter();
+    const create = vi.spyOn(persistence, "create");
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href) => href,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+
+    wrap(tree(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceForm definition={posts} persistence={persistence} />
+      </AdminScopeProvider>,
+    ));
+
+    const title = await screen.findByLabelText("Title");
+    title.setAttribute("value", "Scoped create");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const payload = create.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).toMatchObject({ title: "Scoped create" });
+    expect(payload).not.toHaveProperty("tenant");
+  });
+
   it("renders a read-only resource without new, delete, or save controls", async () => {
     const definition = defineAdminResource({
       resource: "reports",
