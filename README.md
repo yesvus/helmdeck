@@ -694,7 +694,7 @@ export function ScopedAdmin({ scope, children }: { scope: string; children: Reac
 }
 ```
 
-Resolve `scope` from the authenticated request on the server and pass only an authorized value into the provider. The client-side query filter shapes list requests; it is not an authorization boundary, because a caller can change it. Each Server Action must independently resolve and enforce the request scope. For server-side persistence, `createTenantScopedPersistenceAdapter` establishes tenant context and the PostgreSQL adapter filters every read and write by that tenant. Its record lookup returns `null` for a row outside the tenant, the same answer as for an absent row. Keep that response indistinguishable from a missing record, rather than returning a 403 that confirms the record exists.
+Resolve `scope` from the authenticated request on the server and pass only an authorized value into the provider. The client-side query filter shapes list requests; it is not an authorization boundary, because a caller can change it. Each Server Action must independently resolve and enforce the request scope. For PostgreSQL, configure `createPostgresPersistenceAdapter` with a request tenant resolver such as `tenant: currentAdminTenant` from `@yesvus/helmdeck/tenant-scope`; `createTenantScopedPersistenceAdapter` establishes the ambient context that resolver reads, but does not configure the PostgreSQL adapter by itself. Its record lookup returns `null` for a row outside the tenant, the same answer as for an absent row. Keep that response indistinguishable from a missing record, rather than returning a 403 that confirms the record exists.
 
 #### Searching, sorting, filtering and paging a generated list
 

@@ -60,6 +60,7 @@ describe("persistent shell page context", () => {
           session={{ email: "ops@example.com" }}
           brand={{ label: "Acme" }}
           profileHref="/shell/profile"
+          viewSiteHref="https://site.example"
           searchEntries={[{ href: "/shell/reports", label: "Reports" }]}
         >
           <div>Page content</div>
@@ -74,10 +75,28 @@ describe("persistent shell page context", () => {
 
     fireEvent.click(screen.getByText("ops@example.com").closest("button")!);
     expect(container.querySelector('a[href="/shell/profile?scope=acme"]')).toBeInTheDocument();
-    expect(container.querySelector('a[href="/?scope=acme"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="https://site.example"]')).toBeInTheDocument();
     fireEvent.change(container.querySelector('input[placeholder]')!, { target: { value: "Reports" } });
     expect(container.querySelector('a[href="/shell/reports?scope=acme"]')).toBeInTheDocument();
-    expect([...container.querySelectorAll("a")].every((link) => link.getAttribute("href")?.includes("scope=acme"))).toBe(true);
+    expect([...container.querySelectorAll("a")].every((link) => {
+      const href = link.getAttribute("href") ?? "";
+      return href.startsWith("https://") || href.includes("scope=acme");
+    })).toBe(true);
+  });
+
+  it("keeps an empty site link disabled inside a request scope", () => {
+    const scopeAdapter = {
+      toHref: (href: string, scope: string) => `${href}?scope=${scope}`,
+      resourceFilter: (_resource: string, scope: string) => ({ field: "tenant", value: scope }),
+    };
+    const { container } = render(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminShell nav={nav} session={{ email: "ops@example.com" }} viewSiteHref=""><div>Page content</div></AdminShell>
+      </AdminScopeProvider>,
+    );
+
+    fireEvent.click(screen.getByText("ops@example.com").closest("button")!);
+    expect(container.querySelector('a[href="?scope=acme"]')).not.toBeInTheDocument();
   });
 
   it("populates a ref object for the scroll region", () => {

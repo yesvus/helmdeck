@@ -144,10 +144,13 @@ function useReferenceChoices(
   persistence: AdminPersistenceAdapter,
   reference: AdminResourceReference | undefined,
   limit: number,
+  scopeToken: object | null,
   onError?: (cause: unknown) => void,
 ): AdminResourceReferenceChoices | null {
   const [settled, setSettled] = useState<{
-    key: string;
+    resource: string;
+    limit: number;
+    scopeToken: object | null;
     choices: AdminResourceReferenceChoices;
   } | null>(null);
   const wanted = useLatest(reference);
@@ -155,7 +158,7 @@ function useReferenceChoices(
   const key =
     reference === undefined
       ? null
-      : `${reference.resource}@${String(limit)}`;
+      : reference.resource;
 
   useEffect(() => {
     const asked = wanted.current;
@@ -164,14 +167,22 @@ function useReferenceChoices(
     void adminResourceReferenceChoices(persistence, asked, limit, (cause) =>
       reported.current?.(cause),
     ).then((choices) => {
-      if (live) setSettled((current) => (current?.key === key ? current : { key, choices }));
+      if (live) {
+        setSettled((current) =>
+          current?.resource === key && current.limit === limit && current.scopeToken === scopeToken
+            ? current
+            : { resource: key, limit, scopeToken, choices },
+        );
+      }
     });
     return () => {
       live = false;
     };
-  }, [key, limit, persistence, reported, wanted]);
+  }, [key, limit, persistence, reported, scopeToken, wanted]);
 
-  return settled?.key === key ? settled.choices : null;
+  return settled?.resource === key && settled.limit === limit && settled.scopeToken === scopeToken
+    ? settled.choices
+    : null;
 }
 
 type ListControls = {
@@ -189,18 +200,18 @@ const NO_CONTROLS: ListControls = { search: "", filters: {}, sort: [], page: 1 }
  * A value that stops changing before it is used, so a typed term is one query rather than one per
  * keystroke. One direction only, so a value that has been superseded is never applied late.
  *
- * `key` is what the value belongs to. A different list is not a keystroke in this one, so its
- * value is taken at once rather than a quarter of a second later, which is the window in which a
- * term chosen for one resource would have been asked of the next.
+ * `key` and `scopeToken` name what the value belongs to. A different list or request scope takes its
+ * value at once rather than a quarter of a second later, which is the window in which an old query
+ * could have been sent into the new context.
  */
-function useSettled<T>(value: T, key: string): T {
-  const [settled, setSettled] = useState({ key, value });
-  if (settled.key !== key) setSettled({ key, value });
+function useSettled<T>(value: T, key: string, scopeToken: object | null): T {
+  const [settled, setSettled] = useState({ key, scopeToken, value });
+  if (settled.key !== key || settled.scopeToken !== scopeToken) setSettled({ key, scopeToken, value });
   useEffect(() => {
-    if (settled.key === key && Object.is(settled.value, value)) return;
-    const timer = setTimeout(() => setSettled({ key, value }), SEARCH_SETTLE_MS);
+    if (settled.key === key && settled.scopeToken === scopeToken && Object.is(settled.value, value)) return;
+    const timer = setTimeout(() => setSettled({ key, scopeToken, value }), SEARCH_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [key, settled, value]);
+  }, [key, scopeToken, settled, value]);
   return settled.value;
 }
 
@@ -290,7 +301,8 @@ function AdminResourceReferenceFilter({
   onError?: (cause: unknown) => void;
 }) {
   const reference = filter.reference!;
-  const choices = useReferenceChoices(persistence, reference, limit, onError);
+  const scopeToken = useAdminScopeToken();
+  const choices = useReferenceChoices(persistence, reference, limit, scopeToken, onError);
   if (choices !== null && !choices.available) return null;
 
   return (
@@ -391,8 +403,8 @@ export function AdminResourceList({
     ...NO_CONTROLS,
   });
   const active = controls.resource === definition.resource && controls.scopeToken === scopeToken ? controls : NO_CONTROLS;
-  const search = useSettled(active.search, definition.resource);
-  const chosen = useSettled(active.filters, definition.resource);
+  const search = useSettled(active.search, definition.resource, scopeToken);
+  const chosen = useSettled(active.filters, definition.resource, scopeToken);
   // Bumped to ask again, which a delete is: the count it reported is one row out of date, and a
   // page that just lost its last row has to come back from the store to know there is no next.
   const [reload, setReload] = useState(0);
@@ -858,7 +870,8 @@ function AdminResourceReferenceField({
   onError?: (cause: unknown) => void;
 }) {
   const reference = field.reference!;
-  const choices = useReferenceChoices(persistence, reference, limit, onError);
+  const scopeToken = useAdminScopeToken();
+  const choices = useReferenceChoices(persistence, reference, limit, scopeToken, onError);
   const held = adminResourceReferenceValue(current);
   const offered = choices?.rows ?? [];
   const holdsOutside = held !== null && !offered.some((row) => row.id === held);

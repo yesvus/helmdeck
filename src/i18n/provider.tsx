@@ -110,5 +110,9 @@ export function useAdminContentLocale() {
 export function useAdminHref() {
   const localeToHref = useContext(AdminLocaleContext).toHref;
   const scopeToHref = useAdminScopeHref();
-  return useCallback((href: string) => scopeToHref(localeToHref(href)), [localeToHref, scopeToHref]);
+  return useCallback((href: string) => {
+    if (!href) return href;
+    const localizedHref = localeToHref(href);
+    return /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href) ? localizedHref : scopeToHref(localizedHref);
+  }, [localeToHref, scopeToHref]);
 }

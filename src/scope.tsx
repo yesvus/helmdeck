@@ -73,13 +73,13 @@ export function useAdminScopedPersistence(persistence: AdminPersistenceAdapter) 
 
     // Mutations stay behind host authorization because this client scope is caller-controlled.
     const scoped: AdminPersistenceAdapter = {
-      read: async <T,>(resource: string, id: string) => {
+      // The host read action enforces per-record access; a client query cannot replace it.
+      read: (resource, id) => persistence.read(resource, id),
+      query: async (resource, query) => {
         const filter = requestScope.resourceFilter(resource);
-        const rows = await persistence.query<T>(resource, { id, [filter.field]: filter.value });
-        return rows[0] ?? null;
-      },
-      query: (resource, query) => {
-        const filter = requestScope.resourceFilter(resource);
+        if (!persistence.queryPage && filter.field.includes(".")) {
+          throw new Error(`Rows-only persistence cannot filter dotted scope field ${filter.field}; implement queryPage`);
+        }
         return persistence.query(resource, { ...query, [filter.field]: filter.value });
       },
       create: (resource, value) => persistence.create(resource, value),
