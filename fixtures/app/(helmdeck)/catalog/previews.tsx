@@ -41,6 +41,7 @@ import {
   AdminListItemCard,
   AdminLoginScreen,
   AdminMediaAspectRatioHint,
+  AdminMediaLightbox,
   AdminMediaPlaceholder,
   AdminModal,
   AdminModalBody,
@@ -496,6 +497,37 @@ function BulkActionsSample() {
   );
 }
 
+function MediaLightboxPreview() {
+  const [open, setOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+  const images = [
+    {
+      src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='600'%3E%3Crect width='900' height='600' fill='%232563eb'/%3E%3C/svg%3E",
+      alt: "Blue preview",
+    },
+    {
+      src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='600'%3E%3Crect width='900' height='600' fill='%237c3aed'/%3E%3C/svg%3E",
+      alt: "Violet preview",
+    },
+  ];
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="h-20 w-28 rounded-lg bg-blue-600" role="img" aria-label="Blue preview" />
+      <Button type="button" onClick={() => setOpen(true)}>Open image preview</Button>
+      <AdminMediaLightbox
+        images={images}
+        index={index}
+        labels={englishAdminMessages.media}
+        onClose={() => setOpen(false)}
+        onIndexChange={setIndex}
+        open={open}
+        title="Product gallery"
+      />
+    </div>
+  );
+}
+
 export const catalogPreviews: Record<string, ComponentType> = {
   AdminSettingsFooter: () => <AdminSettingsFooter>Host build 42</AdminSettingsFooter>,
 
@@ -936,6 +968,7 @@ export const catalogPreviews: Record<string, ComponentType> = {
     </div>
   ),
   AdminMediaAspectRatioHint: () => <AdminMediaAspectRatioHint aspectRatio="16:9" />,
+  AdminMediaLightbox: () => <MediaLightboxPreview />,
 
   AdminI18nProvider: () => (
     <div className="space-y-3">

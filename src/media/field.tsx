@@ -7,6 +7,7 @@ import type { AdminMediaAdapter, AdminMediaItem, AdminMediaKind } from "../adapt
 import { Button } from "../primitives/button.js";
 import { AdminField } from "../primitives/field.js";
 import { useAdminFormValueSignal } from "../primitives/managed-form.js";
+import { AdminMediaLightbox } from "./lightbox.js";
 import { AdminMediaPlaceholder } from "./placeholder.js";
 import {
   AdminMediaPicker,
@@ -79,9 +80,11 @@ export function AdminMediaField({
   onValueChange?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [value, setValue] = useState(defaultValue ?? "");
   const i18n = useAdminMessages();
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
+  const previewLabel = mergedLabels.preview ?? defaultAdminMediaLabels.preview;
   const hiddenValueRef = useAdminFormValueSignal<HTMLInputElement>(value, {
     name,
     restore: setValue,
@@ -103,6 +106,29 @@ export function AdminMediaField({
       ? value
       : "";
   const videoPreview = !youtubeThumbnail && value && isVideoMediaUrl(value);
+  const previewSurface = (
+    <div className={cn("relative w-full", getMediaAspectRatioClassName(aspectRatio))}>
+      {youtubeThumbnail || imagePreview ? (
+        <div
+          role="img"
+          aria-label={selectedItem?.name ?? label}
+          className="h-full w-full bg-cover bg-center"
+          style={{ backgroundImage: `url("${(youtubeThumbnail || imagePreview).replaceAll('"', "%22")}")` }}
+        />
+      ) : videoPreview ? (
+        <video aria-label={selectedItem?.name ?? label} src={value} controls preload="metadata" className="h-full w-full bg-admin-media-backdrop object-contain" />
+      ) : (
+        <AdminMediaPlaceholder kind={value && isPdfMediaUrl(value) ? "pdf" : "image"} />
+      )}
+      {youtubeThumbnail ? (
+        <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55">
+            <Play className="ml-0.5 h-6 w-6 fill-current" />
+          </span>
+        </span>
+      ) : null}
+    </div>
+  );
 
   function updateValue(nextValue: string) {
     setValue(nextValue);
@@ -115,39 +141,40 @@ export function AdminMediaField({
         <input ref={hiddenValueRef} type="hidden" name={name} value={value} />
         <AdminMediaAspectRatioHint aspectRatio={aspectRatio} />
         <div className="rounded-lg border border-zinc-200 bg-admin-surface p-4">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className={cn(
-              "block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left transition hover:border-zinc-400",
-              !value && "border-dashed",
-            )}
-          >
-            <div className={cn("relative w-full", getMediaAspectRatioClassName(aspectRatio))}>
-              {youtubeThumbnail || imagePreview ? (
-                <div
-                  role="img"
-                  aria-label={selectedItem?.name ?? label}
-                  className="h-full w-full bg-cover bg-center"
-                  style={{ backgroundImage: `url("${(youtubeThumbnail || imagePreview).replaceAll('"', "%22")}")` }}
-                />
-              ) : videoPreview ? (
-                <video src={value} controls preload="metadata" className="h-full w-full bg-admin-media-backdrop object-contain" />
-              ) : (
-                <AdminMediaPlaceholder kind={value && isPdfMediaUrl(value) ? "pdf" : "image"} />
-              )}
-              {youtubeThumbnail ? (
-                <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white">
-                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-black/55">
-                    <Play className="ml-0.5 h-6 w-6 fill-current" />
-                  </span>
-                </span>
-              ) : null}
+          {imagePreview ? (
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              aria-label={`${previewLabel}: ${selectedItem?.name ?? label}`}
+              className="block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left transition hover:border-zinc-400"
+            >
+              {previewSurface}
+            </button>
+          ) : videoPreview ? (
+            <div className="block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left">
+              {previewSurface}
             </div>
-          </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label={mergedLabels.select}
+              className={cn(
+                "block w-full max-w-sm overflow-hidden rounded-lg border border-zinc-300 bg-zinc-100 text-left transition hover:border-zinc-400",
+                !value && "border-dashed",
+              )}
+            >
+              {previewSurface}
+            </button>
+          )}
           {value ? <p className="mt-3 break-all rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-500">{selectedItem?.name ?? value}</p> : null}
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              aria-label={value ? mergedLabels.replace : mergedLabels.select}
+              onClick={() => setOpen(true)}
+            >
               <ImagePlus className="h-4 w-4" />
               {value ? mergedLabels.replace : mergedLabels.select}
             </Button>
@@ -160,6 +187,18 @@ export function AdminMediaField({
           </div>
         </div>
       </AdminField>
+      <AdminMediaLightbox
+        images={imagePreview ? [{
+          src: imagePreview,
+          alt: selectedItem?.defaultAltText ?? selectedItem?.name ?? label,
+        }] : []}
+        index={0}
+        labels={mergedLabels}
+        onClose={() => setLightboxOpen(false)}
+        onIndexChange={() => {}}
+        open={lightboxOpen}
+        title={selectedItem?.name ?? label}
+      />
       <AdminMediaPicker
         adapter={adapter}
         allowExternal={allowExternal}

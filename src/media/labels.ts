@@ -22,6 +22,7 @@ export type AdminMediaLabels = {
   results: string;
   total: string;
   select: string;
+  preview?: string;
   replace: string;
   clear: string;
   recommendedRatio: string;
@@ -37,7 +38,7 @@ export type AdminMediaLabels = {
   sourceExternal: string;
 };
 
-export const defaultAdminMediaLabels: AdminMediaLabels = {
+export const defaultAdminMediaLabels = {
   description: "Select an existing item or upload a new file.",
   searchPlaceholder: "Search media",
   searchLabel: "Search media",
@@ -60,6 +61,7 @@ export const defaultAdminMediaLabels: AdminMediaLabels = {
   results: "items",
   total: "total",
   select: "Select media",
+  preview: "Preview image",
   replace: "Replace",
   clear: "Clear",
   recommendedRatio: "Recommended ratio",
@@ -73,4 +75,4 @@ export const defaultAdminMediaLabels: AdminMediaLabels = {
   sourceUploaded: "Uploaded media",
   sourceYoutube: "YouTube link",
   sourceExternal: "External media",
-};
+} satisfies AdminMediaLabels;

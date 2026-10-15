@@ -198,6 +198,7 @@ export const turkishAdminMessages: AdminMessages = {
     results: "medya",
     total: "toplam",
     select: "Medya seçiniz",
+    preview: "Görseli önizleyin",
     replace: "Medyayı değiştiriniz",
     clear: "Medyayı temizleyiniz",
     recommendedRatio: "Önerilen oran",
