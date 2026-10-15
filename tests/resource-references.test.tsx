@@ -180,6 +180,22 @@ describe("the choices a form offers for a reference", () => {
     expect(choice!.query).toEqual({ window: { offset: 0, limit: ADMIN_RESOURCE_REFERENCE_LIMIT } });
   });
 
+  it("settles the normalized choices when the reference limit is NaN", async () => {
+    const { persistence, asked } = recordingStore();
+    render(tree(
+      <AdminResourceForm
+        definition={shipments}
+        persistence={persistence}
+        referenceLimit={Number.NaN}
+      />,
+    ));
+
+    const control = await screen.findByLabelText<HTMLSelectElement>("Customer");
+    expect(within(control).getByRole("option", { name: "Alpha Ltd" })).toBeInTheDocument();
+    const choice = asked.find((call) => call.call === "queryPage" && call.resource === "customers");
+    expect(choice!.query).toEqual({ window: { offset: 0, limit: ADMIN_RESOURCE_REFERENCE_LIMIT } });
+  });
+
   it("does not ask for a choice before the field is drawn, and asks once rather than per render", async () => {
     const { persistence, asked } = recordingStore();
     render(tree(<AdminResourceForm definition={shipments} persistence={persistence} />));

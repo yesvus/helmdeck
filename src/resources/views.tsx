@@ -169,7 +169,7 @@ function useReferenceChoices(
     ).then((choices) => {
       if (live) {
         setSettled((current) =>
-          current?.resource === key && current.limit === limit && current.scopeToken === scopeToken
+          current?.resource === key && Object.is(current.limit, limit) && current.scopeToken === scopeToken
             ? current
             : { resource: key, limit, scopeToken, choices },
         );
@@ -180,7 +180,7 @@ function useReferenceChoices(
     };
   }, [key, limit, persistence, reported, scopeToken, wanted]);
 
-  return settled?.resource === key && settled.limit === limit && settled.scopeToken === scopeToken
+  return settled?.resource === key && Object.is(settled.limit, limit) && settled.scopeToken === scopeToken
     ? settled.choices
     : null;
 }
