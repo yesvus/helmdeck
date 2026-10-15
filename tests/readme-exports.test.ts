@@ -71,6 +71,7 @@ const DOCUMENTED_FUNCTIONS = [
   "createAdminResourceActions",
   "createAdminResourceActionPersistenceAdapter",
   "createReadOnlyPersistenceAdapter",
+  "AdminScopeProvider",
   "createAdminSessionGuard",
   "readAdminSession",
   "AdminSessionRequiredError",
@@ -163,6 +164,19 @@ describe("the getting-started documentation matches the package", () => {
     expect(persistence).toContain("createAdminResourceActionPersistenceAdapter");
     expect(persistence).toContain("preserves `queryPage` only when supplied");
     expect(persistence).toContain("Each Server Action remains responsible for authenticating");
+  });
+
+  it("documents request-scoped links, list filters and server enforcement", () => {
+    const start = README.indexOf("#### Request-scoped resources and links");
+    const end = README.indexOf("#### Searching, sorting, filtering", start);
+    const scope = README.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(scope).toContain("AdminScopeAdapter");
+    expect(scope).toContain("navigation, breadcrumbs, brand and profile links");
+    expect(scope).toContain("not an authorization boundary");
+    expect(scope).toContain("returns `null` for a row outside the tenant");
   });
 });
 

@@ -16,6 +16,7 @@ import { AdminPageHeader } from "../shell/admin-page-header.js";
 import { adminFormatCents, adminFormatCount } from "../charts/money.js";
 import { AdminCan, useAdminPermission } from "../shell/permissions.js";
 import { useAdminHref, useAdminMessages } from "../i18n.js";
+import { useAdminScopeToken, useAdminScopedPersistence } from "../scope.js";
 import { cn } from "../cn.js";
 import {
   ADMIN_RESOURCE_MAX_LIMIT,
@@ -143,10 +144,13 @@ function useReferenceChoices(
   persistence: AdminPersistenceAdapter,
   reference: AdminResourceReference | undefined,
   limit: number,
+  scopeToken: object | null,
   onError?: (cause: unknown) => void,
 ): AdminResourceReferenceChoices | null {
   const [settled, setSettled] = useState<{
-    key: string;
+    resource: string;
+    limit: number;
+    scopeToken: object | null;
     choices: AdminResourceReferenceChoices;
   } | null>(null);
   const wanted = useLatest(reference);
@@ -154,7 +158,7 @@ function useReferenceChoices(
   const key =
     reference === undefined
       ? null
-      : `${reference.resource}@${String(limit)}`;
+      : reference.resource;
 
   useEffect(() => {
     const asked = wanted.current;
@@ -163,14 +167,22 @@ function useReferenceChoices(
     void adminResourceReferenceChoices(persistence, asked, limit, (cause) =>
       reported.current?.(cause),
     ).then((choices) => {
-      if (live) setSettled((current) => (current?.key === key ? current : { key, choices }));
+      if (live) {
+        setSettled((current) =>
+          current?.resource === key && Object.is(current.limit, limit) && current.scopeToken === scopeToken
+            ? current
+            : { resource: key, limit, scopeToken, choices },
+        );
+      }
     });
     return () => {
       live = false;
     };
-  }, [key, limit, persistence, reported, wanted]);
+  }, [key, limit, persistence, reported, scopeToken, wanted]);
 
-  return settled?.key === key ? settled.choices : null;
+  return settled?.resource === key && Object.is(settled.limit, limit) && settled.scopeToken === scopeToken
+    ? settled.choices
+    : null;
 }
 
 type ListControls = {
@@ -188,18 +200,18 @@ const NO_CONTROLS: ListControls = { search: "", filters: {}, sort: [], page: 1 }
  * A value that stops changing before it is used, so a typed term is one query rather than one per
  * keystroke. One direction only, so a value that has been superseded is never applied late.
  *
- * `key` is what the value belongs to. A different list is not a keystroke in this one, so its
- * value is taken at once rather than a quarter of a second later, which is the window in which a
- * term chosen for one resource would have been asked of the next.
+ * `key` and `scopeToken` name what the value belongs to. A different list or request scope takes its
+ * value at once rather than a quarter of a second later, which is the window in which an old query
+ * could have been sent into the new context.
  */
-function useSettled<T>(value: T, key: string): T {
-  const [settled, setSettled] = useState({ key, value });
-  if (settled.key !== key) setSettled({ key, value });
+function useSettled<T>(value: T, key: string, scopeToken: object | null): T {
+  const [settled, setSettled] = useState({ key, scopeToken, value });
+  if (settled.key !== key || settled.scopeToken !== scopeToken) setSettled({ key, scopeToken, value });
   useEffect(() => {
-    if (settled.key === key && Object.is(settled.value, value)) return;
-    const timer = setTimeout(() => setSettled({ key, value }), SEARCH_SETTLE_MS);
+    if (settled.key === key && settled.scopeToken === scopeToken && Object.is(settled.value, value)) return;
+    const timer = setTimeout(() => setSettled({ key, scopeToken, value }), SEARCH_SETTLE_MS);
     return () => clearTimeout(timer);
-  }, [key, settled, value]);
+  }, [key, scopeToken, settled, value]);
   return settled.value;
 }
 
@@ -289,7 +301,8 @@ function AdminResourceReferenceFilter({
   onError?: (cause: unknown) => void;
 }) {
   const reference = filter.reference!;
-  const choices = useReferenceChoices(persistence, reference, limit, onError);
+  const scopeToken = useAdminScopeToken();
+  const choices = useReferenceChoices(persistence, reference, limit, scopeToken, onError);
   if (choices !== null && !choices.available) return null;
 
   return (
@@ -317,7 +330,7 @@ function AdminResourceReferenceFilter({
 
 export function AdminResourceList({
   definition,
-  persistence,
+  persistence: sourcePersistence,
   detailBaseHref,
   pageSize = PAGE_SIZE,
   formatters,
@@ -359,6 +372,8 @@ export function AdminResourceList({
   referenceLimit?: number;
   onError?: (cause: unknown) => void;
 }) {
+  const scopeToken = useAdminScopeToken();
+  const persistence = useAdminScopedPersistence(sourcePersistence);
   const i18n = useAdminMessages();
   const toHref = useAdminHref();
   const copy = { ...defaultAdminResourceListQueryLabels, ...labels };
@@ -373,21 +388,23 @@ export function AdminResourceList({
   // Keyed by the resource they came from, so a different resource cannot show these.
   const [loaded, setLoaded] = useState<{
     resource: string;
+    scopeToken: object | null;
     rows: AdminResourceRecord[];
     /** Null when the adapter answered rows without saying how many there are. */
     total: number | null;
   } | null>(null);
-  const rows = loaded?.resource === definition.resource ? loaded.rows : null;
-  const total = loaded?.resource === definition.resource ? loaded.total : null;
+  const rows = loaded?.resource === definition.resource && loaded.scopeToken === scopeToken ? loaded.rows : null;
+  const total = loaded?.resource === definition.resource && loaded.scopeToken === scopeToken ? loaded.total : null;
   // The same keying as the rows, so a new resource's list starts from nothing chosen rather than
   // from the previous one's search box.
-  const [controls, setControls] = useState<ListControls & { resource: string }>({
+  const [controls, setControls] = useState<ListControls & { resource: string; scopeToken: object | null }>({
     resource: definition.resource,
+    scopeToken,
     ...NO_CONTROLS,
   });
-  const active = controls.resource === definition.resource ? controls : NO_CONTROLS;
-  const search = useSettled(active.search, definition.resource);
-  const chosen = useSettled(active.filters, definition.resource);
+  const active = controls.resource === definition.resource && controls.scopeToken === scopeToken ? controls : NO_CONTROLS;
+  const search = useSettled(active.search, definition.resource, scopeToken);
+  const chosen = useSettled(active.filters, definition.resource, scopeToken);
   // Bumped to ask again, which a delete is: the count it reported is one row out of date, and a
   // page that just lost its last row has to come back from the store to know there is no next.
   const [reload, setReload] = useState(0);
@@ -462,13 +479,15 @@ export function AdminResourceList({
           const last = Math.max(1, Math.ceil(page.total / size));
           if (active.page > last) {
             setControls((current) =>
-              current.resource === definition.resource ? { ...current, page: last } : current,
+              current.resource === definition.resource && current.scopeToken === scopeToken
+                ? { ...current, page: last }
+                : current,
             );
             return;
           }
         }
         setMessage("");
-        setLoaded({ resource: definition.resource, rows: usable, total: page.total });
+        setLoaded({ resource: definition.resource, scopeToken, rows: usable, total: page.total });
       },
       (cause: unknown) => {
         if (!live) return;
@@ -476,7 +495,9 @@ export function AdminResourceList({
         // Dropped as well as reported. Leaving the previous rows under an error message shows
         // records the list can no longer vouch for, next to a claim that loading failed.
         setLoaded((current) =>
-          current && current.resource === definition.resource ? { ...current, rows: [] } : current,
+          current && current.resource === definition.resource && current.scopeToken === scopeToken
+            ? { ...current, rows: [] }
+            : current,
         );
         onError?.(cause);
       },
@@ -496,10 +517,11 @@ export function AdminResourceList({
     query,
     reload,
     size,
+    scopeToken,
   ]);
 
   function updateControls(update: (current: ListControls) => ListControls) {
-    setControls({ resource: definition.resource, ...update(active) });
+    setControls({ resource: definition.resource, scopeToken, ...update(active) });
   }
 
   async function remove(id: string) {
@@ -507,7 +529,7 @@ export function AdminResourceList({
       await persistence.delete(definition.resource, id);
       setMessage("");
       setLoaded((current) =>
-        current && current.resource === definition.resource
+        current && current.resource === definition.resource && current.scopeToken === scopeToken
           ? { ...current, rows: current.rows.filter((row) => row.id !== id) }
           : current,
       );
@@ -848,7 +870,8 @@ function AdminResourceReferenceField({
   onError?: (cause: unknown) => void;
 }) {
   const reference = field.reference!;
-  const choices = useReferenceChoices(persistence, reference, limit, onError);
+  const scopeToken = useAdminScopeToken();
+  const choices = useReferenceChoices(persistence, reference, limit, scopeToken, onError);
   const held = adminResourceReferenceValue(current);
   const offered = choices?.rows ?? [];
   const holdsOutside = held !== null && !offered.some((row) => row.id === held);
@@ -900,7 +923,7 @@ function renderValue(value: unknown): ReactNode {
  */
 export function AdminResourceForm({
   definition,
-  persistence,
+  persistence: sourcePersistence,
   id,
   backHref,
   labels,
@@ -930,6 +953,8 @@ export function AdminResourceForm({
   onSaved?: (record: AdminResourceRecord) => void;
   onError?: (cause: unknown) => void;
 }) {
+  const scopeToken = useAdminScopeToken();
+  const persistence = useAdminScopedPersistence(sourcePersistence);
   const i18n = useAdminMessages();
   const referenceCopy = { ...defaultAdminResourceReferenceLabels, ...referenceLabels };
   // A locale-enabled host encodes the content locale in its URLs, so a bare href would drop
@@ -942,6 +967,7 @@ export function AdminResourceForm({
   const [read, setRead] = useState<{
     resource: string;
     id: string;
+    scopeToken: object | null;
     value: AdminResourceRecord | null;
     failed?: boolean;
   } | null>(null);
@@ -982,8 +1008,10 @@ export function AdminResourceForm({
   // Keyed by resource and id together: the same id on a different resource is a different
   // record, and showing the previous one's values would save them to this one.
   const loading =
-    !isNew && !readRefused && (read?.resource !== definition.resource || read?.id !== id);
-  const values = isNew ? EMPTY_VALUES : (read?.value ?? null);
+    !isNew &&
+    !readRefused &&
+    (read?.resource !== definition.resource || read?.id !== id || read?.scopeToken !== scopeToken);
+  const values = isNew ? EMPTY_VALUES : read?.scopeToken === scopeToken ? (read.value ?? null) : null;
 
   useEffect(() => {
     if (isNew || mayRead !== "allowed") return;
@@ -1001,12 +1029,13 @@ export function AdminResourceForm({
         setRead({
           resource: definition.resource,
           id: id as string,
+          scopeToken,
           value: found ? { ...found, id: adminResourceRecordId(found) } : null,
         });
       })
       .catch((cause: unknown) => {
         if (!active) return;
-        setRead({ resource: definition.resource, id: id as string, value: null, failed: true });
+        setRead({ resource: definition.resource, id: id as string, scopeToken, value: null, failed: true });
         setMessage(labels?.loadError ?? i18n.shell.resourceLoadError);
         onError?.(cause);
       });
@@ -1022,6 +1051,7 @@ export function AdminResourceForm({
     mayRead,
     onError,
     persistence,
+    scopeToken,
   ]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

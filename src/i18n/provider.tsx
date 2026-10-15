@@ -3,6 +3,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { AdminLocaleAdapter } from "../adapters/host.js";
+import { useAdminScopeHref } from "../scope.js";
 import { defaultAdminLocale, getAdminMessages, type AdminMessages } from "./messages.js";
 
 const AdminI18nContext = createContext<AdminMessages>(getAdminMessages(defaultAdminLocale));
@@ -107,5 +108,11 @@ export function useAdminContentLocale() {
 
 /** Applies the host's content locale to a shell href, leaving it untouched when the host maps no locale. */
 export function useAdminHref() {
-  return useContext(AdminLocaleContext).toHref;
+  const localeToHref = useContext(AdminLocaleContext).toHref;
+  const scopeToHref = useAdminScopeHref();
+  return useCallback((href: string) => {
+    if (!href) return href;
+    const localizedHref = localeToHref(href);
+    return /^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href) ? localizedHref : scopeToHref(localizedHref);
+  }, [localeToHref, scopeToHref]);
 }

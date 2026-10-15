@@ -55,4 +55,6 @@ export type {
   AdminPermissionsAdapter,
   AdminPersistenceAdapter,
   AdminPreviewAdapter,
+  AdminScopeAdapter,
+  AdminScopeFilter,
 } from "./host.js";

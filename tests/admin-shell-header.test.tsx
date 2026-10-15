@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminShell } from "../src/shell/admin-shell";
+import { AdminScopeProvider } from "../src/scope";
 import { AdminPageHeader } from "../src/shell/admin-page-header";
 import { AdminShellProvider } from "../src/shell/context";
 import type { AdminShellContextValue } from "../src/shell/context";
@@ -45,6 +46,57 @@ describe("persistent shell page context", () => {
     // The trigger label is localized, so find it by the session email it displays.
     await user.click(screen.getByText("ops@example.com").closest("button")!);
     expect(screen.getByRole("button", { name: "Theme" })).toBeInTheDocument();
+  });
+
+  it("carries the request scope through every shell link", async () => {
+    const scopeAdapter = {
+      toHref: (href: string, scope: string) => `${href}${href.includes("?") ? "&" : "?"}scope=${scope}`,
+      resourceFilter: (_resource: string, scope: string) => ({ field: "tenant", value: scope }),
+    };
+    const { container } = render(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminShell
+          nav={nav}
+          session={{ email: "ops@example.com" }}
+          brand={{ label: "Acme" }}
+          profileHref="/shell/profile"
+          viewSiteHref="https://site.example"
+          searchEntries={[{ href: "/shell/reports", label: "Reports" }]}
+        >
+          <div>Page content</div>
+        </AdminShell>
+      </AdminScopeProvider>,
+    );
+
+    expect(container.querySelector('a[href="/shell/products"]')).not.toBeInTheDocument();
+    expect(container.querySelector('a[href="/shell/products?scope=acme"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="/shell?scope=acme"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="/admin?scope=acme"]')?.textContent).toContain("Acme");
+
+    fireEvent.click(screen.getByText("ops@example.com").closest("button")!);
+    expect(container.querySelector('a[href="/shell/profile?scope=acme"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="https://site.example"]')).toBeInTheDocument();
+    fireEvent.change(container.querySelector('input[placeholder]')!, { target: { value: "Reports" } });
+    expect(container.querySelector('a[href="/shell/reports?scope=acme"]')).toBeInTheDocument();
+    expect([...container.querySelectorAll("a")].every((link) => {
+      const href = link.getAttribute("href") ?? "";
+      return href.startsWith("https://") || href.includes("scope=acme");
+    })).toBe(true);
+  });
+
+  it("keeps an empty site link disabled inside a request scope", () => {
+    const scopeAdapter = {
+      toHref: (href: string, scope: string) => `${href}?scope=${scope}`,
+      resourceFilter: (_resource: string, scope: string) => ({ field: "tenant", value: scope }),
+    };
+    const { container } = render(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminShell nav={nav} session={{ email: "ops@example.com" }} viewSiteHref=""><div>Page content</div></AdminShell>
+      </AdminScopeProvider>,
+    );
+
+    fireEvent.click(screen.getByText("ops@example.com").closest("button")!);
+    expect(container.querySelector('a[href="?scope=acme"]')).not.toBeInTheDocument();
   });
 
   it("populates a ref object for the scroll region", () => {

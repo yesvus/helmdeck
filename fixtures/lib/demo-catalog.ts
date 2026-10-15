@@ -1453,6 +1453,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "form create edit resource",
     hostNote: "It is given a resource definition and a record by the host, and has no fields of its own.",
   },
+  AdminScopeProvider: {
+    category: "Resources",
+    summary: "Carries a request scope through generated resource queries and shell links.",
+    keywords: "scope tenant request links filters resources",
+    hostNote: "It needs a request scope and an adapter that maps links and resource filters.",
+  },
   defineAdminResource: {
     category: "Resources",
     summary: "Declares a resource: its table, its fields, its filters and the operations it allows.",

@@ -64,6 +64,16 @@ export type AdminLocaleAdapter = {
   toHref?: (href: string, contentLocale: string) => string;
 };
 
+export type AdminScopeFilter = {
+  field: string;
+  value: string;
+};
+
+export type AdminScopeAdapter = {
+  toHref: (href: string, scope: string) => string;
+  resourceFilter: (resource: string, scope: string) => AdminScopeFilter;
+};
+
 export type AdminAuditEvent = {
   /** The operation that happened, which is the write's own vocabulary: create, update or delete. */
   action: string;
@@ -110,6 +120,7 @@ export type AdminHostAdapters = {
   permissions?: AdminPermissionsAdapter;
   persistence?: AdminPersistenceAdapter;
   locale?: AdminLocaleAdapter;
+  scope?: AdminScopeAdapter;
   audit?: AdminAuditAdapter;
   preview?: AdminPreviewAdapter;
   cache?: AdminCacheInvalidationAdapter;

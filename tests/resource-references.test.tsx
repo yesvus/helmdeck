@@ -15,10 +15,12 @@ import {
   evaluateAdminPermission,
   AdminPermissionDeniedError,
   AdminResourceReferenceError,
+  AdminScopeProvider,
   type AdminAuditEvent,
   type AdminPersistenceAdapter,
   type AdminResourcePage,
   type AdminResourceQuery,
+  type AdminScopeAdapter,
   type AdminSession,
 } from "@yesvus/helmdeck";
 import { createMemoryPersistenceAdapter } from "@yesvus/helmdeck/baseline";
@@ -178,6 +180,22 @@ describe("the choices a form offers for a reference", () => {
     expect(choice!.query).toEqual({ window: { offset: 0, limit: ADMIN_RESOURCE_REFERENCE_LIMIT } });
   });
 
+  it("settles the normalized choices when the reference limit is NaN", async () => {
+    const { persistence, asked } = recordingStore();
+    render(tree(
+      <AdminResourceForm
+        definition={shipments}
+        persistence={persistence}
+        referenceLimit={Number.NaN}
+      />,
+    ));
+
+    const control = await screen.findByLabelText<HTMLSelectElement>("Customer");
+    expect(within(control).getByRole("option", { name: "Alpha Ltd" })).toBeInTheDocument();
+    const choice = asked.find((call) => call.call === "queryPage" && call.resource === "customers");
+    expect(choice!.query).toEqual({ window: { offset: 0, limit: ADMIN_RESOURCE_REFERENCE_LIMIT } });
+  });
+
   it("does not ask for a choice before the field is drawn, and asks once rather than per render", async () => {
     const { persistence, asked } = recordingStore();
     render(tree(<AdminResourceForm definition={shipments} persistence={persistence} />));
@@ -190,6 +208,49 @@ describe("the choices a form offers for a reference", () => {
     // A definition with one reference asks about that one resource, once. A hook keyed on an object
     // identity rather than on what it is about would ask again on every keystroke.
     expect(asked.filter((call) => call.resource === "customers")).toHaveLength(1);
+  });
+
+  it("drops previous-scope choices while the new scope is loading", async () => {
+    const inner = createMemoryPersistenceAdapter({
+      customers: [
+        { id: "cus_a", name: "Alpha Ltd", tenant: "acme" },
+        { id: "cus_b", name: "Beta Ltd", tenant: "globex" },
+      ] as never,
+    });
+    let finishGlobex!: (page: AdminResourcePage<unknown>) => void;
+    const persistence: AdminPersistenceAdapter = {
+      ...inner,
+      queryPage: async <T,>(resource: string, query?: AdminResourceQuery) => {
+        const scope = query?.filter?.find((filter) => filter.field === "tenant")?.value;
+        if (scope === "globex") {
+          return new Promise<AdminResourcePage<T>>((resolve) => {
+            finishGlobex = (page) => resolve(page as AdminResourcePage<T>);
+          });
+        }
+        return inner.queryPage!<T>(resource, query);
+      },
+    };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href) => href,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+    const form = (scope: string) => tree(
+      <AdminScopeProvider scope={scope} adapter={scopeAdapter}>
+        <AdminResourceForm definition={shipments} persistence={persistence} />
+      </AdminScopeProvider>,
+    );
+    const view = render(form("acme"));
+    const control = await screen.findByLabelText<HTMLSelectElement>("Customer");
+
+    expect(await within(control).findByRole("option", { name: "Alpha Ltd" })).toBeInTheDocument();
+    view.rerender(form("globex"));
+    expect(within(control).queryByRole("option", { name: "Alpha Ltd" })).not.toBeInTheDocument();
+    expect(within(control).queryByRole("option", { name: "Beta Ltd" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      finishGlobex({ rows: [{ id: "cus_b", name: "Beta Ltd", tenant: "globex" }], total: 1 });
+    });
+    expect(await within(control).findByRole("option", { name: "Beta Ltd" })).toBeInTheDocument();
   });
 
   it("saves what was chosen, as the row's own id", async () => {

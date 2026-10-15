@@ -93,6 +93,7 @@ export function AdminShell({
   const trail = useBreadcrumbs(nav);
   const pageTitle = currentPageTitle ?? trail?.item.label;
   const resolvedProfileHref = toHref(profileHref ?? `${homeHref}/profile`);
+  const resolvedViewSiteHref = toHref(viewSiteHref);
   const brandHref = toHref(brand?.href ?? homeHref);
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
@@ -185,7 +186,7 @@ export function AdminShell({
         expandSidebar: () => setCollapsed(false),
         homeHref,
         profileHref: resolvedProfileHref,
-        viewSiteHref,
+        viewSiteHref: resolvedViewSiteHref,
         onLogout,
         searchEntries,
         searchNormalize: resolvedSearchNormalize,

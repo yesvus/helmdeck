@@ -665,6 +665,37 @@ export const persistence = createAdminResourceActionPersistenceAdapter({
 
 The adapter preserves `queryPage` only when supplied, so a source that cannot page does not advertise controls it cannot answer. Each Server Action remains responsible for authenticating the request, authorizing the operation and validating its inputs; the client bridge only maps the actions to the resource-view contract. For a read-only remote API, use `createReadOnlyPersistenceAdapter` with its read-only Server Actions instead.
 
+#### Request-scoped resources and links
+
+`AdminScopeAdapter` gives a request's scope one URL mapping and one resource filter. Wrap the shell and its resource views in `AdminScopeProvider`; the same scope is applied to navigation, breadcrumbs, brand and profile links, and generated list queries:
+
+```tsx
+"use client";
+import { AdminScopeProvider, AdminShell, type AdminScopeAdapter } from "@yesvus/helmdeck";
+
+const scopeAdapter: AdminScopeAdapter = {
+  toHref: (href, scope) => {
+    const [route, fragment] = href.split("#", 2);
+    const [pathname, search = ""] = route.split("?", 2);
+    const params = new URLSearchParams(search);
+    if (!params.has("repo")) params.set("repo", scope);
+    const query = params.toString();
+    return `${pathname}${query ? `?${query}` : ""}${fragment ? `#${fragment}` : ""}`;
+  },
+  resourceFilter: (_resource, scope) => ({ field: "repository", value: scope }),
+};
+
+export function ScopedAdmin({ scope, children }: { scope: string; children: React.ReactNode }) {
+  return (
+    <AdminScopeProvider scope={scope} adapter={scopeAdapter}>
+      <AdminShell nav={nav}>{children}</AdminShell>
+    </AdminScopeProvider>
+  );
+}
+```
+
+Resolve `scope` from the authenticated request on the server and pass only an authorized value into the provider. The client-side query filter shapes list requests; it is not an authorization boundary, because a caller can change it. Each Server Action must independently resolve and enforce the request scope. For PostgreSQL, configure `createPostgresPersistenceAdapter` with a request tenant resolver such as `tenant: currentAdminTenant` from `@yesvus/helmdeck/tenant-scope`; `createTenantScopedPersistenceAdapter` establishes the ambient context that resolver reads, but does not configure the PostgreSQL adapter by itself. Its record lookup returns `null` for a row outside the tenant, the same answer as for an absent row. Keep that response indistinguishable from a missing record, rather than returning a 403 that confirms the record exists.
+
 #### Searching, sorting, filtering and paging a generated list
 
 A list is a window onto a collection, so the collection's size is part of what the list has to say. An adapter answers that with `queryPage`, beside the rows-only `query`:
@@ -1157,6 +1188,8 @@ Two narrower limits, stated rather than left to be discovered. A record is recor
 
 `AdminLocaleAdapter` distinguishes interface locale from content locale. Interface dictionaries are provided by Helmdeck, while the host chooses locale policy and owns translations and localized content. Optional content-locale selection persists through the host callback.
 
+`AdminScopeAdapter` supplies the URL and resource-filter mapping consumed by `AdminScopeProvider`; the authorized request scope is passed separately. See [Request-scoped resources and links](#request-scoped-resources-and-links).
+
 `AdminAuditAdapter` accepts the events a resource write leaves behind, and `AdminCacheInvalidationAdapter` receives the same writes so the host can invalidate its own caches. These two are not free-standing: `createAdminResourceActions` calls them, after the store has answered, and only for the calls that were allowed to reach it. [Recording the writes and dropping the caches](#recording-the-writes-and-dropping-the-caches) is the whole of what they are told and when. `AdminPreviewAdapter` generates preview URLs for host routes. Route paths, schemas, content, and cache tags remain in the host; these contracts intentionally do not define or expose them.
 
 Compose the optional host services independently and pass the existing auth and media adapters to components that consume them:
@@ -1170,6 +1203,7 @@ export const hostAdapters: AdminHostAdapters = {
   permissions,
   persistence,
   locale,
+  scope,
   audit,
   preview,
   cache,

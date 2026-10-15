@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
 import { AdminPermissionsProvider } from "../src/shell/permissions";
@@ -13,8 +14,14 @@ import {
   defineAdminResource,
 } from "../src/resources/index";
 import { createReadOnlyPersistenceAdapter } from "../src/resources/persistence";
+import { AdminScopeProvider, useAdminScopedPersistence } from "../src/scope";
 import { createMemoryPersistenceAdapter } from "../src/baseline";
-import type { AdminPermissionsAdapter, AdminPersistenceAdapter } from "../src/adapters/index";
+import type {
+  AdminPermissionsAdapter,
+  AdminPersistenceAdapter,
+  AdminResourceQuery,
+  AdminScopeAdapter,
+} from "../src/adapters/index";
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/posts",
@@ -99,6 +106,24 @@ function tree(element: React.ReactElement, adapter: AdminPermissionsAdapter = al
 
 function wrap(element: React.ReactElement, adapter: AdminPermissionsAdapter = allowAll()) {
   return render(tree(element, adapter));
+}
+
+function ScopedQueryProbe({
+  persistence,
+  query,
+  onRows,
+  onError,
+}: {
+  persistence: AdminPersistenceAdapter;
+  query: Record<string, unknown>;
+  onRows: (rows: unknown[]) => void;
+  onError?: (cause: unknown) => void;
+}) {
+  const scoped = useAdminScopedPersistence(persistence);
+  useEffect(() => {
+    void scoped.query("posts", query).then(onRows, onError);
+  }, [onError, onRows, query, scoped]);
+  return null;
 }
 
 describe("defineAdminResource", () => {
@@ -239,6 +264,177 @@ describe("adminResourceValues", () => {
 });
 
 describe("AdminResourceList", () => {
+  it("applies the request scope to rows for each session using the same resource definition", async () => {
+    const definition = defineAdminResource({
+      resource: "posts",
+      label: "Posts",
+      columns: [{ key: "title", header: "Title" }],
+      fields: [],
+      permissions: { update: "posts.update" },
+    });
+    const persistence = createMemoryPersistenceAdapter({
+      posts: [
+        { id: "a1", title: "Acme only", tenant: "acme" },
+        { id: "g1", title: "Globex only", tenant: "globex" },
+      ],
+    });
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href, scope) => `${href}?scope=${encodeURIComponent(scope)}`,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+
+    const acme = render(tree(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceList definition={definition} persistence={persistence} />
+      </AdminScopeProvider>,
+    ));
+    expect(await screen.findByText("Acme only")).toBeInTheDocument();
+    expect(screen.queryByText("Globex only")).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Edit: a1" })).toHaveAttribute(
+      "href",
+      "posts/a1?scope=acme",
+    );
+
+    acme.rerender(tree(
+      <AdminScopeProvider scope="globex" adapter={scopeAdapter}>
+        <AdminResourceList definition={definition} persistence={persistence} />
+      </AdminScopeProvider>,
+    ));
+    expect(screen.queryByText("Acme only")).not.toBeInTheDocument();
+    expect(await screen.findByText("Globex only")).toBeInTheDocument();
+    expect(screen.queryByText("Acme only")).not.toBeInTheDocument();
+  });
+
+  it("does not send settled list controls from the previous scope", async () => {
+    const base = createMemoryPersistenceAdapter({
+      posts: [
+        { id: "a1", title: "Acme only", tenant: "acme" },
+        { id: "g1", title: "Globex only", tenant: "globex" },
+      ],
+    });
+    const queryPageMock = vi.fn(async <T,>(resource: string, query?: AdminResourceQuery) =>
+      base.queryPage!<T>(resource, query),
+    );
+    const persistence: AdminPersistenceAdapter = {
+      ...base,
+      queryPage: queryPageMock as NonNullable<AdminPersistenceAdapter["queryPage"]>,
+    };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href) => href,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+    const list = (scope: string) => tree(
+      <AdminScopeProvider scope={scope} adapter={scopeAdapter}>
+        <AdminResourceList definition={posts} persistence={persistence} />
+      </AdminScopeProvider>,
+    );
+    const view = render(list("acme"));
+
+    fireEvent.change(await screen.findByPlaceholderText("Search this list"), {
+      target: { value: "Acme" },
+    });
+    await waitFor(() => expect(queryPageMock.mock.calls.some(([, query]) => query?.search === "Acme")).toBe(true));
+
+    view.rerender(list("globex"));
+    await waitFor(() => {
+      const latest = queryPageMock.mock.calls.at(-1)?.[1];
+      expect(latest?.filter).toContainEqual({ field: "tenant", operator: "eq", value: "globex" });
+      expect(latest?.search).toBeUndefined();
+    });
+    expect(queryPageMock.mock.calls.some(([, query]) =>
+      query?.filter?.some((filter) => filter.field === "tenant" && filter.value === "globex") &&
+      query.search === "Acme",
+    )).toBe(false);
+  });
+
+  it("passes the request scope to a rows-only persistence adapter", async () => {
+    const base = createMemoryPersistenceAdapter({
+      posts: [
+        { id: "a1", title: "Acme only", tenant: "acme" },
+        { id: "g1", title: "Globex only", tenant: "globex" },
+      ],
+    });
+    const query = vi.fn(async <T,>(resource: string, filters?: Record<string, unknown>) =>
+      base.query<T>(resource, filters),
+    ) as AdminPersistenceAdapter["query"];
+    const persistence: AdminPersistenceAdapter = {
+      read: base.read,
+      query,
+      create: base.create,
+      update: base.update,
+      delete: base.delete,
+    };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href, scope) => `${href}?scope=${encodeURIComponent(scope)}`,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+
+    wrap(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceList definition={posts} persistence={persistence} />
+      </AdminScopeProvider>,
+    );
+
+    expect(await screen.findByText("Acme only")).toBeInTheDocument();
+    expect(screen.queryByText("Globex only")).not.toBeInTheDocument();
+    expect(query).toHaveBeenCalledWith("posts", { tenant: "acme" });
+  });
+
+  it("keeps a rows-only query inside scope when caller filters disagree", async () => {
+    const base = createMemoryPersistenceAdapter({
+      posts: [
+        { id: "a1", title: "Acme", tenant: "acme", status: "published" },
+        { id: "g1", title: "Globex", tenant: "globex", status: "published" },
+      ],
+    });
+    const queryRows = vi.fn(async <T,>(resource: string, filters?: Record<string, unknown>) =>
+      base.query<T>(resource, filters),
+    ) as AdminPersistenceAdapter["query"];
+    const persistence: AdminPersistenceAdapter = { ...base, query: queryRows };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href) => href,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+    const onRows = vi.fn();
+    const query = { tenant: "globex", status: "published" };
+
+    wrap(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <ScopedQueryProbe persistence={persistence} query={query} onRows={onRows} />
+      </AdminScopeProvider>,
+    );
+
+    await waitFor(() => expect(onRows).toHaveBeenCalledWith([
+      { id: "a1", title: "Acme", tenant: "acme", status: "published" },
+    ]));
+    expect(queryRows).toHaveBeenCalledWith("posts", { tenant: "acme", status: "published" });
+  });
+
+  it("refuses dotted scope fields on direct queries even when paging is available", async () => {
+    const base = createMemoryPersistenceAdapter();
+    const query = vi.fn(async <T,>(resource: string, filters?: Record<string, unknown>) =>
+      base.query<T>(resource, filters),
+    ) as AdminPersistenceAdapter["query"];
+    const persistence: AdminPersistenceAdapter = { ...base, query };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href) => href,
+      resourceFilter: () => ({ field: "organization.tenant", value: "acme" }),
+    };
+    const onRows = vi.fn();
+    const onError = vi.fn();
+
+    wrap(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <ScopedQueryProbe persistence={persistence} query={{}} onRows={onRows} onError={onError} />
+      </AdminScopeProvider>,
+    );
+
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("use queryPage") }),
+    ));
+    expect(query).not.toHaveBeenCalled();
+  });
+
   it("renders a row per record, with the declared columns", async () => {
     const db = createMemoryPersistenceAdapter();
     await db.create("posts", { title: "First", status: "draft" });
@@ -642,6 +838,64 @@ describe("AdminResourceList", () => {
 });
 
 describe("AdminResourceForm", () => {
+  it("renders a scoped record miss exactly like an absent record", async () => {
+    const base = createMemoryPersistenceAdapter({
+      posts: [{ id: "outside-scope", title: "Private", tenant: "globex" }],
+    });
+    const read = vi.fn(async <T,>(resource: string, id: string) => {
+      const row = await base.read<Record<string, unknown>>(resource, id);
+      return row?.tenant === "acme" ? (row as T) : null;
+    }) as AdminPersistenceAdapter["read"];
+    const persistence: AdminPersistenceAdapter = { ...base, read };
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href, scope) => `${href}?scope=${encodeURIComponent(scope)}`,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+    const hidden = render(tree(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceForm definition={posts} persistence={persistence} id="outside-scope" labels={{ notFound: "Record unavailable" }} />
+      </AdminScopeProvider>,
+    ));
+    expect(await screen.findByText("Record unavailable")).toBeInTheDocument();
+    const hiddenHtml = hidden.container.innerHTML;
+    expect(await base.read("posts", "outside-scope")).toMatchObject({ tenant: "globex" });
+    expect(read).toHaveBeenCalledWith("posts", "outside-scope");
+
+    cleanup();
+    const absent = render(tree(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceForm definition={posts} persistence={persistence} id="does-not-exist" labels={{ notFound: "Record unavailable" }} />
+      </AdminScopeProvider>,
+    ));
+    expect(await screen.findByText("Record unavailable")).toBeInTheDocument();
+    expect(absent.container.innerHTML).toBe(hiddenHtml);
+    expect(read).toHaveBeenLastCalledWith("posts", "does-not-exist");
+  });
+
+  it("leaves tenant assignment on scoped creates to the host action", async () => {
+    const persistence = createMemoryPersistenceAdapter();
+    const create = vi.spyOn(persistence, "create");
+    const scopeAdapter: AdminScopeAdapter = {
+      toHref: (href) => href,
+      resourceFilter: (_resource, scope) => ({ field: "tenant", value: scope }),
+    };
+
+    wrap(tree(
+      <AdminScopeProvider scope="acme" adapter={scopeAdapter}>
+        <AdminResourceForm definition={posts} persistence={persistence} />
+      </AdminScopeProvider>,
+    ));
+
+    const title = await screen.findByLabelText("Title");
+    title.setAttribute("value", "Scoped create");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const payload = create.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).toMatchObject({ title: "Scoped create" });
+    expect(payload).not.toHaveProperty("tenant");
+  });
+
   it("renders a read-only resource without new, delete, or save controls", async () => {
     const definition = defineAdminResource({
       resource: "reports",
