@@ -1348,7 +1348,7 @@ const CATALOG_META: Record<string, CatalogMeta> = {
   AdminMediaLightbox: {
     category: "Media",
     summary: "A full-screen image viewer with keyboard and button navigation for image sequences.",
-    keywords: "lightbox image preview gallery zoom keyboard",
+    keywords: "lightbox image preview gallery keyboard",
     renderable: true,
   },
   AdminMediaPicker: {

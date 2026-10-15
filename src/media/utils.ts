@@ -51,17 +51,21 @@ export function isVisualMediaItem(item: AdminMediaItem) {
 }
 
 export function isPdfMediaUrl(value: string) {
-  return value.toLocaleLowerCase().endsWith(".pdf");
+  return mediaUrlPath(value).endsWith(".pdf");
 }
 
 export function isVideoMediaUrl(value: string) {
-  const path = value.toLocaleLowerCase();
+  const path = mediaUrlPath(value);
   return videoExtensions.some((extension) => path.endsWith(extension));
 }
 
 export function isImageMediaUrl(value: string) {
-  const path = value.toLocaleLowerCase();
+  const path = mediaUrlPath(value);
   return !isPdfMediaUrl(path) && !isVideoMediaUrl(path) && !getYouTubeId(value);
+}
+
+function mediaUrlPath(value: string) {
+  return value.split(/[?#]/, 1)[0].toLocaleLowerCase();
 }
 
 export function getYouTubeId(value: string) {

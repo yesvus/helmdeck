@@ -75,7 +75,7 @@ export function AdminMediaLightbox({
                 type="button"
                 aria-label={previousLabel}
                 onClick={() => onIndexChange((activeIndex + images.length - 1) % images.length)}
-                className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-admin-inverted-surface/60 text-admin-inverted-text transition hover:bg-admin-inverted-surface/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-inverted-text sm:left-6"
+                className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-admin-media-backdrop/80 text-white transition hover:bg-admin-media-backdrop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-6"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>
@@ -83,20 +83,20 @@ export function AdminMediaLightbox({
                 type="button"
                 aria-label={nextLabel}
                 onClick={() => onIndexChange((activeIndex + 1) % images.length)}
-                className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-admin-inverted-surface/60 text-admin-inverted-text transition hover:bg-admin-inverted-surface/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-inverted-text sm:right-6"
+                className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-admin-media-backdrop/80 text-white transition hover:bg-admin-media-backdrop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-6"
               >
                 <ChevronRight className="h-6 w-6" />
               </button>
             </>
           ) : null}
         </div>
-        <div className="flex shrink-0 items-center justify-center gap-4 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] text-sm text-admin-inverted-text/80">
+        <div className="flex shrink-0 items-center justify-center gap-4 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] text-sm text-white/80">
           {images.length > 1 ? <span aria-live="polite">{activeIndex + 1} / {images.length}</span> : null}
           <AdminModalClose asChild>
             <button
               type="button"
               aria-label={messages.common.close}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-admin-inverted-surface/10 text-admin-inverted-text transition hover:bg-admin-inverted-surface/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-admin-inverted-text"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-admin-media-backdrop/80 text-white transition hover:bg-admin-media-backdrop focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               <X className="h-5 w-5" />
             </button>

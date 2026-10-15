@@ -8,6 +8,7 @@ import {
   isVideoMediaItem,
   sortAdminMediaItems,
 } from "../src/media";
+import { isImageMediaUrl, isPdfMediaUrl, isVideoMediaUrl } from "../src/media/utils.js";
 
 const image: AdminMediaItem = {
   name: "Loader",
@@ -34,6 +35,13 @@ describe("media utilities", () => {
     expect(isImageMediaItem(image)).toBe(true);
     expect(isVideoMediaItem(video)).toBe(true);
     expect(isPdfMediaItem({ ...image, kind: "pdf", path: "manual.pdf" })).toBe(true);
+  });
+
+  it("classifies media URLs by their path, ignoring query and fragment values", () => {
+    expect(isImageMediaUrl("https://cdn.test/photo.webp?token=abc")).toBe(true);
+    expect(isVideoMediaUrl("https://cdn.test/clip.mp4?token=abc")).toBe(true);
+    expect(isPdfMediaUrl("https://cdn.test/manual.pdf#page=2")).toBe(true);
+    expect(isImageMediaUrl("https://cdn.test/clip.mp4?token=abc")).toBe(false);
   });
 
   it("sorts newest first and uses locale-aware names", () => {

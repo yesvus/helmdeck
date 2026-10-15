@@ -8,7 +8,7 @@ import { Button } from "../primitives/button.js";
 import { AdminField } from "../primitives/field.js";
 import { AdminInput } from "../primitives/input.js";
 import { useAdminFormValueSignal } from "../primitives/managed-form.js";
-import { AdminMediaLightbox, type AdminMediaLightboxImage } from "./lightbox.js";
+import { AdminMediaLightbox } from "./lightbox.js";
 import { AdminMediaPlaceholder } from "./placeholder.js";
 import {
   AdminMediaPicker,
@@ -92,14 +92,18 @@ export function AdminMediaGalleryField({
     if (mode === "image") return ["image"];
     return ["image", "video", "youtube"];
   }, [mode]);
-  const lightboxImages = useMemo<AdminMediaLightboxImage[]>(
-    () => entries.flatMap((entry) => {
+  const lightboxEntries = useMemo(
+    () => entries.flatMap((entry, entryIndex) => {
       const item = items.find((candidate) => candidate.publicUrl === entry.url);
       if (item ? !isImageMediaItem(item) : !isImageMediaUrl(entry.url)) return [];
-      return [{ src: entry.url, alt: entry.alt || item?.defaultAltText || item?.name || label }];
+      return [{
+        entryIndex,
+        image: { src: entry.url, alt: entry.alt || item?.defaultAltText || item?.name || label },
+      }];
     }),
     [entries, items, label],
   );
+  const lightboxImages = lightboxEntries.map(({ image }) => image);
 
   function openPicker(index: number | null) {
     setEditingIndex(index);
@@ -128,7 +132,7 @@ export function AdminMediaGalleryField({
                 const item = items.find((candidate) => candidate.publicUrl === entry.url);
                 const thumbnail = item ? getAdminMediaThumbnailUrl(item) : "";
                 const youtube = Boolean(item && isYouTubeMediaItem(item));
-                const imageIndex = lightboxImages.findIndex((image) => image.src === entry.url);
+                const imageIndex = lightboxEntries.findIndex((image) => image.entryIndex === index);
                 return (
                   <div
                     key={`${entry.url}-${index}`}

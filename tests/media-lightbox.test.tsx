@@ -40,7 +40,7 @@ describe("AdminMediaLightbox", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next media" }));
     expect(onIndexChange).toHaveBeenCalledWith(1);
     fireEvent.keyDown(dialog, { key: "ArrowLeft" });
-    expect(onIndexChange).toHaveBeenLastCalledWith(1);
+    expect(onIndexChange).toHaveBeenNthCalledWith(2, 1);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
   });
@@ -83,5 +83,22 @@ describe("AdminMediaLightbox", () => {
     expect(screen.getByRole("img", { name: "One" })).toHaveAttribute("src", images[0].src);
     fireEvent.click(screen.getByRole("button", { name: "Next media" }));
     expect(screen.getByRole("img", { name: "Two" })).toHaveAttribute("src", images[1].src);
+  });
+
+  it("opens the corresponding entry when gallery URLs repeat", () => {
+    render(
+      <English>
+        <AdminMediaGalleryField
+          defaultValue={"/media/one.webp | First\n/media/one.webp | Second"}
+          items={[]}
+          label="Gallery"
+          name="gallery"
+        />
+      </English>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview image: Second" }));
+    expect(screen.getByRole("img", { name: "Second" })).toHaveAttribute("src", images[0].src);
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
   });
 });
