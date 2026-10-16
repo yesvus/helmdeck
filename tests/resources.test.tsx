@@ -1010,7 +1010,7 @@ describe("AdminResourceForm", () => {
     }> = [];
     const history: AdminResourceHistoryActions = {
       revisions: vi.fn(async () => [...revisions].sort((left, right) => right.position - left.position)),
-      recordRevision: async (resource, id) => {
+      update: async (resource, id, values) => {
         const snapshot = await db.read<AdminResourceRecord>(resource, id);
         const revision = {
           id: `rev_${revisions.length + 1}`,
@@ -1023,8 +1023,9 @@ describe("AdminResourceForm", () => {
           snapshot: snapshot ?? {},
           actor: { email: "editor@example.com", role: "editor" },
         };
+        const saved = await db.update<AdminResourceRecord>(resource, id, values);
         revisions.push(revision);
-        return revision;
+        return saved;
       },
       restoreRevision: async (resource, id, revisionId) => {
         const target = revisions.find((revision) => revision.id === revisionId);
@@ -1080,6 +1081,11 @@ describe("AdminResourceForm", () => {
     expect(revisions).toHaveLength(3);
     expect(revisions.at(-1)).toMatchObject({ cause: "restore", restoredFrom: "rev_1" });
     expect(screen.getByLabelText("Title")).toHaveValue("Before");
+
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "After restore" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(async () => expect(await db.read("posts", created.id)).toMatchObject({ title: "After restore" }));
+    expect(revisions).toHaveLength(4);
   });
 
   it("does not read or render history when its permission is denied", async () => {
@@ -1097,7 +1103,7 @@ describe("AdminResourceForm", () => {
   });
 
   it("shows history without restore controls when restore permission is denied", async () => {
-    const db = createMemoryPersistenceAdapter({ posts: [{ id: "p1", title: "Current" }] });
+    const db = createMemoryPersistenceAdapter({ posts: [{ id: "p1", title: "Current", secret: "do-not-show" }] });
     const denied: AdminPermissionsAdapter = {
       can: vi.fn(async (permission) => permission !== "posts.restoreRevision"),
     };
@@ -1131,18 +1137,68 @@ describe("AdminResourceForm", () => {
 
     await waitFor(() => expect(titleDiff()).toContain("Before"));
     expect(titleDiff()).toContain("Current");
+    expect(container.textContent).not.toContain("do-not-show");
     expect(screen.queryByRole("button", { name: "Restore this version" })).not.toBeInTheDocument();
     expect(restoreRevision).not.toHaveBeenCalled();
+  });
+
+  it("shows date-valued field differences instead of treating dates as empty objects", async () => {
+    const db = createMemoryPersistenceAdapter({
+      posts: [{ id: "p1", title: "Current", updated_at: new Date("2026-10-16T10:00:00.000Z") }],
+    });
+    const revisions: AdminResourceHistoryActions = {
+      revisions: async () => [{
+        id: "rev_1",
+        resource: "posts",
+        recordId: "p1",
+        position: 1,
+        cause: "edit",
+        restoredFrom: null,
+        occurredAt: "2026-10-16T10:00:00.000Z",
+        snapshot: { id: "p1", title: "Before", updated_at: new Date("2026-10-15T10:00:00.000Z") },
+      }],
+    };
+
+    const { container } = wrap(<AdminResourceForm definition={posts} persistence={db} id="p1" history={revisions} />);
+    await screen.findByLabelText("Title");
+    await waitFor(() => {
+      const dateField = [...container.querySelectorAll("dt")].find((field) => field.textContent === "updated_at");
+      expect(dateField?.nextElementSibling?.textContent).toContain("2026-10-15T10:00:00.000Z");
+      expect(dateField?.nextElementSibling?.textContent).toContain("2026-10-16T10:00:00.000Z");
+    });
   });
 
   it("keeps hosts without history reads type-safe and explains that history is unavailable", async () => {
     const db = createMemoryPersistenceAdapter({ posts: [{ id: "p1", title: "Current" }] });
     const history: AdminResourceHistoryActions = {};
+    const denied: AdminPermissionsAdapter = {
+      can: vi.fn(async (permission) => permission !== "posts.readRevisions"),
+    };
 
-    wrap(<AdminResourceForm definition={posts} persistence={db} id="p1" history={history} />);
+    wrap(<AdminResourceForm definition={posts} persistence={db} id="p1" history={history} />, denied);
 
     expect(await screen.findByText("History is not available for this record.")).toBeInTheDocument();
     expect(screen.getByLabelText("Title")).toHaveValue("Current");
+  });
+
+  it("does not create a history entry when the host update action fails", async () => {
+    const db = createMemoryPersistenceAdapter({ posts: [{ id: "p1", title: "Current" }] });
+    const revisions = vi.fn(async () => []);
+    const history: AdminResourceHistoryActions = {
+      revisions,
+      update: vi.fn(async () => {
+        throw new Error("Update failed");
+      }),
+    };
+
+    wrap(<AdminResourceForm definition={posts} persistence={db} id="p1" history={history} />);
+    fireEvent.change(await screen.findByLabelText("Title"), { target: { value: "Attempted" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await screen.findByRole("alert");
+    expect(history.update).toHaveBeenCalledTimes(1);
+    expect(revisions).toHaveBeenCalledTimes(1);
+    expect(await db.read("posts", "p1")).toMatchObject({ title: "Current" });
   });
 
   it("announces loading rather than claiming the record does not exist", async () => {

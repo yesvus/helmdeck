@@ -1086,12 +1086,11 @@ export function AdminResourceForm({
     setPending(true);
     setMessage("");
     try {
-      if (!isNew && history?.recordRevision) {
-        await history.recordRevision(definition.resource, id);
-      }
       const saved = isNew
         ? await persistence.create<AdminResourceRecord>(definition.resource, parsed)
-        : await persistence.update<AdminResourceRecord>(definition.resource, id, parsed);
+        : history?.update
+          ? await history.update(definition.resource, id, parsed)
+          : await persistence.update<AdminResourceRecord>(definition.resource, id, parsed);
       const normalized = { ...saved, id: adminResourceRecordId(saved) };
       if (!isNew) {
         setRead({ resource: definition.resource, id, scopeToken, value: normalized });
@@ -1245,6 +1244,9 @@ export function AdminResourceForm({
             setRead({ resource: definition.resource, id, scopeToken, value: restored });
             setFormVersion((version) => version + 1);
             setHistoryVersion((version) => version + 1);
+            setMessage("");
+            setMissing([]);
+            setAttempted(false);
             try {
               onSaved?.(restored);
             } catch (cause) {

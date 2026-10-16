@@ -15,12 +15,13 @@ import type { AdminResourceDefinition, AdminResourceRecord } from "./registry.js
 
 export type AdminResourceHistoryActions = {
   revisions?: (resource: string, id: string) => Promise<AdminRevision[]>;
-  recordRevision?: (resource: string, id: string) => Promise<AdminRevision>;
+  update?: (resource: string, id: string, values: Record<string, unknown>) => Promise<AdminResourceRecord>;
   restoreRevision?: (resource: string, id: string, revision: string) => Promise<AdminRevisionRestore>;
 };
 
 function valueKey(value: unknown): string {
   if (value === undefined) return "undefined";
+  if (value instanceof Date) return Number.isNaN(value.valueOf()) ? "Invalid Date" : value.toISOString();
   if (value === null || typeof value !== "object") return JSON.stringify(value) ?? String(value);
   if (Array.isArray(value)) return `[${value.map(valueKey).join(",")}]`;
   return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${valueKey((value as Record<string, unknown>)[key])}`).join(",")}}`;
@@ -28,6 +29,7 @@ function valueKey(value: unknown): string {
 
 function valueLabel(value: unknown, empty: string): string {
   if (value === undefined) return empty;
+  if (value instanceof Date) return Number.isNaN(value.valueOf()) ? "Invalid Date" : value.toISOString();
   if (typeof value === "string") return value;
   if (value === null || typeof value !== "object") return String(value);
   return JSON.stringify(value) ?? String(value);
@@ -68,6 +70,7 @@ export function AdminResourceHistoryPanel({
   onRestored: (record: AdminResourceRecord) => void;
   onError?: (cause: unknown) => void;
 }) {
+  if (!actions.revisions) return <AdminResourceHistoryUnavailable definition={definition} id={id} />;
   const readPermission = definition.permissions?.readRevisions ?? `${definition.resource}.readRevisions`;
   return (
     <AdminCan permission={readPermission} resourceId={id} fallback={null}>
@@ -83,6 +86,22 @@ export function AdminResourceHistoryPanel({
         onError={onError}
       />
     </AdminCan>
+  );
+}
+
+function AdminResourceHistoryUnavailable({ definition, id }: { definition: AdminResourceDefinition; id: string }) {
+  const messages = useAdminMessages();
+  const copy = messages.resourceHistory ??
+    (messages.locale === "tr" ? turkishAdminMessages.resourceHistory! : englishAdminMessages.resourceHistory!);
+  return (
+    <AdminSurfaceCard>
+      <section aria-labelledby={`${definition.resource}-${id}-history-heading`}>
+        <h2 id={`${definition.resource}-${id}-history-heading`} className="border-b border-admin-border bg-admin-surface-subtle px-5 py-3 text-sm font-semibold text-admin-foreground">
+          {copy.title}
+        </h2>
+        <p role="status" className="p-5 text-sm text-admin-muted">{copy.unavailable}</p>
+      </section>
+    </AdminSurfaceCard>
   );
 }
 
@@ -183,7 +202,13 @@ function AdminResourceHistoryContent({
         ) : (
           <ol className="divide-y divide-admin-border">
             {currentResult.rows.map((revision, index) => {
-              const next = index === 0 ? record : currentResult.rows[index - 1].snapshot;
+              const next = index === 0
+                ? Object.fromEntries(
+                    Object.keys(revision.snapshot)
+                      .filter((field) => Object.hasOwn(record, field))
+                      .map((field) => [field, record[field]]),
+                  )
+                : currentResult.rows[index - 1].snapshot;
               const changes = changedFields(revision.snapshot, next);
               const actor = revision.actor;
               return (

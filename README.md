@@ -634,13 +634,13 @@ An existing record form can show revision history and restore a prior version by
   id={postId}
   history={{
     revisions: listPostRevisionsAction,
-    recordRevision: recordPostRevisionAction,
+    update: updatePostWithHistoryAction,
     restoreRevision: restorePostRevisionAction,
   }}
 />
 ```
 
-`recordRevision` runs before an update and is not called for a create. Bind all three functions to server actions. `revisions` and `restoreRevision` enforce the lifecycle's `readRevisions` and `restoreRevision` permissions. `recordRevision` intentionally makes no permission decision, so its server action must independently authorize the update and resolve the actor session before calling the lifecycle. Each check protects the action itself; the permission values on the definition control what the browser renders. They default to `resource.readRevisions` and `resource.restoreRevision` and can be overridden in `permissions`.
+Bind these functions to server actions. The callbacks themselves do not authorize requests: `revisions` and `restoreRevision` actions must delegate to the lifecycle's guarded `revisions` and `restoreRevision` methods. `update` owns the edit and its history snapshot together, and must validate the resource and submitted fields, enforce update permission, and resolve the actor session. When the host supports transactions, use one so a failed edit cannot leave a history row behind. If `update` is omitted, the form uses its persistence adapter and does not record snapshots for edits. The permission values on the definition control presentation only; they default to `resource.readRevisions` and `resource.restoreRevision` and can be overridden in `permissions`.
 
 Pass a history object without `revisions` when a host has no read implementation; the form remains usable and explains that history is unavailable. The host's `AdminRevisionStore.read` selects the values kept in history, so omit secrets the viewer must not see. Its optional `actor` projection maps the host's actor columns to an `AdminSession`, which the panel displays beside the cause and timestamp.
 
@@ -1133,6 +1133,7 @@ const lifecycle = createAdminLifecycle({
           body: input.snapshot.body,
           status: input.snapshot.status,
           actor_email: input.session?.email ?? "",
+          actor_role: input.session?.role ?? "",
           restored_from: input.restoredFrom,
           created_at: input.occurredAt,
         }),
@@ -1143,17 +1144,20 @@ const lifecycle = createAdminLifecycle({
 });
 ```
 
-A host wires it beside its content action rather than instead of it:
+A host wires it into the action that owns the content update:
 
 ```ts
-export async function savePost(id: string, input: { title: string; body: string }) {
-  await requirePermission("posts.update", { resourceId: id });
-  await lifecycle.recordRevision("posts", id, { session, cause: "edit" });
-  return persistence.update("posts", id, input);
+export async function updatePostWithHistoryAction(resource: string, id: string, input: Record<string, unknown>) {
+  if (resource !== "posts") throw new Error("Unknown resource");
+  return hostTransaction(async () => {
+    await requirePermission("posts.update", { resourceId: id });
+    await lifecycle.recordRevision("posts", id, { session, cause: "edit" });
+    return persistence.update("posts", id, input);
+  });
 }
 ```
 
-`recordRevision` asks no permission, because it decides nothing about whether the change may happen. That is the difference from recording history inside an audit write, which makes the history depend on the audit sink being wired and puts a history entry in the path of every change whether or not anybody reads it. Here the host's own rule has already allowed the write, and the history is a separate call that can fail on its own terms.
+`hostTransaction` stands for the host database's transaction boundary, with the lifecycle and persistence adapters bound to that transaction. The two writes belong to one server action; `recordRevision` itself makes no permission decision. This keeps authorization in the host's write boundary and avoids orphaned history when the content update fails.
 
 ### A revision is a row the host already has
 
