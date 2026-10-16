@@ -12,6 +12,8 @@ import {
   adminResourceRecordId,
   adminResourceValues,
   defineAdminResource,
+  type AdminResourceHistoryActions,
+  type AdminResourceRecord,
 } from "../src/resources/index";
 import { createReadOnlyPersistenceAdapter } from "../src/resources/persistence";
 import { AdminScopeProvider, useAdminScopedPersistence } from "../src/scope";
@@ -990,6 +992,154 @@ describe("AdminResourceForm", () => {
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(await db.query("posts")).toHaveLength(1);
+  });
+
+  it("records edits, shows field diffs, and restores a revision as a new history entry", async () => {
+    const db = createMemoryPersistenceAdapter();
+    const created = await db.create<{ id: string }>("posts", { title: "Before" });
+    const revisions: Array<{
+      id: string;
+      resource: string;
+      recordId: string;
+      position: number;
+      cause: string;
+      restoredFrom: string | null;
+      occurredAt: string;
+      snapshot: Record<string, unknown>;
+      actor: { email: string; role: string };
+    }> = [];
+    const history: AdminResourceHistoryActions = {
+      revisions: async () => [...revisions].sort((left, right) => right.position - left.position),
+      recordRevision: async (resource, id) => {
+        const snapshot = await db.read<AdminResourceRecord>(resource, id);
+        const revision = {
+          id: `rev_${revisions.length + 1}`,
+          resource,
+          recordId: id,
+          position: revisions.length + 1,
+          cause: "edit",
+          restoredFrom: null,
+          occurredAt: `2026-10-16T10:0${revisions.length}:00.000Z`,
+          snapshot: snapshot ?? {},
+          actor: { email: "editor@example.com", role: "editor" },
+        };
+        revisions.push(revision);
+        return revision;
+      },
+      restoreRevision: async (resource, id, revisionId) => {
+        const target = revisions.find((revision) => revision.id === revisionId);
+        if (!target) throw new Error("Revision not found");
+        const current = await db.read<AdminResourceRecord>(resource, id);
+        const revision = {
+          id: `rev_${revisions.length + 1}`,
+          resource,
+          recordId: id,
+          position: revisions.length + 1,
+          cause: "restore",
+          restoredFrom: revisionId,
+          occurredAt: `2026-10-16T10:0${revisions.length}:00.000Z`,
+          snapshot: current ?? {},
+          actor: { email: "editor@example.com", role: "editor" },
+        };
+        revisions.push(revision);
+        const record = await db.update<AdminResourceRecord>(resource, id, target.snapshot);
+        return { record, revision, written: Object.keys(target.snapshot), retained: [], dropped: [] };
+      },
+    };
+
+    const { container } = wrap(<AdminResourceForm definition={posts} persistence={db} id={created.id} history={history} />);
+    const titleDiff = () => {
+      const titleField = [...container.querySelectorAll("dt")].find((field) => field.textContent === "title");
+      return titleField?.nextElementSibling?.textContent ?? "";
+    };
+    const title = await screen.findByLabelText("Title");
+    fireEvent.change(title, { target: { value: "First" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(titleDiff()).toContain("Before"));
+    expect(titleDiff()).toContain("First");
+    expect(screen.getByText(/editor@example\.com \(editor\)/)).toBeInTheDocument();
+
+    fireEvent.change(title, { target: { value: "Second" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(titleDiff()).toContain("Second"));
+    expect(titleDiff()).toContain("First");
+    expect(revisions).toHaveLength(2);
+    expect(revisions[0].occurredAt).not.toBe(revisions[1].occurredAt);
+    expect(revisions.map((revision) => revision.actor.email)).toEqual([
+      "editor@example.com",
+      "editor@example.com",
+    ]);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Restore this version" })[1]);
+    await waitFor(async () => expect(await db.read("posts", created.id)).toMatchObject({ title: "Before" }));
+    await waitFor(() => expect(titleDiff()).toContain("Before"));
+    expect(titleDiff()).toContain("Second");
+    expect(revisions).toHaveLength(3);
+    expect(revisions.at(-1)).toMatchObject({ cause: "restore", restoredFrom: "rev_1" });
+    expect(screen.getByLabelText("Title")).toHaveValue("Before");
+  });
+
+  it("does not read or render history when its permission is denied", async () => {
+    const db = createMemoryPersistenceAdapter({ posts: [{ id: "p1", title: "Private" }] });
+    const revisions = vi.fn(async () => []);
+    const denied: AdminPermissionsAdapter = {
+      can: vi.fn(async (permission) => permission !== "posts.readRevisions"),
+    };
+
+    wrap(<AdminResourceForm definition={posts} persistence={db} id="p1" history={{ revisions }} />, denied);
+    await screen.findByLabelText("Title");
+
+    expect(screen.queryByText("History")).not.toBeInTheDocument();
+    expect(revisions).not.toHaveBeenCalled();
+  });
+
+  it("shows history without restore controls when restore permission is denied", async () => {
+    const db = createMemoryPersistenceAdapter({ posts: [{ id: "p1", title: "Current" }] });
+    const denied: AdminPermissionsAdapter = {
+      can: vi.fn(async (permission) => permission !== "posts.restoreRevision"),
+    };
+    const revisions = vi.fn(async () => [{
+      id: "rev_1",
+      resource: "posts",
+      recordId: "p1",
+      position: 1,
+      cause: "edit",
+      restoredFrom: null,
+      occurredAt: "2026-10-16T10:00:00.000Z",
+      snapshot: { id: "p1", title: "Before" },
+    }]);
+    const restoreRevision = vi.fn(async () => {
+      throw new Error("Denied restore was called");
+    });
+
+    const { container } = wrap(
+      <AdminResourceForm
+        definition={posts}
+        persistence={db}
+        id="p1"
+        history={{ revisions, restoreRevision }}
+      />,
+      denied,
+    );
+    const titleDiff = () => {
+      const titleField = [...container.querySelectorAll("dt")].find((field) => field.textContent === "title");
+      return titleField?.nextElementSibling?.textContent ?? "";
+    };
+
+    await waitFor(() => expect(titleDiff()).toContain("Before"));
+    expect(titleDiff()).toContain("Current");
+    expect(screen.queryByRole("button", { name: "Restore this version" })).not.toBeInTheDocument();
+    expect(restoreRevision).not.toHaveBeenCalled();
+  });
+
+  it("keeps hosts without history reads type-safe and explains that history is unavailable", async () => {
+    const db = createMemoryPersistenceAdapter({ posts: [{ id: "p1", title: "Current" }] });
+    const history: AdminResourceHistoryActions = {};
+
+    wrap(<AdminResourceForm definition={posts} persistence={db} id="p1" history={history} />);
+
+    expect(await screen.findByText("History is not available for this record.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue("Current");
   });
 
   it("announces loading rather than claiming the record does not exist", async () => {

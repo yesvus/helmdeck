@@ -63,6 +63,8 @@ export type AdminRevisionStore = {
   occurredAt?: string;
   /** The whole record, read back out of one revision row. */
   read: (revision: AdminResourceRecord) => Record<string, unknown>;
+  /** The person attributed to this revision, when the host stores one. */
+  actor?: (revision: AdminResourceRecord) => AdminSession | null;
   /** The row to create for a change about to happen. */
   write: (input: AdminRevisionWrite) => unknown;
   /**
@@ -87,6 +89,8 @@ export type AdminRevision = {
   occurredAt: string;
   /** The record as it stood, as this store's `read` gives it back. */
   snapshot: Record<string, unknown>;
+  /** The person who made the change, when the host projects one from its row. */
+  actor?: AdminSession;
 };
 
 export function adminRevisionId(input: { recordId: string; position: number }): string {
@@ -155,6 +159,7 @@ export function adminRevision(
     store.occurredAt === undefined
       ? ""
       : required(row, store.occurredAt, store, recordId);
+  const actor = store.actor?.(row);
   return {
     id: required(row, "id", store, recordId),
     resource,
@@ -164,6 +169,7 @@ export function adminRevision(
     restoredFrom: typeof restoredFrom === "string" && restoredFrom.length > 0 ? restoredFrom : null,
     occurredAt: happened,
     snapshot: store.read(row),
+    ...(actor === undefined || actor === null ? {} : { actor }),
   };
 }
 

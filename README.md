@@ -612,11 +612,37 @@ const posts = defineAdminResource({
   label: "Posts",
   columns: [{ key: "title", header: "Title" }],
   fields: [{ name: "title", label: "Title", required: true }],
-  permissions: { read: "posts.read", create: "posts.create", update: "posts.update", delete: "posts.delete" },
+  permissions: {
+    read: "posts.read",
+    create: "posts.create",
+    update: "posts.update",
+    delete: "posts.delete",
+    readRevisions: "posts.readRevisions",
+    restoreRevision: "posts.restoreRevision",
+  },
 });
 ```
 
 `AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` shapes the generated form's submission from its declared fields; it runs in the browser and does not protect a server action called directly. The server write boundary must receive the resource definitions, as shown in [Enforcing a permission on the server](#enforcing-a-permission-on-the-server). The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
+
+An existing record form can show revision history and restore a prior version by passing the host's lifecycle actions:
+
+```tsx
+<AdminResourceForm
+  definition={posts}
+  persistence={persistence}
+  id={postId}
+  history={{
+    revisions: listPostRevisionsAction,
+    recordRevision: recordPostRevisionAction,
+    restoreRevision: restorePostRevisionAction,
+  }}
+/>
+```
+
+`recordRevision` runs before an update and is not called for a create. Bind all three functions to server actions. `revisions` and `restoreRevision` enforce the lifecycle's `readRevisions` and `restoreRevision` permissions. `recordRevision` intentionally makes no permission decision, so its server action must independently authorize the update and resolve the actor session before calling the lifecycle. Each check protects the action itself; the permission values on the definition control what the browser renders. They default to `resource.readRevisions` and `resource.restoreRevision` and can be overridden in `permissions`.
+
+Pass a history object without `revisions` when a host has no read implementation; the form remains usable and explains that history is unavailable. The host's `AdminRevisionStore.read` selects the values kept in history, so omit secrets the viewer must not see. Its optional `actor` projection maps the host's actor columns to an `AdminSession`, which the panel displays beside the cause and timestamp.
 
 #### Read-only sources and server actions
 
@@ -1090,6 +1116,14 @@ const lifecycle = createAdminLifecycle({
           body: String(revision.body ?? ""),
           status: revision.status === "published" ? "published" : "draft",
         }),
+        actor: (revision) => {
+          const email = revision.actor_email;
+          if (typeof email !== "string" || email.length === 0) return null;
+          return {
+            email,
+            ...(typeof revision.actor_role === "string" ? { role: revision.actor_role } : {}),
+          };
+        },
         write: (input) => ({
           id: input.id,
           post_id: input.recordId,

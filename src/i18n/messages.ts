@@ -40,6 +40,57 @@ export type AdminStatusLabels = {
   draft: string;
 };
 
+export type AdminResourceHistoryMessages = {
+  title: string;
+  description: string;
+  unavailable: string;
+  loadFailed: string;
+  empty: string;
+  emptyBody: string;
+  unknownActor: string;
+  noChanges: string;
+  from: string;
+  to: string;
+  emptyValue: string;
+  restore: string;
+  restoring: string;
+  restoreFailed: string;
+};
+
+const defaultAdminResourceHistoryMessages: AdminResourceHistoryMessages = {
+  title: "History",
+  description: "Previous versions, newest first.",
+  unavailable: "History is not available for this record.",
+  loadFailed: "The record history could not be loaded.",
+  empty: "No history yet",
+  emptyBody: "Changes will appear here after a revision is recorded.",
+  unknownActor: "Unknown actor",
+  noChanges: "No fields changed in this revision.",
+  from: "From",
+  to: "to",
+  emptyValue: "(empty)",
+  restore: "Restore this version",
+  restoring: "Restoring…",
+  restoreFailed: "This version could not be restored.",
+};
+
+const turkishAdminResourceHistoryMessages: AdminResourceHistoryMessages = {
+  title: "Geçmiş",
+  description: "En yeniden eskiye önceki sürümler.",
+  unavailable: "Bu kayıt için geçmiş kullanılamıyor.",
+  loadFailed: "Kayıt geçmişi yüklenemedi.",
+  empty: "Henüz geçmiş yok",
+  emptyBody: "Bir revizyon kaydedildikten sonra değişiklikler burada görünür.",
+  unknownActor: "Bilinmeyen kullanıcı",
+  noChanges: "Bu revizyonda alan değişmedi.",
+  from: "Önce",
+  to: "sonra",
+  emptyValue: "(boş)",
+  restore: "Bu sürümü geri yükleyin",
+  restoring: "Geri yükleniyor…",
+  restoreFailed: "Bu sürüm geri yüklenemedi.",
+};
+
 export type AdminCommonLabels = {
   close: string;
   dismiss: string;
@@ -63,6 +114,7 @@ export type AdminMessages = {
   shippedWidget: AdminShippedWidgetLabels;
   dashboard: AdminDashboardMessages;
   resourceList: AdminResourceListQueryLabels;
+  resourceHistory?: AdminResourceHistoryMessages;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -86,6 +138,7 @@ export const englishAdminMessages: AdminMessages = {
   shippedWidget: defaultAdminShippedWidgetLabels,
   dashboard: defaultDashboardMessages,
   resourceList: defaultAdminResourceListQueryLabels,
+  resourceHistory: defaultAdminResourceHistoryMessages,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -245,6 +298,7 @@ export const turkishAdminMessages: AdminMessages = {
     noMatches: "Aradığınızla eşleşen kayıt yok.",
     noMatchesBody: "Farklı bir terim ya da temizlenmiş bir filtre bulabilir.",
   },
+  resourceHistory: turkishAdminResourceHistoryMessages,
   widget: {
     emptyTitle: "Gösterilecek veri yok",
     emptyBody: "Bu bileşen için henüz veri yok.",

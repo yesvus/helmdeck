@@ -35,6 +35,7 @@ export type {
   AdminResourceReferenceRequest,
   AdminResourceReferenceResolution,
 } from "./references.js";
+export type { AdminResourceHistoryActions } from "./history.js";
 export { AdminResourceForm, AdminResourceList } from "./views.js";
 export {
   createAdminResourceActionPersistenceAdapter,
