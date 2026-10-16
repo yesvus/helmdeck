@@ -46,6 +46,7 @@ export type {
 export { defaultAdminResourceReferenceLabels } from "./resources/reference-labels.js";
 export type { AdminResourceReferenceLabels } from "./resources/reference-labels.js";
 export { AdminResourceForm, AdminResourceList } from "./resources/views.js";
+export type { AdminResourceHistoryActions } from "./resources/history.js";
 export {
   createAdminResourceActionPersistenceAdapter,
   createReadOnlyPersistenceAdapter,

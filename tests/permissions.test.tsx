@@ -343,6 +343,7 @@ describe("AdminCan", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("state")).toHaveTextContent("allowed"));
+    await waitFor(() => expect(commitCount).toBeGreaterThan(1));
     const settled = commitCount;
     await new Promise((resolve) => setTimeout(resolve, 80));
     // A loop would keep climbing; settling means it stopped.

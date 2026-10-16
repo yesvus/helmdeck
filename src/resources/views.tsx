@@ -41,6 +41,7 @@ import {
 } from "./registry.js";
 import { defaultAdminResourceListQueryLabels } from "./list-labels.js";
 import { defaultAdminResourceReferenceLabels, type AdminResourceReferenceLabels } from "./reference-labels.js";
+import { AdminResourceHistoryPanel, type AdminResourceHistoryActions } from "./history.js";
 import {
   ADMIN_RESOURCE_REFERENCE_LIMIT,
   adminResourceReferenceChoices,
@@ -929,6 +930,7 @@ export function AdminResourceForm({
   labels,
   referenceLabels,
   referenceLimit = ADMIN_RESOURCE_REFERENCE_LIMIT,
+  history,
   onSaved,
   onError,
 }: {
@@ -950,6 +952,7 @@ export function AdminResourceForm({
   referenceLabels?: Partial<AdminResourceReferenceLabels>;
   /** How many rows a reference offers. The store's count comes back beside them. */
   referenceLimit?: number;
+  history?: AdminResourceHistoryActions;
   onSaved?: (record: AdminResourceRecord) => void;
   onError?: (cause: unknown) => void;
 }) {
@@ -975,6 +978,8 @@ export function AdminResourceForm({
   const [attempted, setAttempted] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
+  const [formVersion, setFormVersion] = useState(0);
+  const [historyVersion, setHistoryVersion] = useState(0);
   // An undeclared permission means the action is not offered, which is what the list already
   // did. The two used to mean opposite things, so a resource with no declared create
   // permission showed no New control and still had a working form at the new route.
@@ -1056,6 +1061,7 @@ export function AdminResourceForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending) return;
     setAttempted(true);
     // Checked here as well as on the button, because a form can be submitted without it.
     if (!declared) {
@@ -1082,12 +1088,19 @@ export function AdminResourceForm({
     try {
       const saved = isNew
         ? await persistence.create<AdminResourceRecord>(definition.resource, parsed)
-        : await persistence.update<AdminResourceRecord>(definition.resource, id, parsed);
+        : history?.update
+          ? await history.update(definition.resource, id, parsed)
+          : await persistence.update<AdminResourceRecord>(definition.resource, id, parsed);
+      const normalized = { ...saved, id: adminResourceRecordId(saved) };
+      if (!isNew) {
+        setRead({ resource: definition.resource, id, scopeToken, value: normalized });
+        setHistoryVersion((version) => version + 1);
+      }
       // Outside the catch below, and separately reported. The record is already written at
       // this point, so calling it a failed save would invite exactly the duplicate submit a
       // host would then make.
       try {
-        onSaved?.({ ...saved, id: adminResourceRecordId(saved) });
+        onSaved?.(normalized);
       } catch (cause) {
         onError?.(cause);
       }
@@ -1128,6 +1141,7 @@ export function AdminResourceForm({
 
   return (
     <form
+      key={formVersion}
       className="space-y-6"
       noValidate
       onSubmit={(event) => void handleSubmit(event)}
@@ -1215,6 +1229,33 @@ export function AdminResourceForm({
           );
         })}
       </AdminFieldGrid>
+
+      {!isNew && history ? (
+        <AdminResourceHistoryPanel
+          definition={definition}
+          id={id}
+          record={values as AdminResourceRecord}
+          version={historyVersion}
+          actions={history}
+          busy={pending}
+          onBusyChange={setPending}
+          onRestored={(record) => {
+            const restored = { ...record, id: adminResourceRecordId(record) };
+            setRead({ resource: definition.resource, id, scopeToken, value: restored });
+            setFormVersion((version) => version + 1);
+            setHistoryVersion((version) => version + 1);
+            setMessage("");
+            setMissing([]);
+            setAttempted(false);
+            try {
+              onSaved?.(restored);
+            } catch (cause) {
+              onError?.(cause);
+            }
+          }}
+          onError={onError}
+        />
+      ) : null}
 
       {granted ? (
         <AdminFormActions>

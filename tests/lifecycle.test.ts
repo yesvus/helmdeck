@@ -8,6 +8,7 @@ import {
   AdminLifecycleStateError,
   AdminRevisionDriftError,
   AdminRevisionUnknownError,
+  adminRevision,
   createAdminLifecycle,
   type AdminChildDeclaration,
   type AdminLifecycleDeclaration,
@@ -35,6 +36,37 @@ const COMMENTS = "comments";
 const COMMENT_TRASH = "comments_trash";
 
 const EDITOR: AdminSession = { id: "usr_editor", email: "editor@example.com", role: "editor" };
+
+describe("revision actor projection", () => {
+  it("returns the actor the revision store maps from its row", () => {
+    const store: AdminRevisionStore = {
+      resource: REVISIONS,
+      record: "post_id",
+      position: "position",
+      cause: "cause",
+      occurredAt: "created_at",
+      read: () => ({}),
+      actor: (row) => ({ email: String(row.actor_email), role: String(row.actor_role) }),
+      write: () => ({}),
+    };
+
+    expect(
+      adminRevision(
+        store,
+        {
+          id: "rev_1",
+          post_id: "pst_1",
+          position: 1,
+          cause: "edit",
+          created_at: "2026-10-16T10:00:00.000Z",
+          actor_email: EDITOR.email,
+          actor_role: EDITOR.role,
+        },
+        POSTS,
+      ).actor,
+    ).toEqual({ email: EDITOR.email, role: EDITOR.role });
+  });
+});
 
 const FIRST: Record<string, unknown> = {
   id: "pst_1",

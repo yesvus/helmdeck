@@ -149,6 +149,8 @@ export type AdminResourceDefinition = {
     create?: AdminPermission;
     update?: AdminPermission;
     delete?: AdminPermission;
+    readRevisions?: AdminPermission;
+    restoreRevision?: AdminPermission;
   };
 };
 
