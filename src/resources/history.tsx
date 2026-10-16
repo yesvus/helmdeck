@@ -35,8 +35,8 @@ function valueLabel(value: unknown, empty: string): string {
   return JSON.stringify(value) ?? String(value);
 }
 
-function changedFields(before: Record<string, unknown>, after: Record<string, unknown>) {
-  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+function changedFields(before: Record<string, unknown>, after: Record<string, unknown>, fields: string[]) {
+  return fields
     .sort()
     .filter((field) =>
       Object.hasOwn(before, field) !== Object.hasOwn(after, field) || valueKey(before[field]) !== valueKey(after[field]),
@@ -202,14 +202,15 @@ function AdminResourceHistoryContent({
         ) : (
           <ol className="divide-y divide-admin-border">
             {currentResult.rows.map((revision, index) => {
+              const fields = Object.keys(revision.snapshot);
               const next = index === 0
                 ? Object.fromEntries(
-                    Object.keys(revision.snapshot)
+                    fields
                       .filter((field) => Object.hasOwn(record, field))
                       .map((field) => [field, record[field]]),
                   )
                 : currentResult.rows[index - 1].snapshot;
-              const changes = changedFields(revision.snapshot, next);
+              const changes = changedFields(revision.snapshot, next, fields);
               const actor = revision.actor;
               return (
                 <li key={revision.id} className="space-y-3 px-5 py-4">

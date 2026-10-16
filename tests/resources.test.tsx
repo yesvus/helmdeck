@@ -1137,6 +1137,7 @@ describe("AdminResourceForm", () => {
 
     await waitFor(() => expect(titleDiff()).toContain("Before"));
     expect(titleDiff()).toContain("Current");
+    expect([...container.querySelectorAll("dt")].map((field) => field.textContent)).not.toContain("secret");
     expect(container.textContent).not.toContain("do-not-show");
     expect(screen.queryByRole("button", { name: "Restore this version" })).not.toBeInTheDocument();
     expect(restoreRevision).not.toHaveBeenCalled();
