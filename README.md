@@ -1147,12 +1147,23 @@ const lifecycle = createAdminLifecycle({
 A host wires it into the action that owns the content update:
 
 ```ts
+function postValues(input: Record<string, unknown>) {
+  if (Object.keys(input).some((key) => key !== "title" && key !== "body")) {
+    throw new Error("Unknown post field");
+  }
+  if (typeof input.title !== "string" || typeof input.body !== "string") {
+    throw new Error("Invalid post fields");
+  }
+  return { title: input.title, body: input.body };
+}
+
 export async function updatePostWithHistoryAction(resource: string, id: string, input: Record<string, unknown>) {
   if (resource !== "posts") throw new Error("Unknown resource");
+  const values = postValues(input);
   return hostTransaction(async () => {
     await requirePermission("posts.update", { resourceId: id });
     await lifecycle.recordRevision("posts", id, { session, cause: "edit" });
-    return persistence.update("posts", id, input);
+    return persistence.update("posts", id, values);
   });
 }
 ```

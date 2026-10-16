@@ -1172,11 +1172,8 @@ describe("AdminResourceForm", () => {
   it("keeps hosts without history reads type-safe and explains that history is unavailable", async () => {
     const db = createMemoryPersistenceAdapter({ posts: [{ id: "p1", title: "Current" }] });
     const history: AdminResourceHistoryActions = {};
-    const denied: AdminPermissionsAdapter = {
-      can: vi.fn(async (permission) => permission !== "posts.readRevisions"),
-    };
 
-    wrap(<AdminResourceForm definition={posts} persistence={db} id="p1" history={history} />, denied);
+    wrap(<AdminResourceForm definition={posts} persistence={db} id="p1" history={history} />, allowAll());
 
     expect(await screen.findByText("History is not available for this record.")).toBeInTheDocument();
     expect(screen.getByLabelText("Title")).toHaveValue("Current");
