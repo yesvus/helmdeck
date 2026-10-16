@@ -24,6 +24,7 @@ import { useBreadcrumbs } from "./use-breadcrumbs.js";
 import { useAdminHref, useAdminMessages } from "../i18n.js";
 
 const OPEN_GROUPS_STORAGE_KEY = "yesvus:helmdeck:open-nav-groups:v1";
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "yesvus:helmdeck:sidebar-collapsed:v1";
 
 export function AdminShell({
   nav,
@@ -79,6 +80,7 @@ export function AdminShell({
   const visibleNav = useMemo(() => filterNavGroups(nav, session?.role), [nav, session?.role]);
   const branding = useAdminBranding(brand?.accent);
   const [collapsed, setCollapsed] = useState(false);
+  const [collapsedLoaded, setCollapsedLoaded] = useState(false);
   const internalContentScrollRef = useRef<HTMLDivElement>(null);
   const groupPreferences = useRef<Record<string, boolean> | null>(null);
   const [groupPreferencesLoaded, setGroupPreferencesLoaded] = useState(false);
@@ -97,6 +99,25 @@ export function AdminShell({
   const brandHref = toHref(brand?.href ?? homeHref);
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
+
+  useEffect(() => {
+    try {
+      const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+      if (savedCollapsed !== null) {
+        setCollapsed(savedCollapsed === "true");
+      }
+    } catch {}
+    setCollapsedLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!collapsedLoaded) return;
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
+    } catch {
+      return;
+    }
+  }, [collapsedLoaded, collapsed]);
 
   useEffect(() => {
     try {
