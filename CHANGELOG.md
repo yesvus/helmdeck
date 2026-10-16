@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 0.9.0
+
 ### Added
 
 - Generated resource forms can show revision history with actor attribution and field diffs, and restore prior versions through guarded host actions.
