@@ -51,6 +51,7 @@ export function AdminResourceHistoryPanel({
   definition,
   id,
   record,
+  version,
   actions,
   busy,
   onBusyChange,
@@ -60,6 +61,7 @@ export function AdminResourceHistoryPanel({
   definition: AdminResourceDefinition;
   id: string;
   record: AdminResourceRecord;
+  version: number;
   actions: AdminResourceHistoryActions;
   busy: boolean;
   onBusyChange: (busy: boolean) => void;
@@ -73,6 +75,7 @@ export function AdminResourceHistoryPanel({
         definition={definition}
         id={id}
         record={record}
+        version={version}
         actions={actions}
         busy={busy}
         onBusyChange={onBusyChange}
@@ -87,6 +90,7 @@ function AdminResourceHistoryContent({
   definition,
   id,
   record,
+  version,
   actions,
   busy,
   onBusyChange,
@@ -96,6 +100,7 @@ function AdminResourceHistoryContent({
   definition: AdminResourceDefinition;
   id: string;
   record: AdminResourceRecord;
+  version: number;
   actions: AdminResourceHistoryActions;
   busy: boolean;
   onBusyChange: (busy: boolean) => void;
@@ -110,7 +115,7 @@ function AdminResourceHistoryContent({
   const [result, setResult] = useState<{
     resource: string;
     id: string;
-    record: AdminResourceRecord;
+    version: number;
     rows: AdminRevision[];
     failed: boolean;
   } | null>(null);
@@ -123,18 +128,18 @@ function AdminResourceHistoryContent({
     let active = true;
     void readRevisions(definition.resource, id).then(
       (rows) => {
-        if (active) setResult({ resource: definition.resource, id, record, rows, failed: false });
+        if (active) setResult({ resource: definition.resource, id, version, rows, failed: false });
       },
       (cause: unknown) => {
         if (!active) return;
-        setResult({ resource: definition.resource, id, record, rows: [], failed: true });
+        setResult({ resource: definition.resource, id, version, rows: [], failed: true });
         onError?.(cause);
       },
     );
     return () => {
       active = false;
     };
-  }, [actions.revisions, definition.resource, id, onError, record]);
+  }, [actions.revisions, definition.resource, id, onError, version]);
 
   async function restore(revision: string) {
     if (!actions.restoreRevision) return;
@@ -154,7 +159,7 @@ function AdminResourceHistoryContent({
   }
 
   const currentResult =
-    result?.resource === definition.resource && result.id === id && result.record === record ? result : null;
+    result?.resource === definition.resource && result.id === id && result.version === version ? result : null;
 
   return (
     <AdminSurfaceCard>

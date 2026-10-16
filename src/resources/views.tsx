@@ -979,6 +979,7 @@ export function AdminResourceForm({
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [formVersion, setFormVersion] = useState(0);
+  const [historyVersion, setHistoryVersion] = useState(0);
   // An undeclared permission means the action is not offered, which is what the list already
   // did. The two used to mean opposite things, so a resource with no declared create
   // permission showed no New control and still had a working form at the new route.
@@ -1092,7 +1093,10 @@ export function AdminResourceForm({
         ? await persistence.create<AdminResourceRecord>(definition.resource, parsed)
         : await persistence.update<AdminResourceRecord>(definition.resource, id, parsed);
       const normalized = { ...saved, id: adminResourceRecordId(saved) };
-      if (!isNew) setRead({ resource: definition.resource, id, scopeToken, value: normalized });
+      if (!isNew) {
+        setRead({ resource: definition.resource, id, scopeToken, value: normalized });
+        setHistoryVersion((version) => version + 1);
+      }
       // Outside the catch below, and separately reported. The record is already written at
       // this point, so calling it a failed save would invite exactly the duplicate submit a
       // host would then make.
@@ -1232,6 +1236,7 @@ export function AdminResourceForm({
           definition={definition}
           id={id}
           record={values as AdminResourceRecord}
+          version={historyVersion}
           actions={history}
           busy={pending}
           onBusyChange={setPending}
@@ -1239,6 +1244,7 @@ export function AdminResourceForm({
             const restored = { ...record, id: adminResourceRecordId(record) };
             setRead({ resource: definition.resource, id, scopeToken, value: restored });
             setFormVersion((version) => version + 1);
+            setHistoryVersion((version) => version + 1);
             try {
               onSaved?.(restored);
             } catch (cause) {

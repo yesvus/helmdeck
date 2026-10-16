@@ -1009,7 +1009,7 @@ describe("AdminResourceForm", () => {
       actor: { email: string; role: string };
     }> = [];
     const history: AdminResourceHistoryActions = {
-      revisions: async () => [...revisions].sort((left, right) => right.position - left.position),
+      revisions: vi.fn(async () => [...revisions].sort((left, right) => right.position - left.position)),
       recordRevision: async (resource, id) => {
         const snapshot = await db.read<AdminResourceRecord>(resource, id);
         const revision = {
@@ -1053,10 +1053,13 @@ describe("AdminResourceForm", () => {
       return titleField?.nextElementSibling?.textContent ?? "";
     };
     const title = await screen.findByLabelText("Title");
+    await waitFor(() => expect(history.revisions).toHaveBeenCalledTimes(1));
     fireEvent.change(title, { target: { value: "First" } });
+    expect(history.revisions).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(titleDiff()).toContain("Before"));
     expect(titleDiff()).toContain("First");
+    await waitFor(() => expect(history.revisions).toHaveBeenCalledTimes(2));
     expect(screen.getByText(/editor@example\.com \(editor\)/)).toBeInTheDocument();
 
     fireEvent.change(title, { target: { value: "Second" } });
