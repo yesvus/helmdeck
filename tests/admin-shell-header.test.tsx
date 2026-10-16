@@ -170,7 +170,10 @@ describe("persistent shell page context", () => {
     expect(expandedActiveLink?.querySelector("svg")).not.toBeInTheDocument();
     const expandedGroup = expandedActiveLink?.closest("[aria-hidden='false']");
     expect(expandedGroup).toHaveClass("border-l");
-    expect(expandedGroup?.querySelector("span[aria-hidden='true']")).toHaveClass("bg-brand-500", "-left-[10px]");
+    expect(expandedGroup?.querySelector("span[aria-hidden='true']")).toHaveClass(
+      "bg-brand-500",
+      "left-[calc(-1*var(--spacing,0.25rem)*2)]",
+    );
     expect(expandedInactiveLink).toHaveClass("min-h-8");
     expect(expandedInactiveLink?.querySelector("svg")).not.toBeInTheDocument();
   });
