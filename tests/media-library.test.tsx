@@ -583,6 +583,18 @@ describe("AdminMediaLibrary", () => {
     expect(await screen.findByRole("button", { name: "Delete: Studio desk" })).toBeInTheDocument();
   });
 
+  it("keeps controls available when no permission is named and there is no permissions provider", async () => {
+    render(
+      <AdminI18nProvider locale="en">
+        <AdminMediaLibrary adapter={adapter()} />
+      </AdminI18nProvider>,
+    );
+    await tiles();
+
+    expect(screen.getByRole("button", { name: "Upload" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete: Studio desk" })).toBeInTheDocument();
+  });
+
   it("says a store refused the read, with a way to ask again", async () => {
     const user = userEvent.setup();
     const store = adapter({

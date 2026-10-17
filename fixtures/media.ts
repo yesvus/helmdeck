@@ -82,8 +82,8 @@ export const demoMediaAdapter: AdminMediaAdapter = {
       return matchesSearch && matchesKind && matchesKinds && matchesSource;
     });
     const ordered = sortAdminMediaItems(filtered, query.sort ?? "date-desc");
-    const start = query.cursor ? Number.parseInt(query.cursor, 10) : 0;
-    const safeStart = Number.isFinite(start) && start > 0 ? start : 0;
+    const parsedCursor = query.cursor ? Number.parseInt(query.cursor, 10) : 0;
+    const safeStart = Number.isFinite(parsedCursor) && parsedCursor > 0 ? parsedCursor : 0;
     const limit = query.limit && query.limit > 0 ? Math.floor(query.limit) : ordered.length;
     const items = ordered.slice(safeStart, safeStart + limit);
     const nextCursor = safeStart + items.length < ordered.length ? String(safeStart + items.length) : undefined;
