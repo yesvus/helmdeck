@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 0.11.0
+
 ### Added
 
 - `AdminMediaLibrary` and `AdminMediaLibraryPage` read a host's media store as a page: search and kind filters handed to the adapter, upload, lightbox preview for images, and a delete offered only for assets this installation stores.

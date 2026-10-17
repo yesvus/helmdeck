@@ -1,5 +1,5 @@
 {
-  "version": "v0.10.0",
+  "version": "v0.11.0",
   "exports": [
     "ADMIN_ANALYTICS_BATCH_SIZE",
     "ADMIN_ANALYTICS_FAILURE_HISTORY",
@@ -63,6 +63,8 @@
     "AdminMediaAspectRatioHint",
     "AdminMediaField",
     "AdminMediaGalleryField",
+    "AdminMediaLibrary",
+    "AdminMediaLibraryPage",
     "AdminMediaLightbox",
     "AdminMediaPicker",
     "AdminMediaPlaceholder",
@@ -197,6 +199,7 @@
     "adminInputClassName",
     "adminListWidget",
     "adminLoginHref",
+    "adminMediaDeletableItem",
     "adminMediaSortValues",
     "adminRankWidget",
     "adminResourceExport",
