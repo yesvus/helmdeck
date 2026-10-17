@@ -16,5 +16,7 @@ import { demoMediaAdapter } from "../../../../media";
  * follow the rule.
  */
 export default function MediaLibraryPage() {
-  return <AdminMediaLibraryPage adapter={demoMediaAdapter} />;
+  // What this demo's store can actually keep, stated to the file picker rather than inferred after
+  // the upload: an unstated accept list offers every file and labels the ones it cannot read.
+  return <AdminMediaLibraryPage adapter={demoMediaAdapter} accept="image/*,application/pdf,video/*" />;
 }

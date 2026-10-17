@@ -273,10 +273,11 @@ export const turkishAdminMessages: AdminMessages = {
     sourceUploaded: "Yüklenen medya",
     sourceYoutube: "YouTube bağlantısı",
     sourceExternal: "Harici medya",
-    libraryUnavailable: "Bu görünümle eşleşen medya yok.",
+    libraryUnavailable: "Bu sitede medya deposu bağlı değil, bu yüzden burada görüntülenecek bir şey yok.",
     libraryTitle: "Medya",
     libraryDescription: "Sitenizin yüklediği veya bağladığı her şey ve üzerinde yapabileceğiniz işlemler.",
     libraryOpen: "Bu dosyayı yeni sekmede açınız",
+    libraryNotNavigable: "Bu adres güvenle açılamadığı için bu varlık bağlantısız gösterilmektedir",
     kindFilter: "Türe göre filtreleyiniz",
     allKinds: "Tüm türler",
     kinds: {
@@ -292,7 +293,7 @@ export const turkishAdminMessages: AdminMessages = {
     deleteBusy: "Siliniyor...",
     deleteFailed: "Bu varlık silinemedi.",
     deleted: "Silindi",
-    libraryEmptyBody: "Bir şey yükleyin veya aramayı ve filtreyi temizleyin, burada görünsün.",
+    libraryEmptyBody: "Bir varlık, bir şey yüklendiğinde ya da arama ve filtre temizlendiğinde burada görünür.",
   },
   form: {
     successTitle: "İşlem tamamlandı",

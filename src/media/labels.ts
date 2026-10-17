@@ -43,6 +43,7 @@ export type AdminMediaLabels = {
   libraryTitle: string;
   libraryDescription: string;
   libraryOpen: string;
+  libraryNotNavigable: string;
   libraryEmptyBody: string;
   kindFilter: string;
   allKinds: string;
@@ -95,8 +96,9 @@ export const defaultAdminMediaLabels = {
   sourceExternal: "External media",
   libraryUnavailable: "This site has no media store wired, so there is nothing to browse here.",
   libraryTitle: "Media",
-  libraryDescription: "Everything this site has uploaded or linked, and the four things you can do with it.",
+  libraryDescription: "Everything this site has uploaded or linked, and what you can do with it.",
   libraryOpen: "Open this file in a new tab",
+  libraryNotNavigable: "This address cannot be opened safely, so this asset is shown without a link",
   kindFilter: "Filter by kind",
   allKinds: "All kinds",
   kinds: {
@@ -112,5 +114,5 @@ export const defaultAdminMediaLabels = {
   deleteBusy: "Deleting...",
   deleteFailed: "That asset could not be deleted.",
   deleted: "Deleted",
-  libraryEmptyBody: "Upload something, or clear the search and the filter, and it appears here.",
+  libraryEmptyBody: "An asset appears here once something has been uploaded, or the search and the filter are cleared.",
 } satisfies AdminMediaLabels;

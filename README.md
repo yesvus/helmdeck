@@ -1897,6 +1897,8 @@ The package does not choose a storage provider. Implement `AdminMediaAdapter` fo
 The field and the picker are for choosing an asset. A site also needs the page an operator browses, and that is what `AdminMediaLibrary` is: a searchable, filterable grid over the same adapter, with upload, preview and delete.
 
 ```tsx
+"use client";
+
 import { AdminMediaLibraryPage } from "@yesvus/helmdeck";
 
 export default function MediaPage() {
@@ -1906,7 +1908,9 @@ export default function MediaPage() {
 
 `AdminMediaLibrary` is the same thing without the heading, for a host mounting it inside a page it already has. A host that has resolved the assets itself and has no adapter to read through passes `items` instead; a host with neither gets a panel saying no media store is wired, which is an answer rather than an empty grid a reader would take for an empty library.
 
-**Everything the reader asks for is a call on your adapter.** The search text, the kind filter and the paging cursor go to `list`, an upload goes to `upload`, a delete to `delete`. The library sorts and paginates what it is handed and never filters a page it has already fetched, so a host whose store can narrow does the narrowing where the data lives.
+**With an adapter, the store answers each query.** Search text, kind, source and paging cursor go to `list`, an upload goes to `upload`, and a delete goes to `delete`. The library does not filter a page the store returned, so matching happens where the data lives. The example is a client component because the adapter contains functions; a server component can instead pass server actions as its adapter operations.
+
+**Without an adapter, `items` is read-only.** Search, kind and source filters run locally over the supplied array, and paging is unavailable because there is no store to request another page from. Upload and delete controls are not offered.
 
 **Delete is offered for what this library could actually remove.** By default that is an asset whose `source` is `uploaded` or `local`, and only when your adapter has a `delete` at all: a YouTube video and somebody else's URL are not this installation's files, and a control for them would be a button that cannot do what it says. `deletable` replaces that rule when your policy differs. What your adapter then answers is the decision; the library hides controls, it does not authorize.
 

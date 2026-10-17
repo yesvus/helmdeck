@@ -33,6 +33,7 @@ import { AdminInput } from "../primitives/input.js";
 import { AdminSelect } from "../primitives/select.js";
 import { AdminSurfaceCard } from "../primitives/layout.js";
 import { useAdminPermission } from "../shell/permissions.js";
+import { cn } from "../cn.js";
 import { defaultAdminMediaLabels, type AdminMediaLabels } from "./labels.js";
 import { AdminMediaLightbox, type AdminMediaLightboxImage } from "./lightbox.js";
 import { AdminMediaPlaceholder } from "./placeholder.js";
@@ -63,6 +64,28 @@ function mergeItems(current: AdminMediaItem[], incoming: AdminMediaItem[]): Admi
   return [...byPath.values()];
 }
 
+/**
+ * A URL this page is willing to put in an `href`, or null when it is not one.
+ *
+ * A stored URL is data, and a `javascript:` one handed to a link runs when an operator clicks the
+ * asset they were looking at. Only http(s) and this site's own root-relative paths are navigable
+ * here; anything else is rendered inert with the reason on the link, which is a host's store to fix
+ * rather than something to silently follow.
+ */
+function navigableUrl(value: string): string | null {
+  const trimmed = value.trim();
+  const rootRelative = trimmed.startsWith("/") && !trimmed.startsWith("//");
+  if (!rootRelative && !/^https?:\/\//i.test(trimmed)) return null;
+  try {
+    const parsed = new URL(trimmed, "https://helmdeck.invalid");
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    if (rootRelative && parsed.origin !== "https://helmdeck.invalid") return null;
+    return rootRelative ? `${parsed.pathname}${parsed.search}${parsed.hash}` : parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 export type AdminMediaLibraryProps = {
   /** The store. Without it there is nothing to browse, and the page says so rather than showing an empty grid. */
   adapter?: AdminMediaAdapter;
@@ -70,6 +93,8 @@ export type AdminMediaLibraryProps = {
   items?: AdminMediaItem[];
   allowedKinds?: AdminMediaKind[];
   source?: AdminMediaSource;
+  /** What the file picker offers, as an `accept` attribute. A host that stores one kind of file states it here. */
+  accept?: string;
   pageSize?: number;
   /** The rule that decides whether this session may upload. It gates the control, nothing else. */
   uploadPermission?: AdminPermission;
@@ -88,6 +113,7 @@ export function AdminMediaLibrary({
   items: initialItems,
   allowedKinds,
   source,
+  accept,
   pageSize = DEFAULT_PAGE_SIZE,
   uploadPermission,
   deletePermission,
@@ -128,6 +154,13 @@ export function AdminMediaLibrary({
   const items = useMemo(() => (adapter ? adapterItems : (initialItems ?? [])), [adapter, adapterItems, initialItems]);
   const resolvedPageSize =
     Number.isFinite(pageSize) && pageSize > 0 ? Math.max(1, Math.floor(pageSize)) : DEFAULT_PAGE_SIZE;
+  // Compared by value, because a host writing `allowedKinds={["image"]}` inline hands a new array on
+  // every render, and a loader keyed on that identity would ask its store again every render.
+  const allowedKindsKey = allowedKinds?.join(",") ?? "";
+  const stableAllowedKinds = useMemo(
+    () => (allowedKindsKey ? (allowedKindsKey.split(",") as AdminMediaKind[]) : undefined),
+    [allowedKindsKey],
+  );
 
   const canDelete = useCallback(
     (item: AdminMediaItem) =>
@@ -145,7 +178,7 @@ export function AdminMediaLibrary({
       try {
         const result = await adapter.list({
           ...(nextKind ? { kind: nextKind } : {}),
-          ...(allowedKinds?.length ? { kinds: allowedKinds } : {}),
+          ...(stableAllowedKinds?.length ? { kinds: stableAllowedKinds } : {}),
           cursor,
           limit: resolvedPageSize,
           search: search.trim() || undefined,
@@ -159,13 +192,15 @@ export function AdminMediaLibrary({
       } catch {
         if (requestId !== requestIdRef.current) return;
         setAdapterItems((current) => (cursor ? current : (initialItemsRef.current ?? [])));
-        setNextCursor(undefined);
+        // A page that failed keeps its cursor: dropping it would take away the reader's only way to
+        // ask for that same page again, over a failure that was theirs and not the store's answer.
+        if (!cursor) setNextCursor(undefined);
         setLoadError(mergedLabels.loadError);
       } finally {
         if (requestId === requestIdRef.current) setLoading(false);
       }
     },
-    [adapter, allowedKinds, resolvedPageSize, source, mergedLabels.loadError],
+    [adapter, resolvedPageSize, source, stableAllowedKinds, mergedLabels.loadError],
   );
 
   // This effect owns the library's data lifecycle: it reads on mount, on every change of the search
@@ -179,21 +214,26 @@ export function AdminMediaLibrary({
   const visible = useMemo(() => {
     // Sorting here rather than in the adapter: the adapter's contract is a page of what matched, and
     // the order a person reads a grid in is the same decision whichever page it came from.
-    const allowed = allowedKinds?.length
-      ? items.filter((item) => allowedKinds.includes(item.kind))
+    const allowed = stableAllowedKinds?.length
+      ? items.filter((item) => stableAllowedKinds.includes(item.kind))
       : items;
+    // The kind and source a reader narrowed by are applied here as well as in the query, because
+    // without an adapter the query never reaches a store that would have applied them.
+    const scoped = kind ? allowed.filter((item) => item.kind === kind) : allowed;
+    const narrowed = source ? scoped.filter((item) => item.source === source) : scoped;
     const normalized = query.trim().toLocaleLowerCase(resolvedLocale);
-    const matched = adapter
-      ? allowed
-      : normalized
-        ? allowed.filter((item) =>
+    // With an adapter the store has already searched; doing it again here would drop rows a store
+    // matched on a field this does not know about.
+    const matched =
+      adapter || normalized === ""
+        ? narrowed
+        : narrowed.filter((item) =>
             `${item.name} ${item.path} ${item.contentType ?? ""}`
               .toLocaleLowerCase(resolvedLocale)
               .includes(normalized),
-          )
-        : allowed;
+          );
     return sortAdminMediaItems(matched, sort, resolvedLocale);
-  }, [adapter, allowedKinds, items, query, resolvedLocale, sort]);
+  }, [adapter, items, kind, query, resolvedLocale, sort, source, stableAllowedKinds]);
 
   const previewable = visible.filter((item) => isImageMediaItem(item));
   const previewImages: AdminMediaLightboxImage[] = previewable.map((item) => ({
@@ -218,6 +258,9 @@ export function AdminMediaLibrary({
     try {
       await adapter.delete(item);
       setAdapterItems((current) => current.filter((current_item) => current_item.path !== item.path));
+      // The footer counts what the store holds, so a total left where it was would report one more
+      // asset than the grid shows, for as long as the page stays open.
+      setTotal((current) => (typeof current === "number" ? Math.max(0, current - 1) : current));
       setDeleted(item.name);
       onDeleted?.(item);
     } catch {
@@ -278,12 +321,17 @@ export function AdminMediaLibrary({
               <X className="h-4 w-4" />
             </button>
             <AdminMediaUpload
+              accept={accept}
               allowExternal={Boolean(adapter.addExternal)}
               compact
               adapter={adapter}
               labels={mergedLabels}
               onUploaded={(item) => {
-                setAdapterItems((current) => mergeItems([item], current));
+                // Existing list first, so an upload that lands on a path already in the grid replaces
+                // the stale record rather than being shadowed by it.
+                if (!source || item.source === source) {
+                  setAdapterItems((current) => mergeItems(current, [item]));
+                }
                 setDeleted(undefined);
               }}
             />
@@ -335,9 +383,9 @@ export function AdminMediaLibrary({
                       >
                         <MediaThumbnail item={item} thumbnail={thumbnail} video={video} />
                       </button>
-                    ) : (
+                    ) : navigableUrl(item.publicUrl) ? (
                       <a
-                        href={item.publicUrl}
+                        href={navigableUrl(item.publicUrl) ?? undefined}
                         target="_blank"
                         rel="noreferrer"
                         aria-label={`${mergedLabels.libraryOpen}: ${item.name}`}
@@ -346,6 +394,18 @@ export function AdminMediaLibrary({
                       >
                         <MediaThumbnail item={item} thumbnail={thumbnail} video={video} />
                       </a>
+                    ) : (
+                      // Not an anchor at all: an `<a>` without an href is still announced as a link by
+                      // some readers, and the one thing this must not be is a control that goes nowhere.
+                      <div
+                        aria-label={`${mergedLabels.libraryNotNavigable}: ${item.name}`}
+                        onClick={() => onSelected?.(item)}
+                        className={cn(
+                          "group relative block w-full cursor-not-allowed opacity-70",
+                        )}
+                      >
+                        <MediaThumbnail item={item} thumbnail={thumbnail} video={video} />
+                      </div>
                     )}
                     <div className="space-y-2 px-3 py-3">
                       <p className="truncate text-sm font-semibold text-zinc-900">{item.name}</p>

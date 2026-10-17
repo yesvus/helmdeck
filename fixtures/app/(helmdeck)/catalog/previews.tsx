@@ -15,7 +15,7 @@
  */
 
 import { useState, type ComponentType, type ReactNode } from "react";
-import type { AdminAuditEvent, AdminMediaAdapter } from "@yesvus/helmdeck";
+import type { AdminAuditEvent, AdminMediaAdapter, AdminMediaItem } from "@yesvus/helmdeck";
 import { AlertTriangle, BarChart3, CheckCircle2, Info, LineChart, Package, Palette, Rows3, type LucideIcon } from "lucide-react";
 import {
   ADMIN_DENSITIES,
@@ -576,47 +576,60 @@ function BulkActionsSample() {
 function previewMediaAdapter(): AdminMediaAdapter {
   const image = (fill: string) =>
     `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='480'%3E%3Crect width='640' height='480' fill='${fill}'/%3E%3C/svg%3E`;
+  const all: AdminMediaItem[] = [
+    {
+      name: "Studio desk",
+      path: "media/studio-desk.svg",
+      publicUrl: image("%232563eb"),
+      source: "uploaded",
+      kind: "image",
+      size: 2_411_724,
+      updatedAt: PREVIEW_NOW.toISOString(),
+    },
+    {
+      name: "Price list",
+      path: "media/price-list.pdf",
+      publicUrl: "/media/price-list.pdf",
+      source: "uploaded",
+      kind: "pdf",
+      size: 184_320,
+      updatedAt: "2026-09-27T09:00:00.000Z",
+    },
+    {
+      name: "Launch film",
+      path: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+      publicUrl: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+      source: "youtube",
+      kind: "youtube",
+      updatedAt: "2026-09-20T09:00:00.000Z",
+    },
+  ];
+
   return {
-    async list() {
-      return {
-        total: 3,
-        items: [
-          {
-            name: "Studio desk",
-            path: "media/studio-desk.svg",
-            publicUrl: image("%232563eb"),
-            source: "uploaded",
-            kind: "image",
-            size: 2_411_724,
-            updatedAt: PREVIEW_NOW.toISOString(),
-          },
-          {
-            name: "Price list",
-            path: "media/price-list.pdf",
-            publicUrl: "/media/price-list.pdf",
-            source: "uploaded",
-            kind: "pdf",
-            size: 184_320,
-            updatedAt: "2026-09-27T09:00:00.000Z",
-          },
-          {
-            name: "Launch film",
-            path: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
-            publicUrl: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
-            source: "youtube",
-            kind: "youtube",
-            updatedAt: "2026-09-20T09:00:00.000Z",
-          },
-        ],
-      };
+    // The query is honoured, because a preview whose search box does nothing shows a library whose
+    // search box does nothing.
+    async list(query = {}) {
+      const search = query.search?.trim().toLocaleLowerCase();
+      const matched = all.filter((item) => {
+        const matchesSearch = !search || `${item.name} ${item.kind}`.toLocaleLowerCase().includes(search);
+        const matchesKind = !query.kind || item.kind === query.kind;
+        const matchesKinds = !query.kinds?.length || query.kinds.includes(item.kind);
+        const matchesSource = !query.source || item.source === query.source;
+        return matchesSearch && matchesKind && matchesKinds && matchesSource;
+      });
+      return { items: matched, total: matched.length };
     },
     async upload(file) {
+      // The kind follows the file rather than assuming every upload is a picture, so the preview does
+      // not show a PDF labelled as an image.
+      const kind = file.type === "application/pdf" ? "pdf" : file.type.startsWith("video/") ? "video" : "image";
       return {
         name: file.name,
         path: `media/${file.name}`,
-        publicUrl: image("%237c3aed"),
+        publicUrl: kind === "image" ? image("%237c3aed") : `/media/${file.name}`,
         source: "uploaded",
-        kind: "image",
+        kind,
+        contentType: file.type,
         size: file.size,
         updatedAt: PREVIEW_NOW.toISOString(),
       };

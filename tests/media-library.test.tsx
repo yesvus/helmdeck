@@ -180,10 +180,12 @@ describe("AdminMediaLibrary", () => {
     await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);
     await user.click(screen.getByRole("button", { name: "Upload file" }));
 
-    // The name is on the tile and in the upload control that still holds the file, so this reads the
-    // grid rather than the page.
-    expect((await tiles()).map((tile) => tile.textContent ?? "")).toContainEqual(
-      expect.stringContaining("new-logo.png"),
+    // The name is on the tile and in the upload control that still holds the file, so this waits for
+    // the tile specifically rather than for any tile at all.
+    await waitFor(() =>
+      expect((screen.getAllByRole("listitem").map((tile) => tile.textContent ?? ""))).toContainEqual(
+        expect.stringContaining("new-logo.png"),
+      ),
     );
   });
 
@@ -206,6 +208,35 @@ describe("AdminMediaLibrary", () => {
     const link = within(tileNamed("Autumn collection")).getByRole("link");
     expect(link).toHaveAttribute("href", "https://www.youtube.com/watch?v=aqz-KE-bpKQ");
     expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("refuses to link a stored URL this page will not navigate to", async () => {
+    render(
+      tree(
+        <AdminMediaLibrary
+          items={[{ name: "Sketch", path: "sketch", publicUrl: "javascript:alert(1)", source: "uploaded", kind: "pdf" }]}
+        />,
+      ),
+    );
+    await tiles();
+
+    // Not a link at all: a control that goes nowhere is not offered as one.
+    const inert = within(tileNamed("Sketch")).getByLabelText(/cannot be opened safely/);
+    expect(inert.tagName).toBe("DIV");
+    expect(within(tileNamed("Sketch")).queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("links a root-relative path, which is this site's own file rather than a stranger's", async () => {
+    render(
+      tree(
+        <AdminMediaLibrary
+          items={[{ name: "Price list", path: "price-list.pdf", publicUrl: "/media/price-list.pdf", source: "uploaded", kind: "pdf" }]}
+        />,
+      ),
+    );
+    await tiles();
+
+    expect(within(tileNamed("Price list")).getByRole("link")).toHaveAttribute("href", "/media/price-list.pdf");
   });
 
   it("offers delete for an uploaded asset and removes it once the store agrees", async () => {
@@ -257,6 +288,9 @@ describe("AdminMediaLibrary", () => {
     render(tree(<AdminMediaLibrary adapter={store} uploadPermission="media.upload" deletePermission="media.delete" />, denyAll()));
     await tiles();
 
+    // The refusal is only certain once the rule has answered, so this waits for an answer and then
+    // checks that neither control appeared with it.
+    await waitFor(() => expect(screen.getByLabelText("Search media")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Delete/ })).not.toBeInTheDocument();
     expect(store.list).toHaveBeenCalledTimes(1);
@@ -266,8 +300,9 @@ describe("AdminMediaLibrary", () => {
     render(tree(<AdminMediaLibrary adapter={adapter()} uploadPermission="media.upload" deletePermission="media.delete" />));
     await tiles();
 
-    expect(screen.getByRole("button", { name: "Upload" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete: Studio desk" })).toBeInTheDocument();
+    // Both controls wait on the rule's answer, so they arrive after the first read rather than with it.
+    expect(await screen.findByRole("button", { name: "Upload" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Delete: Studio desk" })).toBeInTheDocument();
   });
 
   it("says a store refused the read, with a way to ask again", async () => {
@@ -303,6 +338,32 @@ describe("AdminMediaLibrary", () => {
     );
 
     expect((await tiles())[0]).toHaveTextContent("From props");
+  });
+
+  it("filters pre-resolved items locally by kind and source", async () => {
+    const user = userEvent.setup();
+    render(
+      tree(
+        <AdminMediaLibrary
+          source="uploaded"
+          items={[
+            { name: "Photo", path: "photo", publicUrl: "/photo.jpg", source: "uploaded", kind: "image" },
+            { name: "Document", path: "doc", publicUrl: "/doc.pdf", source: "uploaded", kind: "pdf" },
+            { name: "Remote photo", path: "remote", publicUrl: "https://example.com/photo.jpg", source: "external", kind: "image" },
+          ]}
+        />,
+      ),
+    );
+    await tiles();
+
+    await user.selectOptions(screen.getByLabelText("Filter by kind"), "image");
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("listitem")).toHaveLength(1);
+      expect(screen.getByText("Photo")).toBeInTheDocument();
+      expect(screen.queryByText("Document")).not.toBeInTheDocument();
+      expect(screen.queryByText("Remote photo")).not.toBeInTheDocument();
+    });
   });
 
   it("prints its own wording in Turkish when the shell is in Turkish", async () => {
