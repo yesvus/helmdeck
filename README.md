@@ -1088,9 +1088,17 @@ export default function ActivityPage() {
 // app/admin/activity/actions.ts
 "use server";
 
+import { AdminPermissionDeniedError, type AdminActivityFilter } from "@yesvus/helmdeck";
+
 export async function listActivityEventsAction(filter: AdminActivityFilter = {}) {
   const session = await requireSession();
-  if (!(await can(session, "activity.read"))) throw new AdminPermissionDeniedError("activity.read");
+  if (!(await can(session, "activity.read"))) {
+    throw new AdminPermissionDeniedError({
+      permission: "activity.read",
+      session,
+      reason: "denied",
+    });
+  }
   return readYourTrailTable(session, filter);
 }
 ```

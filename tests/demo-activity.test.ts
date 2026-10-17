@@ -126,6 +126,11 @@ describe("the demo's activity trail", () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     await clearTrail();
+    // The two action tests sign in, so they leave signed sessions behind. The store is shared with
+    // every other demo test and with the demo's own session listing, so they go rather than pile up.
+    for (const row of await store.query<{ id: string }>("sessions")) {
+      await store.delete("sessions", row.id);
+    }
     await restoreAccounts();
   });
 

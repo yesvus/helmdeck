@@ -14,7 +14,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ### Fixed
 
-- The shell reads its stored sidebar state during the first render instead of after it, so a stored preference no longer paints a frame of the wrong sidebar and the change no longer trips the set-state-in-effect lint rule.
+- The shell reads its stored sidebar state through an external store with a server snapshot, so the sidebar no longer flips between the server's answer and the stored one after hydration, and the change no longer trips the set-state-in-effect lint rule.
 
 ## 0.9.0
 

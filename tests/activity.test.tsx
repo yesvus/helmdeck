@@ -124,10 +124,12 @@ describe("AdminActivityTimeline", () => {
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(renderedRows()).toHaveLength(1);
 
+    // The role, which is the part of who someone is that appears in neither their name nor their email.
     await user.clear(screen.getByLabelText("Actor"));
-    await user.type(screen.getByLabelText("Actor"), "owner");
+    await user.type(screen.getByLabelText("Actor"), "admin");
     await user.click(screen.getByRole("button", { name: "Apply" }));
     expect(renderedRows()).toHaveLength(1);
+    expect(renderedRows()[0]).toHaveTextContent("create");
   });
 
   it("reads a date range as whole days, and narrows from either end of it", async () => {
@@ -199,6 +201,47 @@ describe("AdminActivityTimeline", () => {
 
     expect(renderedRows()).toHaveLength(2);
     expect(screen.getByText("Showing 2 of 3 events")).toBeInTheDocument();
+  });
+
+  it("lets a reader reach the rest of the trail, rather than capping it out of reach", async () => {
+    const user = userEvent.setup();
+    render(tree(<AdminActivityTimeline events={events} now={NOW} cap={2} />));
+
+    await user.click(screen.getByRole("button", { name: "Show 1 more" }));
+    expect(renderedRows()).toHaveLength(3);
+    expect(screen.getByText("Showing 3 of 3 events")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show \d+ more/ })).not.toBeInTheDocument();
+  });
+
+  it("starts again at the first page when the filter changes, rather than staying where it was", async () => {
+    const user = userEvent.setup();
+    render(tree(<AdminActivityTimeline events={events} now={NOW} cap={1} />));
+
+    await user.click(screen.getByRole("button", { name: "Show 2 more" }));
+    await user.click(screen.getByRole("button", { name: "Show 1 more" }));
+    expect(renderedRows()).toHaveLength(3);
+
+    await user.selectOptions(screen.getByLabelText("Action"), "delete");
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+    expect(renderedRows()).toHaveLength(1);
+  });
+
+  it("prints a value it cannot serialize rather than losing the row it belongs to", async () => {
+    const user = userEvent.setup();
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    render(
+      tree(
+        <AdminActivityTimeline
+          events={[{ action: "update", resource: "products", resourceId: "p1", metadata: { loop: circular } }]}
+          now={NOW}
+        />,
+      ),
+    );
+
+    await user.click(within(rowOf("update")).getByRole("button", { name: "Details" }));
+    expect(within(rowOf("update")).getByText("[object Object]")).toBeInTheDocument();
+    expect(renderedRows()).toHaveLength(1);
   });
 
   it("keeps an event with no usable time in place rather than sorting it on a guess", () => {

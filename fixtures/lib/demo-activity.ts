@@ -88,7 +88,12 @@ export async function listActivityEvents(
   filter: ActivityFilter = {},
 ): Promise<AdminAuditEvent[]> {
   requireActivityRead(session);
-  const rows = (await demoPersistence().adapter.query<TrailRow>(TABLE)) ?? [];
+  // The action is an equality the store already understands, so it is asked of the store rather than
+  // of every row in the table. The actor text and the two days are ranges the demo's own store cannot
+  // express, so those are narrowed here, and a host with a real query engine hands all three to it.
+  const rows = filter.action
+    ? ((await demoPersistence().adapter.query<TrailRow>(TABLE, { action: filter.action })) ?? [])
+    : ((await demoPersistence().adapter.query<TrailRow>(TABLE)) ?? []);
   const actor = filter.actor?.trim().toLowerCase() ?? "";
   const from = filter.from ? dayBounds(filter.from, false) : null;
   const to = filter.to ? dayBounds(filter.to, true) : null;

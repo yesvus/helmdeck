@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link.js";
 import { usePathname } from "next/navigation.js";
@@ -27,18 +27,43 @@ const OPEN_GROUPS_STORAGE_KEY = "yesvus:helmdeck:open-nav-groups:v1";
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "yesvus:helmdeck:sidebar-collapsed:v1";
 
 /**
- * The stored sidebar state, read during the first render rather than after it.
+ * The stored sidebar state, as an external store rather than a read during render.
  *
- * A stored preference is part of the state this shell starts in, so reading it in an effect is a
- * frame of the wrong sidebar before the right one paints. A browser that refuses storage is a browser
- * with no preference to honour, which is the default rather than a failure.
+ * Reading storage while rendering hands the server one answer and the browser another, which React
+ * reports as a hydration mismatch and a reader sees as a sidebar that jumps after the page paints.
+ * `useSyncExternalStore` is the shape that holds both to one value: the server snapshot is the
+ * default, the browser's snapshot is what is stored, and the first client render agrees with what
+ * the server already sent. A browser that refuses storage answers the default, which is a sidebar
+ * rather than a failure.
  */
+const collapsedListeners = new Set<() => void>();
+
 function readStoredCollapsed(): boolean {
   try {
     return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
   } catch {
     return false;
   }
+}
+
+function writeStoredCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
+  } catch {
+    // A browser refusing storage loses the preference between visits, which is not worth failing a
+    // sidebar over. The value in this tab still changes, so the reader is not left with a dead button.
+  }
+  for (const listener of collapsedListeners) listener();
+}
+
+/** The store's own writes, and another tab's, which is the same preference to this reader. */
+function subscribeToCollapsed(onChange: () => void): () => void {
+  collapsedListeners.add(onChange);
+  if (typeof window !== "undefined") window.addEventListener("storage", onChange);
+  return () => {
+    collapsedListeners.delete(onChange);
+    if (typeof window !== "undefined") window.removeEventListener("storage", onChange);
+  };
 }
 
 export function AdminShell({
@@ -94,10 +119,7 @@ export function AdminShell({
   );
   const visibleNav = useMemo(() => filterNavGroups(nav, session?.role), [nav, session?.role]);
   const branding = useAdminBranding(brand?.accent);
-  const [collapsed, setCollapsed] = useState(readStoredCollapsed);
-  // Whether a reader has changed it, rather than whether it differs from what was read: a reader who
-  // widens and narrows it back has still asked for it to be remembered.
-  const [collapsedChanged, setCollapsedChanged] = useState(false);
+  const collapsed = useSyncExternalStore(subscribeToCollapsed, readStoredCollapsed, () => false);
   const internalContentScrollRef = useRef<HTMLDivElement>(null);
   const groupPreferences = useRef<Record<string, boolean> | null>(null);
   const [groupPreferencesLoaded, setGroupPreferencesLoaded] = useState(false);
@@ -117,21 +139,7 @@ export function AdminShell({
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
-  const changeCollapsed = useCallback((next: boolean) => {
-    setCollapsed(next);
-    setCollapsedChanged(true);
-  }, []);
-
-  useEffect(() => {
-    if (!collapsedChanged) return;
-    try {
-      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
-    } catch {
-      // A browser refusing storage loses the preference between visits, which is not worth
-      // failing a sidebar over.
-      return;
-    }
-  }, [collapsed, collapsedChanged]);
+  const changeCollapsed = useCallback((next: boolean) => writeStoredCollapsed(next), []);
 
   useEffect(() => {
     try {

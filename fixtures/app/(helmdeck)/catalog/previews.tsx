@@ -376,11 +376,26 @@ const PREVIEW_EVENTS: AdminAuditEvent[] = [
   },
 ];
 
+/**
+ * A scrollable window rather than a clipped one.
+ *
+ * The trail is taller than a card, and a preview that hid the rest of it would show a component
+ * whose own filter and detail controls cannot be reached, which is the opposite of what a catalogue
+ * entry is for.
+ */
+function ActivityWindow({ children }: { children: ReactNode }) {
+  return (
+    <div className="h-[30rem] overflow-y-auto rounded-lg border border-dashed border-zinc-200">
+      {children}
+    </div>
+  );
+}
+
 function ActivityPreview() {
   return (
-    <Contained height="h-96">
+    <ActivityWindow>
       <AdminActivityTimeline events={PREVIEW_EVENTS} now={() => PREVIEW_NOW} />
-    </Contained>
+    </ActivityWindow>
   );
 }
 
@@ -1040,9 +1055,9 @@ export const catalogPreviews: Record<string, ComponentType> = {
   ),
   AdminActivityPage: () => (
     <AdminI18nProvider locale="en">
-      <Contained height="h-96">
+      <ActivityWindow>
         <AdminActivityPage events={PREVIEW_EVENTS} now={() => PREVIEW_NOW} />
-      </Contained>
+      </ActivityWindow>
     </AdminI18nProvider>
   ),
 

@@ -28,6 +28,7 @@ export type AdminActivityMessages = {
   unknownActor: string;
   emptyValue: string;
   showing: (shown: number, total: number) => string;
+  showMore: (remaining: number) => string;
 };
 
 export const defaultAdminActivityMessages: AdminActivityMessages = {
@@ -57,6 +58,7 @@ export const defaultAdminActivityMessages: AdminActivityMessages = {
   unknownActor: "Unknown actor",
   emptyValue: "(empty)",
   showing: (shown, total) => `Showing ${shown} of ${total} events`,
+  showMore: (remaining) => `Show ${remaining} more`,
 };
 
 export const turkishAdminActivityMessages: AdminActivityMessages = {
@@ -86,4 +88,5 @@ export const turkishAdminActivityMessages: AdminActivityMessages = {
   unknownActor: "Bilinmeyen kişi",
   emptyValue: "(boş)",
   showing: (shown, total) => `${total} olaydan ${shown} tanesi gösteriliyor`,
+  showMore: (remaining) => `${remaining} olay daha göster`,
 };

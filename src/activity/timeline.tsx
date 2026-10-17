@@ -19,7 +19,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { AdminAuditEvent, AdminPermission } from "../adapters/index.js";
 import { useAdminMessages } from "../i18n.js";
 import { englishAdminMessages, turkishAdminMessages, type AdminMessages } from "../i18n/messages.js";
@@ -137,14 +137,24 @@ function keyOf(filter: AdminActivityFilter): string {
   return [filter.action ?? "", filter.actor ?? "", filter.from ?? "", filter.to ?? ""].join("\u0000");
 }
 
-/** A value as the words a reader reads, rather than as `[object Object]`. */
+/**
+ * A value as the words a reader reads, rather than as `[object Object]`.
+ *
+ * Serialization is guarded because it can refuse: a circular metadata object or a value `JSON`
+ * cannot print throws, and a trail is the one surface where one host's odd value should cost its own
+ * row rather than take down every event beside it.
+ */
 function metadataValue(value: unknown, empty: string): string {
   if (value === undefined) return empty;
   if (value === null) return "null";
   if (value instanceof Date) return Number.isNaN(value.valueOf()) ? "Invalid Date" : value.toISOString();
   if (typeof value === "string") return value.length === 0 ? empty : value;
   if (typeof value !== "object") return String(value);
-  return JSON.stringify(value) ?? empty;
+  try {
+    return JSON.stringify(value) ?? empty;
+  } catch {
+    return String(value);
+  }
 }
 
 /** The metadata split so the names of the fields a write touched read as themselves. */
@@ -229,8 +239,12 @@ function AdminActivityTrail({
 }) {
   const [draft, setDraft] = useState<AdminActivityFilter>({});
   const [filter, setFilter] = useState<AdminActivityFilter>({});
+  const [revealed, setRevealed] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<{ key: string; rows: AdminAuditEvent[]; failed: boolean } | null>(null);
+  // Per instance, because two trails on one page would otherwise share every control's id and the
+  // second set of labels would name the first set of inputs.
+  const controlId = useId();
 
   const { action = "", actor = "", from = "", to = "" } = filter;
 
@@ -272,9 +286,12 @@ function AdminActivityTrail({
     });
 
   const offered = [...new Set([...(actions ?? []), ...(load ? [] : source.map((event) => event.action))])].sort();
-  const shown = rows.slice(0, cap);
+  // How far past the first page the reader has asked to go, rather than a page they cannot leave: a cap
+  // that hides the rest of a trail with no way to reach it is the trail deciding what a reader may not
+  // see, which is the one thing a read-only list has no business doing.
+  const visible = rows.slice(0, cap + revealed);
   const nowAt = now();
-  const filtering = Object.keys(filterOf(draft)).length > 0;
+  const filtering = Object.keys(filter).length > 0;
 
   return (
     <div className="space-y-4">
@@ -284,19 +301,20 @@ function AdminActivityTrail({
           onSubmit={(submitted) => {
             submitted.preventDefault();
             setFilter(filterOf(draft));
+            setRevealed(0);
           }}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold text-zinc-900">{copy.filters}</h2>
             {rows.length > 0 ? (
-              <p className="text-xs text-zinc-500">{copy.showing(shown.length, rows.length)}</p>
+              <p className="text-xs text-zinc-500">{copy.showing(visible.length, rows.length)}</p>
             ) : null}
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {offered.length > 0 ? (
-              <AdminField label={copy.action} id="admin-activity-action">
+              <AdminField label={copy.action} id={`${controlId}-action`}>
                 <AdminSelect
-                  id="admin-activity-action"
+                  id={`${controlId}-action`}
                   value={draft.action ?? ""}
                   onChange={(changed) => setDraft((current) => ({ ...current, action: changed.target.value }))}
                 >
@@ -309,26 +327,26 @@ function AdminActivityTrail({
                 </AdminSelect>
               </AdminField>
             ) : null}
-            <AdminField label={copy.actor} id="admin-activity-actor">
+            <AdminField label={copy.actor} id={`${controlId}-actor`}>
               <AdminInput
-                id="admin-activity-actor"
+                id={`${controlId}-actor`}
                 type="text"
                 placeholder={copy.actorPlaceholder}
                 value={draft.actor ?? ""}
                 onChange={(changed) => setDraft((current) => ({ ...current, actor: changed.target.value }))}
               />
             </AdminField>
-            <AdminField label={copy.from} id="admin-activity-from">
+            <AdminField label={copy.from} id={`${controlId}-from`}>
               <AdminInput
-                id="admin-activity-from"
+                id={`${controlId}-from`}
                 type="date"
                 value={draft.from ?? ""}
                 onChange={(changed) => setDraft((current) => ({ ...current, from: changed.target.value }))}
               />
             </AdminField>
-            <AdminField label={copy.to} id="admin-activity-to">
+            <AdminField label={copy.to} id={`${controlId}-to`}>
               <AdminInput
-                id="admin-activity-to"
+                id={`${controlId}-to`}
                 type="date"
                 value={draft.to ?? ""}
                 onChange={(changed) => setDraft((current) => ({ ...current, to: changed.target.value }))}
@@ -347,6 +365,7 @@ function AdminActivityTrail({
               onClick={() => {
                 setDraft({});
                 setFilter({});
+                setRevealed(0);
               }}
             >
               {copy.clear}
@@ -373,7 +392,7 @@ function AdminActivityTrail({
           </div>
         ) : (
           <ol className="divide-y divide-zinc-200">
-            {shown.map(({ event, index }) => {
+            {visible.map(({ event, index }) => {
               const rowKey = [event.action, event.resource, event.resourceId ?? "", event.occurredAt ?? "", index].join(":");
               const open = expanded === rowKey;
               const time = eventTime(event);
@@ -438,6 +457,13 @@ function AdminActivityTrail({
             })}
           </ol>
         )}
+        {rows.length > visible.length ? (
+          <div className="border-t border-zinc-200 px-5 py-3">
+            <Button type="button" variant="outline" size="sm" onClick={() => setRevealed((more) => more + cap)}>
+              {copy.showMore(rows.length - visible.length)}
+            </Button>
+          </div>
+        ) : null}
       </AdminSurfaceCard>
     </div>
   );
