@@ -53,6 +53,7 @@ const EVENTS = [
     resource_id: "prd_1",
     action: "create",
     actor_email: owner.email,
+    actor_name: "Ada Owner",
     actor_role: "admin",
     fields: JSON.stringify(["name", "price"]),
     occurred_at: "2026-10-01T09:00:00.000Z",
@@ -63,6 +64,7 @@ const EVENTS = [
     resource_id: "prd_1",
     action: "update",
     actor_email: editor.email,
+    actor_name: "Ed Editor",
     actor_role: "editor",
     fields: JSON.stringify(["price"]),
     occurred_at: "2026-10-05T09:00:00.000Z",
@@ -73,6 +75,7 @@ const EVENTS = [
     resource_id: "prd_2",
     action: "delete",
     actor_email: owner.email,
+    actor_name: "Ada Owner",
     actor_role: "admin",
     fields: "[]",
     occurred_at: "2026-10-12T09:00:00.000Z",
@@ -162,6 +165,18 @@ describe("the demo's activity trail", () => {
     expect(await listActivityEvents(session, { to: "2026-10-05" })).toHaveLength(2);
     expect(await listActivityEvents(session, { from: "2026-10-02", to: "2026-10-11" })).toHaveLength(1);
     expect(await listActivityEvents(session, { action: "restore" })).toHaveLength(0);
+  });
+
+  it("finds an actor by their name, which is on screen beside every one of their events", async () => {
+    const session = { email: owner.email, role: "admin" };
+
+    expect(await listActivityEvents(session, { actor: "Ed" })).toHaveLength(1);
+    expect(await listActivityEvents(session, { actor: "Ada" })).toHaveLength(2);
+    expect((await listActivityEvents(session, { actor: "ada" }))[0]?.actor).toMatchObject({
+      email: owner.email,
+      name: "Ada Owner",
+      role: "admin",
+    });
   });
 
   it("refuses an editor, in the reader as well as in the page", async () => {

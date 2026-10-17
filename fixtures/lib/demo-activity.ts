@@ -32,6 +32,7 @@ type TrailRow = {
   resource_id?: unknown;
   action?: unknown;
   actor_email?: unknown;
+  actor_name?: unknown;
   actor_role?: unknown;
   fields?: unknown;
   occurred_at?: unknown;
@@ -72,12 +73,13 @@ function fieldNames(value: unknown): string[] {
 
 function toEvent(row: TrailRow): AdminAuditEvent {
   const email = text(row.actor_email);
+  const name = text(row.actor_name);
   const role = text(row.actor_role);
   return {
     action: text(row.action),
     resource: text(row.resource),
     ...(text(row.resource_id) ? { resourceId: text(row.resource_id) } : {}),
-    ...(email ? { actor: { email, ...(role ? { role } : {}) } } : {}),
+    ...(email ? { actor: { email, ...(name ? { name } : {}), ...(role ? { role } : {}) } } : {}),
     ...(text(row.occurred_at) ? { occurredAt: text(row.occurred_at) } : {}),
     metadata: { fields: fieldNames(row.fields) },
   };
@@ -103,7 +105,10 @@ export async function listActivityEvents(
     .filter((row) => (filter.action ? text(row.action) === filter.action : true))
     .filter((row) => {
       if (actor.length === 0) return true;
-      return `${text(row.actor_email)} ${text(row.actor_role)}`.toLowerCase().includes(actor);
+      // Name, email and role, because that is what the filter a reader types into searches.
+      return `${text(row.actor_name)} ${text(row.actor_email)} ${text(row.actor_role)}`
+        .toLowerCase()
+        .includes(actor);
     })
     .filter((row) => {
       if (from === null && to === null) return true;
