@@ -611,7 +611,7 @@ describe("AdminMediaLibrary", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 
-  it("searches initial fallback items locally when the store refuses a read", async () => {
+  it("searches fallback item kinds locally when the store refuses a read", async () => {
     const user = userEvent.setup();
     const store = adapter({
       list: vi.fn(async () => {
@@ -624,18 +624,18 @@ describe("AdminMediaLibrary", () => {
           adapter={store}
           items={[
             { name: "Press photo", path: "press", publicUrl: "/press.jpg", source: "uploaded", kind: "image" },
-            { name: "Studio desk", path: "desk", publicUrl: "/desk.jpg", source: "uploaded", kind: "image" },
+            { name: "Brochure", path: "brochure.bin", publicUrl: "/brochure.bin", source: "uploaded", kind: "pdf" },
           ]}
         />,
       ),
     );
     await screen.findByRole("alert");
-    await user.type(screen.getByLabelText("Search media"), "press");
+    await user.type(screen.getByLabelText("Search media"), "pdf");
 
-    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ search: "press" })));
+    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ search: "pdf" })));
     await waitFor(() => {
-      expect(screen.getByText("Press photo")).toBeInTheDocument();
-      expect(screen.queryByText("Studio desk")).not.toBeInTheDocument();
+      expect(screen.getByText("Brochure")).toBeInTheDocument();
+      expect(screen.queryByText("Press photo")).not.toBeInTheDocument();
     });
   });
 

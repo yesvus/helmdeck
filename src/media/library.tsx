@@ -243,7 +243,7 @@ export function AdminMediaLibrary({
       (adapter && !showingFallbackItems) || normalized === ""
         ? narrowed
         : narrowed.filter((item) =>
-            `${item.name} ${item.path} ${item.contentType ?? ""}`
+            `${item.name} ${item.path} ${item.contentType ?? ""} ${item.kind}`
               .toLocaleLowerCase(resolvedLocale)
               .includes(normalized),
           );
