@@ -337,15 +337,9 @@ export function AdminMediaLibrary({
               compact
               adapter={adapter}
               labels={mergedLabels}
-              onUploaded={(item) => {
-                // Existing list first, so an upload that lands on a path already in the grid replaces
-                // the stale record rather than being shadowed by it.
-                if (!source || item.source === source) {
-                  const isNew = !adapterItems.some((current) => current.path === item.path);
-                  setAdapterItems((current) => mergeItems(current, [item]));
-                  if (isNew) setTotal((current) => (typeof current === "number" ? current + 1 : current));
-                }
+              onUploaded={() => {
                 setDeleted(undefined);
+                void loadItems(query, kind);
               }}
             />
           </div>
@@ -410,7 +404,7 @@ export function AdminMediaLibrary({
                     ) : (
                       // Not an anchor at all: an `<a>` without an href is still announced as a link by
                       // some readers, and the one thing this must not be is a control that goes nowhere.
-                      <div className="group relative block w-full">
+                      <div className="group relative block w-full cursor-not-allowed opacity-70">
                         <MediaThumbnail item={item} thumbnail={thumbnail} video={video} />
                         <span className="sr-only">{mergedLabels.libraryNotNavigable}</span>
                       </div>

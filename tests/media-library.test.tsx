@@ -52,16 +52,32 @@ function adapter(overrides: Partial<AdminMediaAdapter> = {}): AdminMediaAdapter 
   ];
 
   return {
-    list: vi.fn(async () => ({ items, total: items.length })),
-    upload: vi.fn(async (file: File) => ({
-      name: file.name,
-      path: `media/${file.name}`,
-      publicUrl: `https://cdn.example.com/media/${file.name}`,
-      source: "uploaded" as const,
-      kind: "image" as const,
-      size: file.size,
-      updatedAt: new Date().toISOString(),
-    })),
+    list: vi.fn(async (query) => {
+      const matched = items.filter((item) => {
+        const text = `${item.name} ${item.path} ${item.contentType ?? ""}`.toLocaleLowerCase();
+        return (
+          (!query?.search || text.includes(query.search.toLocaleLowerCase())) &&
+          (!query?.kind || item.kind === query.kind) &&
+          (!query?.kinds?.length || query.kinds.includes(item.kind)) &&
+          (!query?.source || item.source === query.source)
+        );
+      });
+      return { items: matched, total: matched.length };
+    }),
+    upload: vi.fn(async (file: File) => {
+      const item: AdminMediaItem = {
+        name: file.name,
+        path: `media/${file.name}`,
+        publicUrl: `https://cdn.example.com/media/${file.name}`,
+        source: "uploaded",
+        kind: file.type === "application/pdf" ? "pdf" : "image",
+        contentType: file.type,
+        size: file.size,
+        updatedAt: new Date().toISOString(),
+      };
+      items.push(item);
+      return item;
+    }),
     delete: vi.fn(async () => undefined),
     ...overrides,
   };
@@ -187,15 +203,44 @@ describe("AdminMediaLibrary", () => {
     await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "image" })));
   });
 
-  it("hands the chosen sort to the store so each paged result belongs in the global order", async () => {
+  it("keeps the store's global sort order as later pages arrive", async () => {
     const user = userEvent.setup();
-    const store = adapter();
-    render(tree(<AdminMediaLibrary adapter={store} />));
+    const ordered: AdminMediaItem[] = ["Able", "Baker", "Cedar", "Dover"].map((name) => ({
+      name,
+      path: `/media/${name}.pdf`,
+      publicUrl: `/media/${name}.pdf`,
+      source: "uploaded",
+      kind: "pdf",
+    }));
+    const store = adapter({
+      list: vi.fn(async (query) => {
+        const sorted = query?.sort === "name-asc" ? ordered : [...ordered].reverse();
+        const offset = query?.cursor === "next" ? 2 : 0;
+        return {
+          items: sorted.slice(offset, offset + 2),
+          total: sorted.length,
+          ...(offset === 0 ? { nextCursor: "next" } : {}),
+        };
+      }),
+    });
+    render(tree(<AdminMediaLibrary adapter={store} pageSize={2} />));
     await tiles();
 
     await user.selectOptions(screen.getByLabelText("Sort media"), "name-asc");
-
     await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "name-asc" })));
+    await user.click(await screen.findByRole("button", { name: "Load more" }));
+
+    await waitFor(() =>
+      expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "next", sort: "name-asc" })),
+    );
+    await waitFor(() => {
+      expect(screen.getAllByRole("listitem").map((tile) => tile.querySelector("p")?.textContent)).toEqual([
+        "Able",
+        "Baker",
+        "Cedar",
+        "Dover",
+      ]);
+    });
   });
 
   it("shows a load more only while the store says there is more", async () => {
@@ -238,6 +283,27 @@ describe("AdminMediaLibrary", () => {
       expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent?.includes("4 total") === true))
         .toBeInTheDocument(),
     );
+  });
+
+  it("reloads the active kind filter after an upload instead of showing a mismatched asset", async () => {
+    const user = userEvent.setup();
+    const store = adapter();
+    render(tree(<AdminMediaLibrary adapter={store} />));
+    await tiles();
+    await user.selectOptions(screen.getByLabelText("Filter by kind"), "image");
+    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "image" })));
+
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["bytes"], "catalog.pdf", { type: "application/pdf" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Upload file" }));
+
+    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "image" })));
+    expect(
+      screen.getAllByRole("listitem").map((tile) => tile.textContent ?? "").some((text) => text.includes("catalog.pdf")),
+    ).toBe(false);
   });
 
   it("previews an image in the lightbox rather than replacing the page", async () => {

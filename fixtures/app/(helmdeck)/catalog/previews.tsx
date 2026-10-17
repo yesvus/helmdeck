@@ -643,7 +643,9 @@ function previewMediaAdapter(): AdminMediaAdapter {
         size: file.size,
         updatedAt: PREVIEW_NOW.toISOString(),
       };
-      all.push(item);
+      const existing = all.findIndex((current) => current.path === item.path);
+      if (existing >= 0) all[existing] = item;
+      else all.push(item);
       return item;
     },
     async delete(item) {
