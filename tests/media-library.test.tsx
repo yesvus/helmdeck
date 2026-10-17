@@ -321,6 +321,67 @@ describe("AdminMediaLibrary", () => {
     ).toBe(false);
   });
 
+  it("invalidates an older pending read before refreshing after an upload", async () => {
+    const user = userEvent.setup();
+    const base = adapter();
+    let finishOldRead!: (result: { items: AdminMediaItem[]; total: number }) => void;
+    const oldRead = new Promise<{ items: AdminMediaItem[]; total: number }>((resolve) => {
+      finishOldRead = resolve;
+    });
+    let matchingReads = 0;
+    const store = adapter({
+      list: vi.fn(async (request) => {
+        if (request?.search === "press") {
+          matchingReads += 1;
+          if (matchingReads === 1) return oldRead;
+          return {
+            items: [
+              {
+                name: "Press photo",
+                path: "https://images.example.com/press.jpg",
+                publicUrl: "https://images.example.com/press.jpg",
+                source: "external" as const,
+                kind: "image" as const,
+              },
+            ],
+            total: 1,
+          };
+        }
+        return base.list(request);
+      }),
+    });
+    render(tree(<AdminMediaLibrary adapter={store} />));
+    await tiles();
+
+    fireEvent.change(screen.getByLabelText("Search media"), { target: { value: "press" } });
+    await waitFor(() => expect(matchingReads).toBe(1));
+    await user.click(screen.getByRole("button", { name: "Upload" }));
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      new File(["bytes"], "fresh.png", { type: "image/png" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Upload file" }));
+
+    await waitFor(() => expect(matchingReads).toBe(2));
+    expect(await screen.findByText("Press photo")).toBeInTheDocument();
+    await act(async () => {
+      finishOldRead({
+        items: [
+          {
+            name: "Stale result",
+            path: "/stale.jpg",
+            publicUrl: "/stale.jpg",
+            source: "uploaded",
+            kind: "image",
+          },
+        ],
+        total: 1,
+      });
+    });
+    expect(screen.queryByText("Stale result")).not.toBeInTheDocument();
+    expect(screen.getByText("Press photo")).toBeInTheDocument();
+  });
+
   it("previews an image in the lightbox rather than replacing the page", async () => {
     const user = userEvent.setup();
     render(tree(<AdminMediaLibrary adapter={adapter()} />));

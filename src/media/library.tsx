@@ -223,6 +223,11 @@ export function AdminMediaLibrary({
   }, [loadItems, query, kind, reloadKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  function reloadCurrentQuery() {
+    requestIdRef.current += 1;
+    setReloadKey((current) => current + 1);
+  }
+
   const visible = useMemo(() => {
     const allowed = stableAllowedKinds?.length
       ? items.filter((item) => stableAllowedKinds.includes(item.kind))
@@ -280,7 +285,7 @@ export function AdminMediaLibrary({
     setDeleted(item.name);
     // The effect reloads using current filters; removing from a full page locally would hide the next
     // matching asset behind its cursor.
-    setReloadKey((current) => current + 1);
+    reloadCurrentQuery();
     setDeleting(undefined);
     try {
       onDeleted?.(item);
@@ -345,7 +350,7 @@ export function AdminMediaLibrary({
               labels={mergedLabels}
               onUploaded={() => {
                 setDeleted(undefined);
-                setReloadKey((current) => current + 1);
+                reloadCurrentQuery();
               }}
             />
           </div>
