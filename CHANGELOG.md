@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 0.10.0
+
 ### Added
 
 - `AdminActivityPage` and `AdminActivityTimeline` read a host's audit events as a page, with action, actor and date filters, expandable event details, and English and Turkish wording.
