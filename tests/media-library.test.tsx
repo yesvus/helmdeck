@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -400,6 +400,50 @@ describe("AdminMediaLibrary", () => {
       expect(screen.getByText("Press photo")).toBeInTheDocument();
       expect(screen.queryByText("Studio desk")).not.toBeInTheDocument();
       expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    });
+  });
+
+  it("reloads after a delete even when the host callback throws", async () => {
+    const user = userEvent.setup();
+    const store = adapter();
+    const onDeleted = vi.fn(() => {
+      throw new Error("host callback failed");
+    });
+    render(tree(<AdminMediaLibrary adapter={store} onDeleted={onDeleted} />));
+    await tiles();
+
+    await user.click(within(tileNamed("Studio desk")).getByRole("button", { name: "Delete: Studio desk" }));
+    await user.click(await screen.findByRole("button", { name: "Yes, delete" }));
+
+    await waitFor(() => {
+      expect(onDeleted).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText("Studio desk")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reloads with the newest filter when a delete completes after the reader changes it", async () => {
+    const user = userEvent.setup();
+    let finishDelete!: () => void;
+    const pendingDelete = new Promise<void>((resolve) => {
+      finishDelete = resolve;
+    });
+    const store = adapter({ delete: vi.fn(async () => pendingDelete) });
+    render(tree(<AdminMediaLibrary adapter={store} />));
+    await tiles();
+
+    await user.click(within(tileNamed("Studio desk")).getByRole("button", { name: "Delete: Studio desk" }));
+    await user.click(await screen.findByRole("button", { name: "Yes, delete" }));
+    await waitFor(() => expect(store.delete).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText("Search media"), { target: { value: "press" } });
+    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ search: "press" })));
+    const readsBeforeDeleteCompletes = vi.mocked(store.list).mock.calls.length;
+    finishDelete();
+
+    await waitFor(() => {
+      expect(vi.mocked(store.list)).toHaveBeenCalledTimes(readsBeforeDeleteCompletes + 1);
+      expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ search: "press" }));
     });
   });
 

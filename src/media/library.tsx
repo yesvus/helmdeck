@@ -136,6 +136,7 @@ export function AdminMediaLibrary({
   const [nextCursor, setNextCursor] = useState<string>();
   const [total, setTotal] = useState<number>();
   const [loading, setLoading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [loadError, setLoadError] = useState<string>();
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<string>();
@@ -219,7 +220,7 @@ export function AdminMediaLibrary({
   /* eslint-disable react-hooks/set-state-in-effect -- external data fetch lifecycle */
   useEffect(() => {
     void loadItems(query, kind);
-  }, [loadItems, query, kind]);
+  }, [loadItems, query, kind, reloadKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const visible = useMemo(() => {
@@ -268,17 +269,23 @@ export function AdminMediaLibrary({
     setDeleteError(undefined);
     try {
       await adapter.delete(item);
-      setDeleted(item.name);
-      onDeleted?.(item);
-      // Removing a row from a full page leaves an existing store item hidden behind the cursor, so
-      // reload the current query and let the store supply the replacement and total.
-      void loadItems(query, kind);
     } catch {
       // The row stays where it is: a delete the store refused has not happened, and a library that
       // dropped it anyway would be reporting a change it cannot point at.
       setDeleteError(mergedLabels.deleteFailed);
-    } finally {
       setDeleting(undefined);
+      return;
+    }
+
+    setDeleted(item.name);
+    // The effect reloads using current filters; removing from a full page locally would hide the next
+    // matching asset behind its cursor.
+    setReloadKey((current) => current + 1);
+    setDeleting(undefined);
+    try {
+      onDeleted?.(item);
+    } catch {
+      // A host callback cannot undo a delete already accepted by the store.
     }
   }
 
@@ -338,7 +345,7 @@ export function AdminMediaLibrary({
               labels={mergedLabels}
               onUploaded={() => {
                 setDeleted(undefined);
-                void loadItems(query, kind);
+                setReloadKey((current) => current + 1);
               }}
             />
           </div>
