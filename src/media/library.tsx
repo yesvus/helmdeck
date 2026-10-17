@@ -174,6 +174,11 @@ export function AdminMediaLibrary({
       const requestId = ++requestIdRef.current;
       setLoading(true);
       setLoadError(undefined);
+      if (!cursor) {
+        setAdapterItems([]);
+        setNextCursor(undefined);
+        setTotal(undefined);
+      }
 
       try {
         const result = await adapter.list({

@@ -140,6 +140,46 @@ describe("AdminMediaLibrary", () => {
     await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ search: "press" })));
   });
 
+  it("shows loading rather than stale results while a fresh query is pending", async () => {
+    const user = userEvent.setup();
+    let resolveSearch!: (result: { items: AdminMediaItem[]; total: number }) => void;
+    const pendingSearch = new Promise<{ items: AdminMediaItem[]; total: number }>((resolve) => {
+      resolveSearch = resolve;
+    });
+    const all = adapter();
+    const store = adapter({
+      list: vi.fn(async (request) =>
+        request?.search
+          ? pendingSearch
+          : { items: await all.list().then((result) => result.items), total: 3 },
+      ),
+    });
+    render(tree(<AdminMediaLibrary adapter={store} />));
+    await tiles();
+
+    await user.type(screen.getByLabelText("Search media"), "press");
+    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ search: "press" })));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Studio desk")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("Loading media");
+    });
+
+    resolveSearch({
+      items: [
+        {
+          name: "Press photo",
+          path: "https://images.example.com/press.jpg",
+          publicUrl: "https://images.example.com/press.jpg",
+          source: "external",
+          kind: "image",
+        },
+      ],
+      total: 1,
+    });
+    expect(await screen.findByText("Press photo")).toBeInTheDocument();
+  });
+
   it("narrows by kind through the store as well", async () => {
     const user = userEvent.setup();
     const store = adapter();
