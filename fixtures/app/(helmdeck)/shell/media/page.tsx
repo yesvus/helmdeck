@@ -1,13 +1,22 @@
+// SPDX-License-Identifier: MIT
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { AdminMediaLibraryPage } from "@yesvus/helmdeck";
+import { demoMediaAdapter } from "../../../../media";
 
-const files = [{ name: "Operator Studio Desk", type: "Product photo", size: "2.4 MB", color: "from-amber-100 to-orange-200" }, { name: "Compact Loader", type: "Product photo", size: "1.8 MB", color: "from-sky-100 to-blue-200" }, { name: "Northstar wordmark", type: "Brand asset", size: "186 KB", color: "from-violet-100 to-fuchsia-200" }, { name: "Autumn collection", type: "Campaign", size: "3.1 MB", color: "from-emerald-100 to-teal-200" }];
-
-export default function MediaPage() {
-  const [query, setQuery] = useState("");
-  const [notice, setNotice] = useState("");
-  const visible = files.filter((file) => `${file.name} ${file.type}`.toLowerCase().includes(query.toLowerCase()));
-  return <div className="space-y-6"><header className="flex flex-wrap items-end justify-between gap-4"><div><p className="mt-1 text-sm text-zinc-500">Product photography and campaign assets for your workspace.</p></div><Link href="/media" className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700">Upload media</Link></header><section className="rounded-xl border border-zinc-200 bg-admin-surface p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">All files</h2><p className="mt-1 text-sm text-zinc-500">{visible.length} assets · 7.5 MB used</p></div><label className="sr-only" htmlFor="media-search">Search media</label><input id="media-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search media" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"/></div>{notice && <p role="status" className="mt-3 text-sm text-emerald-700">{notice}</p>}<div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{visible.map((file) => <article key={file.name} className="overflow-hidden rounded-xl border border-zinc-200"><div aria-label={`${file.name} preview`} className={`flex aspect-[4/3] items-center justify-center bg-gradient-to-br ${file.color}`}><span className="rounded-full bg-admin-surface/70 px-3 py-1 text-xs font-semibold text-zinc-700">{file.type}</span></div><div className="p-3"><h3 className="truncate text-sm font-semibold">{file.name}</h3><p className="mt-1 text-xs text-zinc-500">{file.size} · Added this week</p><button onClick={() => setNotice(`${file.name} selected for this demo.`)} className="mt-3 text-xs font-semibold text-brand-700 hover:underline">Select asset</button></div></article>)}</div>{visible.length === 0 && <p className="py-10 text-center text-sm text-zinc-500">No media matches your search.</p>}</section></div>;
+/**
+ * The demo's media library, mounted as the route it is.
+ *
+ * The page this replaces hand-rolled a grid over four invented files. It now reads the demo's real
+ * media store through the shipped component, so upload, browse, preview and delete are the package's
+ * behaviour on the demo's assets rather than a picture of them.
+ *
+ * The demo's store answers everyone, and the rule this site ships has no media permissions of its own,
+ * so no permission is named here. A host whose rule does name them passes them and the controls
+ * follow the rule.
+ */
+export default function MediaLibraryPage() {
+  // What this demo's store can actually keep, stated to the file picker rather than inferred after
+  // the upload: an unstated accept list offers every file and labels the ones it cannot read.
+  return <AdminMediaLibraryPage adapter={demoMediaAdapter} accept="image/*,application/pdf,video/*" />;
 }

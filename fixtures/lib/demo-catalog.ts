@@ -1447,6 +1447,23 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "labels copy media wording",
   },
 
+  AdminMediaLibrary: {
+    category: "Media",
+    summary: "The browsable library: upload, a grid, a preview and a guarded delete, over the host's store.",
+    keywords: "library browse upload delete grid preview assets",
+    renderable: true,
+  },
+  AdminMediaLibraryPage: {
+    category: "Media",
+    summary: "The whole media page: a heading and the library, for a host adding one route.",
+    keywords: "media library page route assets",
+    renderable: true,
+  },
+  adminMediaDeletableItem: {
+    category: "Media",
+    summary: "Whether an asset is one this library could remove, which is what a delete control is for.",
+    keywords: "deletable delete guard source uploaded",
+  },
   AdminResourceList: {
     category: "Resources",
     summary: "The list for a declared resource: filters, a table, and the actions the rule allows.",
