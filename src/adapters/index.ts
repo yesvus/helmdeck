@@ -25,6 +25,7 @@ export type {
   AdminMediaKind,
   AdminMediaListQuery,
   AdminMediaListResult,
+  AdminMediaSort,
   AdminMediaSource,
   AdminMediaUploadOptions,
   AdminMediaUsage,

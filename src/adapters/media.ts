@@ -32,10 +32,20 @@ export type AdminMediaListQuery = {
   cursor?: string;
   limit?: number;
   search?: string;
+  sort?: AdminMediaSort;
   kind?: AdminMediaKind;
   kinds?: AdminMediaKind[];
   source?: AdminMediaSource;
 };
+
+export type AdminMediaSort =
+  | "date-desc"
+  | "date-asc"
+  | "name-asc"
+  | "name-desc"
+  | "size-desc"
+  | "size-asc"
+  | "kind";
 
 export type AdminMediaListResult = {
   items: AdminMediaItem[];

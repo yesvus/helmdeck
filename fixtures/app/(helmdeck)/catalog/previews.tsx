@@ -113,6 +113,7 @@ import {
   defineAdminWidget,
   englishAdminMessages,
   turkishAdminMessages,
+  sortAdminMediaItems,
   useAdminSortableList,
   useAdminTableSelection,
   type AdminChartPoint,
@@ -617,14 +618,15 @@ function previewMediaAdapter(): AdminMediaAdapter {
         const matchesSource = !query.source || item.source === query.source;
         return matchesSearch && matchesKind && matchesKinds && matchesSource;
       });
+      const ordered = sortAdminMediaItems(matched, query.sort ?? "date-desc");
       const offset = Math.max(0, Number.parseInt(query.cursor ?? "0", 10) || 0);
-      const limit = query.limit ?? matched.length;
-      const items = matched.slice(offset, offset + limit);
+      const limit = query.limit ?? ordered.length;
+      const items = ordered.slice(offset, offset + limit);
       const nextOffset = offset + items.length;
       return {
         items,
-        total: matched.length,
-        ...(nextOffset < matched.length ? { nextCursor: String(nextOffset) } : {}),
+        total: ordered.length,
+        ...(nextOffset < ordered.length ? { nextCursor: String(nextOffset) } : {}),
       };
     },
     async upload(file) {

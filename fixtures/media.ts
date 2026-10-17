@@ -1,10 +1,11 @@
 "use client";
 
-import type {
-  AdminMediaAdapter,
-  AdminMediaExternalInput,
-  AdminMediaItem,
-  AdminMediaListQuery,
+import {
+  sortAdminMediaItems,
+  type AdminMediaAdapter,
+  type AdminMediaExternalInput,
+  type AdminMediaItem,
+  type AdminMediaListQuery,
 } from "@yesvus/helmdeck";
 
 let demoItems: AdminMediaItem[] = [
@@ -80,12 +81,13 @@ export const demoMediaAdapter: AdminMediaAdapter = {
       const matchesSource = !query.source || item.source === query.source;
       return matchesSearch && matchesKind && matchesKinds && matchesSource;
     });
+    const ordered = sortAdminMediaItems(filtered, query.sort ?? "date-desc");
     const start = query.cursor ? Number.parseInt(query.cursor, 10) : 0;
     const safeStart = Number.isFinite(start) && start > 0 ? start : 0;
-    const limit = query.limit && query.limit > 0 ? Math.floor(query.limit) : filtered.length;
-    const items = filtered.slice(safeStart, safeStart + limit);
-    const nextCursor = safeStart + items.length < filtered.length ? String(safeStart + items.length) : undefined;
-    return { items, total: filtered.length, nextCursor };
+    const limit = query.limit && query.limit > 0 ? Math.floor(query.limit) : ordered.length;
+    const items = ordered.slice(safeStart, safeStart + limit);
+    const nextCursor = safeStart + items.length < ordered.length ? String(safeStart + items.length) : undefined;
+    return { items, total: ordered.length, nextCursor };
   },
   async upload(file, options) {
     for (const progress of [18, 47, 76, 100]) {

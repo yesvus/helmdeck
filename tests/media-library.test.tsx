@@ -187,6 +187,17 @@ describe("AdminMediaLibrary", () => {
     await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "image" })));
   });
 
+  it("hands the chosen sort to the store so each paged result belongs in the global order", async () => {
+    const user = userEvent.setup();
+    const store = adapter();
+    render(tree(<AdminMediaLibrary adapter={store} />));
+    await tiles();
+
+    await user.selectOptions(screen.getByLabelText("Sort media"), "name-asc");
+
+    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "name-asc" })));
+  });
+
   it("shows a load more only while the store says there is more", async () => {
     const user = userEvent.setup();
     const page = adapter({

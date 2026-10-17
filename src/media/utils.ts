@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-import type { AdminMediaItem } from "../adapters/index.js";
+import type { AdminMediaItem, AdminMediaSort } from "../adapters/index.js";
+
+export type { AdminMediaSort } from "../adapters/media.js";
 
 const imageExtensions = [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"];
 const videoExtensions = [".mp4", ".mov", ".m4v", ".webm"];
@@ -111,15 +113,6 @@ export function formatMediaSize(bytes?: number | null) {
   }
   return `${Math.round(bytes / 1024)} KB`;
 }
-
-export type AdminMediaSort =
-  | "date-desc"
-  | "date-asc"
-  | "name-asc"
-  | "name-desc"
-  | "size-desc"
-  | "size-asc"
-  | "kind";
 
 export const adminMediaSortValues: AdminMediaSort[] = [
   "date-desc",

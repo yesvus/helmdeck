@@ -188,6 +188,7 @@ export function AdminMediaLibrary({
           cursor,
           limit: resolvedPageSize,
           search: search.trim() || undefined,
+          sort,
           source,
         });
         // A request the reader has already moved past must not write into the list.
@@ -210,7 +211,7 @@ export function AdminMediaLibrary({
         if (requestId === requestIdRef.current) setLoading(false);
       }
     },
-    [adapter, resolvedPageSize, source, stableAllowedKinds, mergedLabels.loadError],
+    [adapter, resolvedPageSize, sort, source, stableAllowedKinds, mergedLabels.loadError],
   );
 
   // This effect owns the library's data lifecycle: it reads on mount, on every change of the search
