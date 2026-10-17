@@ -447,6 +447,20 @@ describe("AdminMediaLibrary", () => {
     expect(screen.getByText(/^Deleted: Studio desk$/)).toBeInTheDocument();
   });
 
+  it("clears the delete announcement when the reader changes the query", async () => {
+    const user = userEvent.setup();
+    render(tree(<AdminMediaLibrary adapter={adapter()} />));
+    await tiles();
+
+    await user.click(within(tileNamed("Studio desk")).getByRole("button", { name: "Delete: Studio desk" }));
+    await user.click(await screen.findByRole("button", { name: "Yes, delete" }));
+    expect(await screen.findByText(/^Deleted: Studio desk$/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search media"), { target: { value: "press" } });
+
+    await waitFor(() => expect(screen.queryByText(/^Deleted: Studio desk$/)).not.toBeInTheDocument());
+  });
+
   it("refills a full page after deleting an asset while more results remain", async () => {
     const user = userEvent.setup();
     const store = adapter();

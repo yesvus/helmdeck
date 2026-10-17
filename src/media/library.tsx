@@ -300,14 +300,20 @@ export function AdminMediaLibrary({
         <div className="flex flex-col gap-3 border-b border-zinc-200 bg-zinc-50/80 px-5 py-4 lg:flex-row lg:items-center">
           <AdminInput
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setDeleted(undefined);
+              setQuery(event.target.value);
+            }}
             placeholder={mergedLabels.searchPlaceholder}
             aria-label={mergedLabels.searchLabel}
           />
           <AdminSelect
             className="lg:w-52"
             value={kind}
-            onChange={(event) => setKind(event.target.value as AdminMediaKind | "")}
+            onChange={(event) => {
+              setDeleted(undefined);
+              setKind(event.target.value as AdminMediaKind | "");
+            }}
             aria-label={mergedLabels.kindFilter}
           >
             <option value="">{mergedLabels.allKinds}</option>
