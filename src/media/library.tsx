@@ -223,8 +223,6 @@ export function AdminMediaLibrary({
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const visible = useMemo(() => {
-    // Sorting here rather than in the adapter: the adapter's contract is a page of what matched, and
-    // the order a person reads a grid in is the same decision whichever page it came from.
     const allowed = stableAllowedKinds?.length
       ? items.filter((item) => stableAllowedKinds.includes(item.kind))
       : items;
@@ -243,7 +241,9 @@ export function AdminMediaLibrary({
               .toLocaleLowerCase(resolvedLocale)
               .includes(normalized),
           );
-    return sortAdminMediaItems(matched, sort, resolvedLocale);
+    // The adapter sorted before paging, so its order is the only one that can remain global across
+    // cursors. Local data and a failed-read fallback have no store to order them.
+    return adapter && !showingFallbackItems ? matched : sortAdminMediaItems(matched, sort, resolvedLocale);
   }, [adapter, items, kind, query, resolvedLocale, showingFallbackItems, sort, source, stableAllowedKinds]);
 
   const previewable = visible.filter((item) => isImageMediaItem(item));
