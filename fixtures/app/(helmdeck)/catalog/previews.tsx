@@ -15,12 +15,14 @@
  */
 
 import { useState, type ComponentType, type ReactNode } from "react";
-import type { AdminAuditEvent } from "@yesvus/helmdeck";
+import type { AdminAuditEvent, AdminMediaAdapter } from "@yesvus/helmdeck";
 import { AlertTriangle, BarChart3, CheckCircle2, Info, LineChart, Package, Palette, Rows3, type LucideIcon } from "lucide-react";
 import {
   ADMIN_DENSITIES,
   AdminActivityPage,
   AdminActivityTimeline,
+  AdminMediaLibrary,
+  AdminMediaLibraryPage,
   AdminBanner,
   AdminBreadcrumbs,
   AdminChartFrame,
@@ -564,6 +566,67 @@ function BulkActionsSample() {
   );
 }
 
+/**
+ * A store that answers a library preview without reaching the network.
+ *
+ * Two images with data URLs and one link, which is the whole set of cases the grid renders
+ * differently: a thumbnail, a placeholder, and a row with no delete control because the asset is not
+ * ours to remove.
+ */
+function previewMediaAdapter(): AdminMediaAdapter {
+  const image = (fill: string) =>
+    `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='480'%3E%3Crect width='640' height='480' fill='${fill}'/%3E%3C/svg%3E`;
+  return {
+    async list() {
+      return {
+        total: 3,
+        items: [
+          {
+            name: "Studio desk",
+            path: "media/studio-desk.svg",
+            publicUrl: image("%232563eb"),
+            source: "uploaded",
+            kind: "image",
+            size: 2_411_724,
+            updatedAt: PREVIEW_NOW.toISOString(),
+          },
+          {
+            name: "Price list",
+            path: "media/price-list.pdf",
+            publicUrl: "/media/price-list.pdf",
+            source: "uploaded",
+            kind: "pdf",
+            size: 184_320,
+            updatedAt: "2026-09-27T09:00:00.000Z",
+          },
+          {
+            name: "Launch film",
+            path: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+            publicUrl: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+            source: "youtube",
+            kind: "youtube",
+            updatedAt: "2026-09-20T09:00:00.000Z",
+          },
+        ],
+      };
+    },
+    async upload(file) {
+      return {
+        name: file.name,
+        path: `media/${file.name}`,
+        publicUrl: image("%237c3aed"),
+        source: "uploaded",
+        kind: "image",
+        size: file.size,
+        updatedAt: PREVIEW_NOW.toISOString(),
+      };
+    },
+    async delete() {
+      // A preview has nothing to delete from.
+    },
+  };
+}
+
 function MediaLightboxPreview() {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
@@ -1036,6 +1099,21 @@ export const catalogPreviews: Record<string, ComponentType> = {
   ),
   AdminMediaAspectRatioHint: () => <AdminMediaAspectRatioHint aspectRatio="16:9" />,
   AdminMediaLightbox: () => <MediaLightboxPreview />,
+
+  AdminMediaLibrary: () => (
+    <AdminI18nProvider locale="en">
+      <ActivityWindow>
+        <AdminMediaLibrary adapter={previewMediaAdapter()} />
+      </ActivityWindow>
+    </AdminI18nProvider>
+  ),
+  AdminMediaLibraryPage: () => (
+    <AdminI18nProvider locale="en">
+      <ActivityWindow>
+        <AdminMediaLibraryPage adapter={previewMediaAdapter()} />
+      </ActivityWindow>
+    </AdminI18nProvider>
+  ),
 
   AdminI18nProvider: () => (
     <div className="space-y-3">

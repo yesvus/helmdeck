@@ -10,6 +10,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
 - Six ready dashboard tiles (stat, table, list, time-series chart, ranked chart, activity feed) that render the engine's four states themselves, so a host registers a tile rather than writing one.
 - Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
+- A ready-made media library page over the same adapter: searchable and filterable grid, upload, lightbox preview, and a delete offered only for assets this installation stores. See [The media library page](#the-media-library-page).
 - CSV export and import over the resource seam: the list a query names as a downloadable file, and a file read into the store a row at a time.
 - Visitor analytics over the same persistence seam: record a page view or a named event, and read back views, unique visitors, top paths and sources per day. The visitor key and the retention window are the host's, and nothing here derives or defaults either.
 - An analytics report as a file: the period, the policy behind it, and the figures per day, per path and per source, with the totals stated in the file where a spreadsheet can check them against the rows above them.
@@ -1890,6 +1891,28 @@ on a host's behalf.
 The package does not choose a storage provider. Implement `AdminMediaAdapter` for the host's list, upload, external-link, rename, and delete operations, then pass it to `AdminMediaUpload`, `AdminMediaPicker`, `AdminMediaField`, or `AdminMediaGalleryField`.
 
 `AdminMediaField` opens a full-screen preview when its selected value is an image. `AdminMediaGalleryField` opens an image lightbox from each image thumbnail and supports previous/next navigation with buttons or arrow keys. Hosts can also use the exported `AdminMediaLightbox` with a controlled list of image URLs and alt text.
+
+### The media library page
+
+The field and the picker are for choosing an asset. A site also needs the page an operator browses, and that is what `AdminMediaLibrary` is: a searchable, filterable grid over the same adapter, with upload, preview and delete.
+
+```tsx
+import { AdminMediaLibraryPage } from "@yesvus/helmdeck";
+
+export default function MediaPage() {
+  return <AdminMediaLibraryPage adapter={mediaAdapter} />;
+}
+```
+
+`AdminMediaLibrary` is the same thing without the heading, for a host mounting it inside a page it already has. A host that has resolved the assets itself and has no adapter to read through passes `items` instead; a host with neither gets a panel saying no media store is wired, which is an answer rather than an empty grid a reader would take for an empty library.
+
+**Everything the reader asks for is a call on your adapter.** The search text, the kind filter and the paging cursor go to `list`, an upload goes to `upload`, a delete to `delete`. The library sorts and paginates what it is handed and never filters a page it has already fetched, so a host whose store can narrow does the narrowing where the data lives.
+
+**Delete is offered for what this library could actually remove.** By default that is an asset whose `source` is `uploaded` or `local`, and only when your adapter has a `delete` at all: a YouTube video and somebody else's URL are not this installation's files, and a control for them would be a button that cannot do what it says. `deletable` replaces that rule when your policy differs. What your adapter then answers is the decision; the library hides controls, it does not authorize.
+
+**A refused delete leaves the asset in place**, with the failure said rather than swallowed, because a delete your store declined has not happened and a grid that dropped the row anyway would be reporting a change nobody can point at.
+
+`uploadPermission` and `deletePermission` are optional permission names. Name them where your rule already answers for upload or delete and the controls follow the rule; a session the rule refuses sees neither. Left unnamed, the adapter's presence decides, which is what the picker does today.
 
 ## Development
 

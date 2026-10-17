@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { AdminMediaKind } from "../adapters/index.js";
+
 export type AdminMediaLabels = {
   description: string;
   searchPlaceholder: string;
@@ -36,6 +38,22 @@ export type AdminMediaLabels = {
   sourceUploaded: string;
   sourceYoutube: string;
   sourceExternal: string;
+  /** A library rather than a picker: what its own controls say. */
+  libraryUnavailable: string;
+  libraryTitle: string;
+  libraryDescription: string;
+  libraryOpen: string;
+  libraryEmptyBody: string;
+  kindFilter: string;
+  allKinds: string;
+  kinds: Record<AdminMediaKind, string>;
+  delete: string;
+  deleteTitle: string;
+  deleteDescription: string;
+  deleteConfirm: string;
+  deleteBusy: string;
+  deleteFailed: string;
+  deleted: string;
 };
 
 export const defaultAdminMediaLabels = {
@@ -75,4 +93,24 @@ export const defaultAdminMediaLabels = {
   sourceUploaded: "Uploaded media",
   sourceYoutube: "YouTube link",
   sourceExternal: "External media",
+  libraryUnavailable: "This site has no media store wired, so there is nothing to browse here.",
+  libraryTitle: "Media",
+  libraryDescription: "Everything this site has uploaded or linked, and the four things you can do with it.",
+  libraryOpen: "Open this file in a new tab",
+  kindFilter: "Filter by kind",
+  allKinds: "All kinds",
+  kinds: {
+    image: "Image",
+    video: "Video",
+    pdf: "PDF",
+    youtube: "YouTube",
+  },
+  delete: "Delete",
+  deleteTitle: "Delete this asset?",
+  deleteDescription: "The file is removed from the media store. A record still pointing at it will not find it.",
+  deleteConfirm: "Yes, delete",
+  deleteBusy: "Deleting...",
+  deleteFailed: "That asset could not be deleted.",
+  deleted: "Deleted",
+  libraryEmptyBody: "Upload something, or clear the search and the filter, and it appears here.",
 } satisfies AdminMediaLabels;
