@@ -644,8 +644,9 @@ function previewMediaAdapter(): AdminMediaAdapter {
       all.push(item);
       return item;
     },
-    async delete() {
-      // A preview has nothing to delete from.
+    async delete(item) {
+      const index = all.findIndex((stored) => stored.path === item.path);
+      if (index >= 0) all.splice(index, 1);
     },
   };
 }
