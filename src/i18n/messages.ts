@@ -26,6 +26,11 @@ import {
   defaultAdminResourceListQueryLabels,
   type AdminResourceListQueryLabels,
 } from "../resources/list-labels.js";
+import {
+  defaultAdminActivityMessages,
+  turkishAdminActivityMessages,
+  type AdminActivityMessages,
+} from "../activity/messages.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -115,6 +120,8 @@ export type AdminMessages = {
   dashboard: AdminDashboardMessages;
   resourceList: AdminResourceListQueryLabels;
   resourceHistory?: AdminResourceHistoryMessages;
+  /** The words the activity trail prints itself, which a trail cannot read from a context. */
+  activity?: AdminActivityMessages;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -139,6 +146,7 @@ export const englishAdminMessages: AdminMessages = {
   dashboard: defaultDashboardMessages,
   resourceList: defaultAdminResourceListQueryLabels,
   resourceHistory: defaultAdminResourceHistoryMessages,
+  activity: defaultAdminActivityMessages,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -299,6 +307,7 @@ export const turkishAdminMessages: AdminMessages = {
     noMatchesBody: "Farklı bir terim ya da temizlenmiş bir filtre bulabilir.",
   },
   resourceHistory: turkishAdminResourceHistoryMessages,
+  activity: turkishAdminActivityMessages,
   widget: {
     emptyTitle: "Gösterilecek veri yok",
     emptyBody: "Bu bileşen için henüz veri yok.",
