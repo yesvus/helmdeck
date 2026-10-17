@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminShell } from "../src/shell/admin-shell";
+import { AdminI18nProvider } from "../src/i18n";
 import { AdminScopeProvider } from "../src/scope";
 import { AdminPageHeader } from "../src/shell/admin-page-header";
 import { AdminShellProvider } from "../src/shell/context";
@@ -176,6 +177,35 @@ describe("persistent shell page context", () => {
     );
     expect(expandedInactiveLink).toHaveClass("min-h-8");
     expect(expandedInactiveLink?.querySelector("svg")).not.toBeInTheDocument();
+  });
+
+  it("keeps the sidebar toggle working when the browser refuses to store anything", async () => {
+    // A browser that refuses storage is Safari in private mode and a full quota, and the reader's
+    // answer to a toggle that does nothing is that the sidebar is broken rather than that the
+    // preference could not be kept. So the value is kept for the session and only its survival into
+    // the next one is what the refusal costs.
+    const refused = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("storage is full");
+      },
+    };
+    vi.stubGlobal("localStorage", refused);
+    const user = userEvent.setup();
+    render(
+      <AdminI18nProvider locale="en">
+        <AdminShell nav={nav}><div>Page content</div></AdminShell>
+      </AdminI18nProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
+
+    // And back again, so a refused write is not a one-way door.
+    await user.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeInTheDocument();
+
+    vi.unstubAllGlobals();
   });
 
   it("shows a page header when the shell topbar is disabled", () => {

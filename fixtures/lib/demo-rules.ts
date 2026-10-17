@@ -87,9 +87,27 @@ const ROLE_RULES: ReadonlyMap<string, RoleRule> = new Map([
  * Resources reserved to administrators.
  *
  * Orders are listed as an administrator's page by the navigation already, and a rule that let the
- * action through while the link was hidden would make that filtering decoration.
+ * action through while the link was hidden would make that filtering decoration. Activity is here for
+ * the same reason and one more: the trail holds every writer's writes, so an editor reading it would
+ * be reading two colleagues' work by accident.
  */
-const ADMIN_ONLY = new Set(["orders"]);
+const ADMIN_ONLY = new Set(["orders", "activity"]);
+
+/**
+ * Permissions that are not about an exposed resource, decided by the same rule and the same role.
+ *
+ * The activity trail is the one that needs this. Its table is written directly rather than through
+ * the resource actions, because a trail written through them would record the trail's own writes and
+ * never finish, so there is no resource for the opening line of `demoCan` to accept. The page that
+ * reads it still needs one answer about one role, and getting it from a second rule would leave two
+ * rules to disagree about the same session.
+ *
+ * Administrators read the whole trail. An editor may not: it holds every writer's writes, and the
+ * only two events an editor is sure of are their own, which the per-record history already shows.
+ */
+const PAGE_PERMISSIONS = new Map<string, ReadonlySet<string>>([
+  ["activity", new Set(["read"])],
+]);
 
 /**
  * The rule, in the shape the package asks one: a session it resolved and a permission named
@@ -112,12 +130,19 @@ export const demoCan = (session: AdminSession, permission: AdminPermission): boo
   const parts = permission.split(".");
   if (parts.length !== 2) return false;
   const [resource, operation] = parts;
-  if (!exposedResource(resource)) return false;
 
   const rule = ROLE_RULES.get(session.role ?? "");
   // A session with no role, or with a role this rule does not define, may do nothing at all. The
   // permissive answer is what a role column nobody checked would otherwise hand out.
   if (!rule) return false;
+
+  const pageOperations = PAGE_PERMISSIONS.get(resource);
+  if (pageOperations) {
+    if (!rule.everyResource && ADMIN_ONLY.has(resource)) return false;
+    return pageOperations.has(operation);
+  }
+
+  if (!exposedResource(resource)) return false;
   if (!rule.everyResource && ADMIN_ONLY.has(resource)) return false;
   return rule.operations.has(operation);
 };

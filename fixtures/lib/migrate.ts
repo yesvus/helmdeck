@@ -17,8 +17,9 @@
  *
  * A file is applied and only then recorded. Two instances booting at once can therefore apply the
  * same file twice, which every file here survives because they are all `CREATE ... IF NOT EXISTS` or
- * `INSERT OR IGNORE`. The alternative, recording first, risks the opposite and far worse case: a
- * file marked applied that never ran, on a database whose schema now claims something untrue.
+ * `INSERT OR IGNORE`, or because the runner treats a column that is already there as applied. The
+ * alternative, recording first, risks the opposite and far worse case: a file marked applied that
+ * never ran, on a database whose schema now claims something untrue.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -115,6 +116,23 @@ async function rows(client: SqlClient, sql: string): Promise<string[]> {
 }
 
 /**
+ * Whether a failure means the schema already says what the statement would have said.
+ *
+ * `ALTER TABLE ... ADD COLUMN` is the one statement in this directory SQLite cannot be asked to write
+ * twice: there is no `ADD COLUMN IF NOT EXISTS`, and every other file survives a second application
+ * because it is `CREATE ... IF NOT EXISTS` or `INSERT OR IGNORE`. Since a file is recorded only after
+ * it runs, two instances booting together can both reach this one, and the second would fail on a
+ * column the first had already added. Skipping the statement when the column is already there is what
+ * running it again would have done, so the ledger still records the file and the boot still succeeds.
+ *
+ * Narrow on purpose: a duplicate column means the schema is right, and anything else means it is not.
+ */
+function isAlreadyAddedColumn(cause: unknown): boolean {
+  const message = cause instanceof Error ? cause.message : String(cause);
+  return /duplicate column name/i.test(message);
+}
+
+/**
  * Applies every migration file the ledger has not recorded, in file-name order.
  *
  * Returns rather than throws on an empty ledger, and throws on a file that fails, because a migration
@@ -140,7 +158,11 @@ export async function migrateDemo(
 
     const sql = readFileSync(join(dir, file), "utf8");
     for (const statement of splitStatements(sql)) {
-      await client.execute({ sql: statement });
+      try {
+        await client.execute({ sql: statement });
+      } catch (cause) {
+        if (!isAlreadyAddedColumn(cause)) throw cause;
+      }
     }
     await client.execute({ sql: "INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)", args: [file] });
     applied.push(file);

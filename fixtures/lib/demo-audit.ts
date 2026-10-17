@@ -27,7 +27,8 @@ const TABLE = "audit_events";
  *
  * `fields` holds the field **names** the record carried, never its values. A trail holding every
  * value a record has ever had is a second copy of every secret in the table, and the package's event
- * does not ask for values either.
+ * does not ask for values either. The actor's name is stored beside the email and the role because
+ * the trail's filter searches all three, and a column it never reads is a column it cannot find.
  */
 function toRow(event: AdminAuditEvent): Record<string, unknown> {
   const actor = event.actor;
@@ -37,6 +38,7 @@ function toRow(event: AdminAuditEvent): Record<string, unknown> {
     resource_id: event.resourceId ?? "",
     action: event.action,
     actor_email: actor?.email ?? "",
+    actor_name: actor?.name ?? "",
     actor_role: actor?.role ?? "",
     fields: JSON.stringify((event.metadata?.fields as string[] | undefined) ?? []),
     occurred_at: event.occurredAt ?? new Date().toISOString(),

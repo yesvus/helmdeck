@@ -8,6 +8,14 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Added
+
+- `AdminActivityPage` and `AdminActivityTimeline` read a host's audit events as a page, with action, actor and date filters, expandable event details, and English and Turkish wording.
+
+### Fixed
+
+- The shell reads its stored sidebar state through an external store with a server snapshot, so the sidebar no longer flips between the server's answer and the stored one after hydration, and the change no longer trips the set-state-in-effect lint rule.
+
 ## 0.9.0
 
 ### Added

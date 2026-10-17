@@ -14,6 +14,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - Visitor analytics over the same persistence seam: record a page view or a named event, and read back views, unique visitors, top paths and sources per day. The visitor key and the retention window are the host's, and nothing here derives or defaults either.
 - An analytics report as a file: the period, the policy behind it, and the figures per day, per path and per source, with the totals stated in the file where a spreadsheet can check them against the rows above them.
 - A content lifecycle over the host's own rows: revision history a person can read and restore from, a soft delete with a trash, and a way back from both. See [Content lifecycle](#content-lifecycle).
+- An activity page over the host's audit events: filters for action, actor and date, expandable event details, and the tones that make a trail scannable. See [Reading the trail in a page](#reading-the-trail-in-a-page).
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
 - A static bilingual fixture app for the hosted demo.
 - A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
@@ -1042,7 +1043,7 @@ A refused call records nothing, because nothing happened to record: a permission
 
 **The event says what happened.** `action` is the operation (`create`, `update`, `delete`), `resource` and `resourceId` name the record, `actor` is the session the guard decided for, and `occurredAt` is an ISO timestamp. A create names the id **the store assigned**, which is the other reason the event is built after the write: before it, a create has no record to name, and a trail that cannot name a new record is not the history of anything. `metadata.fields` holds the field names of the record the store now holds, which is the shape of the write and not a diff. Names rather than values on purpose: a trail holding every value a record ever had is a second copy of every secret in the table. A host that wants the values keeps them where a change is reversible from, which is its own revision store.
 
-Reading the trail is the host's sink: the events carry the resource and the record, so the history of one record is a query against your own table. A diff, a restore, and a shipped place to read a trail are not part of this contract.
+Reading the trail is the host's sink: the events carry the resource and the record, so the history of one record is a query against your own table. Reading a trail as a page is [Reading the trail in a page](#reading-the-trail-in-a-page), and restoring one record's own versions is [Content lifecycle](#content-lifecycle).
 
 **A create invalidates the resource, not the record.** A record no read has returned yet has no key in your cache, so what a create invalidates is the collection it joined. An update and a delete name the record, because that is the key a read of it cached.
 
@@ -1063,6 +1064,56 @@ Which rows a read returns is your own row scoping, alongside whatever else filte
 **A server action must use the same boundary, and the views are not what does it.** `adminResourceValues` shapes the generated form's submission in the browser. A direct action call bypasses it. The example above passes `definitions` to `createAdminResourceActions`, which refuses undeclared keys before the adapter receives a write. Do not hand a browser-controlled value directly to the adapter. That also means the server names the record: `id` is accepted on create, where it names a new record, and refused on update, where the route already names the record. The persistence layer's column check is not a substitute. It asks whether a name is a column of the table, and `id`, `created_at` and `updated_at` all are.
 
 **Hand-rolled instead:** implement `AdminPermissionsAdapter` and `AdminPersistenceAdapter` yourself. Nothing in the views requires the memory adapter; it is one implementation for fixtures and tests.
+
+### Reading the trail in a page
+
+Recording a trail and being able to read it are two different halves. The seam above records events into your table; this is the page that reads them back, so a host adds a route rather than rebuilding a log.
+
+```tsx
+// app/admin/activity/page.tsx
+import { AdminActivityPage } from "@yesvus/helmdeck";
+
+export default function ActivityPage() {
+  return (
+    <AdminActivityPage
+      load={listActivityEventsAction}
+      actions={["create", "update", "delete"]}
+      permission="activity.read"
+    />
+  );
+}
+```
+
+```ts
+// app/admin/activity/actions.ts
+"use server";
+
+import { AdminPermissionDeniedError, type AdminActivityFilter } from "@yesvus/helmdeck";
+
+export async function listActivityEventsAction(filter: AdminActivityFilter = {}) {
+  const session = await requireSession();
+  if (!(await can(session, "activity.read"))) {
+    throw new AdminPermissionDeniedError({
+      permission: "activity.read",
+      session,
+      reason: "denied",
+    });
+  }
+  return readYourTrailTable(session, filter);
+}
+```
+
+**The action is the read, not the view.** The `permission` prop decides what renders; what is readable is your action's decision, made on the server. A browser that never asks gets nothing, and a browser that asks anyway is refused by the action.
+
+**Events arrive one of two ways.** A page that already has its trail passes `events`, and the filters narrow the list in the browser. A host whose trail sits behind an action passes `load`, and the filter is handed to it, so the narrowing happens against the store rather than after everything was fetched. `actions` names the action values the filter offers; without them the control is not rendered, because a filter that can only hold one value says nothing.
+
+**The filters are action, actor and date range**, applied together and cleared with one control. The actor field matches any part of who a person is: name, email or role. The two date fields read as whole days in UTC, so the same filter means the same day for every reader rather than sliding with the browser's offset.
+
+**An event's details open onto its metadata**, including the names of the fields a write touched. Those names are what `metadata.fields` carries and what the event has always carried; this page prints them as they arrive and shows whatever else you stored. Values are yours to show, and the decision about keeping them belongs with the place that can undo a change from them.
+
+Ages come from the same thresholds the dashboard tile uses, so a number on the trail and a number on a tile cannot disagree about how old an event is. `adminActivityTone` maps an action to a tone for the badge, and returns neutral for an action it does not know, which is what a host's own domain actions get until it says otherwise.
+
+`AdminActivityTimeline` is the same trail without the heading, for a host mounting it inside a page it already has. Both take `labels` one string at a time, and read the Turkish dictionary through the shell's locale.
 
 ### The memory adapter
 

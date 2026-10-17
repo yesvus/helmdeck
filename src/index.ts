@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 export * from "./adapters/index.js";
+export * from "./activity/index.js";
 export * from "./aggregate/index.js";
 export * from "./analytics/index.js";
 export * from "./analytics-export/index.js";

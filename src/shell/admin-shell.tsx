@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link.js";
 import { usePathname } from "next/navigation.js";
@@ -25,6 +25,52 @@ import { useAdminHref, useAdminMessages } from "../i18n.js";
 
 const OPEN_GROUPS_STORAGE_KEY = "yesvus:helmdeck:open-nav-groups:v1";
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "yesvus:helmdeck:sidebar-collapsed:v1";
+
+/**
+ * The stored sidebar state, as an external store rather than a read during render.
+ *
+ * Reading storage while rendering hands the server one answer and the browser another, which React
+ * reports as a hydration mismatch and a reader sees as a sidebar that jumps after the page paints.
+ * `useSyncExternalStore` is the shape that holds both to one value: the server snapshot is the
+ * default, the browser's snapshot is what is stored, and the first client render agrees with what
+ * the server already sent. A browser that refuses storage answers the default, which is a sidebar
+ * rather than a failure.
+ */
+const collapsedListeners = new Set<() => void>();
+
+function readStoredCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
+  } catch {
+    // A browser refusing storage loses the preference between visits. The caller keeps it for the
+    // session in the state it renders from, so what the refusal costs is the next visit and not
+    // this one, where a toggle that did nothing would read as a broken sidebar.
+  }
+  for (const listener of collapsedListeners) listener();
+}
+
+/** The store's own writes, and another tab's, which is the same preference to this reader. */
+function subscribeToCollapsed(onChange: () => void): () => void {
+  collapsedListeners.add(onChange);
+  if (typeof window === "undefined") {
+    return () => {
+      collapsedListeners.delete(onChange);
+    };
+  }
+  window.addEventListener("storage", onChange);
+  return () => {
+    collapsedListeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
 
 export function AdminShell({
   nav,
@@ -79,8 +125,11 @@ export function AdminShell({
   );
   const visibleNav = useMemo(() => filterNavGroups(nav, session?.role), [nav, session?.role]);
   const branding = useAdminBranding(brand?.accent);
-  const [collapsed, setCollapsed] = useState(false);
-  const [collapsedLoaded, setCollapsedLoaded] = useState(false);
+  // The reader's own answer, kept here rather than in the store, because it is this session's answer:
+// what a browser refuses to store is still the state this shell renders from until it is unmounted.
+  const [override, setOverride] = useState<boolean | null>(null);
+  const readCollapsed = useCallback(() => override ?? readStoredCollapsed(), [override]);
+  const collapsed = useSyncExternalStore(subscribeToCollapsed, readCollapsed, () => false);
   const internalContentScrollRef = useRef<HTMLDivElement>(null);
   const groupPreferences = useRef<Record<string, boolean> | null>(null);
   const [groupPreferencesLoaded, setGroupPreferencesLoaded] = useState(false);
@@ -100,24 +149,10 @@ export function AdminShell({
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
-  useEffect(() => {
-    try {
-      const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
-      if (savedCollapsed !== null) {
-        setCollapsed(savedCollapsed === "true");
-      }
-    } catch {}
-    setCollapsedLoaded(true);
+  const changeCollapsed = useCallback((next: boolean) => {
+    setOverride(next);
+    writeStoredCollapsed(next);
   }, []);
-
-  useEffect(() => {
-    if (!collapsedLoaded) return;
-    try {
-      localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
-    } catch {
-      return;
-    }
-  }, [collapsedLoaded, collapsed]);
 
   useEffect(() => {
     try {
@@ -204,7 +239,7 @@ export function AdminShell({
         session,
         labels: mergedLabels,
         collapsed,
-        expandSidebar: () => setCollapsed(false),
+        expandSidebar: () => changeCollapsed(false),
         homeHref,
         profileHref: resolvedProfileHref,
         viewSiteHref: resolvedViewSiteHref,
@@ -240,7 +275,7 @@ export function AdminShell({
               )}
               <button
                 type="button"
-                onClick={() => setCollapsed((current) => !current)}
+                onClick={() => changeCollapsed(!collapsed)}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                 aria-label={collapsed ? mergedLabels.sidebarExpand : mergedLabels.sidebarCollapse}
                 title={collapsed ? mergedLabels.sidebarExpand : mergedLabels.sidebarCollapse}
@@ -256,7 +291,7 @@ export function AdminShell({
             <AdminSearch
               groups={visibleNav}
               collapsed={collapsed}
-              onExpand={() => setCollapsed(false)}
+              onExpand={() => changeCollapsed(false)}
             />
 
             <nav className={cn("flex-1 overflow-y-auto py-2", collapsed ? "px-2" : "px-2.5")}>

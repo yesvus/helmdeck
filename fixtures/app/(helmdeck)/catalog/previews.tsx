@@ -15,9 +15,12 @@
  */
 
 import { useState, type ComponentType, type ReactNode } from "react";
+import type { AdminAuditEvent } from "@yesvus/helmdeck";
 import { AlertTriangle, BarChart3, CheckCircle2, Info, LineChart, Package, Palette, Rows3, type LucideIcon } from "lucide-react";
 import {
   ADMIN_DENSITIES,
+  AdminActivityPage,
+  AdminActivityTimeline,
   AdminBanner,
   AdminBreadcrumbs,
   AdminChartFrame,
@@ -331,6 +334,70 @@ const AGES: Record<string, number> = {
   tamper: 2 * 86_400_000,
   filter: 9 * 86_400_000,
 };
+
+/**
+ * A trail's events, carrying what the package's own event carries: the names of the fields a write
+ * touched, and none of their values.
+ *
+ * Four events rather than three, because the two things a preview cannot show without them are the
+ * age thresholds and the detail panel: one event under a minute old, one over a week, one whose
+ * metadata says nothing, and one that names the fields it changed.
+ */
+const PREVIEW_EVENTS: AdminAuditEvent[] = [
+  {
+    action: "update",
+    resource: "products",
+    resourceId: "prd_42",
+    actor: { email: "ada@example.com", name: "Ada Lovelace", role: "admin" },
+    occurredAt: ago(9 * 86_400_000).toISOString(),
+    metadata: { fields: ["price", "stock"] },
+  },
+  {
+    action: "create",
+    resource: "products",
+    resourceId: "prd_43",
+    actor: { email: "grace@example.com", name: "Grace Hopper", role: "editor" },
+    occurredAt: ago(20_000).toISOString(),
+    metadata: { fields: ["name"], source: "import" },
+  },
+  {
+    action: "delete",
+    resource: "products",
+    resourceId: "prd_17",
+    actor: { email: "ada@example.com", name: "Ada Lovelace", role: "admin" },
+    occurredAt: ago(5 * 3_600_000).toISOString(),
+  },
+  {
+    action: "restore",
+    resource: "products",
+    resourceId: "prd_42",
+    occurredAt: ago(3 * 60_000).toISOString(),
+    metadata: { fields: ["price"] },
+  },
+];
+
+/**
+ * A scrollable window rather than a clipped one.
+ *
+ * The trail is taller than a card, and a preview that hid the rest of it would show a component
+ * whose own filter and detail controls cannot be reached, which is the opposite of what a catalogue
+ * entry is for.
+ */
+function ActivityWindow({ children }: { children: ReactNode }) {
+  return (
+    <div className="h-[30rem] overflow-y-auto rounded-lg border border-dashed border-zinc-200">
+      {children}
+    </div>
+  );
+}
+
+function ActivityPreview() {
+  return (
+    <ActivityWindow>
+      <AdminActivityTimeline events={PREVIEW_EVENTS} now={() => PREVIEW_NOW} />
+    </ActivityWindow>
+  );
+}
 
 const TILE_ROWS = [
   { id: "espresso", name: "Espresso machine", status: "Published", cents: 12900, stock: 58 },
@@ -979,6 +1046,19 @@ export const catalogPreviews: Record<string, ComponentType> = {
         <p className="text-sm text-zinc-700">Turkish: the same surface, with a dictionary the host supplied.</p>
       </AdminI18nProvider>
     </div>
+  ),
+
+  AdminActivityTimeline: () => (
+    <AdminI18nProvider locale="en">
+      <ActivityPreview />
+    </AdminI18nProvider>
+  ),
+  AdminActivityPage: () => (
+    <AdminI18nProvider locale="en">
+      <ActivityWindow>
+        <AdminActivityPage events={PREVIEW_EVENTS} now={() => PREVIEW_NOW} />
+      </ActivityWindow>
+    </AdminI18nProvider>
   ),
 
   AdminThemeSettingsProvider: () => (

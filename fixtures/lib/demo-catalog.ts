@@ -29,6 +29,7 @@ export const CATALOG_CATEGORIES = [
   "Collections",
   "Media",
   "Resources",
+  "Activity",
   "Import and export",
   "Internationalisation",
   "Theme and colour",
@@ -1458,6 +1459,33 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The create and edit form for a declared resource, driven by its field definitions.",
     keywords: "form create edit resource",
     hostNote: "It is given a resource definition and a record by the host, and has no fields of its own.",
+  },
+  AdminActivityTimeline: {
+    category: "Activity",
+    summary: "A trail of audit events with filters for action, actor and date, and expandable details.",
+    keywords: "activity audit trail events log filters diff",
+    renderable: true,
+  },
+  AdminActivityPage: {
+    category: "Activity",
+    summary: "The whole activity page: a heading and the trail, for a host adding one route.",
+    keywords: "activity audit page route log trail",
+    renderable: true,
+  },
+  adminActivityTone: {
+    category: "Activity",
+    summary: "The tone an action reads as in a trail, so a feed is scanned rather than read.",
+    keywords: "tone action badge colour",
+  },
+  defaultAdminActivityMessages: {
+    category: "Activity",
+    summary: "The English wording the activity trail prints itself, unless a host replaces it.",
+    keywords: "labels copy activity wording",
+  },
+  turkishAdminActivityMessages: {
+    category: "Activity",
+    summary: "The Turkish wording of the same strings, for a host whose shell is in Turkish.",
+    keywords: "labels copy activity turkish wording",
   },
   AdminScopeProvider: {
     category: "Resources",
