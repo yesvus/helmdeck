@@ -62,7 +62,15 @@ function adapter(overrides: Partial<AdminMediaAdapter> = {}): AdminMediaAdapter 
           (!query?.source || item.source === query.source)
         );
       });
-      return { items: matched, total: matched.length };
+      const offset = query?.cursor ? Number.parseInt(query.cursor, 10) || 0 : 0;
+      const limit = query?.limit ?? matched.length;
+      const page = matched.slice(offset, offset + limit);
+      const nextOffset = offset + page.length;
+      return {
+        items: page,
+        total: matched.length,
+        ...(nextOffset < matched.length ? { nextCursor: String(nextOffset) } : {}),
+      };
     }),
     upload: vi.fn(async (file: File) => {
       const item: AdminMediaItem = {
@@ -78,7 +86,10 @@ function adapter(overrides: Partial<AdminMediaAdapter> = {}): AdminMediaAdapter 
       items.push(item);
       return item;
     }),
-    delete: vi.fn(async () => undefined),
+    delete: vi.fn(async (item: AdminMediaItem) => {
+      const index = items.findIndex((current) => current.path === item.path);
+      if (index >= 0) items.splice(index, 1);
+    }),
     ...overrides,
   };
 }
@@ -292,6 +303,7 @@ describe("AdminMediaLibrary", () => {
     await tiles();
     await user.selectOptions(screen.getByLabelText("Filter by kind"), "image");
     await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "image" })));
+    const readsBeforeUpload = vi.mocked(store.list).mock.calls.length;
 
     await user.click(screen.getByRole("button", { name: "Upload" }));
     await user.upload(
@@ -300,7 +312,10 @@ describe("AdminMediaLibrary", () => {
     );
     await user.click(screen.getByRole("button", { name: "Upload file" }));
 
-    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "image" })));
+    await waitFor(() => {
+      expect(vi.mocked(store.list)).toHaveBeenCalledTimes(readsBeforeUpload + 1);
+      expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "image" }));
+    });
     expect(
       screen.getAllByRole("listitem").map((tile) => tile.textContent ?? "").some((text) => text.includes("catalog.pdf")),
     ).toBe(false);
@@ -369,6 +384,23 @@ describe("AdminMediaLibrary", () => {
     await waitFor(() => expect(store.delete).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.queryByText("Studio desk")).not.toBeInTheDocument());
     expect(screen.getByText(/^Deleted: Studio desk$/)).toBeInTheDocument();
+  });
+
+  it("refills a full page after deleting an asset while more results remain", async () => {
+    const user = userEvent.setup();
+    const store = adapter();
+    render(tree(<AdminMediaLibrary adapter={store} pageSize={2} />));
+    await tiles();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+
+    await user.click(within(tileNamed("Studio desk")).getByRole("button", { name: "Delete: Studio desk" }));
+    await user.click(await screen.findByRole("button", { name: "Yes, delete" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Press photo")).toBeInTheDocument();
+      expect(screen.queryByText("Studio desk")).not.toBeInTheDocument();
+      expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    });
   });
 
   it("offers no delete for a link to somebody else's file", async () => {

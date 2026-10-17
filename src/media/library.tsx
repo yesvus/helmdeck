@@ -268,12 +268,11 @@ export function AdminMediaLibrary({
     setDeleteError(undefined);
     try {
       await adapter.delete(item);
-      setAdapterItems((current) => current.filter((current_item) => current_item.path !== item.path));
-      // The footer counts what the store holds, so a total left where it was would report one more
-      // asset than the grid shows, for as long as the page stays open.
-      setTotal((current) => (typeof current === "number" ? Math.max(0, current - 1) : current));
       setDeleted(item.name);
       onDeleted?.(item);
+      // Removing a row from a full page leaves an existing store item hidden behind the cursor, so
+      // reload the current query and let the store supply the replacement and total.
+      void loadItems(query, kind);
     } catch {
       // The row stays where it is: a delete the store refused has not happened, and a library that
       // dropped it anyway would be reporting a change it cannot point at.
