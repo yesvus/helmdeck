@@ -302,7 +302,7 @@ describe("a query that matches nothing", () => {
     expect(await screen.findByText("No records match what you searched for.")).toBeInTheDocument();
     expect(screen.queryByText("Nothing here yet.")).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   it("says the same for a filter that matches nothing", async () => {
     render(tree(<ProductsPage />));

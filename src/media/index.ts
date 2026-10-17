@@ -3,6 +3,8 @@ export { AdminMediaAspectRatioHint, AdminMediaField } from "./field.js";
 export { AdminMediaGalleryField } from "./gallery-field.js";
 export { AdminMediaLightbox } from "./lightbox.js";
 export type { AdminMediaLightboxImage } from "./lightbox.js";
+export { AdminMediaLibrary, AdminMediaLibraryPage, adminMediaDeletableItem } from "./library.js";
+export type { AdminMediaLibraryProps, AdminMediaLibraryPageProps } from "./library.js";
 export { defaultAdminMediaLabels } from "./labels.js";
 export type { AdminMediaLabels } from "./labels.js";
 export type { AdminMediaPickerMode } from "./field.js";

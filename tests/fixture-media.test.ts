@@ -31,4 +31,12 @@ describe("public fixture media", () => {
     expect(second.items).toHaveLength(1);
     expect(second.items[0].path).not.toBe(first.items[0].path);
   });
+
+  it("normalizes a malformed cursor to the first page", async () => {
+    const first = await demoMediaAdapter.list({ limit: 1 });
+    const malformed = await demoMediaAdapter.list({ limit: 1, cursor: "not-a-number" });
+
+    expect(malformed.items).toEqual(first.items);
+    expect(malformed.nextCursor).toBe(first.nextCursor);
+  });
 });
