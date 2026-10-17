@@ -26,6 +26,21 @@ import { useAdminHref, useAdminMessages } from "../i18n.js";
 const OPEN_GROUPS_STORAGE_KEY = "yesvus:helmdeck:open-nav-groups:v1";
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "yesvus:helmdeck:sidebar-collapsed:v1";
 
+/**
+ * The stored sidebar state, read during the first render rather than after it.
+ *
+ * A stored preference is part of the state this shell starts in, so reading it in an effect is a
+ * frame of the wrong sidebar before the right one paints. A browser that refuses storage is a browser
+ * with no preference to honour, which is the default rather than a failure.
+ */
+function readStoredCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function AdminShell({
   nav,
   session = null,
@@ -79,8 +94,10 @@ export function AdminShell({
   );
   const visibleNav = useMemo(() => filterNavGroups(nav, session?.role), [nav, session?.role]);
   const branding = useAdminBranding(brand?.accent);
-  const [collapsed, setCollapsed] = useState(false);
-  const [collapsedLoaded, setCollapsedLoaded] = useState(false);
+  const [collapsed, setCollapsed] = useState(readStoredCollapsed);
+  // Whether a reader has changed it, rather than whether it differs from what was read: a reader who
+  // widens and narrows it back has still asked for it to be remembered.
+  const [collapsedChanged, setCollapsedChanged] = useState(false);
   const internalContentScrollRef = useRef<HTMLDivElement>(null);
   const groupPreferences = useRef<Record<string, boolean> | null>(null);
   const [groupPreferencesLoaded, setGroupPreferencesLoaded] = useState(false);
@@ -100,24 +117,21 @@ export function AdminShell({
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
-  useEffect(() => {
-    try {
-      const savedCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
-      if (savedCollapsed !== null) {
-        setCollapsed(savedCollapsed === "true");
-      }
-    } catch {}
-    setCollapsedLoaded(true);
+  const changeCollapsed = useCallback((next: boolean) => {
+    setCollapsed(next);
+    setCollapsedChanged(true);
   }, []);
 
   useEffect(() => {
-    if (!collapsedLoaded) return;
+    if (!collapsedChanged) return;
     try {
       localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
     } catch {
+      // A browser refusing storage loses the preference between visits, which is not worth
+      // failing a sidebar over.
       return;
     }
-  }, [collapsedLoaded, collapsed]);
+  }, [collapsed, collapsedChanged]);
 
   useEffect(() => {
     try {
@@ -204,7 +218,7 @@ export function AdminShell({
         session,
         labels: mergedLabels,
         collapsed,
-        expandSidebar: () => setCollapsed(false),
+        expandSidebar: () => changeCollapsed(false),
         homeHref,
         profileHref: resolvedProfileHref,
         viewSiteHref: resolvedViewSiteHref,
@@ -240,7 +254,7 @@ export function AdminShell({
               )}
               <button
                 type="button"
-                onClick={() => setCollapsed((current) => !current)}
+                onClick={() => changeCollapsed(!collapsed)}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
                 aria-label={collapsed ? mergedLabels.sidebarExpand : mergedLabels.sidebarCollapse}
                 title={collapsed ? mergedLabels.sidebarExpand : mergedLabels.sidebarCollapse}
@@ -256,7 +270,7 @@ export function AdminShell({
             <AdminSearch
               groups={visibleNav}
               collapsed={collapsed}
-              onExpand={() => setCollapsed(false)}
+              onExpand={() => changeCollapsed(false)}
             />
 
             <nav className={cn("flex-1 overflow-y-auto py-2", collapsed ? "px-2" : "px-2.5")}>
