@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -69,10 +69,6 @@ function adapter(overrides: Partial<AdminMediaAdapter> = {}): AdminMediaAdapter 
 
 function allowAll(): AdminPermissionsAdapter {
   return { can: vi.fn(async () => true) };
-}
-
-function denyAll(): AdminPermissionsAdapter {
-  return { can: vi.fn(async () => false) };
 }
 
 function tree(element: React.ReactElement, permissions: AdminPermissionsAdapter = allowAll(), locale = "en") {
@@ -227,6 +223,10 @@ describe("AdminMediaLibrary", () => {
         expect.stringContaining("new-logo.png"),
       ),
     );
+    await waitFor(() =>
+      expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent?.includes("4 total") === true))
+        .toBeInTheDocument(),
+    );
   });
 
   it("previews an image in the lightbox rather than replacing the page", async () => {
@@ -261,8 +261,8 @@ describe("AdminMediaLibrary", () => {
     await tiles();
 
     // Not a link at all: a control that goes nowhere is not offered as one.
-    const inert = within(tileNamed("Sketch")).getByLabelText(/cannot be opened safely/);
-    expect(inert.tagName).toBe("DIV");
+    const inert = within(tileNamed("Sketch")).getByText(/cannot be opened safely/);
+    expect(inert).toHaveClass("sr-only");
     expect(within(tileNamed("Sketch")).queryByRole("link")).not.toBeInTheDocument();
   });
 
@@ -325,12 +325,22 @@ describe("AdminMediaLibrary", () => {
 
   it("shows no upload and no delete to a session the rule refuses, and asks the store for nothing more", async () => {
     const store = adapter();
-    render(tree(<AdminMediaLibrary adapter={store} uploadPermission="media.upload" deletePermission="media.delete" />, denyAll()));
+    const pending: Array<(allowed: boolean) => void> = [];
+    const permissions: AdminPermissionsAdapter = {
+      can: vi.fn(
+        () =>
+          new Promise<boolean>((resolve) => {
+            pending.push(resolve);
+          }),
+      ),
+    };
+    render(tree(<AdminMediaLibrary adapter={store} uploadPermission="media.upload" deletePermission="media.delete" />, permissions));
     await tiles();
 
-    // The refusal is only certain once the rule has answered, so this waits for an answer and then
-    // checks that neither control appeared with it.
-    await waitFor(() => expect(screen.getByLabelText("Search media")).toBeInTheDocument());
+    await waitFor(() => expect(permissions.can).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      pending.forEach((resolve) => resolve(false));
+    });
     expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Delete/ })).not.toBeInTheDocument();
     expect(store.list).toHaveBeenCalledTimes(1);
@@ -359,6 +369,34 @@ describe("AdminMediaLibrary", () => {
     store.list = vi.fn(async () => ({ items: [], total: 0 }));
     await user.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+  });
+
+  it("searches initial fallback items locally when the store refuses a read", async () => {
+    const user = userEvent.setup();
+    const store = adapter({
+      list: vi.fn(async () => {
+        throw new Error("store is down");
+      }),
+    });
+    render(
+      tree(
+        <AdminMediaLibrary
+          adapter={store}
+          items={[
+            { name: "Press photo", path: "press", publicUrl: "/press.jpg", source: "uploaded", kind: "image" },
+            { name: "Studio desk", path: "desk", publicUrl: "/desk.jpg", source: "uploaded", kind: "image" },
+          ]}
+        />,
+      ),
+    );
+    await screen.findByRole("alert");
+    await user.type(screen.getByLabelText("Search media"), "press");
+
+    await waitFor(() => expect(store.list).toHaveBeenLastCalledWith(expect.objectContaining({ search: "press" })));
+    await waitFor(() => {
+      expect(screen.getByText("Press photo")).toBeInTheDocument();
+      expect(screen.queryByText("Studio desk")).not.toBeInTheDocument();
+    });
   });
 
   it("says nothing is wired rather than showing an empty grid a host would read as an empty library", () => {

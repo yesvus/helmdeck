@@ -33,7 +33,6 @@ import { AdminInput } from "../primitives/input.js";
 import { AdminSelect } from "../primitives/select.js";
 import { AdminSurfaceCard } from "../primitives/layout.js";
 import { useAdminPermission } from "../shell/permissions.js";
-import { cn } from "../cn.js";
 import { defaultAdminMediaLabels, type AdminMediaLabels } from "./labels.js";
 import { AdminMediaLightbox, type AdminMediaLightboxImage } from "./lightbox.js";
 import { AdminMediaPlaceholder } from "./placeholder.js";
@@ -129,6 +128,7 @@ export function AdminMediaLibrary({
   const initialItemsRef = useRef(initialItems);
   const requestIdRef = useRef(0);
   const [adapterItems, setAdapterItems] = useState<AdminMediaItem[]>(initialItems ?? []);
+  const [showingFallbackItems, setShowingFallbackItems] = useState(Boolean(initialItems));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<AdminMediaSort>("date-desc");
   const [kind, setKind] = useState<AdminMediaKind | "">("");
@@ -176,6 +176,7 @@ export function AdminMediaLibrary({
       setLoadError(undefined);
       if (!cursor) {
         setAdapterItems([]);
+        setShowingFallbackItems(false);
         setNextCursor(undefined);
         setTotal(undefined);
       }
@@ -192,11 +193,15 @@ export function AdminMediaLibrary({
         // A request the reader has already moved past must not write into the list.
         if (requestId !== requestIdRef.current) return;
         setAdapterItems((current) => (cursor ? mergeItems(current, result.items) : result.items));
+        setShowingFallbackItems(false);
         setNextCursor(result.nextCursor);
         setTotal(result.total);
       } catch {
         if (requestId !== requestIdRef.current) return;
-        setAdapterItems((current) => (cursor ? current : (initialItemsRef.current ?? [])));
+        if (!cursor) {
+          setAdapterItems(initialItemsRef.current ?? []);
+          setShowingFallbackItems(Boolean(initialItemsRef.current?.length));
+        }
         // A page that failed keeps its cursor: dropping it would take away the reader's only way to
         // ask for that same page again, over a failure that was theirs and not the store's answer.
         if (!cursor) setNextCursor(undefined);
@@ -230,7 +235,7 @@ export function AdminMediaLibrary({
     // With an adapter the store has already searched; doing it again here would drop rows a store
     // matched on a field this does not know about.
     const matched =
-      adapter || normalized === ""
+      (adapter && !showingFallbackItems) || normalized === ""
         ? narrowed
         : narrowed.filter((item) =>
             `${item.name} ${item.path} ${item.contentType ?? ""}`
@@ -238,7 +243,7 @@ export function AdminMediaLibrary({
               .includes(normalized),
           );
     return sortAdminMediaItems(matched, sort, resolvedLocale);
-  }, [adapter, items, kind, query, resolvedLocale, sort, source, stableAllowedKinds]);
+  }, [adapter, items, kind, query, resolvedLocale, showingFallbackItems, sort, source, stableAllowedKinds]);
 
   const previewable = visible.filter((item) => isImageMediaItem(item));
   const previewImages: AdminMediaLightboxImage[] = previewable.map((item) => ({
@@ -335,7 +340,9 @@ export function AdminMediaLibrary({
                 // Existing list first, so an upload that lands on a path already in the grid replaces
                 // the stale record rather than being shadowed by it.
                 if (!source || item.source === source) {
+                  const isNew = !adapterItems.some((current) => current.path === item.path);
                   setAdapterItems((current) => mergeItems(current, [item]));
+                  if (isNew) setTotal((current) => (typeof current === "number" ? current + 1 : current));
                 }
                 setDeleted(undefined);
               }}
@@ -402,14 +409,9 @@ export function AdminMediaLibrary({
                     ) : (
                       // Not an anchor at all: an `<a>` without an href is still announced as a link by
                       // some readers, and the one thing this must not be is a control that goes nowhere.
-                      <div
-                        aria-label={`${mergedLabels.libraryNotNavigable}: ${item.name}`}
-                        onClick={() => onSelected?.(item)}
-                        className={cn(
-                          "group relative block w-full cursor-not-allowed opacity-70",
-                        )}
-                      >
+                      <div className="group relative block w-full">
                         <MediaThumbnail item={item} thumbnail={thumbnail} video={video} />
+                        <span className="sr-only">{mergedLabels.libraryNotNavigable}</span>
                       </div>
                     )}
                     <div className="space-y-2 px-3 py-3">

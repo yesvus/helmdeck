@@ -617,13 +617,21 @@ function previewMediaAdapter(): AdminMediaAdapter {
         const matchesSource = !query.source || item.source === query.source;
         return matchesSearch && matchesKind && matchesKinds && matchesSource;
       });
-      return { items: matched, total: matched.length };
+      const offset = Math.max(0, Number.parseInt(query.cursor ?? "0", 10) || 0);
+      const limit = query.limit ?? matched.length;
+      const items = matched.slice(offset, offset + limit);
+      const nextOffset = offset + items.length;
+      return {
+        items,
+        total: matched.length,
+        ...(nextOffset < matched.length ? { nextCursor: String(nextOffset) } : {}),
+      };
     },
     async upload(file) {
       // The kind follows the file rather than assuming every upload is a picture, so the preview does
       // not show a PDF labelled as an image.
       const kind = file.type === "application/pdf" ? "pdf" : file.type.startsWith("video/") ? "video" : "image";
-      return {
+      const item: AdminMediaItem = {
         name: file.name,
         path: `media/${file.name}`,
         publicUrl: kind === "image" ? image("%237c3aed") : `/media/${file.name}`,
@@ -633,6 +641,8 @@ function previewMediaAdapter(): AdminMediaAdapter {
         size: file.size,
         updatedAt: PREVIEW_NOW.toISOString(),
       };
+      all.push(item);
+      return item;
     },
     async delete() {
       // A preview has nothing to delete from.

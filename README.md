@@ -1908,7 +1908,7 @@ export default function MediaPage() {
 
 `AdminMediaLibrary` is the same thing without the heading, for a host mounting it inside a page it already has. A host that has resolved the assets itself and has no adapter to read through passes `items` instead; a host with neither gets a panel saying no media store is wired, which is an answer rather than an empty grid a reader would take for an empty library.
 
-**With an adapter, the store answers each query.** Search text, kind, source and paging cursor go to `list`, an upload goes to `upload`, and a delete goes to `delete`. The library does not filter a page the store returned, so matching happens where the data lives. The example is a client component because the adapter contains functions; a server component can instead pass server actions as its adapter operations.
+**With an adapter, the store answers each query.** Search text, kind, source and paging cursor go to `list`, an upload goes to `upload`, and a delete goes to `delete`. The library also applies the kind, source and `allowedKinds` constraints to each returned page; implement text search in `list` so matching spans the whole store, not just the page already loaded. The example is a client component because the adapter contains functions. A server component can pass server actions for operations whose arguments are serializable, such as `list` and `delete`; upload needs a client-side adapter wrapper because the upload control also supplies a progress callback.
 
 **Without an adapter, `items` is read-only.** Search, kind and source filters run locally over the supplied array, and paging is unavailable because there is no store to request another page from. Upload and delete controls are not offered.
 
