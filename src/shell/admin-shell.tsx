@@ -50,8 +50,9 @@ function writeStoredCollapsed(collapsed: boolean): void {
   try {
     localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
   } catch {
-    // A browser refusing storage loses the preference between visits, which is not worth failing a
-    // sidebar over. The value in this tab still changes, so the reader is not left with a dead button.
+    // A browser refusing storage loses the preference between visits. The caller keeps it for the
+    // session in the state it renders from, so what the refusal costs is the next visit and not
+    // this one, where a toggle that did nothing would read as a broken sidebar.
   }
   for (const listener of collapsedListeners) listener();
 }
@@ -59,10 +60,15 @@ function writeStoredCollapsed(collapsed: boolean): void {
 /** The store's own writes, and another tab's, which is the same preference to this reader. */
 function subscribeToCollapsed(onChange: () => void): () => void {
   collapsedListeners.add(onChange);
-  if (typeof window !== "undefined") window.addEventListener("storage", onChange);
+  if (typeof window === "undefined") {
+    return () => {
+      collapsedListeners.delete(onChange);
+    };
+  }
+  window.addEventListener("storage", onChange);
   return () => {
     collapsedListeners.delete(onChange);
-    if (typeof window !== "undefined") window.removeEventListener("storage", onChange);
+    window.removeEventListener("storage", onChange);
   };
 }
 
@@ -119,7 +125,11 @@ export function AdminShell({
   );
   const visibleNav = useMemo(() => filterNavGroups(nav, session?.role), [nav, session?.role]);
   const branding = useAdminBranding(brand?.accent);
-  const collapsed = useSyncExternalStore(subscribeToCollapsed, readStoredCollapsed, () => false);
+  // The reader's own answer, kept here rather than in the store, because it is this session's answer:
+// what a browser refuses to store is still the state this shell renders from until it is unmounted.
+  const [override, setOverride] = useState<boolean | null>(null);
+  const readCollapsed = useCallback(() => override ?? readStoredCollapsed(), [override]);
+  const collapsed = useSyncExternalStore(subscribeToCollapsed, readCollapsed, () => false);
   const internalContentScrollRef = useRef<HTMLDivElement>(null);
   const groupPreferences = useRef<Record<string, boolean> | null>(null);
   const [groupPreferencesLoaded, setGroupPreferencesLoaded] = useState(false);
@@ -139,7 +149,10 @@ export function AdminShell({
   const collapsedWidth = "var(--admin-sidebar-width-collapsed, 76px)";
   const expandedWidth = "var(--admin-sidebar-width, 240px)";
 
-  const changeCollapsed = useCallback((next: boolean) => writeStoredCollapsed(next), []);
+  const changeCollapsed = useCallback((next: boolean) => {
+    setOverride(next);
+    writeStoredCollapsed(next);
+  }, []);
 
   useEffect(() => {
     try {

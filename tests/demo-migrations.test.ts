@@ -118,6 +118,31 @@ describe("the migration runner", () => {
     const result = await migrateDemo(sql, sqlDir);
     expect(result.applied).toEqual(FILES);
   }, 120000);
+
+  it("survives a file that another instance applied and had not recorded yet", async () => {
+    // The case the ledger cannot see: two instances boot together, both read an empty ledger, and the
+    // second reaches a column the first has already added. `ADD COLUMN` has no `IF NOT EXISTS` to
+    // protect it, so the runner has to recognise that the schema is already what the statement would
+    // have produced. Without that, a deploy that happens to start two instances fails on a schema that
+    // is correct, which is the worst possible reason for a deploy to fail.
+    const dir = scratchDir("twice");
+    const { sql } = clientFor(dir);
+    await migrateDemo(sql, MIGRATIONS);
+    await sql.execute({ sql: "DELETE FROM schema_migrations WHERE name = '0012_audit_actor_name.sql'" });
+
+    await expect(migrateDemo(sql, MIGRATIONS)).resolves.toMatchObject({
+      applied: ["0012_audit_actor_name.sql"],
+    });
+    const columns = await sql.execute({ sql: "PRAGMA table_info(audit_events)" });
+    expect((columns.rows ?? []).map((row) => row[1])).toContain("actor_name");
+  }, 120000);
+
+  it("still fails loudly on a statement that is not an already-added column", async () => {
+    const dir = scratchDir("not-a-column");
+    const sqlDir = join(dir, "sql");
+    writeFileSync(join(sqlDir, "0001_bad.sql"), "CREATE TABLE good (id TEXT);\nSELECT this_is_not_sql();\n");
+    await expect(migrateDemo(clientFor(dir).sql, sqlDir)).rejects.toThrow();
+  }, 60000);
 });
 
 describe("the runner and the script it duplicates", () => {
