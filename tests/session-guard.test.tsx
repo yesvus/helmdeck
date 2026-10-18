@@ -189,6 +189,7 @@ describe("AdminAuthProvider", () => {
       </AdminI18nProvider>,
     );
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+    await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın"));
 
     await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
 
@@ -235,6 +236,43 @@ describe("AdminAuthProvider", () => {
       null,
       "bob@example.com",
     ]);
+  });
+
+  it("rebinds the host preference after a failed read and an account switch", async () => {
+    const ada: AdminSession = { userId: "ada", email: "ada@example.com" };
+    const bob: AdminSession = { userId: "bob", email: "bob@example.com" };
+    let readerId: string | null = null;
+    const preference = {
+      setReader: vi.fn((next: AdminSession | null) => { readerId = next?.userId ?? null; }),
+      getLocale: vi.fn(() => readerId === "ada" ? "tr" : "en"),
+      setLocale: vi.fn(),
+    };
+    const auth = adapter({
+      getSession: vi.fn()
+        .mockResolvedValueOnce(ada)
+        .mockRejectedValueOnce(new Error("temporary read failure"))
+        .mockResolvedValueOnce(bob),
+    });
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <LocaleTextProbe />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+    await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın"));
+
+    await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
+    await waitFor(() => expect(screen.getByTestId("refresh-error")).toHaveTextContent("temporary read failure"));
+
+    await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:bob@example.com"));
+    await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Search admin pages"));
+    expect(preference.setReader.mock.calls.map(([reader]) => reader?.userId ?? null)).toEqual(["ada", "bob"]);
   });
 
   it("keeps the tab locale when sign-in fails", async () => {

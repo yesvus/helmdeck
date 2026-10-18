@@ -144,6 +144,48 @@ describe("Helmdeck localization", () => {
     await waitFor(() => expect(preference.setLocale.mock.calls.map(([locale]) => locale)).toEqual(["tr", "en"]));
   });
 
+  it("drains queued writes before rebinding the host preference reader", async () => {
+    let activeReader: string | null = null;
+    let finishWrite: () => void = () => {};
+    const writeReaders: Array<string | null> = [];
+    const preference = {
+      setReader: vi.fn((session: { userId?: string } | null) => { activeReader = session?.userId ?? null; }),
+      getLocale: vi.fn(() => null),
+      setLocale: vi.fn(() => new Promise<void>((resolve) => {
+        writeReaders.push(activeReader);
+        finishWrite = resolve;
+      })),
+    };
+    function ReaderProbe() {
+      const { setInterfaceLocale, setInterfaceLocaleReader, refreshInterfaceLocalePreference } = useAdminInterfaceLocale();
+      return (
+        <>
+          <button onClick={() => void setInterfaceLocale("tr")}>Write for Ada</button>
+          <button onClick={() => {
+            void setInterfaceLocaleReader({ userId: "ada", email: "ada@example.com" })
+              .then(() => refreshInterfaceLocalePreference());
+          }}>Bind Ada</button>
+          <button onClick={() => {
+            void setInterfaceLocaleReader({ userId: "bob", email: "bob@example.com" })
+              .then(() => refreshInterfaceLocalePreference());
+          }}>Bind Bob</button>
+        </>
+      );
+    }
+    render(<AdminI18nProvider localePreferenceAdapter={preference}><ReaderProbe /></AdminI18nProvider>);
+    expect(preference.getLocale).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Bind Ada" }));
+    await waitFor(() => expect(activeReader).toBe("ada"));
+    await act(async () => screen.getByRole("button", { name: "Write for Ada" }).click());
+    await waitFor(() => expect(writeReaders).toEqual(["ada"]));
+    fireEvent.click(screen.getByRole("button", { name: "Bind Bob" }));
+    await act(async () => Promise.resolve());
+    expect(activeReader).toBe("ada");
+    await act(async () => finishWrite());
+    await waitFor(() => expect(activeReader).toBe("bob"));
+    expect(writeReaders).toEqual(["ada"]);
+  });
+
   it("updates interface messages when the locale prop changes", () => {
     const { rerender } = render(
       <AdminI18nProvider locale="tr">

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 export type AdminSession = {
+  userId?: string;
   /**
    * The session row's id, when the adapter that resolved this one has one to give.
    *

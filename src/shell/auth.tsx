@@ -64,7 +64,7 @@ export function AdminAuthProvider({
     refreshInterfaceLocalePreference,
     setInterfaceLocaleReader,
   } = useAdminInterfaceLocale();
-  const sessionRef = useRef<AdminSession | null>(null);
+  const boundLocaleReader = useRef<string | null | undefined>(undefined);
   // Bumped by anything that decides the session on its own, so an in-flight read that started
   // earlier cannot land on top of it.
   const decided = useRef(0);
@@ -81,7 +81,6 @@ export function AdminAuthProvider({
   }
 
   const applySession = useCallback((next: AdminSession | null) => {
-    sessionRef.current = next;
     setError(null);
     setSession(next);
     setStatus(next ? "authenticated" : "anonymous");
@@ -91,7 +90,6 @@ export function AdminAuthProvider({
   // visitor to the login page on every transient failure, and loop there if the login page
   // also depends on the session.
   const applyFailure = useCallback((cause: unknown) => {
-    sessionRef.current = null;
     setError(cause);
     setSession(null);
     setStatus("error");
@@ -108,15 +106,19 @@ export function AdminAuthProvider({
     try {
       const next = await readSession();
       if (mine === decided.current) {
-        const signedIn = !sessionRef.current && next !== null;
-        const signedOut = sessionRef.current !== null && next === null;
-        if (signedIn || signedOut) {
-          clearStoredInterfaceLocale();
-          clearInterfaceLocalePreference();
-          setInterfaceLocaleReader(next);
+        const nextReader = readerIdentity(next);
+        const readerChanged = boundLocaleReader.current !== nextReader;
+        if (readerChanged) {
+          const previouslyResolved = boundLocaleReader.current !== undefined;
+          if (previouslyResolved) {
+            clearStoredInterfaceLocale();
+            clearInterfaceLocalePreference();
+          }
+          await setInterfaceLocaleReader(next);
+          boundLocaleReader.current = nextReader;
         }
         applySession(next);
-        if (signedIn || signedOut) await refreshInterfaceLocalePreference();
+        if (readerChanged) await refreshInterfaceLocalePreference();
       }
     } catch (cause) {
       if (mine === decided.current) applyFailure(cause);
@@ -131,14 +133,18 @@ export function AdminAuthProvider({
   useEffect(() => {
     let active = true;
     const mine = (decided.current += 1);
-    void readSession().then(
-      (next) => {
-        if (active && mine === decided.current) applySession(next);
-        if (active && mine === decided.current) {
-          setInterfaceLocaleReader(next);
-          void refreshInterfaceLocalePreference();
-        }
-      },
+    void readSession().then(async (next) => {
+      if (!active || mine !== decided.current) return;
+      try {
+        await setInterfaceLocaleReader(next);
+        if (!active || mine !== decided.current) return;
+        boundLocaleReader.current = readerIdentity(next);
+        applySession(next);
+        await refreshInterfaceLocalePreference();
+      } catch (cause) {
+        if (active && mine === decided.current) applyFailure(cause);
+      }
+    },
       (cause: unknown) => {
         if (active && mine === decided.current) applyFailure(cause);
       },
@@ -157,15 +163,14 @@ export function AdminAuthProvider({
       if (result.ok) {
         clearStoredInterfaceLocale();
         clearInterfaceLocalePreference();
-        setInterfaceLocaleReader(result.session);
+        await setInterfaceLocaleReader(result.session);
+        boundLocaleReader.current = readerIdentity(result.session);
         setError(null);
-        sessionRef.current = result.session;
         setSession(result.session);
         setStatus("authenticated");
         await refreshInterfaceLocalePreference();
       } else {
         setError(null);
-        sessionRef.current = null;
         setSession(null);
         setStatus("anonymous");
       }
@@ -179,9 +184,9 @@ export function AdminAuthProvider({
     decided.current += 1;
     clearStoredInterfaceLocale();
     clearInterfaceLocalePreference();
-    setInterfaceLocaleReader(null);
+    await setInterfaceLocaleReader(null);
+    boundLocaleReader.current = null;
     setError(null);
-    sessionRef.current = null;
     setSession(null);
     setStatus("anonymous");
     await refreshInterfaceLocalePreference();
@@ -201,6 +206,10 @@ export function useAdminSession(): AdminAuthContextValue {
     throw new Error("useAdminSession must be used inside AdminAuthProvider");
   }
   return value;
+}
+
+function readerIdentity(session: AdminSession | null) {
+  return session?.userId ?? session?.email.toLowerCase() ?? null;
 }
 
 /** The same destination for a host that wants to read it in a component. */
