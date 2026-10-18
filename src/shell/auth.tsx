@@ -36,6 +36,7 @@ export type AdminAuthContextValue = {
   status: AdminSessionStatus;
   /** Why the last read failed, when `status` is "error". */
   error: unknown | null;
+  localePreferenceError: unknown | null;
   login: (credentials: AdminLoginCredentials) => Promise<AdminLoginResult>;
   logout: () => Promise<void>;
   /** Re-reads the session, for a host that signs in without a full navigation. */
@@ -58,6 +59,7 @@ export function AdminAuthProvider({
   const [session, setSession] = useState<AdminSession | null>(null);
   const [status, setStatus] = useState<AdminSessionStatus>("checking");
   const [error, setError] = useState<unknown | null>(null);
+  const [localePreferenceError, setLocalePreferenceError] = useState<unknown | null>(null);
   const [boundAdapter, setBoundAdapter] = useState(adapter);
   const {
     clearInterfaceLocalePreference,
@@ -101,10 +103,14 @@ export function AdminAuthProvider({
   const rebindLocaleReader = useCallback((next: AdminSession | null, identity: string | null, mine: number) => {
     void setInterfaceLocaleReader(next).then(() => {
       boundLocaleReader.current = identity;
-      if (requestedLocaleReader.current === identity) void refreshInterfaceLocalePreference();
-    }).catch(() => {
+      if (requestedLocaleReader.current === identity) {
+        setLocalePreferenceError(null);
+        void refreshInterfaceLocalePreference();
+      }
+    }).catch((cause: unknown) => {
       if (mine === decided.current && requestedLocaleReader.current === identity) {
-        requestedLocaleReader.current = boundLocaleReader.current;
+        requestedLocaleReader.current = undefined;
+        setLocalePreferenceError(cause);
       }
     });
   }, [refreshInterfaceLocalePreference, setInterfaceLocaleReader]);
@@ -128,6 +134,7 @@ export function AdminAuthProvider({
             clearStoredInterfaceLocale();
             clearInterfaceLocalePreference();
           }
+          setLocalePreferenceError(null);
           applySession(next);
           rebindLocaleReader(next, nextReader, mine);
           return;
@@ -172,6 +179,7 @@ export function AdminAuthProvider({
       if (result.ok) {
         clearStoredInterfaceLocale();
         clearInterfaceLocalePreference();
+        setLocalePreferenceError(null);
         const identity = readerIdentity(result.session);
         requestedLocaleReader.current = identity;
         setError(null);
@@ -185,6 +193,7 @@ export function AdminAuthProvider({
         if (requestedLocaleReader.current != null) {
           clearStoredInterfaceLocale();
           clearInterfaceLocalePreference();
+          setLocalePreferenceError(null);
           requestedLocaleReader.current = null;
           rebindLocaleReader(null, null, decided.current);
         }
@@ -199,6 +208,7 @@ export function AdminAuthProvider({
     decided.current += 1;
     clearStoredInterfaceLocale();
     clearInterfaceLocalePreference();
+    setLocalePreferenceError(null);
     requestedLocaleReader.current = null;
     setError(null);
     setSession(null);
@@ -207,8 +217,8 @@ export function AdminAuthProvider({
   }, [adapter, clearInterfaceLocalePreference, rebindLocaleReader]);
 
   const value = useMemo<AdminAuthContextValue>(
-    () => ({ session, status, error, login, logout, refresh }),
-    [session, status, error, login, logout, refresh],
+    () => ({ session, status, error, localePreferenceError, login, logout, refresh }),
+    [session, status, error, localePreferenceError, login, logout, refresh],
   );
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;

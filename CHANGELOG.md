@@ -13,6 +13,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - Shell language preferences with registered dictionary discovery, session-scoped persistence, and a host adapter for per-reader storage.
 - Export `AdminLanguagePreference`, `useAdminInterfaceLocale`, `getAdminMessageLocales`, and `AdminLocalePreferenceAdapter` for host integrations.
 - Add optional `AdminSession.userId` for stable account-scoped preferences.
+- Expose host reader-binding failures as `localePreferenceError` from `useAdminSession()`.
 
 ### Changed
 

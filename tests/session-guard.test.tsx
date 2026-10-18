@@ -63,6 +63,11 @@ function SessionHistoryProbe({ history }: { history: string[] }) {
   return null;
 }
 
+function LocalePreferenceErrorProbe() {
+  const { localePreferenceError } = useAdminSession();
+  return <span data-testid="locale-preference-error">{localePreferenceError instanceof Error ? localePreferenceError.message : "none"}</span>;
+}
+
 /** Drives the provider through its public API the way a host sign-in form would. */
 function SessionActions() {
   const { login, logout, refresh } = useAdminSession();
@@ -285,7 +290,10 @@ describe("AdminAuthProvider", () => {
 
   it("keeps authentication transitions independent of host locale binding failures", async () => {
     const preference = {
-      setReader: vi.fn().mockRejectedValue(new Error("preference store unavailable")),
+      setReader: vi.fn()
+        .mockRejectedValueOnce(new Error("preference store unavailable"))
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error("preference store unavailable")),
       getLocale: vi.fn(() => null),
       setLocale: vi.fn(),
     };
@@ -293,16 +301,23 @@ describe("AdminAuthProvider", () => {
       <AdminI18nProvider localePreferenceAdapter={preference}>
         <AdminAuthProvider adapter={adapter()}>
           <StatusProbe />
+          <LocalePreferenceErrorProbe />
           <SessionActions />
         </AdminAuthProvider>
       </AdminI18nProvider>,
     );
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+    expect(screen.getByTestId("locale-preference-error")).toHaveTextContent("preference store unavailable");
+
+    await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
+    await waitFor(() => expect(screen.getByTestId("locale-preference-error")).toHaveTextContent("none"));
+    expect(preference.getLocale).toHaveBeenCalledTimes(1);
 
     await act(async () => screen.getByRole("button", { name: "do sign out" }).click());
 
     expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none");
-    expect(preference.getLocale).not.toHaveBeenCalled();
+    expect(screen.getByTestId("locale-preference-error")).toHaveTextContent("preference store unavailable");
+    expect(preference.getLocale).toHaveBeenCalledTimes(1);
   });
 
   it("does not apply an older refresh after its reader binding yields", async () => {
