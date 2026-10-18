@@ -308,6 +308,39 @@ describe("AdminAuthProvider", () => {
     expect(preference.getLocale).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores an initial reader locale that resolves after refresh switches readers", async () => {
+    const ada: AdminSession = { userId: "ada", email: "ada@example.com", role: "editor" };
+    const bob: AdminSession = { userId: "bob", email: "bob@example.com", role: "editor" };
+    let activeReader: string | null = null;
+    let finishAdaRead: (locale: string | null) => void = () => {};
+    const preference = {
+      setReader: vi.fn((reader: AdminSession | null) => { activeReader = reader?.userId ?? null; }),
+      getLocale: vi.fn(() => activeReader === "ada"
+        ? new Promise<string | null>((resolve) => { finishAdaRead = resolve; })
+        : Promise.resolve("en")),
+      setLocale: vi.fn(),
+    };
+    const auth = adapter({ getSession: vi.fn().mockResolvedValueOnce(ada).mockResolvedValueOnce(bob) });
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <LocaleTextProbe />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(preference.getLocale).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+
+    await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:bob@example.com"));
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Search admin pages");
+    await act(async () => finishAdaRead("tr"));
+    expect(screen.getByTestId("locale-text")).toHaveTextContent("Search admin pages");
+  });
+
   it("rebinds the host preference after a failed read and an account switch", async () => {
     const ada: AdminSession = { userId: "ada", email: "ada@example.com" };
     const bob: AdminSession = { userId: "bob", email: "bob@example.com" };
