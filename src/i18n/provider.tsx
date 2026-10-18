@@ -60,6 +60,7 @@ export function AdminI18nProvider({
   const [boundPreferenceAdapter, setBoundPreferenceAdapter] = useState(localePreferenceAdapter);
   const preferenceRequestRef = useRef(0);
   const preferenceOperationRef = useRef(Promise.resolve());
+  const preferenceReaderRef = useRef<string | null>(null);
   const suppliedMessagesLocale = messages?.locale;
   const availableInterfaceLocales = useMemo(() => {
     const locales = getAdminMessageLocales();
@@ -131,7 +132,7 @@ export function AdminI18nProvider({
     setPreferredInterfaceLocale(registered);
     if (!localePreferenceAdapter) {
       try {
-        writeStoredInterfaceLocale(registered);
+        writeStoredInterfaceLocale(registered, preferenceReaderRef.current);
       } catch (cause) {
         return Promise.reject(cause);
       }
@@ -162,6 +163,7 @@ export function AdminI18nProvider({
 
   const setInterfaceLocaleReader = useCallback((session: AdminSession | null) => {
     preferenceRequestRef.current += 1;
+    preferenceReaderRef.current = session?.userId ?? session?.email.toLowerCase() ?? null;
     return localePreferenceAdapter
       ? queuePreferenceOperation(() => localePreferenceAdapter.setReader(session)).then(() => undefined)
       : Promise.resolve();

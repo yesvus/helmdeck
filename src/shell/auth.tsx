@@ -14,7 +14,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
 import type { AdminAuthAdapter, AdminLoginCredentials, AdminLoginResult, AdminSession } from "../adapters/index.js";
 import { useAdminInterfaceLocale, useAdminMessages } from "../i18n.js";
-import { clearStoredInterfaceLocale } from "../i18n/preference-storage.js";
+import { clearStoredInterfaceLocale, readStoredInterfaceLocaleReader } from "../i18n/preference-storage.js";
 import { cn } from "../cn.js";
 import { adminLoginHref, adminReturnTo, DEFAULT_ADMIN_LOGIN_HREF } from "./session-guard.js";
 
@@ -157,6 +157,11 @@ export function AdminAuthProvider({
     void readSession().then((next) => {
       if (!active || mine !== decided.current) return;
       const identity = readerIdentity(next);
+      const storedReader = readStoredInterfaceLocaleReader();
+      if (storedReader !== null && storedReader !== identity) {
+        clearStoredInterfaceLocale();
+        clearInterfaceLocalePreference();
+      }
       requestedLocaleReader.current = identity;
       applySession(next);
       rebindLocaleReader(next, identity, mine);
@@ -168,7 +173,7 @@ export function AdminAuthProvider({
     return () => {
       active = false;
     };
-  }, [applyFailure, applySession, readSession, rebindLocaleReader]);
+  }, [applyFailure, applySession, clearInterfaceLocalePreference, readSession, rebindLocaleReader]);
 
   const login = useCallback(
     async (credentials: AdminLoginCredentials) => {

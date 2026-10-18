@@ -211,6 +211,41 @@ describe("AdminAuthProvider", () => {
     expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBeNull();
   });
 
+  it("clears a tab locale owned by another reader on initial session resolution", async () => {
+    window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
+    window.sessionStorage.setItem("helmdeck-interface-locale-reader", "bob@example.com");
+    const auth = adapter({ getSession: vi.fn().mockResolvedValue(session) });
+    render(
+      <AdminI18nProvider>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <LocaleTextProbe />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Search admin pages");
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBeNull();
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale-reader")).toBeNull();
+  });
+
+  it("preserves the tab locale when its saved reader matches the initial session", async () => {
+    window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
+    window.sessionStorage.setItem("helmdeck-interface-locale-reader", "ada@example.com");
+    const auth = adapter({ getSession: vi.fn().mockResolvedValue(session) });
+    render(
+      <AdminI18nProvider>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <LocaleTextProbe />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın");
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBe("tr");
+  });
+
   it("rebinds a host preference adapter to each signed-in reader", async () => {
     const nextReader: AdminSession = { email: "bob@example.com", role: "editor" };
     let readerEmail: string | null = null;
