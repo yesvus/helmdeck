@@ -112,6 +112,7 @@ export type AdminMessages = {
   languagePreference: {
     label: string;
     description: string;
+    saveFailed: string;
   };
   shell: AdminShellLabels;
   media: AdminMediaLabels;
@@ -139,6 +140,7 @@ export const englishAdminMessages: AdminMessages = {
   languagePreference: {
     label: "Interface language",
     description: "Choose the language used throughout the admin.",
+    saveFailed: "The language preference could not be saved.",
   },
   shell: defaultAdminLabels,
   media: defaultAdminMediaLabels,
@@ -193,6 +195,7 @@ export const turkishAdminMessages: AdminMessages = {
   languagePreference: {
     label: "Arayüz dili",
     description: "Yönetim arayüzünde kullanılacak dili seçin.",
+    saveFailed: "Dil tercihi kaydedilemedi.",
   },
   shell: {
     sidebarExpand: "Menüyü genişletiniz",
@@ -429,6 +432,7 @@ export function getAdminMessages(locale: string, fallbackLocale = defaultAdminLo
     registry.get(normalizedLocale.split("-")[0]) ??
     registry.get(normalizedFallback) ??
     registry.get(normalizedFallback.split("-")[0]) ??
-    turkishAdminMessages
+    registry.get(defaultAdminLocale) ??
+    englishAdminMessages
   );
 }

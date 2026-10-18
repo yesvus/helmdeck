@@ -2,7 +2,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AdminI18nProvider } from "../src/i18n";
+import { AdminI18nProvider, useAdminMessages } from "../src/i18n";
 import { AdminAuthProvider, AdminRequireSession, useAdminSession } from "../src/shell/auth";
 import type { AdminAuthAdapter, AdminSession } from "../src/adapters/index";
 
@@ -49,6 +49,10 @@ function secret() {
 function StatusProbe() {
   const { status, session: current } = useAdminSession();
   return <span data-testid="status">{`${status}:${current?.email ?? "none"}`}</span>;
+}
+
+function LocaleTextProbe() {
+  return <span data-testid="locale-text">{useAdminMessages().shell.searchLabel}</span>;
 }
 
 /** Drives the provider through its public API the way a host sign-in form would. */
@@ -144,6 +148,61 @@ describe("AdminAuthProvider", () => {
     expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com");
     // The provider trusted login() rather than re-reading, so getSession ran only once.
     expect(auth.getSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the previous tab locale when refresh signs in a reader", async () => {
+    window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
+    const auth = adapter({
+      getSession: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(session),
+    });
+    render(
+      <AdminI18nProvider>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <LocaleTextProbe />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın"));
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none"));
+
+    await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
+
+    expect(await screen.findByTestId("status")).toHaveTextContent("authenticated:ada@example.com");
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Search admin pages");
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBeNull();
+  });
+
+  it("keeps the tab locale when sign-in fails", async () => {
+    window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
+    const auth = adapter({
+      getSession: vi.fn().mockResolvedValue(null),
+      login: vi.fn().mockResolvedValue({ ok: false, message: "Invalid credentials" }),
+    });
+    render(
+      <AdminI18nProvider>
+        <AdminAuthProvider adapter={auth}>
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await act(async () => screen.getByRole("button", { name: "do sign in" }).click());
+
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBe("tr");
+  });
+
+  it("clears the tab locale at sign-out without an i18n provider", async () => {
+    window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
+    render(
+      <AdminAuthProvider adapter={adapter()}>
+        <SessionActions />
+      </AdminAuthProvider>,
+    );
+
+    await act(async () => screen.getByRole("button", { name: "do sign out" }).click());
+
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBeNull();
   });
 
   it("clears the session on a failed sign-in so a stale one cannot survive", async () => {
@@ -495,6 +554,19 @@ describe("AdminRequireSession", () => {
     expect(status).toHaveTextContent("You need to sign in to view this page.");
     expect(status).not.toHaveTextContent("Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.");
     expect(screen.getByRole("link", { name: "Go to sign in" })).toBeInTheDocument();
+  });
+
+  it("uses Turkish guard strings when the host opts into Turkish", async () => {
+    render(
+      <AdminI18nProvider locale="tr">
+        <AdminAuthProvider adapter={adapter({ getSession: vi.fn().mockResolvedValue(null) })}>
+          <AdminRequireSession>{secret()}</AdminRequireSession>
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.");
+    expect(screen.getByRole("link", { name: "Giriş sayfasına gidin" })).toBeInTheDocument();
   });
 
   it("announces a failed read and does not bounce the visitor to sign in", async () => {

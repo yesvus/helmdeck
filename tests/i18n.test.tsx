@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AdminI18nProvider,
@@ -63,6 +63,7 @@ describe("Helmdeck localization", () => {
   it("defaults to English and resolves regional fallbacks", () => {
     expect(defaultAdminLocale).toBe("en");
     expect(getAdminMessages("fr")).toBe(englishAdminMessages);
+    expect(getAdminMessages("fr", "xx")).toBe(englishAdminMessages);
     expect(getAdminMessages("fr", "tr-TR")).toBe(turkishAdminMessages);
     expect(getAdminMessages("EN-US")).toBe(englishAdminMessages);
     expect(getAdminMessages("TR-tr")).toBe(turkishAdminMessages);
@@ -114,6 +115,33 @@ describe("Helmdeck localization", () => {
     fireEvent.click(screen.getByRole("button", { name: "English" }));
     await waitFor(() => expect(preference.setLocale).toHaveBeenCalledWith("en"));
     expect(await screen.findByText("Search admin pages")).toBeInTheDocument();
+  });
+
+  it("serializes host preference writes in the order the reader selects them", async () => {
+    let finishFirst: () => void = () => {};
+    const preference = {
+      getLocale: () => null,
+      setLocale: vi.fn((locale: string) => locale === "tr"
+        ? new Promise<void>((resolve) => { finishFirst = resolve; })
+        : Promise.resolve()),
+    };
+    function WriteProbe() {
+      const { setInterfaceLocale } = useAdminInterfaceLocale();
+      return (
+        <>
+          <button onClick={() => void setInterfaceLocale("tr")}>Choose Turkish</button>
+          <button onClick={() => void setInterfaceLocale("en")}>Choose English</button>
+        </>
+      );
+    }
+    render(<AdminI18nProvider localePreferenceAdapter={preference}><WriteProbe /></AdminI18nProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Choose Turkish" }));
+    await waitFor(() => expect(preference.setLocale).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Choose English" }));
+    await act(async () => Promise.resolve());
+    expect(preference.setLocale.mock.calls.map(([locale]) => locale)).toEqual(["tr"]);
+    await act(async () => finishFirst());
+    await waitFor(() => expect(preference.setLocale.mock.calls.map(([locale]) => locale)).toEqual(["tr", "en"]));
   });
 
   it("updates interface messages when the locale prop changes", () => {
@@ -170,6 +198,47 @@ describe("Helmdeck localization", () => {
     expect(await screen.findByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
     expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBe("tr");
     expect(container).toBeInTheDocument();
+  });
+
+  it("normalizes the selected option for a regional host locale", async () => {
+    render(
+      <AdminI18nProvider localeAdapter={{ getInterfaceLocale: () => "tr-TR", getContentLocale: () => "en" }}>
+        <AdminLanguagePreference />
+        <MessageProbe />
+      </AdminI18nProvider>,
+    );
+    expect(await screen.findByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Arayüz dili" })).toHaveValue("tr");
+  });
+
+  it("switches away from and back to a supplied dictionary with the picker", async () => {
+    render(
+      <AdminI18nProvider messages={turkishAdminMessages}>
+        <AdminLanguagePreference />
+        <MessageProbe />
+      </AdminI18nProvider>,
+    );
+    const picker = screen.getByRole("combobox", { name: "Arayüz dili" });
+    expect(screen.getByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
+    fireEvent.change(picker, { target: { value: "en" } });
+    expect(await screen.findByText("Search admin pages")).toBeInTheDocument();
+    fireEvent.change(picker, { target: { value: "tr" } });
+    expect(await screen.findByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
+  });
+
+  it("announces when the host cannot save a selected language", async () => {
+    const preference = {
+      getLocale: () => "en",
+      setLocale: vi.fn().mockRejectedValue(new Error("offline")),
+    };
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminLanguagePreference />
+      </AdminI18nProvider>,
+    );
+    const picker = await screen.findByRole("combobox", { name: "Interface language" });
+    fireEvent.change(picker, { target: { value: "tr" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Dil tercihi kaydedilemedi.");
   });
 
   it("applies the active dictionary to reusable primitives", async () => {

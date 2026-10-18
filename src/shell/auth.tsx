@@ -14,6 +14,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
 import type { AdminAuthAdapter, AdminLoginCredentials, AdminLoginResult, AdminSession } from "../adapters/index.js";
 import { useAdminInterfaceLocale, useAdminMessages } from "../i18n.js";
+import { clearStoredInterfaceLocale } from "../i18n/preference-storage.js";
 import { cn } from "../cn.js";
 import { adminLoginHref, adminReturnTo, DEFAULT_ADMIN_LOGIN_HREF } from "./session-guard.js";
 
@@ -59,6 +60,7 @@ export function AdminAuthProvider({
   const [error, setError] = useState<unknown | null>(null);
   const [boundAdapter, setBoundAdapter] = useState(adapter);
   const { clearInterfaceLocalePreference, refreshInterfaceLocalePreference } = useAdminInterfaceLocale();
+  const sessionRef = useRef<AdminSession | null>(null);
   // Bumped by anything that decides the session on its own, so an in-flight read that started
   // earlier cannot land on top of it.
   const decided = useRef(0);
@@ -75,6 +77,7 @@ export function AdminAuthProvider({
   }
 
   const applySession = useCallback((next: AdminSession | null) => {
+    sessionRef.current = next;
     setError(null);
     setSession(next);
     setStatus(next ? "authenticated" : "anonymous");
@@ -84,6 +87,7 @@ export function AdminAuthProvider({
   // visitor to the login page on every transient failure, and loop there if the login page
   // also depends on the session.
   const applyFailure = useCallback((cause: unknown) => {
+    sessionRef.current = null;
     setError(cause);
     setSession(null);
     setStatus("error");
@@ -99,12 +103,20 @@ export function AdminAuthProvider({
     const mine = (decided.current += 1);
     try {
       const next = await readSession();
-      if (mine === decided.current) applySession(next);
+      if (mine === decided.current) {
+        const signedIn = !sessionRef.current && next !== null;
+        if (signedIn) {
+          clearStoredInterfaceLocale();
+          clearInterfaceLocalePreference();
+        }
+        applySession(next);
+        if (signedIn) await refreshInterfaceLocalePreference();
+      }
     } catch (cause) {
       if (mine === decided.current) applyFailure(cause);
       throw cause;
     }
-  }, [applyFailure, applySession, readSession]);
+  }, [applyFailure, applySession, clearInterfaceLocalePreference, readSession, refreshInterfaceLocalePreference]);
 
   // The read is kicked off here but resolved in a callback, because a setState in the effect
   // body itself is a cascading render. The active flag drops a late answer to an unmounted
@@ -128,18 +140,21 @@ export function AdminAuthProvider({
 
   const login = useCallback(
     async (credentials: AdminLoginCredentials) => {
-      clearInterfaceLocalePreference();
       const result = await adapter.login(credentials);
       // A failed sign-in must not leave a stale session behind, and a successful one has
       // to be reflected immediately rather than waiting for the next getSession.
       decided.current += 1;
       if (result.ok) {
+        clearStoredInterfaceLocale();
+        clearInterfaceLocalePreference();
         setError(null);
+        sessionRef.current = result.session;
         setSession(result.session);
         setStatus("authenticated");
         refreshInterfaceLocalePreference();
       } else {
         setError(null);
+        sessionRef.current = null;
         setSession(null);
         setStatus("anonymous");
       }
@@ -151,8 +166,10 @@ export function AdminAuthProvider({
   const logout = useCallback(async () => {
     await adapter.logout();
     decided.current += 1;
+    clearStoredInterfaceLocale();
     clearInterfaceLocalePreference();
     setError(null);
+    sessionRef.current = null;
     setSession(null);
     setStatus("anonymous");
   }, [adapter, clearInterfaceLocalePreference]);

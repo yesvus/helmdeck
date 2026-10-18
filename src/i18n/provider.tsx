@@ -5,13 +5,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { AdminLocaleAdapter } from "../adapters/host.js";
 import { useAdminScopeHref } from "../scope.js";
 import { defaultAdminLocale, getAdminMessageLocales, getAdminMessages, type AdminMessages } from "./messages.js";
+import { clearStoredInterfaceLocale, readStoredInterfaceLocale, writeStoredInterfaceLocale } from "./preference-storage.js";
 
 export type AdminLocalePreferenceAdapter = {
   getLocale: () => string | null | Promise<string | null>;
   setLocale: (locale: string) => void | Promise<void>;
 };
-
-const INTERFACE_LOCALE_STORAGE_KEY = "helmdeck-interface-locale";
 
 const AdminI18nContext = createContext<AdminMessages>(getAdminMessages(defaultAdminLocale));
 
@@ -20,9 +19,9 @@ type AdminLocaleContextValue = {
   contentLocale: string;
   setContentLocale: (locale: string) => void;
   interfaceLocale: string;
-  setInterfaceLocale: (locale: string) => void;
+  setInterfaceLocale: (locale: string) => Promise<void>;
   clearInterfaceLocalePreference: () => void;
-  refreshInterfaceLocalePreference: () => void;
+  refreshInterfaceLocalePreference: () => Promise<void>;
   availableInterfaceLocales: string[];
   toHref: (href: string) => string;
 };
@@ -31,9 +30,9 @@ const AdminLocaleContext = createContext<AdminLocaleContextValue>({
   contentLocale: "",
   setContentLocale: () => {},
   interfaceLocale: defaultAdminLocale,
-  setInterfaceLocale: () => {},
+  setInterfaceLocale: async () => {},
   clearInterfaceLocalePreference: () => {},
-  refreshInterfaceLocalePreference: () => {},
+  refreshInterfaceLocalePreference: async () => {},
   availableInterfaceLocales: getAdminMessageLocales(),
   toHref: (href) => href,
 });
@@ -57,6 +56,14 @@ export function AdminI18nProvider({
   const [preferredInterfaceLocale, setPreferredInterfaceLocale] = useState<string | null>(null);
   const [boundPreferenceAdapter, setBoundPreferenceAdapter] = useState(localePreferenceAdapter);
   const preferenceRequestRef = useRef(0);
+  const preferenceWriteRef = useRef(Promise.resolve());
+  const availableInterfaceLocales = useMemo(() => {
+    const locales = getAdminMessageLocales();
+    if (messages && !locales.some((candidate) => candidate.toLowerCase() === messages.locale.toLowerCase())) {
+      locales.push(messages.locale);
+    }
+    return locales;
+  }, [messages]);
 
   // Dropping the adapter invalidates whatever it resolved. That is a prop change, so it is
   // applied in render rather than in a post-paint effect write.
@@ -96,31 +103,37 @@ export function AdminI18nProvider({
       ? localePreferenceAdapter.getLocale()
       : readStoredInterfaceLocale());
     void read.then((stored) => {
-      if (active && request === preferenceRequestRef.current && stored && getAdminMessageLocales().some((candidate) => candidate.toLowerCase() === stored.toLowerCase())) {
-        setPreferredInterfaceLocale(stored);
+      const registered = availableInterfaceLocales.find((candidate) => candidate.toLowerCase() === stored?.toLowerCase());
+      if (active && request === preferenceRequestRef.current && registered) {
+        setPreferredInterfaceLocale(registered);
       }
     }).catch(() => {});
     return () => {
       active = false;
     };
-  }, [localePreferenceAdapter]);
+  }, [localePreferenceAdapter, availableInterfaceLocales]);
 
-  const activeInterfaceLocale = preferredInterfaceLocale ?? adapterInterfaceLocale ?? locale ?? defaultAdminLocale;
+  const activeInterfaceLocale = preferredInterfaceLocale ?? adapterInterfaceLocale ?? locale ?? messages?.locale ?? defaultAdminLocale;
 
   const setInterfaceLocale = useCallback((next: string) => {
-    const registered = getAdminMessageLocales().find((candidate) => candidate.toLowerCase() === next.toLowerCase());
-    if (!registered) return;
+    const registered = availableInterfaceLocales.find((candidate) => candidate.toLowerCase() === next.toLowerCase());
+    if (!registered) return Promise.resolve();
     preferenceRequestRef.current += 1;
     setPreferredInterfaceLocale(registered);
-    if (localePreferenceAdapter) void Promise.resolve().then(() => localePreferenceAdapter.setLocale(registered)).catch(() => {});
-    else writeStoredInterfaceLocale(registered);
-  }, [localePreferenceAdapter]);
+    if (!localePreferenceAdapter) {
+      writeStoredInterfaceLocale(registered);
+      return Promise.resolve();
+    }
+    const write = preferenceWriteRef.current.then(() => localePreferenceAdapter.setLocale(registered));
+    preferenceWriteRef.current = write.catch(() => {});
+    return write;
+  }, [availableInterfaceLocales, localePreferenceAdapter]);
 
   const clearInterfaceLocalePreference = useCallback(() => {
     preferenceRequestRef.current += 1;
     setPreferredInterfaceLocale(null);
-    if (!localePreferenceAdapter) clearStoredInterfaceLocale();
-  }, [localePreferenceAdapter]);
+    clearStoredInterfaceLocale();
+  }, []);
 
   const refreshInterfaceLocalePreference = useCallback(() => {
     const request = ++preferenceRequestRef.current;
@@ -128,12 +141,13 @@ export function AdminI18nProvider({
       ? localePreferenceAdapter.getLocale()
       : readStoredInterfaceLocale());
     void read.then((stored) => {
-      const registered = getAdminMessageLocales().find((candidate) => candidate.toLowerCase() === stored?.toLowerCase());
+      const registered = availableInterfaceLocales.find((candidate) => candidate.toLowerCase() === stored?.toLowerCase());
       if (request === preferenceRequestRef.current) setPreferredInterfaceLocale(registered ?? null);
     }).catch(() => {
       if (request === preferenceRequestRef.current) setPreferredInterfaceLocale(null);
     });
-  }, [localePreferenceAdapter]);
+    return read.then(() => undefined, () => undefined);
+  }, [availableInterfaceLocales, localePreferenceAdapter]);
 
   const setContentLocale = useCallback(
     (next: string) => {
@@ -152,45 +166,29 @@ export function AdminI18nProvider({
       setInterfaceLocale,
       clearInterfaceLocalePreference,
       refreshInterfaceLocalePreference,
-      availableInterfaceLocales: getAdminMessageLocales(),
+      availableInterfaceLocales,
       toHref: localeAdapter?.toHref && contentLocale
         ? (href) => localeAdapter.toHref!(href, contentLocale)
         : (href) => href,
     }),
-    [localeAdapter, contentLocale, setContentLocale, activeInterfaceLocale, setInterfaceLocale, clearInterfaceLocalePreference, refreshInterfaceLocalePreference],
+    [localeAdapter, contentLocale, setContentLocale, activeInterfaceLocale, setInterfaceLocale, clearInterfaceLocalePreference, refreshInterfaceLocalePreference, availableInterfaceLocales],
   );
+
+  const activeMessages = messages && sameLanguage(messages.locale, activeInterfaceLocale)
+    ? messages
+    : getAdminMessages(activeInterfaceLocale);
 
   return (
     <AdminLocaleContext.Provider value={localeValue}>
-      <AdminI18nContext.Provider value={messages ?? getAdminMessages(activeInterfaceLocale)}>
+      <AdminI18nContext.Provider value={activeMessages}>
         {children}
       </AdminI18nContext.Provider>
     </AdminLocaleContext.Provider>
   );
 }
 
-function readStoredInterfaceLocale() {
-  try {
-    return window.sessionStorage.getItem(INTERFACE_LOCALE_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredInterfaceLocale(locale: string) {
-  try {
-    window.sessionStorage.setItem(INTERFACE_LOCALE_STORAGE_KEY, locale);
-  } catch {
-    return;
-  }
-}
-
-function clearStoredInterfaceLocale() {
-  try {
-    window.sessionStorage.removeItem(INTERFACE_LOCALE_STORAGE_KEY);
-  } catch {
-    return;
-  }
+function sameLanguage(left: string, right: string) {
+  return left.toLowerCase().split("-")[0] === right.toLowerCase().split("-")[0];
 }
 
 export function useAdminMessages() {

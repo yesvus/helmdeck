@@ -1329,7 +1329,9 @@ const localePreferenceAdapter = {
 </AdminI18nProvider>
 ```
 
-Register an additional dictionary in a client module so the registration and provider share the same browser bundle. Registered dictionaries appear in the language picker without package changes:
+Keep `localePreferenceAdapter` stable across renders by declaring it at module scope or memoizing it with `useMemo`. Its `setLocale` callback may return a promise; callers using `useAdminInterfaceLocale()` can await `setInterfaceLocale()` and handle a rejected write.
+
+Register an additional dictionary in a client module so the registration and provider share the same browser bundle. Registered dictionaries appear in the language picker without package changes. Hosts that relied on the previous Turkish package default can pass `locale="tr"` to `AdminI18nProvider`:
 
 ```tsx
 "use client";
