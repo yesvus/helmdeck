@@ -17,6 +17,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - A content lifecycle over the host's own rows: revision history a person can read and restore from, a soft delete with a trash, and a way back from both. See [Content lifecycle](#content-lifecycle).
 - An activity page over the host's audit events: filters for action, actor and date, expandable event details, and the tones that make a trail scannable. See [Reading the trail in a page](#reading-the-trail-in-a-page).
 - English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
+- A language preference in the settings page, persisted for the current browser tab and replaceable with a host-owned per-reader adapter.
 - A static bilingual fixture app for the hosted demo.
 - A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
 
@@ -1315,7 +1316,26 @@ Each host can provide only the services it uses. Callback failures and authoriza
 
 ## Localization
 
-`AdminI18nProvider` supplies the active dictionary to the shell and reusable components. It defaults to Turkish; pass `locale="en"` for the built-in English dictionary. Register an additional dictionary in a client module so the registration and provider share the same browser bundle:
+`AdminI18nProvider` supplies the active dictionary to the shell and reusable components. It defaults to English. Readers can choose any registered dictionary on the shell settings page. The choice is stored in the current tab's session storage, so it survives reloads, and Helmdeck clears it at sign-in and sign-out so another reader using the same tab starts with the host locale or package default. Hosts that store preferences per account can replace that storage with `localePreferenceAdapter`:
+
+```tsx
+import type { AdminLocalePreferenceAdapter } from "@yesvus/helmdeck";
+
+const localePreferenceAdapter: AdminLocalePreferenceAdapter = {
+  readerScoped: true,
+  setReader: (session) => userPreferences.selectReader(session?.userId ?? null),
+  getLocale: () => userPreferences.getInterfaceLocale(),
+  setLocale: (locale: string) => userPreferences.setInterfaceLocale(locale),
+};
+
+<AdminI18nProvider localePreferenceAdapter={localePreferenceAdapter}>
+  {children}
+</AdminI18nProvider>
+```
+
+Keep `localePreferenceAdapter` stable across renders by declaring it at module scope or memoizing it with `useMemo`. `setReader` is required: use a no-op only for a deliberately shared preference, and for account-scoped storage set `readerScoped: true`, populate `AdminSession.userId` with a stable account identifier, and select that reader before `getLocale` or `setLocale` runs. Helmdeck calls it after the initial session resolves, after sign-in or sign-out, and whenever `refresh()` detects an account change. It then reloads the preference. Each reader's saved choice remains available when they sign in again. Wrap account-scoped preferences with `AdminAuthProvider` so Helmdeck can bind the resolved session before loading the preference. Shared adapters load their preference without requiring `AdminAuthProvider`. Auth transitions do not wait for preference storage; hosts can inspect `localePreferenceError` from `useAdminSession()` if reader binding fails. The `setLocale` callback may return a promise; callers using `useAdminInterfaceLocale()` can await `setInterfaceLocale()` and handle a rejected write.
+
+Register an additional dictionary in a client module so the registration and provider share the same browser bundle. Registered dictionaries appear in the language picker without package changes. Hosts that relied on the previous Turkish package default can pass `locale="tr"` to `AdminI18nProvider`:
 
 ```tsx
 "use client";
@@ -1367,7 +1387,7 @@ export function AdminLocaleProvider({ children }: { children: React.ReactNode })
 }
 ```
 
-- `getInterfaceLocale` selects the interface dictionary and still falls back to Turkish.
+- `getInterfaceLocale` supplies the host's interface locale when the reader has not chosen a saved preference. The package default is English.
 - `getContentLocale` and `setContentLocale` are read and written through `useAdminContentLocale()`, so a host can render its own content-language control.
 - `toHref` is how the host states its own URL shape. The shell applies it to sidebar and mobile navigation, breadcrumbs, the brand link, and the profile link, so content locale survives navigation. Omit it and every href is left untouched.
 

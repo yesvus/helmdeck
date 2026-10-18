@@ -109,6 +109,11 @@ export type AdminCommonLabels = {
 export type AdminMessages = {
   locale: string;
   searchLocale: string;
+  languagePreference: {
+    label: string;
+    description: string;
+    saveFailed: string;
+  };
   shell: AdminShellLabels;
   media: AdminMediaLabels;
   form: AdminManagedFormFeedbackLabels & { assetTitle: string; pendingLabel: string };
@@ -132,6 +137,11 @@ export type AdminMessages = {
 export const englishAdminMessages: AdminMessages = {
   locale: "en",
   searchLocale: "en-US",
+  languagePreference: {
+    label: "Interface language",
+    description: "Choose the language used throughout the admin.",
+    saveFailed: "The language preference could not be saved.",
+  },
   shell: defaultAdminLabels,
   media: defaultAdminMediaLabels,
   form: {
@@ -182,6 +192,11 @@ export const englishAdminMessages: AdminMessages = {
 export const turkishAdminMessages: AdminMessages = {
   locale: "tr",
   searchLocale: "tr-TR",
+  languagePreference: {
+    label: "Arayüz dili",
+    description: "Yönetim arayüzünde kullanılacak dili seçin.",
+    saveFailed: "Dil tercihi kaydedilemedi.",
+  },
   shell: {
     sidebarExpand: "Menüyü genişletiniz",
     sidebarCollapse: "Menüyü daraltınız",
@@ -393,7 +408,7 @@ export const turkishAdminMessages: AdminMessages = {
   },
 };
 
-export const defaultAdminLocale = "tr";
+export const defaultAdminLocale = "en";
 
 const registry = new Map<string, AdminMessages>([
   [englishAdminMessages.locale, englishAdminMessages],
@@ -405,6 +420,10 @@ export function defineAdminMessages(messages: AdminMessages) {
   return messages;
 }
 
+export function getAdminMessageLocales() {
+  return [...registry.values()].map(({ locale }) => locale);
+}
+
 export function getAdminMessages(locale: string, fallbackLocale = defaultAdminLocale) {
   const normalizedLocale = locale.toLowerCase();
   const normalizedFallback = fallbackLocale.toLowerCase();
@@ -413,6 +432,7 @@ export function getAdminMessages(locale: string, fallbackLocale = defaultAdminLo
     registry.get(normalizedLocale.split("-")[0]) ??
     registry.get(normalizedFallback) ??
     registry.get(normalizedFallback.split("-")[0]) ??
-    turkishAdminMessages
+    registry.get(defaultAdminLocale) ??
+    englishAdminMessages
   );
 }

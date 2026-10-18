@@ -205,7 +205,7 @@ describe("published package under Node ESM", () => {
       expect(execFileSync(process.execPath, ["--input-type=module", "-e", script], {
         cwd: packageDirectory,
         encoding: "utf8",
-      })).toBe("tr");
+      })).toBe("en");
     }, 60_000);
   });
 });

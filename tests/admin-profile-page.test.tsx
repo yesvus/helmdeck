@@ -350,7 +350,7 @@ describe("AdminSettingsPage", () => {
     );
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((node) => node.textContent);
-    expect(headings).toEqual(["General", "Mail"]);
+    expect(headings).toEqual(["General", "Mail", "Interface language"]);
     expect(screen.getByText("How mail is sent")).toBeInTheDocument();
     expect(screen.getByText("General body")).toBeInTheDocument();
   });

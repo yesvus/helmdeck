@@ -109,15 +109,15 @@ describe("sidebar navigation group state", () => {
     const user = userEvent.setup();
     const view = renderShell();
 
-    const collapseButton = screen.getByRole("button", { name: /daralt/i });
+    const collapseButton = screen.getByRole("button", { name: /collapse sidebar/i });
     await user.click(collapseButton);
 
     expect(window.localStorage.getItem("yesvus:helmdeck:sidebar-collapsed:v1")).toBe("true");
-    expect(screen.getByRole("button", { name: /genişlet/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /expand sidebar/i })).toBeInTheDocument();
 
     view.unmount();
     renderShell();
 
-    expect(screen.getByRole("button", { name: /genişlet/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /expand sidebar/i })).toBeInTheDocument();
   });
 });

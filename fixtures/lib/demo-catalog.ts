@@ -878,6 +878,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "settings page schema site",
     hostNote: "A page built on the host's settings adapter and schema, which the catalogue does not declare.",
   },
+  AdminLanguagePreference: {
+    category: "Internationalisation",
+    summary: "A shell setting for choosing the interface language from the registered dictionaries.",
+    keywords: "language locale setting dictionary selector preference",
+    hostNote: "This control reads the active locale provider and the dictionaries registered by the host.",
+  },
   AdminSettingsFooter: {
     category: "Auth and permissions",
     summary: "The settings footer, with the installed Helmdeck version and room for host metadata.",
@@ -1789,7 +1795,7 @@ const CATALOG_META: Record<string, CatalogMeta> = {
 
   AdminI18nProvider: {
     category: "Internationalisation",
-    summary: "Supplies the dictionary, the content locale and the href builder to the whole tree.",
+    summary: "Supplies the active dictionary and content locale, with a stored interface language preference.",
     keywords: "i18n dictionary locale provider",
     renderable: true,
   },
@@ -1797,6 +1803,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Internationalisation",
     summary: "The active dictionary, resolved from the provider or from the default locale.",
     keywords: "messages dictionary copy hook",
+  },
+  useAdminInterfaceLocale: {
+    category: "Internationalisation",
+    summary: "The active interface locale, registered choices, and functions for changing the saved choice.",
+    keywords: "interface language locale picker preference hook",
   },
   useAdminContentLocale: {
     category: "Internationalisation",
@@ -1817,6 +1828,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Internationalisation",
     summary: "The dictionary for a locale tag, falling back to English for one it has never seen.",
     keywords: "get messages locale lookup",
+  },
+  getAdminMessageLocales: {
+    category: "Internationalisation",
+    summary: "The locale tags of every registered built-in and host dictionary.",
+    keywords: "messages locale registry language choices",
   },
   mergeAdminLabels: {
     category: "Internationalisation",

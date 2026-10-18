@@ -8,6 +8,7 @@ export { AdminProfileMenu } from "./admin-profile-menu.js";
 export { AdminProfilePage } from "./admin-profile-page.js";
 export type { AdminSessionSummary } from "./admin-profile-page.js";
 export { AdminSettingsPage } from "./admin-settings-page.js";
+export { AdminLanguagePreference } from "./admin-language-preference.js";
 export { AdminSettingsFooter } from "./admin-settings-footer.js";
 export { AdminSearch } from "./admin-search.js";
 export {
