@@ -2,12 +2,13 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { AdminLocaleAdapter } from "../adapters/host.js";
+import type { AdminLocaleAdapter, AdminSession } from "../adapters/index.js";
 import { useAdminScopeHref } from "../scope.js";
 import { defaultAdminLocale, getAdminMessageLocales, getAdminMessages, type AdminMessages } from "./messages.js";
 import { clearStoredInterfaceLocale, readStoredInterfaceLocale, writeStoredInterfaceLocale } from "./preference-storage.js";
 
 export type AdminLocalePreferenceAdapter = {
+  setReader?: (session: AdminSession | null) => void;
   getLocale: () => string | null | Promise<string | null>;
   setLocale: (locale: string) => void | Promise<void>;
 };
@@ -22,6 +23,7 @@ type AdminLocaleContextValue = {
   setInterfaceLocale: (locale: string) => Promise<void>;
   clearInterfaceLocalePreference: () => void;
   refreshInterfaceLocalePreference: () => Promise<void>;
+  setInterfaceLocaleReader: (session: AdminSession | null) => void;
   availableInterfaceLocales: string[];
   toHref: (href: string) => string;
 };
@@ -33,6 +35,7 @@ const AdminLocaleContext = createContext<AdminLocaleContextValue>({
   setInterfaceLocale: async () => {},
   clearInterfaceLocalePreference: () => {},
   refreshInterfaceLocalePreference: async () => {},
+  setInterfaceLocaleReader: () => {},
   availableInterfaceLocales: getAdminMessageLocales(),
   toHref: (href) => href,
 });
@@ -149,6 +152,10 @@ export function AdminI18nProvider({
     return read.then(() => undefined, () => undefined);
   }, [availableInterfaceLocales, localePreferenceAdapter]);
 
+  const setInterfaceLocaleReader = useCallback((session: AdminSession | null) => {
+    localePreferenceAdapter?.setReader?.(session);
+  }, [localePreferenceAdapter]);
+
   const setContentLocale = useCallback(
     (next: string) => {
       setContentLocaleState(next);
@@ -166,12 +173,13 @@ export function AdminI18nProvider({
       setInterfaceLocale,
       clearInterfaceLocalePreference,
       refreshInterfaceLocalePreference,
+      setInterfaceLocaleReader,
       availableInterfaceLocales,
       toHref: localeAdapter?.toHref && contentLocale
         ? (href) => localeAdapter.toHref!(href, contentLocale)
         : (href) => href,
     }),
-    [localeAdapter, contentLocale, setContentLocale, activeInterfaceLocale, setInterfaceLocale, clearInterfaceLocalePreference, refreshInterfaceLocalePreference, availableInterfaceLocales],
+    [localeAdapter, contentLocale, setContentLocale, activeInterfaceLocale, setInterfaceLocale, clearInterfaceLocalePreference, refreshInterfaceLocalePreference, setInterfaceLocaleReader, availableInterfaceLocales],
   );
 
   const activeMessages = messages && sameLanguage(messages.locale, activeInterfaceLocale)
@@ -206,8 +214,9 @@ export function useAdminInterfaceLocale() {
     availableInterfaceLocales,
     clearInterfaceLocalePreference,
     refreshInterfaceLocalePreference,
+    setInterfaceLocaleReader,
   } = useContext(AdminLocaleContext);
-  return { interfaceLocale, setInterfaceLocale, availableInterfaceLocales, clearInterfaceLocalePreference, refreshInterfaceLocalePreference };
+  return { interfaceLocale, setInterfaceLocale, availableInterfaceLocales, clearInterfaceLocalePreference, refreshInterfaceLocalePreference, setInterfaceLocaleReader };
 }
 
 export function useAdminContentLocale() {

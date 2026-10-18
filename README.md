@@ -1319,7 +1319,10 @@ Each host can provide only the services it uses. Callback failures and authoriza
 `AdminI18nProvider` supplies the active dictionary to the shell and reusable components. It defaults to English. Readers can choose any registered dictionary on the shell settings page. The choice is stored in the current tab's session storage, so it survives reloads, and Helmdeck clears it at sign-in and sign-out so another reader using the same tab starts with the host locale or package default. Hosts that store preferences per account can replace that storage with `localePreferenceAdapter`:
 
 ```tsx
-const localePreferenceAdapter = {
+import type { AdminLocalePreferenceAdapter } from "@yesvus/helmdeck";
+
+const localePreferenceAdapter: AdminLocalePreferenceAdapter = {
+  setReader: (session) => userPreferences.selectReader(session?.id ?? null),
   getLocale: () => userPreferences.getInterfaceLocale(),
   setLocale: (locale: string) => userPreferences.setInterfaceLocale(locale),
 };
@@ -1329,7 +1332,7 @@ const localePreferenceAdapter = {
 </AdminI18nProvider>
 ```
 
-Keep `localePreferenceAdapter` stable across renders by declaring it at module scope or memoizing it with `useMemo`. Its `setLocale` callback may return a promise; callers using `useAdminInterfaceLocale()` can await `setInterfaceLocale()` and handle a rejected write.
+Keep `localePreferenceAdapter` stable across renders by declaring it at module scope or memoizing it with `useMemo`. When account identity affects the stored preference, implement `setReader` to select the active reader before `getLocale` or `setLocale` runs. Helmdeck calls it with the session after sign-in and with `null` at sign-out, then reloads the preference. Each reader's saved choice remains available when they sign in again. The `setLocale` callback may return a promise; callers using `useAdminInterfaceLocale()` can await `setInterfaceLocale()` and handle a rejected write.
 
 Register an additional dictionary in a client module so the registration and provider share the same browser bundle. Registered dictionaries appear in the language picker without package changes. Hosts that relied on the previous Turkish package default can pass `locale="tr"` to `AdminI18nProvider`:
 

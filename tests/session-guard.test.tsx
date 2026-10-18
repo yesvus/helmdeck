@@ -174,6 +174,46 @@ describe("AdminAuthProvider", () => {
     expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBeNull();
   });
 
+  it("rebinds a host preference adapter to each signed-in reader", async () => {
+    const nextReader: AdminSession = { email: "bob@example.com", role: "editor" };
+    let readerEmail: string | null = null;
+    const preference = {
+      setReader: vi.fn((next: AdminSession | null) => { readerEmail = next?.email ?? null; }),
+      getLocale: vi.fn(() => readerEmail === "ada@example.com" ? "tr" : null),
+      setLocale: vi.fn(),
+    };
+    const auth = adapter({
+      getSession: vi.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(session),
+      login: vi.fn().mockResolvedValue({ ok: true, session: nextReader }),
+    });
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <LocaleTextProbe />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none"));
+
+    await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
+    await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın"));
+
+    await act(async () => screen.getByRole("button", { name: "do sign out" }).click());
+    await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Search admin pages"));
+
+    await act(async () => screen.getByRole("button", { name: "do sign in" }).click());
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:bob@example.com"));
+    expect(screen.getByTestId("locale-text")).toHaveTextContent("Search admin pages");
+    expect(preference.setReader.mock.calls.map(([reader]) => reader?.email ?? null)).toEqual([
+      null,
+      "ada@example.com",
+      null,
+      "bob@example.com",
+    ]);
+  });
+
   it("keeps the tab locale when sign-in fails", async () => {
     window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
     const auth = adapter({
