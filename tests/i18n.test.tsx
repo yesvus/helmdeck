@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AdminI18nProvider,
@@ -22,6 +23,14 @@ import {
 function MessageProbe() {
   const messages = useAdminMessages();
   return <p>{messages.shell.searchLabel}</p>;
+}
+
+function BindLocalePreferenceReader() {
+  const { setInterfaceLocaleReader, refreshInterfaceLocalePreference } = useAdminInterfaceLocale();
+  useEffect(() => {
+    void setInterfaceLocaleReader(null).then(() => refreshInterfaceLocalePreference());
+  }, [refreshInterfaceLocalePreference, setInterfaceLocaleReader]);
+  return null;
 }
 
 describe("Helmdeck localization", () => {
@@ -98,6 +107,7 @@ describe("Helmdeck localization", () => {
 
   it("uses a host locale preference adapter when supplied", async () => {
     const preference = {
+      setReader: vi.fn(),
       getLocale: () => "tr",
       setLocale: vi.fn(),
     };
@@ -109,6 +119,7 @@ describe("Helmdeck localization", () => {
       <AdminI18nProvider localePreferenceAdapter={preference}>
         <MessageProbe />
         <LanguageProbe />
+        <BindLocalePreferenceReader />
       </AdminI18nProvider>,
     );
     expect(await screen.findByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
@@ -120,6 +131,7 @@ describe("Helmdeck localization", () => {
   it("serializes host preference writes in the order the reader selects them", async () => {
     let finishFirst: () => void = () => {};
     const preference = {
+      setReader: vi.fn(),
       getLocale: () => null,
       setLocale: vi.fn((locale: string) => locale === "tr"
         ? new Promise<void>((resolve) => { finishFirst = resolve; })
@@ -270,12 +282,14 @@ describe("Helmdeck localization", () => {
 
   it("announces when the host cannot save a selected language", async () => {
     const preference = {
+      setReader: vi.fn(),
       getLocale: () => "en",
       setLocale: vi.fn().mockRejectedValue(new Error("offline")),
     };
     render(
       <AdminI18nProvider localePreferenceAdapter={preference}>
         <AdminLanguagePreference />
+        <BindLocalePreferenceReader />
       </AdminI18nProvider>,
     );
     const picker = await screen.findByRole("combobox", { name: "Interface language" });
@@ -297,6 +311,7 @@ describe("Helmdeck localization", () => {
   it("does not show an older failed save after the latest selection saves", async () => {
     let rejectFirst: (cause: Error) => void = () => {};
     const preference = {
+      setReader: vi.fn(),
       getLocale: () => null,
       setLocale: vi.fn((locale: string) => locale === "tr"
         ? new Promise<void>((_resolve, reject) => { rejectFirst = reject; })

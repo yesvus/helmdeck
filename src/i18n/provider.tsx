@@ -8,7 +8,7 @@ import { defaultAdminLocale, getAdminMessageLocales, getAdminMessages, type Admi
 import { clearStoredInterfaceLocale, readStoredInterfaceLocale, writeStoredInterfaceLocale } from "./preference-storage.js";
 
 export type AdminLocalePreferenceAdapter = {
-  setReader?: (session: AdminSession | null) => void | Promise<void>;
+  setReader: (session: AdminSession | null) => void | Promise<void>;
   getLocale: () => string | null | Promise<string | null>;
   setLocale: (locale: string) => void | Promise<void>;
 };
@@ -101,12 +101,10 @@ export function AdminI18nProvider({
   }, [localeAdapter]);
 
   useEffect(() => {
-    if (localePreferenceAdapter?.setReader) return;
+    if (localePreferenceAdapter) return;
     let active = true;
     const request = ++preferenceRequestRef.current;
-    const read = Promise.resolve().then(() => localePreferenceAdapter
-      ? localePreferenceAdapter.getLocale()
-      : readStoredInterfaceLocale());
+    const read = Promise.resolve().then(readStoredInterfaceLocale);
     void read.then((stored) => {
       const registered = availableInterfaceLocales.find((candidate) => candidate.toLowerCase() === stored?.toLowerCase());
       if (active && request === preferenceRequestRef.current && registered) {
@@ -163,8 +161,8 @@ export function AdminI18nProvider({
   }, [availableInterfaceLocales, localePreferenceAdapter]);
 
   const setInterfaceLocaleReader = useCallback((session: AdminSession | null) => {
-    return localePreferenceAdapter?.setReader
-      ? queuePreferenceOperation(() => localePreferenceAdapter.setReader!(session)).then(() => undefined)
+    return localePreferenceAdapter
+      ? queuePreferenceOperation(() => localePreferenceAdapter.setReader(session)).then(() => undefined)
       : Promise.resolve();
   }, [localePreferenceAdapter, queuePreferenceOperation]);
 
