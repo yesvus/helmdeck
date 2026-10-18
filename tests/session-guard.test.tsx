@@ -286,6 +286,28 @@ describe("AdminAuthProvider", () => {
     ]);
   });
 
+  it("loads the host preference after resolving an initial authenticated reader", async () => {
+    const initialSession: AdminSession = { userId: "ada", email: "ada@example.com", role: "editor" };
+    let activeReader: string | null = null;
+    const preference = {
+      setReader: vi.fn((reader: AdminSession | null) => { activeReader = reader?.userId ?? null; }),
+      getLocale: vi.fn(() => activeReader === "ada" ? "tr" : null),
+      setLocale: vi.fn(),
+    };
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminAuthProvider adapter={adapter({ getSession: vi.fn().mockResolvedValue(initialSession) })}>
+          <StatusProbe />
+          <LocaleTextProbe />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın");
+    expect(preference.setReader).toHaveBeenCalledWith(initialSession);
+    expect(preference.getLocale).toHaveBeenCalledTimes(1);
+  });
+
   it("rebinds the host preference after a failed read and an account switch", async () => {
     const ada: AdminSession = { userId: "ada", email: "ada@example.com" };
     const bob: AdminSession = { userId: "bob", email: "bob@example.com" };
