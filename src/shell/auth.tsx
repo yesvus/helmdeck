@@ -65,6 +65,7 @@ export function AdminAuthProvider({
     setInterfaceLocaleReader,
   } = useAdminInterfaceLocale();
   const boundLocaleReader = useRef<string | null | undefined>(undefined);
+  const requestedLocaleReader = useRef<string | null | undefined>(undefined);
   // Bumped by anything that decides the session on its own, so an in-flight read that started
   // earlier cannot land on top of it.
   const decided = useRef(0);
@@ -97,6 +98,17 @@ export function AdminAuthProvider({
 
   const readSession = useCallback(() => adapter.getSession(), [adapter]);
 
+  const rebindLocaleReader = useCallback((next: AdminSession | null, identity: string | null, mine: number) => {
+    void setInterfaceLocaleReader(next).then(() => {
+      boundLocaleReader.current = identity;
+      if (requestedLocaleReader.current === identity) void refreshInterfaceLocalePreference();
+    }).catch(() => {
+      if (mine === decided.current && requestedLocaleReader.current === identity) {
+        requestedLocaleReader.current = boundLocaleReader.current;
+      }
+    });
+  }, [refreshInterfaceLocalePreference, setInterfaceLocaleReader]);
+
   // A manual refresh records the failure like the initial read does, so the context is never
   // left describing a read that did not happen, and rethrows so a host that awaited it can
   // still show its own error. It obeys the same generation rule as the mount read, or a
@@ -107,24 +119,26 @@ export function AdminAuthProvider({
       const next = await readSession();
       if (mine === decided.current) {
         const nextReader = readerIdentity(next);
-        const readerChanged = boundLocaleReader.current !== nextReader;
-        if (readerChanged) {
-          const previouslyResolved = boundLocaleReader.current !== undefined;
+        const readerChanged = requestedLocaleReader.current !== nextReader;
+        const readerBindingPending = boundLocaleReader.current !== nextReader;
+        if (readerChanged || readerBindingPending) {
+          const previouslyResolved = readerChanged && requestedLocaleReader.current !== undefined;
+          if (readerChanged) requestedLocaleReader.current = nextReader;
           if (previouslyResolved) {
             clearStoredInterfaceLocale();
             clearInterfaceLocalePreference();
           }
-          await setInterfaceLocaleReader(next);
-          boundLocaleReader.current = nextReader;
+          applySession(next);
+          rebindLocaleReader(next, nextReader, mine);
+          return;
         }
         applySession(next);
-        if (readerChanged) await refreshInterfaceLocalePreference();
       }
     } catch (cause) {
       if (mine === decided.current) applyFailure(cause);
       throw cause;
     }
-  }, [applyFailure, applySession, clearInterfaceLocalePreference, readSession, refreshInterfaceLocalePreference, setInterfaceLocaleReader]);
+  }, [applyFailure, applySession, clearInterfaceLocalePreference, readSession, rebindLocaleReader]);
 
   // The read is kicked off here but resolved in a callback, because a setState in the effect
   // body itself is a cascading render. The active flag drops a late answer to an unmounted
@@ -133,17 +147,12 @@ export function AdminAuthProvider({
   useEffect(() => {
     let active = true;
     const mine = (decided.current += 1);
-    void readSession().then(async (next) => {
+    void readSession().then((next) => {
       if (!active || mine !== decided.current) return;
-      try {
-        await setInterfaceLocaleReader(next);
-        if (!active || mine !== decided.current) return;
-        boundLocaleReader.current = readerIdentity(next);
-        applySession(next);
-        await refreshInterfaceLocalePreference();
-      } catch (cause) {
-        if (active && mine === decided.current) applyFailure(cause);
-      }
+      const identity = readerIdentity(next);
+      requestedLocaleReader.current = identity;
+      applySession(next);
+      rebindLocaleReader(next, identity, mine);
     },
       (cause: unknown) => {
         if (active && mine === decided.current) applyFailure(cause);
@@ -152,7 +161,7 @@ export function AdminAuthProvider({
     return () => {
       active = false;
     };
-  }, [applyFailure, applySession, readSession, refreshInterfaceLocalePreference, setInterfaceLocaleReader]);
+  }, [applyFailure, applySession, readSession, rebindLocaleReader]);
 
   const login = useCallback(
     async (credentials: AdminLoginCredentials) => {
@@ -163,20 +172,26 @@ export function AdminAuthProvider({
       if (result.ok) {
         clearStoredInterfaceLocale();
         clearInterfaceLocalePreference();
-        await setInterfaceLocaleReader(result.session);
-        boundLocaleReader.current = readerIdentity(result.session);
+        const identity = readerIdentity(result.session);
+        requestedLocaleReader.current = identity;
         setError(null);
         setSession(result.session);
         setStatus("authenticated");
-        await refreshInterfaceLocalePreference();
+        rebindLocaleReader(result.session, identity, decided.current);
       } else {
         setError(null);
         setSession(null);
         setStatus("anonymous");
+        if (requestedLocaleReader.current != null) {
+          clearStoredInterfaceLocale();
+          clearInterfaceLocalePreference();
+          requestedLocaleReader.current = null;
+          rebindLocaleReader(null, null, decided.current);
+        }
       }
       return result;
     },
-    [adapter, clearInterfaceLocalePreference, refreshInterfaceLocalePreference, setInterfaceLocaleReader],
+    [adapter, clearInterfaceLocalePreference, rebindLocaleReader],
   );
 
   const logout = useCallback(async () => {
@@ -184,13 +199,12 @@ export function AdminAuthProvider({
     decided.current += 1;
     clearStoredInterfaceLocale();
     clearInterfaceLocalePreference();
-    await setInterfaceLocaleReader(null);
-    boundLocaleReader.current = null;
+    requestedLocaleReader.current = null;
     setError(null);
     setSession(null);
     setStatus("anonymous");
-    await refreshInterfaceLocalePreference();
-  }, [adapter, clearInterfaceLocalePreference, refreshInterfaceLocalePreference, setInterfaceLocaleReader]);
+    rebindLocaleReader(null, null, decided.current);
+  }, [adapter, clearInterfaceLocalePreference, rebindLocaleReader]);
 
   const value = useMemo<AdminAuthContextValue>(
     () => ({ session, status, error, login, logout, refresh }),

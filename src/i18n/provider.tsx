@@ -59,7 +59,7 @@ export function AdminI18nProvider({
   const [preferredInterfaceLocale, setPreferredInterfaceLocale] = useState<string | null>(null);
   const [boundPreferenceAdapter, setBoundPreferenceAdapter] = useState(localePreferenceAdapter);
   const preferenceRequestRef = useRef(0);
-  const preferenceWriteRef = useRef(Promise.resolve());
+  const preferenceOperationRef = useRef(Promise.resolve());
   const suppliedMessagesLocale = messages?.locale;
   const availableInterfaceLocales = useMemo(() => {
     const locales = getAdminMessageLocales();
@@ -119,8 +119,8 @@ export function AdminI18nProvider({
   }, [localePreferenceAdapter, availableInterfaceLocales]);
 
   const queuePreferenceOperation = useCallback(<T,>(operation: () => T | Promise<T>) => {
-    const pending = preferenceWriteRef.current.then(operation);
-    preferenceWriteRef.current = pending.then(() => undefined, () => undefined);
+    const pending = preferenceOperationRef.current.then(operation);
+    preferenceOperationRef.current = pending.then(() => undefined, () => undefined);
     return pending;
   }, []);
 
@@ -150,9 +150,9 @@ export function AdminI18nProvider({
 
   const refreshInterfaceLocalePreference = useCallback(() => {
     const request = ++preferenceRequestRef.current;
-    const read = localePreferenceAdapter
-      ? queuePreferenceOperation(() => localePreferenceAdapter.getLocale())
-      : Promise.resolve(readStoredInterfaceLocale());
+    const read = Promise.resolve().then(() => localePreferenceAdapter
+      ? localePreferenceAdapter.getLocale()
+      : readStoredInterfaceLocale());
     void read.then((stored) => {
       const registered = availableInterfaceLocales.find((candidate) => candidate.toLowerCase() === stored?.toLowerCase());
       if (request === preferenceRequestRef.current) setPreferredInterfaceLocale(registered ?? null);
@@ -160,7 +160,7 @@ export function AdminI18nProvider({
       if (request === preferenceRequestRef.current) setPreferredInterfaceLocale(null);
     });
     return read.then(() => undefined, () => undefined);
-  }, [availableInterfaceLocales, localePreferenceAdapter, queuePreferenceOperation]);
+  }, [availableInterfaceLocales, localePreferenceAdapter]);
 
   const setInterfaceLocaleReader = useCallback((session: AdminSession | null) => {
     return localePreferenceAdapter?.setReader

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-import { act, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider, useAdminMessages } from "../src/i18n";
 import { AdminAuthProvider, AdminRequireSession, useAdminSession } from "../src/shell/auth";
@@ -53,6 +53,14 @@ function StatusProbe() {
 
 function LocaleTextProbe() {
   return <span data-testid="locale-text">{useAdminMessages().shell.searchLabel}</span>;
+}
+
+function SessionHistoryProbe({ history }: { history: string[] }) {
+  const { session: current } = useAdminSession();
+  useEffect(() => {
+    history.push(current?.email ?? "none");
+  }, [current, history]);
+  return null;
 }
 
 /** Drives the provider through its public API the way a host sign-in form would. */
@@ -273,6 +281,67 @@ describe("AdminAuthProvider", () => {
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:bob@example.com"));
     await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Search admin pages"));
     expect(preference.setReader.mock.calls.map(([reader]) => reader?.userId ?? null)).toEqual(["ada", "bob"]);
+  });
+
+  it("keeps authentication transitions independent of host locale binding failures", async () => {
+    const preference = {
+      setReader: vi.fn().mockRejectedValue(new Error("preference store unavailable")),
+      getLocale: vi.fn(() => null),
+      setLocale: vi.fn(),
+    };
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminAuthProvider adapter={adapter()}>
+          <StatusProbe />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+
+    await act(async () => screen.getByRole("button", { name: "do sign out" }).click());
+
+    expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none");
+    expect(preference.getLocale).not.toHaveBeenCalled();
+  });
+
+  it("does not apply an older refresh after its reader binding yields", async () => {
+    const ada: AdminSession = { userId: "ada", email: "ada@example.com" };
+    const bob: AdminSession = { userId: "bob", email: "bob@example.com" };
+    const carol: AdminSession = { userId: "carol", email: "carol@example.com" };
+    let finishBobBinding: () => void = () => {};
+    const history: string[] = [];
+    const preference = {
+      setReader: vi.fn((next: AdminSession | null) => next?.userId === "bob"
+        ? new Promise<void>((resolve) => { finishBobBinding = resolve; })
+        : undefined),
+      getLocale: vi.fn(() => null),
+      setLocale: vi.fn(),
+    };
+    const auth = adapter({
+      getSession: vi.fn().mockResolvedValueOnce(ada).mockResolvedValueOnce(bob).mockResolvedValueOnce(carol),
+    });
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <SessionHistoryProbe history={history} />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+
+    fireEvent.click(screen.getByRole("button", { name: "do refresh" }));
+    await waitFor(() => expect(preference.setReader).toHaveBeenCalledWith(bob));
+    await waitFor(() => expect(history).toContain("bob@example.com"));
+    fireEvent.click(screen.getByRole("button", { name: "do refresh" }));
+    await waitFor(() => expect(auth.getSession).toHaveBeenCalledTimes(3));
+    const historyAfterNewerRefresh = history.length;
+    await act(async () => finishBobBinding());
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:carol@example.com"));
+    expect(history.slice(historyAfterNewerRefresh)).not.toContain("bob@example.com");
   });
 
   it("keeps the tab locale when sign-in fails", async () => {
