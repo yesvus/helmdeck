@@ -552,11 +552,11 @@ describe("AdminAuthProvider", () => {
         </AdminAuthProvider>
       </AdminI18nProvider>,
     );
-    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın");
+    await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın"));
 
     await act(async () => screen.getByRole("button", { name: "do sign in" }).click());
 
-    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Search admin pages");
+    await waitFor(() => expect(screen.getByTestId("locale-text")).toHaveTextContent("Search admin pages"));
     expect(preference.setReader.mock.calls.map(([reader]) => reader?.userId ?? null)).toEqual(["ada", null]);
     expect(preference.getLocale).toHaveBeenCalledTimes(2);
   });
