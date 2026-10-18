@@ -124,7 +124,7 @@ describe("persistent shell page context", () => {
       "overflow-y-auto",
     );
     expect(screen.getByRole("heading", { name: "Products" })).toBeInTheDocument();
-    expect(screen.getByText("Yeni", { selector: '[aria-current="page"]' })).toBeInTheDocument();
+    expect(screen.getByText("New", { selector: '[aria-current="page"]' })).toBeInTheDocument();
   });
 
   it("opens the first category and the category containing the active route", () => {

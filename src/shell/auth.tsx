@@ -13,7 +13,7 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
 import type { AdminAuthAdapter, AdminLoginCredentials, AdminLoginResult, AdminSession } from "../adapters/index.js";
-import { useAdminMessages } from "../i18n.js";
+import { useAdminInterfaceLocale, useAdminMessages } from "../i18n.js";
 import { cn } from "../cn.js";
 import { adminLoginHref, adminReturnTo, DEFAULT_ADMIN_LOGIN_HREF } from "./session-guard.js";
 
@@ -58,6 +58,7 @@ export function AdminAuthProvider({
   const [status, setStatus] = useState<AdminSessionStatus>("checking");
   const [error, setError] = useState<unknown | null>(null);
   const [boundAdapter, setBoundAdapter] = useState(adapter);
+  const { clearInterfaceLocalePreference, refreshInterfaceLocalePreference } = useAdminInterfaceLocale();
   // Bumped by anything that decides the session on its own, so an in-flight read that started
   // earlier cannot land on top of it.
   const decided = useRef(0);
@@ -127,6 +128,7 @@ export function AdminAuthProvider({
 
   const login = useCallback(
     async (credentials: AdminLoginCredentials) => {
+      clearInterfaceLocalePreference();
       const result = await adapter.login(credentials);
       // A failed sign-in must not leave a stale session behind, and a successful one has
       // to be reflected immediately rather than waiting for the next getSession.
@@ -135,6 +137,7 @@ export function AdminAuthProvider({
         setError(null);
         setSession(result.session);
         setStatus("authenticated");
+        refreshInterfaceLocalePreference();
       } else {
         setError(null);
         setSession(null);
@@ -142,16 +145,17 @@ export function AdminAuthProvider({
       }
       return result;
     },
-    [adapter],
+    [adapter, clearInterfaceLocalePreference, refreshInterfaceLocalePreference],
   );
 
   const logout = useCallback(async () => {
     await adapter.logout();
     decided.current += 1;
+    clearInterfaceLocalePreference();
     setError(null);
     setSession(null);
     setStatus("anonymous");
-  }, [adapter]);
+  }, [adapter, clearInterfaceLocalePreference]);
 
   const value = useMemo<AdminAuthContextValue>(
     () => ({ session, status, error, login, logout, refresh }),

@@ -20,11 +20,11 @@ vi.mock("next/navigation.js", () => ({
 
 const session: AdminSession = { email: "ada@example.com", name: "Ada", role: "editor" };
 
-// defaultAdminLocale is "tr", so these are the strings a host sees with nothing configured.
-const TR = {
-  checking: "Oturumunuz denetleniyor.",
-  redirecting: "Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.",
-  signInLink: "Giriş sayfasına gidin",
+// The default dictionary is English when the host has not configured an interface locale.
+const EN = {
+  checking: "Checking your session.",
+  redirecting: "You need to sign in to view this page.",
+  signInLink: "Go to sign in",
 };
 
 function adapter(overrides: Partial<AdminAuthAdapter> = {}): AdminAuthAdapter {
@@ -420,7 +420,7 @@ describe("AdminRequireSession", () => {
     });
     renderGuarded(auth);
 
-    expect(screen.getByRole("status")).toHaveTextContent(TR.checking);
+    expect(screen.getByRole("status")).toHaveTextContent(EN.checking);
     expect(screen.queryByText("Invoices")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
 
@@ -433,10 +433,10 @@ describe("AdminRequireSession", () => {
   it("announces the redirect and keeps a real link forward when anonymous", async () => {
     renderGuarded(adapter({ getSession: vi.fn().mockResolvedValue(null) }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(TR.redirecting);
+    expect(await screen.findByRole("status")).toHaveTextContent(EN.redirecting);
     // The redirect must not be the only way forward, or a keyboard or screen-reader user who
     // lands here cannot proceed at all.
-    const link = screen.getByRole("link", { name: TR.signInLink });
+    const link = screen.getByRole("link", { name: EN.signInLink });
     expect(link).toHaveAttribute("href", "/admin/login?next=%2Fadmin%2Fproducts");
     expect(screen.queryByText("Invoices")).not.toBeInTheDocument();
   });
@@ -493,7 +493,7 @@ describe("AdminRequireSession", () => {
 
     const status = await screen.findByRole("status");
     expect(status).toHaveTextContent("You need to sign in to view this page.");
-    expect(status).not.toHaveTextContent(TR.redirecting);
+    expect(status).not.toHaveTextContent("Bu sayfayı görüntülemek için giriş yapmanız gerekiyor.");
     expect(screen.getByRole("link", { name: "Go to sign in" })).toBeInTheDocument();
   });
 
@@ -504,7 +504,7 @@ describe("AdminRequireSession", () => {
     renderGuarded(adapter({ getSession: vi.fn().mockRejectedValue(new Error("down")) }), { onRedirect });
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Oturumunuz denetlenemedi");
+    expect(alert).toHaveTextContent("Your session could not be checked");
     expect(onRedirect).not.toHaveBeenCalled();
     expect(navigation.push).not.toHaveBeenCalled();
     expect(screen.queryByText("Invoices")).not.toBeInTheDocument();
@@ -590,7 +590,7 @@ describe("AdminRequireSession", () => {
     navigation.pathname = "";
     renderGuarded(adapter({ getSession: vi.fn().mockResolvedValue(null) }));
 
-    const link = await screen.findByRole("link", { name: TR.signInLink });
+    const link = await screen.findByRole("link", { name: EN.signInLink });
     expect(link).toHaveAttribute("href", "/admin/login?next=%2F");
   });
 });

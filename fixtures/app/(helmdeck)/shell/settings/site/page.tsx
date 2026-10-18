@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { FixtureCard } from "../../../../../components/fixture-card";
-import { AdminSettingsFooter } from "@yesvus/helmdeck";
+import { AdminLanguagePreference, AdminSettingsFooter } from "@yesvus/helmdeck";
 import { currentDemoSession } from "../../../../../lib/demo-session";
 import {
   SETTINGS_FIELDS,
@@ -74,6 +74,8 @@ export default async function SiteSettingsPage({
             Role: {session?.role ?? "none"}. It comes from the stored account and is not a setting.
           </p>
         </section>
+
+        <AdminLanguagePreference />
 
         <form action={writeSiteSettingsAction} className="space-y-6">
           <fieldset className="space-y-4">

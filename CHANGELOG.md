@@ -8,6 +8,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Added
+
+- Shell language preferences with registered dictionary discovery, session-scoped persistence, and a host adapter for per-reader storage. English is the default interface language.
+
 ## 0.11.0
 
 ### Added
