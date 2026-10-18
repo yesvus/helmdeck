@@ -174,6 +174,29 @@ describe("AdminAuthProvider", () => {
     expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBeNull();
   });
 
+  it("clears the tab locale when refresh observes a sign-out", async () => {
+    window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
+    const auth = adapter({
+      getSession: vi.fn().mockResolvedValueOnce(session).mockResolvedValueOnce(null),
+    });
+    render(
+      <AdminI18nProvider>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <LocaleTextProbe />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+
+    await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
+
+    expect(await screen.findByTestId("status")).toHaveTextContent("anonymous:none");
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Search admin pages");
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBeNull();
+  });
+
   it("rebinds a host preference adapter to each signed-in reader", async () => {
     const nextReader: AdminSession = { email: "bob@example.com", role: "editor" };
     let readerEmail: string | null = null;

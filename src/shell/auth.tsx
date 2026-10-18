@@ -109,13 +109,14 @@ export function AdminAuthProvider({
       const next = await readSession();
       if (mine === decided.current) {
         const signedIn = !sessionRef.current && next !== null;
-        if (signedIn) {
+        const signedOut = sessionRef.current !== null && next === null;
+        if (signedIn || signedOut) {
           clearStoredInterfaceLocale();
           clearInterfaceLocalePreference();
           setInterfaceLocaleReader(next);
         }
         applySession(next);
-        if (signedIn) await refreshInterfaceLocalePreference();
+        if (signedIn || signedOut) await refreshInterfaceLocalePreference();
       }
     } catch (cause) {
       if (mine === decided.current) applyFailure(cause);
