@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider, useAdminMessages } from "../src/i18n";
 import { AdminAuthProvider, AdminRequireSession, useAdminSession } from "../src/shell/auth";
 import type { AdminAuthAdapter, AdminSession } from "../src/adapters/index";
+import { getAdminSessionReaderIdentity } from "../src/adapters/session";
 
 const navigation = vi.hoisted(() => ({
   pathname: "/admin/products",
@@ -118,6 +119,10 @@ afterEach(() => {
 });
 
 describe("AdminAuthProvider", () => {
+  it("uses the account email when a host supplies an empty user id", () => {
+    expect(getAdminSessionReaderIdentity({ userId: "", email: "ada@example.com" })).toBe("user:ada@example.com");
+  });
+
   it("resolves the session once and shares it with every consumer", async () => {
     const auth = adapter();
     render(
@@ -495,6 +500,36 @@ describe("AdminAuthProvider", () => {
     await act(async () => screen.getByRole("button", { name: "do sign in" }).click());
 
     expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBe("tr");
+  });
+
+  it("reloads the anonymous host preference after a failed sign-in clears an active reader", async () => {
+    const initialSession: AdminSession = { ...session, userId: "ada" };
+    let activeReader: string | null = null;
+    const preference = {
+      readerScoped: true,
+      setReader: vi.fn((reader: AdminSession | null) => { activeReader = reader?.userId ?? null; }),
+      getLocale: vi.fn(() => activeReader === "ada" ? "tr" : "en"),
+      setLocale: vi.fn(),
+    };
+    const auth = adapter({
+      getSession: vi.fn().mockResolvedValue(initialSession),
+      login: vi.fn().mockResolvedValue({ ok: false, message: "Invalid credentials" }),
+    });
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminAuthProvider adapter={auth}>
+          <LocaleTextProbe />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Yönetim sayfalarında arayın");
+
+    await act(async () => screen.getByRole("button", { name: "do sign in" }).click());
+
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Search admin pages");
+    expect(preference.setReader.mock.calls.map(([reader]) => reader?.userId ?? null)).toEqual(["ada", null]);
+    expect(preference.getLocale).toHaveBeenCalledTimes(2);
   });
 
   it("clears the tab locale at sign-out without an i18n provider", async () => {

@@ -204,8 +204,9 @@ export function AdminAuthProvider({
           clearStoredInterfaceLocale();
           clearInterfaceLocalePreference();
           setLocalePreferenceError(null);
-          requestedLocaleReader.current = readerIdentity(null);
-          rebindLocaleReader(null, null, decided.current);
+          const anonymousReader = readerIdentity(null);
+          requestedLocaleReader.current = anonymousReader;
+          rebindLocaleReader(null, anonymousReader, decided.current);
         }
       }
       return result;

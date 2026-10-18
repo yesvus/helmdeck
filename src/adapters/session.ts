@@ -21,5 +21,5 @@ export type AdminSession = {
 };
 
 export function getAdminSessionReaderIdentity(session: AdminSession | null) {
-  return session ? `user:${session.userId ?? session.email.toLowerCase()}` : "anonymous";
+  return session ? `user:${session.userId || session.email.toLowerCase()}` : "anonymous";
 }
