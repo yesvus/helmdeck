@@ -161,6 +161,7 @@ export function AdminI18nProvider({
   }, [availableInterfaceLocales, localePreferenceAdapter]);
 
   const setInterfaceLocaleReader = useCallback((session: AdminSession | null) => {
+    preferenceRequestRef.current += 1;
     return localePreferenceAdapter
       ? queuePreferenceOperation(() => localePreferenceAdapter.setReader(session)).then(() => undefined)
       : Promise.resolve();

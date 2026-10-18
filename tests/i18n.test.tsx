@@ -198,6 +198,41 @@ describe("Helmdeck localization", () => {
     expect(writeReaders).toEqual(["ada"]);
   });
 
+  it("ignores a host preference read that resolves after a reader rebind", async () => {
+    let finishFirstRead: (locale: string | null) => void = () => {};
+    const preference = {
+      setReader: vi.fn(),
+      getLocale: vi.fn()
+        .mockImplementationOnce(() => new Promise<string | null>((resolve) => { finishFirstRead = resolve; }))
+        .mockResolvedValue(null),
+      setLocale: vi.fn(),
+    };
+    function ReadProbe() {
+      const { refreshInterfaceLocalePreference, setInterfaceLocaleReader } = useAdminInterfaceLocale();
+      return (
+        <>
+          <button onClick={() => void refreshInterfaceLocalePreference()}>Read old preference</button>
+          <button onClick={() => {
+            void setInterfaceLocaleReader({ userId: "bob", email: "bob@example.com" })
+              .then(() => refreshInterfaceLocalePreference());
+          }}>Switch reader</button>
+        </>
+      );
+    }
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <MessageProbe />
+        <ReadProbe />
+      </AdminI18nProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Read old preference" }));
+    await waitFor(() => expect(preference.getLocale).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Switch reader" }));
+    await waitFor(() => expect(preference.getLocale).toHaveBeenCalledTimes(2));
+    await act(async () => finishFirstRead("tr"));
+    expect(screen.getByText("Search admin pages")).toBeInTheDocument();
+  });
+
   it("updates interface messages when the locale prop changes", () => {
     const { rerender } = render(
       <AdminI18nProvider locale="tr">
