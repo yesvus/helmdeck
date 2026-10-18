@@ -220,11 +220,12 @@ export function AdminAuthProvider({
     clearStoredInterfaceLocale();
     clearInterfaceLocalePreference();
     setLocalePreferenceError(null);
-    requestedLocaleReader.current = null;
+    const anonymousReader = readerIdentity(null);
+    requestedLocaleReader.current = anonymousReader;
     setError(null);
     setSession(null);
     setStatus("anonymous");
-    rebindLocaleReader(null, null, decided.current);
+    rebindLocaleReader(null, anonymousReader, decided.current);
   }, [adapter, clearInterfaceLocalePreference, rebindLocaleReader]);
 
   const value = useMemo<AdminAuthContextValue>(

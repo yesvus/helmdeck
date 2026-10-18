@@ -2,7 +2,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AdminI18nProvider, useAdminMessages } from "../src/i18n";
+import { AdminI18nProvider, useAdminInterfaceLocale, useAdminMessages } from "../src/i18n";
 import { AdminAuthProvider, AdminRequireSession, useAdminSession } from "../src/shell/auth";
 import type { AdminAuthAdapter, AdminSession } from "../src/adapters/index";
 import { getAdminSessionReaderIdentity } from "../src/adapters/session";
@@ -67,6 +67,11 @@ function SessionHistoryProbe({ history }: { history: string[] }) {
 function LocalePreferenceErrorProbe() {
   const { localePreferenceError } = useAdminSession();
   return <span data-testid="locale-preference-error">{localePreferenceError instanceof Error ? localePreferenceError.message : "none"}</span>;
+}
+
+function LocaleSelectionProbe() {
+  const { setInterfaceLocale } = useAdminInterfaceLocale();
+  return <button onClick={() => void setInterfaceLocale("tr")}>Choose Turkish</button>;
 }
 
 /** Drives the provider through its public API the way a host sign-in form would. */
@@ -493,12 +498,36 @@ describe("AdminAuthProvider", () => {
     render(
       <AdminI18nProvider>
         <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
           <SessionActions />
         </AdminAuthProvider>
       </AdminI18nProvider>,
     );
     await act(async () => screen.getByRole("button", { name: "do sign in" }).click());
 
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBe("tr");
+  });
+
+  it("keeps a signed-out locale when a later sign-in attempt fails", async () => {
+    const auth = adapter({
+      getSession: vi.fn().mockResolvedValue(session),
+      login: vi.fn().mockResolvedValue({ ok: false, message: "Invalid credentials" }),
+    });
+    render(
+      <AdminI18nProvider>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <SessionActions />
+          <LocaleSelectionProbe />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "do sign out" })).toBeInTheDocument());
+    await act(async () => screen.getByRole("button", { name: "do sign out" }).click());
+    await act(async () => screen.getByRole("button", { name: "Choose Turkish" }).click());
+    await act(async () => screen.getByRole("button", { name: "do sign in" }).click());
+
+    expect(screen.getByTestId("status")).toHaveTextContent("anonymous:none");
     expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBe("tr");
   });
 
