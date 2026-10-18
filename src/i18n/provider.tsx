@@ -60,13 +60,14 @@ export function AdminI18nProvider({
   const [boundPreferenceAdapter, setBoundPreferenceAdapter] = useState(localePreferenceAdapter);
   const preferenceRequestRef = useRef(0);
   const preferenceWriteRef = useRef(Promise.resolve());
+  const suppliedMessagesLocale = messages?.locale;
   const availableInterfaceLocales = useMemo(() => {
     const locales = getAdminMessageLocales();
-    if (messages && !locales.some((candidate) => candidate.toLowerCase() === messages.locale.toLowerCase())) {
-      locales.push(messages.locale);
+    if (suppliedMessagesLocale && !locales.some((candidate) => candidate.toLowerCase() === suppliedMessagesLocale.toLowerCase())) {
+      locales.push(suppliedMessagesLocale);
     }
     return locales;
-  }, [messages]);
+  }, [suppliedMessagesLocale]);
 
   // Dropping the adapter invalidates whatever it resolved. That is a prop change, so it is
   // applied in render rather than in a post-paint effect write.
@@ -124,7 +125,11 @@ export function AdminI18nProvider({
     preferenceRequestRef.current += 1;
     setPreferredInterfaceLocale(registered);
     if (!localePreferenceAdapter) {
-      writeStoredInterfaceLocale(registered);
+      try {
+        writeStoredInterfaceLocale(registered);
+      } catch (cause) {
+        return Promise.reject(cause);
+      }
       return Promise.resolve();
     }
     const write = preferenceWriteRef.current.then(() => localePreferenceAdapter.setLocale(registered));

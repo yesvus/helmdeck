@@ -9,11 +9,7 @@ export function readStoredInterfaceLocale() {
 }
 
 export function writeStoredInterfaceLocale(locale: string) {
-  try {
-    window.sessionStorage.setItem(INTERFACE_LOCALE_STORAGE_KEY, locale);
-  } catch {
-    return;
-  }
+  window.sessionStorage.setItem(INTERFACE_LOCALE_STORAGE_KEY, locale);
 }
 
 export function clearStoredInterfaceLocale() {

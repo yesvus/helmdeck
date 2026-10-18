@@ -4,12 +4,13 @@
 import { AdminSectionCard } from "../primitives/layout.js";
 import { useAdminMessages, useAdminInterfaceLocale } from "../i18n.js";
 import { Languages } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 export function AdminLanguagePreference() {
   const messages = useAdminMessages();
   const { interfaceLocale, setInterfaceLocale, availableInterfaceLocales } = useAdminInterfaceLocale();
   const [saveFailed, setSaveFailed] = useState(false);
+  const selectionRequest = useRef(0);
   const selectedLocale = availableInterfaceLocales.find((locale) => locale.toLowerCase() === interfaceLocale.toLowerCase())
     ?? availableInterfaceLocales.find((locale) => locale.toLowerCase().split("-")[0] === interfaceLocale.toLowerCase().split("-")[0])
     ?? availableInterfaceLocales.find((locale) => locale.toLowerCase() === "en")
@@ -29,8 +30,11 @@ export function AdminLanguagePreference() {
           id="admin-interface-language"
           value={selectedLocale}
           onChange={(event) => {
+            const request = ++selectionRequest.current;
             setSaveFailed(false);
-            void setInterfaceLocale(event.currentTarget.value).catch(() => setSaveFailed(true));
+            void setInterfaceLocale(event.currentTarget.value).catch(() => {
+              if (request === selectionRequest.current) setSaveFailed(true);
+            });
           }}
           aria-describedby="admin-interface-language-description"
           className="w-full rounded-md border border-admin-border bg-admin-surface px-3 py-2 text-sm"

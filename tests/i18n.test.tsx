@@ -241,6 +241,39 @@ describe("Helmdeck localization", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Dil tercihi kaydedilemedi.");
   });
 
+  it("announces when tab storage rejects a language preference", async () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("unavailable"); });
+    render(
+      <AdminI18nProvider>
+        <AdminLanguagePreference />
+      </AdminI18nProvider>,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Interface language" }), { target: { value: "tr" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Dil tercihi kaydedilemedi.");
+  });
+
+  it("does not show an older failed save after the latest selection saves", async () => {
+    let rejectFirst: (cause: Error) => void = () => {};
+    const preference = {
+      getLocale: () => null,
+      setLocale: vi.fn((locale: string) => locale === "tr"
+        ? new Promise<void>((_resolve, reject) => { rejectFirst = reject; })
+        : Promise.resolve()),
+    };
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <AdminLanguagePreference />
+      </AdminI18nProvider>,
+    );
+    const picker = await screen.findByRole("combobox", { name: "Interface language" });
+    fireEvent.change(picker, { target: { value: "tr" } });
+    await waitFor(() => expect(preference.setLocale).toHaveBeenCalledTimes(1));
+    fireEvent.change(picker, { target: { value: "en" } });
+    await act(async () => rejectFirst(new Error("offline")));
+    await waitFor(() => expect(preference.setLocale).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("applies the active dictionary to reusable primitives", async () => {
     render(
       <AdminI18nProvider locale="tr">
