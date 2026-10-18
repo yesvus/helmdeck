@@ -1,5 +1,5 @@
 {
-  "version": "v0.11.0",
+  "version": "v0.12.0",
   "exports": [
     "ADMIN_ANALYTICS_BATCH_SIZE",
     "ADMIN_ANALYTICS_FAILURE_HISTORY",
@@ -52,6 +52,7 @@
     "AdminFormSection",
     "AdminI18nProvider",
     "AdminInput",
+    "AdminLanguagePreference",
     "AdminLifecycleChildError",
     "AdminLifecycleError",
     "AdminLifecycleNotDeclaredError",
@@ -269,6 +270,7 @@
     "getAdminHrefPathname",
     "getAdminMediaThumbnailUrl",
     "getAdminMediaTimestamp",
+    "getAdminMessageLocales",
     "getAdminMessages",
     "getMediaAspectRatioClassName",
     "getYouTubeId",
@@ -299,6 +301,7 @@
     "useAdminFormDirty",
     "useAdminFormValueSignal",
     "useAdminHref",
+    "useAdminInterfaceLocale",
     "useAdminLocaleAdapter",
     "useAdminMessages",
     "useAdminPermission",

@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 0.12.0
+
 ### Added
 
 - Shell language preferences with registered dictionary discovery, session-scoped persistence, and a host adapter for per-reader storage.
