@@ -13,6 +13,7 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation.js";
 import type { AdminAuthAdapter, AdminLoginCredentials, AdminLoginResult, AdminSession } from "../adapters/index.js";
+import { getAdminSessionReaderIdentity } from "../adapters/session.js";
 import { useAdminInterfaceLocale, useAdminMessages } from "../i18n.js";
 import { clearStoredInterfaceLocale, readStoredInterfaceLocaleReader } from "../i18n/preference-storage.js";
 import { cn } from "../cn.js";
@@ -129,8 +130,12 @@ export function AdminAuthProvider({
         const readerBindingPending = boundLocaleReader.current !== nextReader;
         if (readerChanged || readerBindingPending) {
           const previouslyResolved = readerChanged && requestedLocaleReader.current !== undefined;
+          const storedReader = readStoredInterfaceLocaleReader();
+          const storedReaderChanged = requestedLocaleReader.current === undefined
+            && storedReader !== null
+            && storedReader !== nextReader;
           if (readerChanged) requestedLocaleReader.current = nextReader;
-          if (previouslyResolved) {
+          if (previouslyResolved || storedReaderChanged) {
             clearStoredInterfaceLocale();
             clearInterfaceLocalePreference();
           }
@@ -195,11 +200,11 @@ export function AdminAuthProvider({
         setError(null);
         setSession(null);
         setStatus("anonymous");
-        if (requestedLocaleReader.current != null) {
+        if (requestedLocaleReader.current !== undefined && requestedLocaleReader.current !== "anonymous") {
           clearStoredInterfaceLocale();
           clearInterfaceLocalePreference();
           setLocalePreferenceError(null);
-          requestedLocaleReader.current = null;
+          requestedLocaleReader.current = readerIdentity(null);
           rebindLocaleReader(null, null, decided.current);
         }
       }
@@ -238,7 +243,7 @@ export function useAdminSession(): AdminAuthContextValue {
 }
 
 function readerIdentity(session: AdminSession | null) {
-  return session?.userId ?? session?.email.toLowerCase() ?? null;
+  return getAdminSessionReaderIdentity(session);
 }
 
 /** The same destination for a host that wants to read it in a component. */

@@ -213,7 +213,7 @@ describe("AdminAuthProvider", () => {
 
   it("clears a tab locale owned by another reader on initial session resolution", async () => {
     window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
-    window.sessionStorage.setItem("helmdeck-interface-locale-reader", "bob@example.com");
+    window.sessionStorage.setItem("helmdeck-interface-locale-reader", "user:bob@example.com");
     const auth = adapter({ getSession: vi.fn().mockResolvedValue(session) });
     render(
       <AdminI18nProvider>
@@ -229,9 +229,33 @@ describe("AdminAuthProvider", () => {
     expect(window.sessionStorage.getItem("helmdeck-interface-locale-reader")).toBeNull();
   });
 
+  it("clears a previous reader's tab locale when refresh recovers from an initial session error", async () => {
+    window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
+    window.sessionStorage.setItem("helmdeck-interface-locale-reader", "user:bob@example.com");
+    const auth = adapter({
+      getSession: vi.fn().mockRejectedValueOnce(new Error("temporary session failure")).mockResolvedValueOnce(session),
+    });
+    render(
+      <AdminI18nProvider>
+        <AdminAuthProvider adapter={auth}>
+          <StatusProbe />
+          <LocaleTextProbe />
+          <SessionActions />
+        </AdminAuthProvider>
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("error:none"));
+
+    await act(async () => screen.getByRole("button", { name: "do refresh" }).click());
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated:ada@example.com"));
+    expect(await screen.findByTestId("locale-text")).toHaveTextContent("Search admin pages");
+    expect(window.sessionStorage.getItem("helmdeck-interface-locale")).toBeNull();
+  });
+
   it("preserves the tab locale when its saved reader matches the initial session", async () => {
     window.sessionStorage.setItem("helmdeck-interface-locale", "tr");
-    window.sessionStorage.setItem("helmdeck-interface-locale-reader", "ada@example.com");
+    window.sessionStorage.setItem("helmdeck-interface-locale-reader", "user:ada@example.com");
     const auth = adapter({ getSession: vi.fn().mockResolvedValue(session) });
     render(
       <AdminI18nProvider>
@@ -250,6 +274,7 @@ describe("AdminAuthProvider", () => {
     const nextReader: AdminSession = { email: "bob@example.com", role: "editor" };
     let readerEmail: string | null = null;
     const preference = {
+      readerScoped: true,
       setReader: vi.fn((next: AdminSession | null) => { readerEmail = next?.email ?? null; }),
       getLocale: vi.fn(() => readerEmail === "ada@example.com" ? "tr" : null),
       setLocale: vi.fn(),
@@ -290,6 +315,7 @@ describe("AdminAuthProvider", () => {
     const initialSession: AdminSession = { userId: "ada", email: "ada@example.com", role: "editor" };
     let activeReader: string | null = null;
     const preference = {
+      readerScoped: true,
       setReader: vi.fn((reader: AdminSession | null) => { activeReader = reader?.userId ?? null; }),
       getLocale: vi.fn(() => activeReader === "ada" ? "tr" : null),
       setLocale: vi.fn(),
@@ -314,6 +340,7 @@ describe("AdminAuthProvider", () => {
     let activeReader: string | null = null;
     let finishAdaRead: (locale: string | null) => void = () => {};
     const preference = {
+      readerScoped: true,
       setReader: vi.fn((reader: AdminSession | null) => { activeReader = reader?.userId ?? null; }),
       getLocale: vi.fn(() => activeReader === "ada"
         ? new Promise<string | null>((resolve) => { finishAdaRead = resolve; })
@@ -346,6 +373,7 @@ describe("AdminAuthProvider", () => {
     const bob: AdminSession = { userId: "bob", email: "bob@example.com" };
     let readerId: string | null = null;
     const preference = {
+      readerScoped: true,
       setReader: vi.fn((next: AdminSession | null) => { readerId = next?.userId ?? null; }),
       getLocale: vi.fn(() => readerId === "ada" ? "tr" : "en"),
       setLocale: vi.fn(),
@@ -380,6 +408,7 @@ describe("AdminAuthProvider", () => {
 
   it("keeps authentication transitions independent of host locale binding failures", async () => {
     const preference = {
+      readerScoped: true,
       setReader: vi.fn()
         .mockRejectedValueOnce(new Error("preference store unavailable"))
         .mockResolvedValueOnce(undefined)
@@ -417,6 +446,7 @@ describe("AdminAuthProvider", () => {
     let finishBobBinding: () => void = () => {};
     const history: string[] = [];
     const preference = {
+      readerScoped: true,
       setReader: vi.fn((next: AdminSession | null) => next?.userId === "bob"
         ? new Promise<void>((resolve) => { finishBobBinding = resolve; })
         : undefined),

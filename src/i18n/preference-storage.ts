@@ -19,8 +19,7 @@ export function readStoredInterfaceLocaleReader() {
 
 export function writeStoredInterfaceLocale(locale: string, reader: string | null) {
   window.sessionStorage.setItem(INTERFACE_LOCALE_STORAGE_KEY, locale);
-  if (reader === null) window.sessionStorage.removeItem(INTERFACE_LOCALE_READER_KEY);
-  else window.sessionStorage.setItem(INTERFACE_LOCALE_READER_KEY, reader);
+  window.sessionStorage.setItem(INTERFACE_LOCALE_READER_KEY, reader ?? "anonymous");
 }
 
 export function clearStoredInterfaceLocale() {

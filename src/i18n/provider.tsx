@@ -3,11 +3,13 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AdminLocaleAdapter, AdminSession } from "../adapters/index.js";
+import { getAdminSessionReaderIdentity } from "../adapters/session.js";
 import { useAdminScopeHref } from "../scope.js";
 import { defaultAdminLocale, getAdminMessageLocales, getAdminMessages, type AdminMessages } from "./messages.js";
 import { clearStoredInterfaceLocale, readStoredInterfaceLocale, writeStoredInterfaceLocale } from "./preference-storage.js";
 
 export type AdminLocalePreferenceAdapter = {
+  readerScoped?: boolean;
   setReader: (session: AdminSession | null) => void | Promise<void>;
   getLocale: () => string | null | Promise<string | null>;
   setLocale: (locale: string) => void | Promise<void>;
@@ -102,10 +104,12 @@ export function AdminI18nProvider({
   }, [localeAdapter]);
 
   useEffect(() => {
-    if (localePreferenceAdapter) return;
+    if (localePreferenceAdapter?.readerScoped) return;
     let active = true;
     const request = ++preferenceRequestRef.current;
-    const read = Promise.resolve().then(readStoredInterfaceLocale);
+    const read = Promise.resolve().then(() => localePreferenceAdapter
+      ? localePreferenceAdapter.getLocale()
+      : readStoredInterfaceLocale());
     void read.then((stored) => {
       const registered = availableInterfaceLocales.find((candidate) => candidate.toLowerCase() === stored?.toLowerCase());
       if (active && request === preferenceRequestRef.current && registered) {
@@ -163,7 +167,7 @@ export function AdminI18nProvider({
 
   const setInterfaceLocaleReader = useCallback((session: AdminSession | null) => {
     preferenceRequestRef.current += 1;
-    preferenceReaderRef.current = session?.userId ?? session?.email.toLowerCase() ?? null;
+    preferenceReaderRef.current = getAdminSessionReaderIdentity(session);
     return localePreferenceAdapter
       ? queuePreferenceOperation(() => localePreferenceAdapter.setReader(session)).then(() => undefined)
       : Promise.resolve();

@@ -19,3 +19,7 @@ export type AdminSession = {
   name?: string;
   role?: string;
 };
+
+export function getAdminSessionReaderIdentity(session: AdminSession | null) {
+  return session ? `user:${session.userId ?? session.email.toLowerCase()}` : "anonymous";
+}

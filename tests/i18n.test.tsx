@@ -128,6 +128,21 @@ describe("Helmdeck localization", () => {
     expect(await screen.findByText("Search admin pages")).toBeInTheDocument();
   });
 
+  it("loads a shared host preference without an auth provider", async () => {
+    const preference = {
+      setReader: vi.fn(),
+      getLocale: vi.fn(() => "tr"),
+      setLocale: vi.fn(),
+    };
+    render(
+      <AdminI18nProvider localePreferenceAdapter={preference}>
+        <MessageProbe />
+      </AdminI18nProvider>,
+    );
+    expect(await screen.findByText("Yönetim sayfalarında arayın")).toBeInTheDocument();
+    expect(preference.getLocale).toHaveBeenCalledTimes(1);
+  });
+
   it("serializes host preference writes in the order the reader selects them", async () => {
     let finishFirst: () => void = () => {};
     const preference = {
@@ -161,6 +176,7 @@ describe("Helmdeck localization", () => {
     let finishWrite: () => void = () => {};
     const writeReaders: Array<string | null> = [];
     const preference = {
+      readerScoped: true,
       setReader: vi.fn((session: { userId?: string } | null) => { activeReader = session?.userId ?? null; }),
       getLocale: vi.fn(() => null),
       setLocale: vi.fn(() => new Promise<void>((resolve) => {
@@ -201,6 +217,7 @@ describe("Helmdeck localization", () => {
   it("ignores a host preference read that resolves after a reader rebind", async () => {
     let finishFirstRead: (locale: string | null) => void = () => {};
     const preference = {
+      readerScoped: true,
       setReader: vi.fn(),
       getLocale: vi.fn()
         .mockImplementationOnce(() => new Promise<string | null>((resolve) => { finishFirstRead = resolve; }))

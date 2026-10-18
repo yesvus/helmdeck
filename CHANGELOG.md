@@ -14,6 +14,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - Export `AdminLanguagePreference`, `useAdminInterfaceLocale`, `getAdminMessageLocales`, and `AdminLocalePreferenceAdapter` for host integrations.
 - Add optional `AdminSession.userId` for stable account-scoped preferences.
 - Require `setReader` on `AdminLocalePreferenceAdapter` so reader-bound storage has an explicit binding step.
+- Support initial reads from shared host preference adapters without an auth provider.
 - Expose host reader-binding failures as `localePreferenceError` from `useAdminSession()`.
 
 ### Changed
