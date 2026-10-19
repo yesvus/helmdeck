@@ -30,6 +30,40 @@ export function getExampleBlockLocale(locale: string): "en" | "tr" {
   return locale.toLowerCase().split("-")[0] === "tr" ? "tr" : "en";
 }
 
+export function normalizeExampleContentBlocks(value: unknown): ExampleContentBlockEntry[] {
+  if (!Array.isArray(value)) return [];
+  const ids = new Set<string>();
+  return value.flatMap<ExampleContentBlockEntry>((item, index): ExampleContentBlockEntry[] => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const raw = item as Record<string, unknown>;
+    const proposedId = typeof raw.id === "string" ? raw.id : "";
+    let id = isValidExampleBlockId(proposedId) && !ids.has(proposedId) ? proposedId : `recovered_${index + 1}`;
+    while (ids.has(id)) id = `${id}_1`;
+    ids.add(id);
+    const localized = raw.headingByLocale && typeof raw.headingByLocale === "object" && !Array.isArray(raw.headingByLocale)
+      ? raw.headingByLocale as Record<string, unknown>
+      : {};
+    const fields: ExampleBlockFields = {
+      heading: typeof raw.heading === "string" ? raw.heading : "",
+      headingByLocale: {
+        en: typeof localized.en === "string" ? localized.en : "",
+        tr: typeof localized.tr === "string" ? localized.tr : "",
+      },
+      copy: typeof raw.copy === "string" ? raw.copy : "",
+    };
+    if (raw.kind === "quote") {
+      return [{ ...fields, id, kind: "quote", attribution: typeof raw.attribution === "string" ? raw.attribution : "" }];
+    }
+    return [{
+      ...fields,
+      id,
+      kind: "hero",
+      imageUrl: typeof raw.imageUrl === "string" ? raw.imageUrl : "",
+      imageAlt: typeof raw.imageAlt === "string" ? raw.imageAlt : "",
+    }];
+  });
+}
+
 export const blockKinds: Record<ExampleBlockKind, { label: string }> = {
   hero: { label: "Hero" },
   quote: { label: "Quote" },

@@ -6,7 +6,7 @@ import {
   adminCollectionValidate,
   adminCollectionValues,
 } from "../src/collections/registry";
-import { createExampleBlock, exampleBlockDefinition, getExampleBlockLocale, isValidExampleBlockId, resolveExampleBlockHeading, type ExampleContentBlock } from "../examples/independent-host/host/block-definition";
+import { createExampleBlock, exampleBlockDefinition, getExampleBlockLocale, isValidExampleBlockId, normalizeExampleContentBlocks, resolveExampleBlockHeading, type ExampleContentBlock } from "../examples/independent-host/host/block-definition";
 
 describe("independent host content blocks", () => {
   it("keeps typed block identities through reorder and serialization", () => {
@@ -41,14 +41,37 @@ describe("independent host content blocks", () => {
   });
 
   it("rejects malformed persisted fields and non-web image URLs", () => {
-    const malformed = adminCollectionAdd<ExampleContentBlock>([], {
-      ...createExampleBlock("hero"),
+    const form = new FormData();
+    form.append(exampleBlockDefinition.name, JSON.stringify({
+      id: "block_invalid",
+      kind: "hero",
+      heading: "",
       headingByLocale: { en: "Valid", tr: "Valid" },
       imageUrl: "javascript:alert(1)",
       copy: { unexpected: "object" },
-    } as unknown as ExampleContentBlock);
+      imageAlt: "",
+    }));
+    const malformed = adminCollectionValues(exampleBlockDefinition, form);
 
     expect(adminCollectionValidate(exampleBlockDefinition, malformed).map(({ field }) => field)).toEqual(["heading", "copy", "imageAlt", "imageUrl"]);
+  });
+
+  it("normalizes malformed stored localized fields before editor rendering", () => {
+    expect(normalizeExampleContentBlocks([{
+      id: "block_recovered",
+      kind: "hero",
+      heading: "Workspace",
+      headingByLocale: { en: "English" },
+      copy: "Copy",
+    }])).toEqual([{
+      id: "block_recovered",
+      kind: "hero",
+      heading: "Workspace",
+      headingByLocale: { en: "English", tr: "" },
+      copy: "Copy",
+      imageUrl: "",
+      imageAlt: "",
+    }]);
   });
 
   it("requires a non-empty image description for published hero images", () => {

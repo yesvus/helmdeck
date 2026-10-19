@@ -1,7 +1,7 @@
 import "server-only";
-import type { ExampleContentBlockEntry } from "@/host/block-definition";
+import { normalizeExampleContentBlocks } from "./block-definition";
 import { persistence } from "@/host/persistence";
 
 export async function readContentBlocks() {
-  return (await persistence.read<ExampleContentBlockEntry[]>("content-blocks", "landing")) ?? [];
+  return normalizeExampleContentBlocks(await persistence.read<unknown>("content-blocks", "landing"));
 }
