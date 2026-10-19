@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AdminI18nProvider, HELMDECK_VERSION, type AdminSession } from "@yesvus/helmdeck";
+import { AdminI18nProvider, AdminThemeProvider, HELMDECK_VERSION, type AdminSession } from "@yesvus/helmdeck";
 import { ShellClient } from "../fixtures/app/(helmdeck)/shell/shell-client";
 import { sampleNav } from "../fixtures/nav";
 
@@ -25,9 +25,11 @@ const session: AdminSession = { email: "ada@example.com", name: "Ada Lovelace", 
 function renderShell() {
   return render(
     <AdminI18nProvider locale="en">
-      <ShellClient nav={sampleNav} session={session} accent="#b45309" siteName="Northstar Supply">
-        <p>Page content</p>
-      </ShellClient>
+      <AdminThemeProvider>
+        <ShellClient nav={sampleNav} session={session} accent="#b45309" siteName="Northstar Supply">
+          <p>Page content</p>
+        </ShellClient>
+      </AdminThemeProvider>
     </AdminI18nProvider>,
   );
 }
