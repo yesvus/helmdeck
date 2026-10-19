@@ -53,6 +53,8 @@ import {
   type AdminResourceReferenceResolution,
 } from "./references.js";
 
+const NO_RESOURCE_FIELDS: AdminResourceField[] = [];
+
 /** Rows a list asks for per page. Enough to read, few enough that a wide table still fits. */
 const PAGE_SIZE = 40;
 
@@ -412,28 +414,29 @@ export function AdminResourceList({
   const [message, setMessage] = useState("");
   const base = detailBaseHref ?? adminResourcePath(definition);
   const permissions = definition.permissions ?? {};
+  const fields = definition.fields ?? NO_RESOURCE_FIELDS;
   const fieldPermissionRequests = useMemo(
-    () => definition.fields.flatMap((field) => field.readPermission !== undefined ? [{
+    () => fields.flatMap((field) => field.readPermission !== undefined ? [{
       key: field.name,
       permission: field.readPermission,
       context: { field: field.name },
     }] : []),
-    [definition.fields],
+    [fields],
   );
   const fieldPermissionStates = useAdminPermissionMap(fieldPermissionRequests);
   const visibleFields = useMemo(
-    () => definition.fields.filter((field) =>
+    () => fields.filter((field) =>
       field.readPermission === undefined || fieldPermissionStates[field.name] === "allowed",
     ),
-    [definition.fields, fieldPermissionStates],
+    [fields, fieldPermissionStates],
   );
   const visibleFieldNames = useMemo(() => new Set(visibleFields.map((field) => field.name)), [visibleFields]);
   const visibleColumns = useMemo(
     () => definition.columns.filter((column) => {
-      const field = definition.fields.find((candidate) => candidate.name === column.key);
+      const field = fields.find((candidate) => candidate.name === column.key);
       return field?.readPermission === undefined || visibleFieldNames.has(field.name);
     }),
-    [definition.columns, definition.fields, visibleFieldNames],
+    [definition.columns, fields, visibleFieldNames],
   );
   // Checked before anything is read. Gating the rendered rows would still have queried, and
   // a denied visitor would have had the records in the response. No record is named, because a
@@ -445,8 +448,11 @@ export function AdminResourceList({
   // the same declarations, and keeps a host that writes its own filter for a reference field in
   // charge of that control.
   const filterDefinitions = useMemo(
-    () => adminResourceFilters(definition).filter((filter) => visibleFieldNames.has(filter.field)),
-    [definition, visibleFieldNames],
+    () => adminResourceFilters(definition).filter((filter) => {
+      const field = fields.find((candidate) => candidate.name === filter.field);
+      return field?.readPermission === undefined || visibleFieldNames.has(field.name);
+    }),
+    [definition, fields, visibleFieldNames],
   );
 
   /**
@@ -466,11 +472,14 @@ export function AdminResourceList({
       builder.where(filter.field, filter.operator ?? (filter.options ? "eq" : "contains"), compared);
     }
     for (const ordering of active.sort) {
-      if (visibleFieldNames.has(ordering.field)) builder.sort(ordering.field, ordering.direction);
+      const field = fields.find((candidate) => candidate.name === ordering.field);
+      if (field?.readPermission === undefined || visibleFieldNames.has(field.name)) {
+        builder.sort(ordering.field, ordering.direction);
+      }
     }
     builder.window((active.page - 1) * size, size);
     return builder.build();
-  }, [active.page, active.sort, chosen, filterDefinitions, paged, search, size, visibleFieldNames]);
+  }, [active.page, active.sort, chosen, fields, filterDefinitions, paged, search, size, visibleFieldNames]);
 
   // Resolved in a callback rather than by awaiting inside the effect body, because a setState
   // in that body is a cascading render.
@@ -990,20 +999,21 @@ export function AdminResourceForm({
   const toHref = useAdminHref();
   const permissions = definition.permissions ?? {};
   const isNew = id === undefined;
+  const fields = definition.fields ?? NO_RESOURCE_FIELDS;
   const fieldPermissionRequests = useMemo(
-    () => definition.fields.flatMap((field) => field.readPermission !== undefined ? [{
+    () => fields.flatMap((field) => field.readPermission !== undefined ? [{
       key: field.name,
       permission: field.readPermission,
       context: { ...(id === undefined ? {} : { resourceId: id }), field: field.name },
     }] : []),
-    [definition.fields, id],
+    [fields, id],
   );
   const fieldPermissionStates = useAdminPermissionMap(fieldPermissionRequests);
   const visibleFields = useMemo(
-    () => definition.fields.filter((field) =>
+    () => fields.filter((field) =>
       field.readPermission === undefined || fieldPermissionStates[field.name] === "allowed",
     ),
-    [definition.fields, fieldPermissionStates],
+    [fields, fieldPermissionStates],
   );
   // Keyed by the id it was read for, so a different record is loading again rather than
   // showing the previous one, and so a resolved miss is distinguishable from no answer yet.
