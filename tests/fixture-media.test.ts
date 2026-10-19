@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { demoMediaAdapter } from "../fixtures/media";
+import { demoMediaAdapter, getDemoMediaCatalogItems, subscribeDemoMediaCatalog } from "../fixtures/media";
 
 describe("public fixture media", () => {
   it("uses real web sources with metadata matching each media kind", async () => {
@@ -38,5 +38,35 @@ describe("public fixture media", () => {
 
     expect(malformed.items).toEqual(first.items);
     expect(malformed.nextCursor).toBe(first.nextCursor);
+  });
+
+  it("offers persistent image URLs to the landing editor", () => {
+    const items = getDemoMediaCatalogItems();
+
+    expect(items).toHaveLength(2);
+    expect(items.every((item) => item.source === "external" && /^https?:\/\//i.test(item.publicUrl))).toBe(true);
+  });
+
+  it("refreshes the landing editor catalog after an external image is added", async () => {
+    let latest: ReturnType<typeof getDemoMediaCatalogItems> = [];
+    const unsubscribe = subscribeDemoMediaCatalog((items) => {
+      latest = items;
+    });
+    const item = await demoMediaAdapter.addExternal?.({
+      name: "Fresh exterior photo",
+      url: "https://images.example.org/fresh-exterior.jpg",
+      kind: "image",
+    });
+
+    expect(item).toBeDefined();
+    expect(getDemoMediaCatalogItems()).toContainEqual(expect.objectContaining({
+      name: "Fresh exterior photo",
+      publicUrl: "https://images.example.org/fresh-exterior.jpg",
+    }));
+    expect(latest).toContainEqual(expect.objectContaining({
+      name: "Fresh exterior photo",
+      publicUrl: "https://images.example.org/fresh-exterior.jpg",
+    }));
+    unsubscribe();
   });
 });

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AdminCollectionEditor,
   AdminDashboardLayout,
   AdminField,
+  AdminMediaField,
   AdminInput,
   AdminSelect,
   adminWidgetSizes,
+  useAdminContentLocale,
+  useAdminInterfaceLocale,
   type AdminWidgetSize,
 } from "@yesvus/helmdeck";
 import {
@@ -19,6 +22,7 @@ import {
   type LandingSection,
 } from "./landing-registry";
 import { saveLandingSections } from "../../../../lib/demo-collections";
+import { getDemoMediaCatalogItems, subscribeDemoMediaCatalog } from "../../../../media";
 
 /**
  * The landing page, arranged with the engine's collection editor and stored as rows.
@@ -38,8 +42,14 @@ import { saveLandingSections } from "../../../../lib/demo-collections";
  */
 export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
   const [entries, setEntries] = useState(initial);
+  const [landingMediaItems, setLandingMediaItems] = useState(getDemoMediaCatalogItems);
+  const { contentLocale } = useAdminContentLocale();
+  const { interfaceLocale } = useAdminInterfaceLocale();
+  const activeContentLocale = contentLocale || interfaceLocale;
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => subscribeDemoMediaCatalog(setLandingMediaItems), []);
 
   const persist = useCallback(async (next: LandingSection[]) => {
     setSaveState("saving");
@@ -69,13 +79,15 @@ export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
           {
             status: "ready" as const,
             data: {
-              heading: entry.title || landingSectionName(entry.widget),
+              heading: entry.titleByLocale?.[activeContentLocale] || entry.title || landingSectionName(entry.widget),
               copy: landingSectionCopy(entry.widget),
+              mediaUrl: entry.mediaUrl ?? "",
+              mediaAlt: entry.mediaAlt ?? "",
             },
           },
         ]),
       ),
-    [entries],
+    [activeContentLocale, entries],
   );
 
   const patch = useCallback(
@@ -115,7 +127,7 @@ export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
         emptyBody="Add the first section to build the page."
         renderSummary={(entry) =>
           entry.widget
-            ? `${entry.title || landingSectionName(entry.widget)} · ${entry.size}`
+            ? `${entry.titleByLocale?.[activeContentLocale] || entry.title || landingSectionName(entry.widget)} · ${entry.size}`
             : "Choose a section"
         }
         renderFields={(entry) => (
@@ -162,6 +174,37 @@ export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
                 value={entry.title}
                 onChange={(event) => patch(entry.id, { title: event.target.value })}
                 placeholder={entry.widget ? landingSectionName(entry.widget) : "Name this section"}
+              />
+            </AdminField>
+
+            <AdminField label="English heading">
+              <AdminInput
+                value={entry.titleByLocale?.en ?? ""}
+                onChange={(event) => patch(entry.id, { titleByLocale: { ...entry.titleByLocale, en: event.target.value } })}
+              />
+            </AdminField>
+
+            <AdminField label="Turkish heading">
+              <AdminInput
+                value={entry.titleByLocale?.tr ?? ""}
+                onChange={(event) => patch(entry.id, { titleByLocale: { ...entry.titleByLocale, tr: event.target.value } })}
+              />
+            </AdminField>
+
+            <div className="sm:col-span-2">
+              <AdminMediaField
+                items={landingMediaItems}
+                label="Section image"
+                name={`section-image-${entry.id}`}
+                defaultValue={entry.mediaUrl}
+                onValueChange={(mediaUrl) => patch(entry.id, { mediaUrl })}
+              />
+            </div>
+
+            <AdminField label="Image description" className="sm:col-span-2">
+              <AdminInput
+                value={entry.mediaAlt ?? ""}
+                onChange={(event) => patch(entry.id, { mediaAlt: event.target.value })}
               />
             </AdminField>
           </div>

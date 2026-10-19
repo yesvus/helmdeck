@@ -31,6 +31,8 @@ vi.mock("../fixtures/lib/demo-collections", () => ({
 
 const { LandingPageEditor } = await import("../fixtures/app/(helmdeck)/shell/pages/section-editor");
 const { default: PagesPage } = await import("../fixtures/app/(helmdeck)/shell/pages/page");
+const { saveLandingSections } = await import("../fixtures/lib/demo-collections");
+const { demoMediaAdapter } = await import("../fixtures/media");
 
 const arrangement: LandingSection[] = [
   { id: "sec_hero", widget: "hero", size: "xl", title: "A sofa that arrives early" },
@@ -84,6 +86,9 @@ const WIDTH = 480;
 beforeEach(() => {
   saved.length = 0;
   stored.sections = arrangement;
+  vi.mocked(saveLandingSections).mockImplementation(async (sections) => {
+    saved.push(sections);
+  });
   stubGeometry();
 });
 
@@ -132,6 +137,48 @@ describe("the landing page editor", () => {
     // The heading is what the arrangement renders, so the preview follows the edit rather than
     // showing the text the row happened to arrive with.
     expect(screen.getByText("Renamed by a person")).toBeInTheDocument();
+  });
+
+  it("edits localized headings and exposes the media field inside an entry", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    vi.mocked(saveLandingSections).mockImplementation(() => new Promise(() => {}));
+
+    await user.click(summaryOf("A sofa that arrives early", "xl"));
+    expect(screen.getByText("Section image")).toBeInTheDocument();
+    await user.clear(screen.getByLabelText("English heading"));
+    await user.type(screen.getByLabelText("English heading"), "Unsaved English title");
+    await user.clear(screen.getByLabelText("Turkish heading"));
+    await user.type(screen.getByLabelText("Turkish heading"), "Kaydedilmemiş başlık");
+    await user.type(screen.getByLabelText("Image description"), "A room with a sofa");
+
+    expect(saved).toHaveLength(0);
+    expect(saveLandingSections).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ titleByLocale: { en: "Unsaved English title", tr: "Kaydedilmemiş başlık" } }),
+    ]));
+    expect(screen.getByRole("button", { name: "Unsaved English title · xl" })).toBeInTheDocument();
+    expect(screen.getByText("Unsaved English title")).toBeInTheDocument();
+  });
+
+  it("shows catalog images added while the editor is mounted", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(summaryOf("A sofa that arrives early", "xl"));
+    let item: Awaited<ReturnType<NonNullable<typeof demoMediaAdapter.addExternal>>> | undefined;
+
+    try {
+      item = await demoMediaAdapter.addExternal?.({
+        name: "Fresh catalog image",
+        url: "https://images.example.org/fresh-catalog-image.jpg",
+        kind: "image",
+      });
+      expect(item).toBeDefined();
+      await user.click(screen.getAllByRole("button", { name: "Select media" })[1]);
+
+      expect(await screen.findByRole("button", { name: /Fresh catalog image/ })).toBeInTheDocument();
+    } finally {
+      if (item) await demoMediaAdapter.delete?.(item);
+    }
   });
 
   it("edits a width and sends the edit", async () => {
