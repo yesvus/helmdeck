@@ -459,6 +459,31 @@ export type AdminAnalyticsRisingPathsOptions = AdminAnalyticsReadOptions & {
   limit: number;
 };
 
+function risingPathRanges(range: readonly string[]): { recent: string[]; previous: string[] } {
+  if (range.length === 0 || !range.every((key) => DAY.test(key))) refuseRange([...range]);
+
+  const days = range.map((key) => {
+    const date = new Date(`${key}T00:00:00.000Z`);
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== key) refuseRange([...range]);
+    return date;
+  });
+  for (let index = 1; index < days.length; index += 1) {
+    if (days[index]!.getTime() - days[index - 1]!.getTime() !== 86_400_000) refuseRange([...range]);
+  }
+
+  const first = new Date(days[0]!);
+  const previous = Array.from({ length: range.length }, (_, index) => {
+    const day = new Date(first);
+    day.setUTCDate(day.getUTCDate() - range.length + index);
+    return day.toISOString().slice(0, 10);
+  });
+  return { recent: [...range], previous };
+}
+
+function analyticsPathCounts(rows: readonly AdminAnalyticsEventRow[]) {
+  return adminAggregate({ rows, key: (row) => row.path, measures: { views: () => 1 } });
+}
+
 /**
  * Ranks paths whose recent view count exceeds the immediately preceding equal-length period.
  * A zero previous count has no finite growth rate, so the path is returned with a null rate.
@@ -470,31 +495,27 @@ export async function adminAnalyticsRisingPaths(
   if (!Number.isSafeInteger(options.minViews) || options.minViews < 1) {
     throw new AdminAnalyticsError("a minimum view count must be a whole number from one up.");
   }
-  if (options.range.length === 0 || !options.range.every((key) => DAY.test(key))) {
-    refuseRange([...options.range]);
-  }
-
-  const firstDay = new Date(`${options.range[0]}T00:00:00.000Z`);
-  const previousRange = Array.from({ length: options.range.length }, (_, index) => {
-    const day = new Date(firstDay);
-    day.setUTCDate(day.getUTCDate() - options.range.length + index);
-    return day.toISOString().slice(0, 10);
-  });
-  const [recent, previous] = await Promise.all([
-    adminAnalyticsRead(store, options),
-    adminAnalyticsRead(store, { ...options, range: previousRange }),
-  ]);
-  const countByPath = (rows: readonly AdminAnalyticsEventRow[]) => {
-    const counts = new Map<string, number>();
-    for (const row of rows) counts.set(row.path, (counts.get(row.path) ?? 0) + 1);
-    return counts;
-  };
-  const recentCounts = countByPath(recent);
-  const previousCounts = countByPath(previous);
-  const candidates = [...recentCounts]
-    .filter(([path, views]) => path.trim() !== "" && views >= options.minViews && views > (previousCounts.get(path) ?? 0))
-    .map(([path, recentViews]) => {
-      const previousViews = previousCounts.get(path) ?? 0;
+  const ranges = risingPathRanges(options.range);
+  const fullRange = [...ranges.previous, ...ranges.recent];
+  const rows = await adminAnalyticsRead(store, { ...options, range: fullRange });
+  const recentDays = new Set(ranges.recent);
+  const previousDays = new Set(ranges.previous);
+  const recent = analyticsPathCounts(
+    rows.filter((row) => recentDays.has(adminChartDayKey(row.occurred_at) ?? "")),
+  );
+  const previous = analyticsPathCounts(
+    rows.filter((row) => previousDays.has(adminChartDayKey(row.occurred_at) ?? "")),
+  );
+  const candidates = recent.buckets
+    .map((bucket) => {
+      const recentViews = bucket.values.views;
+      const previousViews = previous.buckets.find((candidate) => candidate.key === bucket.key)?.values.views ?? 0;
+      return { path: bucket.key, recentViews, previousViews };
+    })
+    .filter(({ recentViews, previousViews }) =>
+      recentViews >= options.minViews && recentViews > previousViews,
+    )
+    .map(({ path, recentViews, previousViews }) => {
       return {
         path,
         recentViews,

@@ -405,54 +405,66 @@ describe("top paths and sources over the events that were captured", () => {
 
 describe("rising paths compare equal-length adjacent periods", () => {
   it("applies the minimum-volume guard and ranks tied growth consistently", async () => {
-    const store = createMemoryPersistenceAdapter();
-    await recordAll(store, [
-      view({ path: "/alpha", at: "2026-09-24T09:00:00.000Z" }),
-      view({ path: "/alpha", at: "2026-09-28T09:00:00.000Z" }),
-      view({ path: "/alpha", at: "2026-09-29T09:00:00.000Z" }),
-      view({ path: "/alpha", at: "2026-09-30T09:00:00.000Z" }),
-      view({ path: "/beta", at: "2026-09-23T09:00:00.000Z" }),
-      view({ path: "/beta", at: "2026-09-28T09:00:00.000Z" }),
-      view({ path: "/beta", at: "2026-09-29T09:00:00.000Z" }),
-      view({ path: "/beta", at: "2026-09-30T09:00:00.000Z" }),
-      view({ path: "/sparse", at: "2026-09-30T10:00:00.000Z" }),
-      view({ path: "/declining", at: "2026-09-24T10:00:00.000Z" }),
-      view({ path: "/declining", at: "2026-09-25T10:00:00.000Z" }),
-      view({ path: "/declining", at: "2026-09-28T10:00:00.000Z" }),
-    ]);
+    for (const [name, store] of stores()) {
+      await recordAll(store, [
+        view({ path: "/alpha", at: "2026-09-24T09:00:00.000Z" }),
+        view({ path: "/alpha", at: "2026-09-28T09:00:00.000Z" }),
+        view({ path: "/alpha", at: "2026-09-29T09:00:00.000Z" }),
+        view({ path: "/alpha", at: "2026-09-30T09:00:00.000Z" }),
+        { ...view({ path: "/alpha", at: "2026-09-30T10:00:00.000Z" }), kind: "signup" },
+        view({ path: "/beta", at: "2026-09-23T09:00:00.000Z" }),
+        view({ path: "/beta", at: "2026-09-28T09:00:00.000Z" }),
+        view({ path: "/beta", at: "2026-09-29T09:00:00.000Z" }),
+        view({ path: "/beta", at: "2026-09-30T09:00:00.000Z" }),
+        view({ path: "/sparse", at: "2026-09-30T10:00:00.000Z" }),
+        ...["23", "24", "25", "26"].map((day) => view({ path: "/declining", at: `2026-09-${day}T10:00:00.000Z` })),
+        ...["27", "28", "29"].map((day) => view({ path: "/declining", at: `2026-09-${day}T10:00:00.000Z` })),
+      ]);
 
-    const result = await adminAnalyticsRisingPaths(store, {
-      range: ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"],
-      minViews: 3,
-      limit: 10,
-    });
+      const result = await adminAnalyticsRisingPaths(store, {
+        range: ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"],
+        kind: ADMIN_ANALYTICS_PAGE_VIEW,
+        minViews: 3,
+        limit: 1,
+      });
 
-    expect(result.paths).toEqual([
-      { path: "/alpha", recentViews: 3, previousViews: 1, growthRate: 2 },
-      { path: "/beta", recentViews: 3, previousViews: 1, growthRate: 2 },
-    ]);
-    expect(result.total).toBe(2);
+      expect(result.paths, name).toEqual([
+        { path: "/alpha", recentViews: 3, previousViews: 1, growthRate: 2 },
+      ]);
+      expect(result.total, name).toBe(2);
+    }
   });
 
   it("returns a null rate for a newly popular path and rejects an invalid guard", async () => {
-    const store = createMemoryPersistenceAdapter();
-    await recordAll(store, [
-      view({ path: "/new", at: "2026-09-28T09:00:00.000Z" }),
-      view({ path: "/new", at: "2026-09-29T09:00:00.000Z" }),
-    ]);
+    for (const [name, store] of stores()) {
+      await recordAll(store, [
+        view({ path: "/new", at: "2026-09-28T09:00:00.000Z" }),
+        view({ path: "/new", at: "2026-09-29T09:00:00.000Z" }),
+      ]);
 
-    const result = await adminAnalyticsRisingPaths(store, {
-      range: ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"],
-      minViews: 2,
-      limit: 5,
-    });
+      const result = await adminAnalyticsRisingPaths(store, {
+        range: ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"],
+        minViews: 2,
+        limit: 5,
+      });
 
-    expect(result.paths).toEqual([{ path: "/new", recentViews: 2, previousViews: 0, growthRate: null }]);
-    await expect(adminAnalyticsRisingPaths(store, {
-      range: ["2026-09-27"],
-      minViews: 0,
-      limit: 5,
-    })).rejects.toThrow(/minimum view count/);
+      expect(result.paths, name).toEqual([{ path: "/new", recentViews: 2, previousViews: 0, growthRate: null }]);
+      await expect(adminAnalyticsRisingPaths(store, {
+        range: ["2026-09-27"],
+        minViews: 0,
+        limit: 5,
+      })).rejects.toThrow(/minimum view count/);
+      await expect(adminAnalyticsRisingPaths(store, {
+        range: ["2026-09-27", "2026-09-29"],
+        minViews: 1,
+        limit: 5,
+      })).rejects.toThrow(/adminChartDayRange/);
+      await expect(adminAnalyticsRisingPaths(store, {
+        range: ["2026-02-31"],
+        minViews: 1,
+        limit: 5,
+      })).rejects.toThrow(/adminChartDayRange/);
+    }
   });
 });
 
