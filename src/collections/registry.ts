@@ -17,6 +17,8 @@ export type AdminCollectionEntry<T> = { id: string } & T;
 /** A declared field, with the parsing the host wants applied on the way in. */
 export type AdminCollectionField = {
   name: string;
+  /** Displayed for validation problems that name this field. */
+  label?: string;
   /** Applied to the raw form value. Returning undefined drops the field. */
   parse?: (raw: FormDataEntryValue | null) => unknown;
 };
@@ -29,10 +31,7 @@ export type AdminCollectionDefinition<T> = {
   fields: AdminCollectionField[];
   /** A new empty element. The engine never invents element shape. */
   create: () => T;
-  /**
-   * Returns one message per problem, or an empty array when the entry is valid. Kept as messages
-   * rather than a schema so a host can express a rule the engine has no vocabulary for.
-   */
+  /** Returns strings or `{ field, message }` problems; `field` names a declared field, rendered by its label when set. */
   validate?: (entry: AdminCollectionEntry<T>) => AdminCollectionValidationProblem[];
 };
 

@@ -22,7 +22,9 @@ import {
   type LandingSection,
 } from "./landing-registry";
 import { saveLandingSections } from "../../../../lib/demo-collections";
-import { demoMediaAdapter } from "../../../../media";
+import { getDemoMediaCatalogItems } from "../../../../media";
+
+const landingMediaItems = getDemoMediaCatalogItems();
 
 /**
  * The landing page, arranged with the engine's collection editor and stored as rows.
@@ -189,9 +191,7 @@ export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
 
             <div className="sm:col-span-2">
               <AdminMediaField
-                adapter={demoMediaAdapter}
-                allowExternal
-                items={[]}
+                items={landingMediaItems}
                 label="Section image"
                 name={`section-image-${entry.id}`}
                 defaultValue={entry.mediaUrl}

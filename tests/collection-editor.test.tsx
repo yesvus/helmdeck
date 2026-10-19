@@ -103,12 +103,13 @@ describe("AdminCollectionEditor", () => {
   it("surfaces the field associated with a validation problem", () => {
     const fieldDefinition: AdminCollectionDefinition<Block> = {
       ...definition,
+      fields: [{ name: "title", label: "Block title" }],
       validate: (entry) => entry.title.trim() ? [] : [{ field: "title", message: "A block needs a title" }],
     };
 
     render(<Editor definition={fieldDefinition} initial={[{ id: "bad", title: "" }]} onChange={vi.fn()} />);
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Untitled: title: A block needs a title");
+    expect(screen.getByRole("alert")).toHaveTextContent("Untitled: Block title: A block needs a title");
   });
 
   it("reports no alert for a valid entry", () => {

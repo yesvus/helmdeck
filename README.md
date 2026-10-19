@@ -1179,9 +1179,9 @@ This is the adapter to start on. A filter runs through `json_extract`, which SQL
 
 ## Editing a typed collection
 
-`AdminCollectionEditor` works with a controlled list from `src/collections/registry`: the host defines entry fields, creates entries, validates them, and supplies the fields to render. It provides selection, add, duplicate, remove, pointer and keyboard reordering, and a deliberate empty state. The host keeps the current list, so the same value can drive an unsaved preview and a save action.
+`AdminCollectionEditor` works with a controlled list described by `AdminCollectionDefinition`: the host defines entry fields, creates entries, validates them, and supplies the fields to render. It provides selection, add, duplicate, remove, pointer and keyboard reordering, and a deliberate empty state. The host keeps the current list, so the same value can drive an unsaved preview and a save action.
 
-Validation can return strings for entry-level problems or `{ field, message }` values to name the field:
+Validation can return strings for entry-level problems or `{ field, message }` values, where `field` is the declared field name. Give the field a `label` to show friendly error copy:
 
 ```tsx
 import { AdminCollectionEditor, AdminInput, type AdminCollectionDefinition } from "@yesvus/helmdeck";
@@ -1190,7 +1190,7 @@ type Block = { title: string };
 
 const definition: AdminCollectionDefinition<Block> = {
   name: "blocks",
-  fields: [{ name: "title" }],
+  fields: [{ name: "title", label: "Block title" }],
   create: () => ({ title: "" }),
   validate: (entry) => entry.title.trim() ? [] : [{ field: "title", message: "A title is required" }],
 };

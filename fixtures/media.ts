@@ -71,6 +71,10 @@ export async function getDemoMediaItems() {
   return (await demoMediaAdapter.list()).items;
 }
 
+export function getDemoMediaCatalogItems() {
+  return demoItems.filter((item) => item.kind === "image" && item.source === "external" && /^https?:\/\//i.test(item.publicUrl));
+}
+
 export const demoMediaAdapter: AdminMediaAdapter = {
   async list(query: AdminMediaListQuery = {}) {
     const search = query.search?.trim().toLocaleLowerCase();

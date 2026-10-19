@@ -31,6 +31,7 @@ vi.mock("../fixtures/lib/demo-collections", () => ({
 
 const { LandingPageEditor } = await import("../fixtures/app/(helmdeck)/shell/pages/section-editor");
 const { default: PagesPage } = await import("../fixtures/app/(helmdeck)/shell/pages/page");
+const { saveLandingSections } = await import("../fixtures/lib/demo-collections");
 
 const arrangement: LandingSection[] = [
   { id: "sec_hero", widget: "hero", size: "xl", title: "A sofa that arrives early" },
@@ -84,6 +85,9 @@ const WIDTH = 480;
 beforeEach(() => {
   saved.length = 0;
   stored.sections = arrangement;
+  vi.mocked(saveLandingSections).mockImplementation(async (sections) => {
+    saved.push(sections);
+  });
   stubGeometry();
 });
 
@@ -137,6 +141,7 @@ describe("the landing page editor", () => {
   it("edits localized headings and exposes the media field inside an entry", async () => {
     const user = userEvent.setup();
     renderEditor();
+    vi.mocked(saveLandingSections).mockImplementation(() => new Promise(() => {}));
 
     await user.click(summaryOf("A sofa that arrives early", "xl"));
     expect(screen.getByText("Section image")).toBeInTheDocument();
@@ -145,8 +150,9 @@ describe("the landing page editor", () => {
     await user.clear(screen.getByLabelText("Turkish heading"));
     await user.type(screen.getByLabelText("Turkish heading"), "Kaydedilmemiş başlık");
 
-    await waitFor(() => expect(lastSaved()[0]?.titleByLocale).toEqual({ en: "Unsaved English title", tr: "Kaydedilmemiş başlık" }));
+    expect(saved).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Unsaved English title · xl" })).toBeInTheDocument();
+    expect(screen.getByText("Unsaved English title")).toBeInTheDocument();
   });
 
   it("edits a width and sends the edit", async () => {

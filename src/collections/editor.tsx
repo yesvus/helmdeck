@@ -88,10 +88,15 @@ export function AdminCollectionEditor<T>({
   const problemsById = useMemo(() => {
     const grouped = new Map<string, { field?: string; message: string }[]>();
     for (const problem of problems) {
-      grouped.set(problem.id, [...(grouped.get(problem.id) ?? []), { field: problem.field, message: problem.message }]);
+      grouped.set(problem.id, [...(grouped.get(problem.id) ?? []), {
+        field: problem.field
+          ? definition.fields.find((field) => field.name === problem.field)?.label ?? problem.field
+          : undefined,
+        message: problem.message,
+      }]);
     }
     return grouped;
-  }, [problems]);
+  }, [definition.fields, problems]);
 
   const handleAdd = useCallback(() => {
     const next = adminCollectionAdd(entries, definition.create());

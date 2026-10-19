@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { demoMediaAdapter } from "../fixtures/media";
+import { demoMediaAdapter, getDemoMediaCatalogItems } from "../fixtures/media";
 
 describe("public fixture media", () => {
   it("uses real web sources with metadata matching each media kind", async () => {
@@ -38,5 +38,12 @@ describe("public fixture media", () => {
 
     expect(malformed.items).toEqual(first.items);
     expect(malformed.nextCursor).toBe(first.nextCursor);
+  });
+
+  it("offers persistent image URLs to the landing editor", () => {
+    const items = getDemoMediaCatalogItems();
+
+    expect(items).toHaveLength(2);
+    expect(items.every((item) => item.source === "external" && /^https?:\/\//i.test(item.publicUrl))).toBe(true);
   });
 });
