@@ -76,6 +76,22 @@ describe("table action primitives", () => {
     expect(button).toHaveClass("h-8", "w-8", "px-0");
   });
 
+  it("preserves consumer titles for labeled buttons and names empty icon-only labels", () => {
+    render(
+      <div>
+        <AdminTableActionButton label="Open record" title="Open this item" icon={<svg />} />
+        <AdminTableActionButton label="" icon={<svg />} iconOnly />
+      </div>,
+    );
+    expect(screen.getByRole("button", { name: "Open record" })).toHaveAttribute("title", "Open this item");
+    expect(screen.getByRole("button", { name: "Table action" })).toHaveAttribute("title", "Table action");
+  });
+
+  it("uses comfortable dimensions for icon-only actions", () => {
+    render(<AdminTableActionButton label="Open record" icon={<svg />} iconOnly actionSize="comfortable" />);
+    expect(screen.getByRole("button", { name: "Open record" })).toHaveClass("h-9", "w-9", "px-0");
+  });
+
   it("provides a controlled selection hook", () => {
     function Harness() {
       const selection = useAdminTableSelection(["first"]);

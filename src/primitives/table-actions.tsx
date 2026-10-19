@@ -31,11 +31,12 @@ export function AdminTableActionButton({
   className,
   ...props
 }: AdminTableActionButtonProps) {
+  const accessibleLabel = label.trim() || (typeof props.title === "string" ? props.title.trim() : "") || "Table action";
   return (
     <Button
       {...props}
-      aria-label={iconOnly ? label : undefined}
-      title={iconOnly ? label : undefined}
+      aria-label={iconOnly ? accessibleLabel : undefined}
+      title={iconOnly ? accessibleLabel : props.title}
       size={actionSize === "compact" ? "sm" : "default"}
       variant={actionVariants[variant]}
       className={cn(
