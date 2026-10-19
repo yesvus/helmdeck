@@ -20,6 +20,14 @@ export default function ServerDashboardPage() {
           "server-catalog": loadServerCatalogTotals,
           "server-revenue": loadServerRevenue,
         }}
+        messages={{
+          widget: {
+            emptyTitle: "Gösterilecek veri yok",
+            emptyBody: "Bu araç için henüz veri yok.",
+            errorTitle: "Araç yüklenemedi",
+            retry: "Yeniden dene",
+          },
+        }}
       />
     </main>
   );

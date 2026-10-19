@@ -10,12 +10,12 @@
  * size silently stopped applying. Two copies of a tile is how that happens.
  */
 
-import { cn } from "../cn.js";
 import { defaultWidgetMessages } from "../widgets/messages.js";
 import { AdminWidgetPanel } from "../widgets/panel.js";
 import { defaultDashboardMessages, type AdminDashboardMessages } from "./messages.js";
 import type { AdminMessages } from "../i18n.js";
-import type { AdminWidgetDefinition, AdminWidgetSize, AdminWidgetState } from "../widgets/types.js";
+import type { AdminWidgetDefinition, AdminWidgetState } from "../widgets/types.js";
+import { dashboardPlacementClassName } from "./placement.js";
 import {
   adminDashboardValidate,
   type AdminDashboardPlacement,
@@ -31,13 +31,6 @@ import {
  * can find in scanned source and `col-span-${n}` would generate nothing. A host compiles them by
  * pointing `@source` at the installed package, which the README documents and a test enforces.
  */
-const sizeClasses: Record<AdminWidgetSize, string> = {
-  sm: "md:col-span-1",
-  md: "md:col-span-2",
-  lg: "lg:col-span-3",
-  xl: "lg:col-span-4",
-};
-
 export const dashboardGridClassName = "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4";
 
 export type AdminDashboardCopy = Pick<AdminMessages, "widget"> & AdminDashboardMessages;
@@ -78,7 +71,7 @@ export function AdminDashboardTile({
     <div
       data-placement={placement.id}
       data-widget={placement.widget}
-      className={cn(sizeClasses[placement.size], "min-w-0")}
+      className={dashboardPlacementClassName(placement.size)}
     >
       {/* A widget that exists but at a size it does not support still renders, so the problem is
           reported beside it. Rendering nothing would lose a tile the registry does know about, and

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { renderToPipeableStream } from "react-dom/server";
 import { PassThrough } from "node:stream";
 import userEvent from "@testing-library/user-event";
@@ -16,6 +16,7 @@ import {
 import { AdminDashboardLayout, dashboardGridClassName } from "../src/dashboard/layout";
 import { AdminDashboardServerTiles } from "../src/dashboard/server-tiles";
 import { AdminDashboardTiles } from "../src/dashboard/tiles";
+import { AdminWidgetRetrySubmit } from "../src/widgets/retry-submit";
 import { createAdminWidgetRegistry, defineAdminWidget } from "../src/widgets/registry";
 
 const counter = defineAdminWidget<{ total: number }>({
@@ -283,11 +284,14 @@ describe("AdminDashboardServerTiles", () => {
       output.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
       output.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
       output.on("error", reject);
-      const stream = renderToPipeableStream(element, {
+      const renderer = renderToPipeableStream(element, {
         onAllReady() {
-          stream.pipe(output);
+          renderer.pipe(output);
         },
-        onError: reject,
+        onError(error) {
+          renderer.abort();
+          reject(error);
+        },
       });
     });
   }
@@ -301,6 +305,8 @@ describe("AdminDashboardServerTiles", () => {
     const fastRendered = new Promise<void>((resolve) => { resolveFast = resolve; });
     let resolveDone!: () => void;
     const done = new Promise<void>((resolve) => { resolveDone = resolve; });
+    let rejectStream!: (error: unknown) => void;
+    const failure = new Promise<never>((_resolve, reject) => { rejectStream = reject; });
     const output = new PassThrough();
     output.on("data", (chunk) => {
       streamed += chunk.toString();
@@ -313,15 +319,20 @@ describe("AdminDashboardServerTiles", () => {
         placements={placements}
         loaders={{ p0: async () => ({ total: 7 }), p1: () => slow }}
       />,
-      { onShellReady: () => renderer.pipe(output), onError: () => undefined },
+      {
+        onShellReady: () => renderer.pipe(output),
+        onError(error) {
+          renderer.abort();
+          rejectStream(error);
+        },
+      },
     );
 
-    await fastRendered;
+    await Promise.race([fastRendered, failure]);
     expect(streamed).toContain('data-widget="counter"');
-    expect(streamed).toContain('data-widget-state="loading"');
-    expect(streamed).toContain('data-widget="chart"');
+    expect(streamed).toMatch(/data-placement="p1"[\s\S]*?data-widget-state="loading"/);
     releaseSlow({ points: [1, 2] });
-    await done;
+    await Promise.race([done, failure]);
 
     expect(streamed).toContain('data-widget-state="ready"');
     expect(streamed).toContain("2<!-- --> points");
@@ -341,15 +352,35 @@ describe("AdminDashboardServerTiles", () => {
           p1: async () => { throw new Error("Chart service unavailable"); },
         }}
         retryActions={{ p1: retry }}
+        messages={{
+          widget: {
+            emptyTitle: "No data",
+            emptyBody: "Nothing has arrived.",
+            errorTitle: "Translated widget error",
+            retry: "Retry translation",
+          },
+        }}
       />,
     );
 
     expect(html).toContain("Chart service unavailable");
+    expect(html).toContain("Translated widget error");
     expect(html).toContain("4<!-- --> signups");
-    expect(html).toContain('data-widget="chart"');
-    expect(html).toContain('data-widget-state="error"');
+    expect(html).toMatch(/data-placement="p1"[\s\S]*?data-widget-state="error"/);
     expect(html).toContain('action="');
     expect(retry).not.toHaveBeenCalled();
+  });
+
+  it("submits retry forms to the supplied action with FormData", async () => {
+    const retry = vi.fn(async (formData: FormData) => { void formData; });
+    const view = render(
+      <form action={retry}>
+        <AdminWidgetRetrySubmit label="Try again" />
+      </form>,
+    );
+    fireEvent.submit(view.container.querySelector("form")!);
+    await waitFor(() => expect(retry).toHaveBeenCalledOnce());
+    expect(retry.mock.calls[0][0]).toBeInstanceOf(FormData);
   });
 
   it("keeps placement and state markup aligned with the other dashboard entry points", async () => {

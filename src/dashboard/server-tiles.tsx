@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 import { Suspense, type ReactNode } from "react";
+import { unstable_rethrow } from "next/navigation.js";
 import { cn } from "../cn.js";
 import { adminWidgetState } from "../widgets/registry.js";
 import type { AdminWidgetDefinition, AdminWidgetState } from "../widgets/types.js";
@@ -12,6 +13,7 @@ import {
   AdminDashboardTile,
   type AdminDashboardCopy,
 } from "./grid.js";
+import { dashboardPlacementClassName } from "./placement.js";
 import type { AdminDashboardPlacement, AdminDashboardRegistry } from "./model.js";
 
 type AdminDashboardServerLoader = () => Promise<unknown>;
@@ -39,6 +41,7 @@ async function AdminDashboardServerTile({
     try {
       state = adminWidgetState(definition, await loader());
     } catch (error) {
+      unstable_rethrow(error);
       state = { status: "error", error: error instanceof Error ? error : new Error(String(error)) };
     }
   }
@@ -91,6 +94,7 @@ export function AdminDashboardServerTiles<TRegistry extends AdminDashboardRegist
   loaders: Readonly<Record<string, AdminDashboardServerLoader>>;
   retryActions?: Readonly<Record<string, AdminDashboardServerAction>>;
   className?: string;
+  /** Server components receive localized copy as data because they cannot read the client i18n context. */
   messages?: Partial<AdminDashboardCopy>;
   fallback?: ReactNode;
 }) {
@@ -119,13 +123,21 @@ export function AdminDashboardServerTiles<TRegistry extends AdminDashboardRegist
         return (
           <Suspense
             key={placement.id}
-            fallback={fallback ?? (
+            fallback={fallback === undefined ? (
               <AdminDashboardServerFallback
                 placement={placement}
                 definition={definition}
                 problems={placementProblems}
                 copy={copy}
               />
+            ) : (
+              <div
+                data-placement={placement.id}
+                data-widget={placement.widget}
+                className={dashboardPlacementClassName(placement.size)}
+              >
+                {fallback}
+              </div>
             )}
           >
             <AdminDashboardServerTile
