@@ -4,24 +4,26 @@ import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeControls } from "../fixtures/components/theme-controls";
-import { ShellThemeProvider, useShellTheme } from "../fixtures/components/shell-theme-provider";
+import { AdminThemeProvider, ADMIN_THEME_BOOT_SCRIPT, ADMIN_THEME_PREFERENCE_STORAGE_KEY, useAdminTheme } from "../src/theme";
+import { AdminThemePreference } from "../src/theme";
+import { AdminI18nProvider } from "../src/i18n";
 import ThemePage from "../fixtures/app/(helmdeck)/theme/page";
-import { themeBootScript } from "../fixtures/components/theme-boot";
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   document.documentElement.removeAttribute("data-admin-theme");
   document.documentElement.removeAttribute("style");
-  window.localStorage.removeItem("helmdeck-demo-theme");
+  window.localStorage.removeItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY);
 });
 
 function renderControls() {
-  return render(<ShellThemeProvider><ThemeControls /></ShellThemeProvider>);
+  return render(<AdminThemeProvider><ThemeControls /></AdminThemeProvider>);
 }
 
 describe("theme boot script", () => {
   function runBoot() {
-    new Function(themeBootScript)();
+    new Function(ADMIN_THEME_BOOT_SCRIPT)();
   }
 
   afterEach(() => {
@@ -30,7 +32,7 @@ describe("theme boot script", () => {
   });
 
   it("applies the stored preference before hydration", () => {
-    window.localStorage.setItem("helmdeck-demo-theme", "dark");
+    window.localStorage.setItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY, "dark");
     runBoot();
 
     expect(document.documentElement.dataset.adminTheme).toBe("dark");
@@ -72,6 +74,17 @@ describe("theme boot script", () => {
 });
 
 describe("fixture theme controls", () => {
+  it("localizes the reusable preference selector", () => {
+    render(
+      <AdminI18nProvider locale="tr">
+        <AdminThemeProvider><AdminThemePreference /></AdminThemeProvider>
+      </AdminI18nProvider>,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Renk modu" })).toHaveValue("system");
+    expect(screen.getByRole("option", { name: "Açık" })).toBeInTheDocument();
+  });
+
   it("shows standard host surfaces and controls inside the theme demo", () => {
     renderControls();
 
@@ -86,7 +99,7 @@ describe("fixture theme controls", () => {
     const firstMount = renderControls();
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("system"));
     await user.selectOptions(screen.getByRole("combobox", { name: "Color mode" }), "dark");
-    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("dark"));
+    await waitFor(() => expect(window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY)).toBe("dark"));
     expect(document.documentElement.dataset.adminTheme).toBe("dark");
 
     firstMount.unmount();
@@ -115,7 +128,7 @@ describe("fixture theme controls", () => {
     expect(await screen.findByRole("combobox", { name: "Color mode" })).toHaveValue("system");
     await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("dark"));
     // Nothing is written until the visitor chooses, so the default is not persisted.
-    expect(window.localStorage.getItem("helmdeck-demo-theme")).toBeNull();
+    expect(window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY)).toBeNull();
 
     matches = false;
     act(() => {
@@ -128,7 +141,7 @@ describe("fixture theme controls", () => {
 
   it("reports the same default from the hook when used outside a provider", () => {
     function Probe() {
-      const { theme, resolvedTheme } = useShellTheme();
+      const { theme, resolvedTheme } = useAdminTheme();
       return <span>{`${theme}:${resolvedTheme}`}</span>;
     }
     render(<Probe />);
@@ -155,14 +168,14 @@ describe("fixture theme controls", () => {
 
     const renders: string[] = [];
     function Probe() {
-      const { theme, resolvedTheme } = useShellTheme();
+      const { theme, resolvedTheme } = useAdminTheme();
       renders.push(`${theme}:${resolvedTheme}`);
       return null;
     }
     const tree = (
-      <ShellThemeProvider>
+      <AdminThemeProvider>
         <Probe />
-      </ShellThemeProvider>
+      </AdminThemeProvider>
     );
 
     const container = document.createElement("div");
@@ -191,7 +204,7 @@ describe("fixture theme controls", () => {
     const first = renderControls();
     await waitFor(() => expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("system"));
     await user.selectOptions(screen.getByRole("combobox", { name: "Color mode" }), "light");
-    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("light"));
+    await waitFor(() => expect(window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY)).toBe("light"));
 
     first.unmount();
     renderControls();
@@ -213,7 +226,7 @@ describe("fixture theme controls", () => {
       removeEventListener: vi.fn(),
     } as unknown as MediaQueryList;
     vi.spyOn(window, "matchMedia").mockReturnValue(media);
-    window.localStorage.setItem("helmdeck-demo-theme", "system");
+    window.localStorage.setItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY, "system");
 
     renderControls();
 
@@ -228,24 +241,38 @@ describe("fixture theme controls", () => {
     await waitFor(() => expect(document.documentElement.dataset.adminTheme).toBe("light"));
   });
 
+  it("applies preference changes from another tab", async () => {
+    renderControls();
+    window.localStorage.setItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY, "dark");
+    act(() => window.dispatchEvent(new StorageEvent("storage", {
+      key: ADMIN_THEME_PREFERENCE_STORAGE_KEY,
+      newValue: "dark",
+    })));
+
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
+      expect(document.documentElement.dataset.adminTheme).toBe("dark");
+    });
+  });
+
   it("keeps system preference in exported presets and the theme page provider", async () => {
     const user = userEvent.setup();
-    render(<ThemePage />);
+    render(<AdminThemeProvider><ThemePage /></AdminThemeProvider>);
     const mode = screen.getByRole("combobox", { name: "Color mode" });
     await waitFor(() => expect(mode).toHaveValue("system"));
     // The default is now System, so selecting it fires no change event. Move away
     // first so the switch back is a real transition and actually persists.
     await user.selectOptions(mode, "light");
-    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("light"));
+    await waitFor(() => expect(window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY)).toBe("light"));
     await user.selectOptions(mode, "system");
-    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("system"));
+    await waitFor(() => expect(window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY)).toBe("system"));
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValueOnce();
     await user.click(screen.getByRole("button", { name: "Export preset" }));
     const preset = writeText.mock.calls[0][0] as string;
     expect(JSON.parse(preset)).toMatchObject({ theme: "system" });
     fireEvent.change(screen.getByRole("textbox", { name: "Theme preset JSON" }), { target: { value: preset } });
     await user.click(screen.getByRole("button", { name: "Import preset" }));
-    await waitFor(() => expect(window.localStorage.getItem("helmdeck-demo-theme")).toBe("system"));
+    await waitFor(() => expect(window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY)).toBe("system"));
   });
 
   it("switches modes by keyboard and resets editable tokens", async () => {
@@ -294,5 +321,18 @@ describe("fixture theme controls", () => {
     expect(screen.getByRole("region", { name: "Live theme preview" })).toHaveStyle({ padding: "13.6px" });
     await user.click(screen.getByRole("button", { name: "Export preset" }));
     expect(screen.getByRole("status")).toHaveTextContent("Clipboard export is unavailable in this browser.");
+  });
+
+  it("keeps an explicit selection usable when browser storage is unavailable", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("storage disabled");
+    });
+    renderControls();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Color mode" }), "dark");
+
+    expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
+    expect(document.documentElement.dataset.adminTheme).toBe("dark");
   });
 });

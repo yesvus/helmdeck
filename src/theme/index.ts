@@ -31,3 +31,10 @@ export type {
 } from "./settings.js";
 export { AdminThemeSettingsProvider, useAdminThemeSettings } from "./provider.js";
 export type { AdminThemeSettingsProviderProps, AdminThemeSettingsValue } from "./provider.js";
+export { AdminThemePreference } from "./admin-theme-preference.js";
+export {
+  AdminThemeProvider,
+  useAdminTheme,
+} from "./preference.js";
+export type { AdminResolvedTheme, AdminThemePreferenceValue, AdminThemeValue } from "./preference.js";
+export { ADMIN_THEME_BOOT_SCRIPT, ADMIN_THEME_PREFERENCE_STORAGE_KEY } from "./preference-boot.js";

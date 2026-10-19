@@ -112,6 +112,21 @@ Theme CSS exposes `--admin-surface`, `--admin-surface-muted`, `--admin-surface-s
 
 Keep normal text/background combinations at WCAG AA contrast (4.5:1), and large text and the boundaries of interactive controls at 3:1. Control boundaries resolve to `--admin-border-strong`, which is held to 3:1 against `--admin-surface` in both themes. `--admin-border` draws card edges and section rules, which identify no control, so WCAG 1.4.11 does not apply to it and it is deliberately left lighter. `tests/theme-contrast.test.ts` asserts the 3:1 pair, records the ratio for `--admin-border`, and fails if any interactive element draws its boundary from that token. The default amber action color is `#b45309`, which exceeds 4.5:1 against white. All theme controls should remain native keyboard-operable inputs, selects, and buttons. The fixture at `/theme` demonstrates light, dark, and system mode, OS preference updates, live token editing, reset, and JSON preset import/export.
 
+`AdminThemeProvider` exposes the browser preference through `useAdminTheme()`, which returns `theme`, `resolvedTheme`, `setTheme`, and `ready`. It stores the preference in `localStorage` under `ADMIN_THEME_PREFERENCE_STORAGE_KEY` (`helmdeck-admin-theme`) and syncs changes across tabs and system color-scheme updates. Add `ADMIN_THEME_BOOT_SCRIPT` before hydration to apply the stored or system-resolved mode before first paint. The script only updates `document.documentElement.dataset.adminTheme`; import `@yesvus/helmdeck/theme.css` separately. `AdminThemePreference` provides a localized Light, Dark, and System selector inside an `AdminI18nProvider`.
+
+```tsx
+import { ADMIN_THEME_BOOT_SCRIPT, AdminThemeProvider } from "@yesvus/helmdeck";
+
+export function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: ADMIN_THEME_BOOT_SCRIPT }} /></head>
+      <body><AdminThemeProvider>{children}</AdminThemeProvider></body>
+    </html>
+  );
+}
+```
+
 ### Host settings
 
 A host customises the theme through declared settings rather than by hand-editing tokens. `resolveAdminThemeSettings` takes whatever the host has stored, fills in the defaults, and reports each value it would not use.

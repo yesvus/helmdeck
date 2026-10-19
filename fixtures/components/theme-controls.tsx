@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { contrastingTextHex } from "@yesvus/helmdeck";
-import { useShellTheme } from "./shell-theme-provider";
+import { AdminThemePreference, contrastingTextHex, useAdminTheme } from "@yesvus/helmdeck";
 
 type Preset = {
   brand: string;
@@ -32,8 +31,7 @@ const defaultSurfaces: Record<Preset["mode"], string> = {
 };
 
 export function ThemeControls() {
-  const shellTheme = useShellTheme();
-  const { theme, resolvedTheme, setTheme, ready } = shellTheme;
+  const { theme, resolvedTheme, ready, setTheme } = useAdminTheme();
   const [preset, setPreset] = useState(() => ({ ...initial, mode: resolvedTheme, theme }));
   const [importValue, setImportValue] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -61,7 +59,6 @@ export function ThemeControls() {
   useEffect(() => {
     if (!ready || preset.mode !== resolvedTheme) return;
     const root = document.documentElement;
-    root.dataset.adminTheme = resolvedTheme;
     root.style.setProperty("--admin-brand-500", preset.brand);
     root.style.setProperty("--admin-brand-600", preset.brand);
     root.style.setProperty("--admin-brand-100", `${preset.brand}26`);
@@ -87,12 +84,10 @@ export function ThemeControls() {
         ? defaultSurfaces[mode]
         : current.surface,
     }));
-    setTheme(mode);
   }
 
   function selectTheme(value: "light" | "dark" | "system") {
     if (value === "system") {
-      setTheme(value);
       setPreset((current) => ({ ...current, theme: value }));
       return;
     }
@@ -163,11 +158,7 @@ export function ThemeControls() {
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div><h1 className="text-2xl font-bold">Theme editor</h1><p className="text-sm text-zinc-600">Customize design tokens and preview changes live.</p></div>
-        <label className="flex items-center gap-2 text-sm font-medium">Color mode
-            <select aria-label="Color mode" className="rounded-md border border-zinc-300 bg-admin-surface px-3 py-2" value={theme} onChange={(event) => selectTheme(event.target.value as "light" | "dark" | "system")}>
-            <option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option>
-          </select>
-        </label>
+        <AdminThemePreference onThemeChange={selectTheme} />
       </header>
       <section aria-label="Theme settings" className="grid gap-4 rounded-xl border border-zinc-200 bg-admin-surface p-5 sm:grid-cols-2">
         {fields.map(([key, label, options]) => <label key={key} className="grid gap-2 text-sm font-semibold">{label}
