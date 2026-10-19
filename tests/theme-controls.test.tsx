@@ -221,14 +221,22 @@ describe("fixture theme controls", () => {
     container.innerHTML = renderToString(tree);
     document.body.append(container);
     let root: ReturnType<typeof hydrateRoot> | undefined;
+    const previousThemes: (string | null)[] = [];
+    const observer = new MutationObserver((records) => {
+      previousThemes.push(...records.map((record) => record.oldValue));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-admin-theme"], attributeOldValue: true });
     try {
       await act(async () => {
         root = hydrateRoot(container, tree);
       });
 
+      previousThemes.push(...observer.takeRecords().map((record) => record.oldValue));
       expect(document.documentElement.dataset.adminTheme).toBe("dark");
+      expect(previousThemes.every((theme) => theme === "dark")).toBe(true);
       expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
     } finally {
+      observer.disconnect();
       const activeRoot = root;
       if (activeRoot) await act(async () => activeRoot.unmount());
       container.remove();
