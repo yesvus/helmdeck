@@ -1143,6 +1143,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "tiles loaders suspense dashboard",
     renderable: true,
   },
+  AdminDashboardServerTiles: {
+    category: "Dashboard and widgets",
+    summary: "Streams each widget from a server loader inside its own Suspense boundary.",
+    keywords: "tiles server loaders suspense streamed dashboard",
+    hostNote: "Requires a host widget registry and server loaders; see the server-rendered dashboard fixture.",
+  },
   AdminDashboardMissingTile: {
     category: "Dashboard and widgets",
     summary: "What a placement names that no widget answers for, with the reason it was refused.",

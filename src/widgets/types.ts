@@ -50,7 +50,11 @@ export type AdminWidgetDefinition<TData> = {
    * `onRetry` is **absent** when retrying cannot help, rather than present and inert. See
    * `adminWidgetRetryIsWorthwhile`.
    */
-  renderError?(error: Error, onRetry: () => void): ReactNode;
+  renderError?(
+    error: Error,
+    onRetry: () => void,
+    retryAction?: (formData: FormData) => void | Promise<void>,
+  ): ReactNode;
 };
 
 /** A widget's presence on a dashboard, before any data is attached. */
