@@ -13,7 +13,8 @@ export function createBlockSaveGuard() {
       if (pending) return null;
       pending = true;
       const savedRevision = revision;
-      return operation()
+      return Promise.resolve()
+        .then(operation)
         .then((value) => ({ value, unchanged: revision === savedRevision }))
         .finally(() => {
           pending = false;
