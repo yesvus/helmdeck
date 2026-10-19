@@ -33,6 +33,23 @@ npm run dev
 
 Open <http://localhost:3000>, which redirects to `/admin` and then to the sign-in page.
 
+## Tailwind CSS v4 setup
+
+Tailwind v4 does not scan dependencies in `node_modules` automatically. The template's
+`app/globals.css` explicitly scans Helmdeck's compiled package and imports its theme tokens inside
+the Tailwind entry stylesheet, in this order:
+
+```css
+@import "tailwindcss";
+@source "../node_modules/@yesvus/helmdeck/dist";
+@import "@yesvus/helmdeck/theme.css";
+```
+
+Keep the theme import in the CSS entry file, after `@import "tailwindcss"`. Do not import it from a
+React component stylesheet or layout: Tailwind must process its `@theme` directives to generate
+utilities such as `bg-admin-surface` and `border-admin-border`. If the package is installed at a
+different location, update the `@source` path to the package's `dist` directory.
+
 Reading this file in a checkout instead? The two commands above run from here, and the manifest's
 `link:..` resolves in this repository only:
 
