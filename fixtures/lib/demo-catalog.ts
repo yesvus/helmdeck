@@ -206,6 +206,13 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "bulk actions selected bar",
     renderable: true,
   },
+  AdminTableActionButton: {
+    category: "Actions and buttons",
+    summary:
+      "A standardized compact or comfortable table action with primary, secondary, or destructive styling and accessible icon-only tooltips.",
+    keywords: "table row action icon tooltip accessible compact destructive",
+    renderable: true,
+  },
   AdminTableRowActions: {
     category: "Data display",
     summary: "A row's actions, shown in place on a wide screen and behind a control on a narrow one.",

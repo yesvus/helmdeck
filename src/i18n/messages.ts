@@ -100,6 +100,7 @@ export type AdminCommonLabels = {
   close: string;
   dismiss: string;
   tableEmpty: string;
+  tableAction: string;
   image: string;
   pdfDocument: string;
   mediaDescription: string;
@@ -172,6 +173,7 @@ export const englishAdminMessages: AdminMessages = {
     close: "Close",
     dismiss: "Dismiss notification",
     tableEmpty: "No results.",
+    tableAction: "Table action",
     image: "Image",
     pdfDocument: "PDF document",
     mediaDescription: "Media description",
@@ -385,6 +387,7 @@ export const turkishAdminMessages: AdminMessages = {
     close: "Kapatın",
     dismiss: "Bildirimi kapatın",
     tableEmpty: "Sonuç bulunamadı.",
+    tableAction: "Tablo işlemi",
     image: "Görsel",
     pdfDocument: "PDF belgesi",
     mediaDescription: "Medya açıklaması",
