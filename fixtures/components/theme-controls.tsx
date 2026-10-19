@@ -178,17 +178,17 @@ export function ThemeControls() {
         <h2 className="text-lg font-bold">Preview</h2><p className="text-zinc-600">Semantic text and surfaces adapt to the selected theme.</p>
         <button type="button" className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-admin-on-brand">Primary action</button>
       </section>
-      <section aria-label="Host content dark-mode preview" className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 text-neutral-950">
+      <section aria-label="Host content dark-mode preview" data-theme-preview="admin-theme-dark-preview" className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 text-neutral-950">
         <div>
           <h2 className="text-lg font-bold">Host content</h2>
           <p className="text-sm">Standard host utility classes and elements follow the selected dark theme.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-sm font-medium">Name
-            <input aria-label="Host name" className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-950" defaultValue="Northstar" />
+            <input aria-label="Host name" data-theme-preview="admin-theme-dark-preview" className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-950" defaultValue="Northstar" />
           </label>
           <label className="grid gap-1 text-sm font-medium">Status
-            <select aria-label="Host status" className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-950" defaultValue="active">
+            <select aria-label="Host status" data-theme-preview="admin-theme-dark-preview" className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-950" defaultValue="active">
               <option value="active">Active</option><option value="draft">Draft</option>
             </select>
           </label>

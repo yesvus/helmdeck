@@ -77,6 +77,7 @@ const UTILITY_SHAPE = /(?:^|["'`\s])((?:[a-z0-9-]+:)*(?:bg|text|border|from|via|
 const START = "admin-theme-fixed:start";
 const END = "admin-theme-fixed:end";
 const LINE_MARKER = "admin-theme-fixed";
+const DARK_PREVIEW_MARKER = "admin-theme-dark-preview";
 // A bare marker documents a class that is wrapped across a ternary, so it covers the
 // lines around it rather than only the line it sits on. It only exempts a line that has a
 // single risky background: a marker must not launder an unrelated class that happens to
@@ -104,7 +105,7 @@ function riskyIn(file: string): string[] {
     const matches = [...line.matchAll(RISKY)];
     if (matches.length === 0) return;
     const context = lines.slice(Math.max(0, index - LOOKBACK), index + 1).join("\n");
-    if (matches.length === 1 && context.includes(LINE_MARKER)) return;
+    if (matches.length === 1 && (context.includes(LINE_MARKER) || context.includes(DARK_PREVIEW_MARKER))) return;
     for (const match of matches) {
       risky.push(`${file}:${index + 1} ${match[1]}`);
     }
