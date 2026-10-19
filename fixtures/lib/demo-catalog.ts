@@ -2059,6 +2059,33 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "provider settings density accent document apply",
     renderable: true,
   },
+  ADMIN_THEME_BOOT_SCRIPT: {
+    category: "Theme and colour",
+    summary: "The pre-paint script that applies a stored or system-resolved color mode before the page hydrates.",
+    keywords: "theme dark light system boot script first paint storage",
+  },
+  ADMIN_THEME_PREFERENCE_STORAGE_KEY: {
+    category: "Theme and colour",
+    summary: "The localStorage key used to persist the light, dark, or system theme preference.",
+    keywords: "theme preference storage key localStorage dark light system",
+  },
+  AdminThemePreference: {
+    category: "Theme and colour",
+    summary: "A localized Light, Dark, and System selector connected to the theme preference provider.",
+    keywords: "theme preference selector color mode light dark system",
+    hostNote: "Place it inside AdminThemeProvider and AdminI18nProvider where people can choose their display mode.",
+  },
+  AdminThemeProvider: {
+    category: "Theme and colour",
+    summary: "Applies and synchronizes the stored light, dark, or system preference across the document and browser tabs.",
+    keywords: "theme provider preference color mode storage system",
+    hostNote: "Wrap the app in this provider and include ADMIN_THEME_BOOT_SCRIPT in the document head to avoid a first-paint flash.",
+  },
+  useAdminTheme: {
+    category: "Theme and colour",
+    summary: "Reads the selected and resolved theme and provides the setter and readiness state.",
+    keywords: "theme preference hook resolved mode system ready set",
+  },
 
   createSessionAuthAdapter: {
     category: "Adapters",

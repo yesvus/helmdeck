@@ -18,6 +18,7 @@ Open <http://localhost:3000>. `/` redirects to `/admin`.
 
 ## Configuration and integration seams
 
+- `app/layout.tsx` applies the exported pre-paint theme script and wraps the app in `AdminThemeProvider`; `components/admin-workspace.tsx` places `AdminThemePreference` in the shell top bar. Theme selection is stored locally and supports light, dark, and system modes.
 - `components/admin-workspace.tsx` configures `AdminShell` navigation, branding, session input, and the `AdminI18nProvider` interface locale. The example intentionally sets English independently from stored or content locale. The static sample omits a logout callback.
 - `host/session.ts` is the host-owned session resolution seam. Resolve a real session there and enforce access in host route handlers and server actions. Shell role filtering is presentation only.
 - `host/persistence.ts` implements the public `AdminPersistenceAdapter` contract over process-local memory. `host/actions.ts` demonstrates a server action validating input, writing through that seam, and revalidating the host route.

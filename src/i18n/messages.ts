@@ -115,6 +115,12 @@ export type AdminMessages = {
     description: string;
     saveFailed: string;
   };
+  themePreference: {
+    label: string;
+    light: string;
+    dark: string;
+    system: string;
+  };
   shell: AdminShellLabels;
   media: AdminMediaLabels;
   form: AdminManagedFormFeedbackLabels & { assetTitle: string; pendingLabel: string };
@@ -142,6 +148,12 @@ export const englishAdminMessages: AdminMessages = {
     label: "Interface language",
     description: "Choose the language used throughout the admin.",
     saveFailed: "The language preference could not be saved.",
+  },
+  themePreference: {
+    label: "Color mode",
+    light: "Light",
+    dark: "Dark",
+    system: "System",
   },
   shell: defaultAdminLabels,
   media: defaultAdminMediaLabels,
@@ -198,6 +210,12 @@ export const turkishAdminMessages: AdminMessages = {
     label: "Arayüz dili",
     description: "Yönetim arayüzünde kullanılacak dili seçin.",
     saveFailed: "Dil tercihi kaydedilemedi.",
+  },
+  themePreference: {
+    label: "Renk modu",
+    light: "Açık",
+    dark: "Koyu",
+    system: "Sistem",
   },
   shell: {
     sidebarExpand: "Menüyü genişletiniz",

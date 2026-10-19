@@ -9,6 +9,7 @@ import {
   ADMIN_DENSITY_SCALE,
   ADMIN_THEME_SETTING_KEYS,
   AdminI18nProvider,
+  AdminThemeProvider,
   DEFAULT_ADMIN_DENSITY,
   DEFAULT_ADMIN_THEME_SETTINGS,
   adminBrandVariables,
@@ -189,7 +190,7 @@ async function openSettingsPage(query: Record<string, string> = {}) {
 async function openShell() {
   cleanup();
   const tree = await onTheServer(() => ShellLayout({ children: <p>Page content</p> }));
-  const rendered = render(<AdminI18nProvider locale="en">{tree}</AdminI18nProvider>);
+  const rendered = render(<AdminThemeProvider><AdminI18nProvider locale="en">{tree}</AdminI18nProvider></AdminThemeProvider>);
   await waitFor(() => expect(rootStyle("--admin-density")).not.toBe(""));
   return rendered;
 }

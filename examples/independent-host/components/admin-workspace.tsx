@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AdminI18nProvider, AdminShell, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
+import { AdminI18nProvider, AdminShell, AdminThemePreference, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
 
 export function AdminWorkspace({
   nav,
@@ -13,7 +13,13 @@ export function AdminWorkspace({
   children: ReactNode;
 }) {
   return <AdminI18nProvider locale="en">
-    <AdminShell nav={nav} session={session} homeHref="/admin" brand={{ label: "Sample workspace", href: "/admin" }}>
+    <AdminShell
+      nav={nav}
+      session={session}
+      homeHref="/admin"
+      brand={{ label: "Sample workspace", href: "/admin" }}
+      topbarExtra={<AdminThemePreference />}
+    >
       {children}
     </AdminShell>
   </AdminI18nProvider>;
