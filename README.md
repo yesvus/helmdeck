@@ -65,6 +65,8 @@ Import the theme tokens once in the host stylesheet, and point Tailwind at the i
 @import "@yesvus/helmdeck/theme.css";
 ```
 
+Keep these directives in the host's CSS entry point, with the theme import after `@import "tailwindcss";`. Tailwind v4 evaluates the theme tokens while processing that stylesheet, so importing `theme.css` from a React component does not register them.
+
 The `@source` line is what makes the components lay out. Helmdeck's own components are written with
 Tailwind utilities, and Tailwind only generates a utility it finds in scanned source, so without this
 line a host gets the design tokens and none of the layout: cards with no padding, grids that do not
