@@ -34,13 +34,14 @@ describe("AdminSkeleton", () => {
 
   it("provides an accessible loading announcement around decorative placeholders", () => {
     render(
-      <AdminLoadingState label="Loading products">
+      <AdminLoadingState label="Loading products" role="alert" aria-live="off">
         <AdminTableSkeleton rowCount={2} columnCount={3} />
       </AdminLoadingState>,
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading products");
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("status")).toHaveClass("space-y-6");
     expect(screen.getByRole("status").firstElementChild).toHaveClass("sr-only");
     expect(screen.getByRole("status").lastElementChild).toHaveAttribute("aria-hidden", "true");

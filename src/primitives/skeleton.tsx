@@ -22,7 +22,7 @@ export function AdminLoadingState({
   ...props
 }: HTMLAttributes<HTMLDivElement> & { label: string; children: ReactNode }) {
   return (
-    <div role="status" aria-live="polite" className={cn("space-y-6", className)} {...props}>
+    <div {...props} role="status" aria-live="polite" className={cn("space-y-6", className)}>
       <span className="sr-only">{label}</span>
       {children}
     </div>
