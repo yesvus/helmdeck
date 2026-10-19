@@ -199,7 +199,7 @@
     border-color: var(--admin-border);
   }
 
-  :where([data-admin-theme="dark"]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]), select, textarea) {
+  :where([data-admin-theme="dark"]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), select, textarea) {
     border-color: var(--admin-border-strong);
     background-color: var(--admin-surface);
     color: var(--admin-text-primary);
