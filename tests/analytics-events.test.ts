@@ -495,6 +495,21 @@ describe("rising paths compare equal-length adjacent periods", () => {
     expect(result.paths).toEqual([{ path: "/popular", recentViews: 2, previousViews: 1, growthRate: 1 }]);
     expect(reads).toBe(1);
   });
+
+  it("rejects invalid limits and preserves the qualifying total at zero", async () => {
+    const store = createMemoryPersistenceAdapter();
+    await recordAll(store, [view({ path: "/popular", at: "2026-09-28T09:00:00.000Z" })]);
+    const options = {
+      range: ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"],
+      minViews: 1,
+      limit: 0,
+    };
+
+    for (const limit of [Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5]) {
+      await expect(adminAnalyticsRisingPaths(store, { ...options, limit })).rejects.toThrow(/path limit/);
+    }
+    await expect(adminAnalyticsRisingPaths(store, options)).resolves.toEqual({ paths: [], total: 1 });
+  });
 });
 
 describe("the resource name the rows are written under", () => {

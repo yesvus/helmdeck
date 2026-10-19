@@ -495,6 +495,9 @@ export async function adminAnalyticsRisingPaths(
   if (!Number.isSafeInteger(options.minViews) || options.minViews < 1) {
     throw new AdminAnalyticsError("a minimum view count must be a whole number from one up.");
   }
+  if (!Number.isSafeInteger(options.limit) || options.limit < 0) {
+    throw new AdminAnalyticsError("a path limit must be a non-negative whole number.");
+  }
   const ranges = risingPathRanges(options.range);
   const fullRange = [...ranges.previous, ...ranges.recent];
   const rows = await adminAnalyticsRead(store, { ...options, range: fullRange });
@@ -531,7 +534,7 @@ export async function adminAnalyticsRisingPaths(
         left.path.localeCompare(right.path);
     });
 
-  return { paths: candidates.slice(0, Math.max(0, Math.floor(options.limit))), total: candidates.length };
+  return { paths: candidates.slice(0, options.limit), total: candidates.length };
 }
 
 export type AdminAnalyticsSource = {
