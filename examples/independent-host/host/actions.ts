@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import type { AdminFormActionState } from "@yesvus/helmdeck";
 import { adminCollectionFirstProblem, adminCollectionValues } from "@yesvus/helmdeck";
-import { persistence } from "@/host/persistence";
-import { getHostSession } from "@/host/session";
-import { exampleBlockDefinition, isValidExampleBlockId } from "@/host/block-definition";
+import { persistence } from "./persistence";
+import { getHostSession } from "./session";
+import { exampleBlockDefinition, isValidExampleBlockId } from "./block-definition";
 
 export async function saveProfile(_state: AdminFormActionState, formData: FormData): Promise<AdminFormActionState> {
   const session = await getHostSession();

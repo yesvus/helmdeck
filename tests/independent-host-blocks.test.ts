@@ -6,7 +6,7 @@ import {
   adminCollectionValidate,
   adminCollectionValues,
 } from "../src/collections/registry";
-import { createExampleBlock, exampleBlockDefinition, isValidExampleBlockId, resolveExampleBlockHeading, type ExampleContentBlock } from "../examples/independent-host/host/block-definition";
+import { createExampleBlock, exampleBlockDefinition, getExampleBlockLocale, isValidExampleBlockId, resolveExampleBlockHeading, type ExampleContentBlock } from "../examples/independent-host/host/block-definition";
 
 describe("independent host content blocks", () => {
   it("keeps typed block identities through reorder and serialization", () => {
@@ -48,7 +48,21 @@ describe("independent host content blocks", () => {
       copy: { unexpected: "object" },
     } as unknown as ExampleContentBlock);
 
-    expect(adminCollectionValidate(exampleBlockDefinition, malformed).map(({ field }) => field)).toEqual(["heading", "copy", "imageUrl"]);
+    expect(adminCollectionValidate(exampleBlockDefinition, malformed).map(({ field }) => field)).toEqual(["heading", "copy", "imageAlt", "imageUrl"]);
+  });
+
+  it("requires a non-empty image description for published hero images", () => {
+    const heroBlock: ExampleContentBlock = {
+      kind: "hero",
+      heading: "Workspace",
+      headingByLocale: { en: "Workspace", tr: "Çalışma alanı" },
+      copy: "A bright workspace.",
+      imageUrl: "https://images.example.org/workspace.jpg",
+      imageAlt: "",
+    };
+    const hero = adminCollectionAdd<ExampleContentBlock>([], heroBlock);
+
+    expect(adminCollectionValidate(exampleBlockDefinition, hero).map(({ field }) => field)).toEqual(["imageAlt"]);
   });
 
   it("accepts only bounded identifier characters for block IDs", () => {
@@ -67,5 +81,10 @@ describe("independent host content blocks", () => {
     expect(resolveExampleBlockHeading(block, "en")).toBe("English heading");
     expect(resolveExampleBlockHeading(block, "tr")).toBe("Türkçe başlık");
     expect(resolveExampleBlockHeading({ ...block, headingByLocale: { en: "", tr: "" } }, "en")).toBe("Generic heading");
+  });
+
+  it("resolves regional locale tags to their base language", () => {
+    expect(getExampleBlockLocale("tr-TR")).toBe("tr");
+    expect(getExampleBlockLocale("en-GB")).toBe("en");
   });
 });

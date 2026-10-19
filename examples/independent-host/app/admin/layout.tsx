@@ -7,7 +7,7 @@ const nav: AdminNavGroup[] = [{
   label: "Workspace",
   items: [
     { href: "/admin", label: "Overview", icon: "overview" },
-    { href: "/admin/blocks", label: "Content blocks", icon: "overview" },
+    { href: "/admin/blocks", label: "Content blocks", icon: "article" },
   ],
 }];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   AdminCollectionEditor,
   AdminField,
@@ -12,14 +12,17 @@ import {
   useAdminContentLocale,
   useAdminInterfaceLocale,
 } from "@yesvus/helmdeck";
-import { saveContentBlocks } from "@/host/actions";
-import { blockKinds, createExampleBlock, exampleBlockDefinition, type ExampleBlockKind, type ExampleContentBlock, type ExampleContentBlockEntry } from "@/host/block-definition";
-import { mediaItems } from "@/host/media";
-import { ContentBlockRenderer } from "@/components/content-block-renderer";
+import { saveContentBlocks } from "../host/actions";
+import { blockKinds, createExampleBlock, exampleBlockDefinition, getExampleBlockLocale, type ExampleBlockKind, type ExampleContentBlock, type ExampleContentBlockEntry } from "../host/block-definition";
+import { mediaItems } from "../host/media";
+import { createBlockSaveGuard } from "../host/block-save-guard";
+import { ContentBlockRenderer } from "./content-block-renderer";
 
 export function ContentBlockEditor({ initial }: { initial: ExampleContentBlockEntry[] }) {
   const [blocks, setBlocks] = useState(initial);
   const [saveState, setSaveState] = useState("");
+  const [saving, setSaving] = useState(false);
+  const saveGuardRef = useRef(createBlockSaveGuard());
   const { contentLocale } = useAdminContentLocale();
   const { interfaceLocale } = useAdminInterfaceLocale();
   const locale = contentLocale || interfaceLocale;
@@ -28,6 +31,7 @@ export function ContentBlockEditor({ initial }: { initial: ExampleContentBlockEn
     setBlocks((current) => current.map((entry) => entry.id === id
       ? { ...entry, ...changes } as ExampleContentBlockEntry
       : entry));
+    saveGuardRef.current.markChanged();
     setSaveState("Unsaved changes");
   }
 
@@ -43,16 +47,25 @@ export function ContentBlockEditor({ initial }: { initial: ExampleContentBlockEn
         copy: entry.copy,
       };
     }));
+    saveGuardRef.current.markChanged();
     setSaveState("Unsaved changes");
   }
 
   async function save() {
+    const pendingSave = saveGuardRef.current.save(() =>
+      saveContentBlocks(adminCollectionFormData(exampleBlockDefinition, blocks)));
+    if (!pendingSave) return;
+    setSaving(true);
     setSaveState("Saving…");
     try {
-      const result = await saveContentBlocks(adminCollectionFormData(exampleBlockDefinition, blocks));
-      setSaveState(result.status === "success" ? "Saved" : result.message);
+      const { value: result, unchanged } = await pendingSave;
+      setSaveState(result.status === "success"
+        ? unchanged ? "Saved" : "Unsaved changes"
+        : result.message);
     } catch (cause) {
       setSaveState(cause instanceof Error ? cause.message : "The blocks could not be saved.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -64,7 +77,7 @@ export function ContentBlockEditor({ initial }: { initial: ExampleContentBlockEn
       </div>
       <div className="flex items-center gap-4">
         <a href="/blocks-preview" className="text-sm font-semibold text-indigo-700 underline">Public preview</a>
-        <button type="button" onClick={() => void save()} className="rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800">Save blocks</button>
+        <button type="button" onClick={() => void save()} disabled={saving} className="rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800 disabled:cursor-wait disabled:opacity-60">{saving ? "Saving…" : "Save blocks"}</button>
       </div>
     </div>
     <p aria-live="polite" className="text-sm text-zinc-500">{saveState || `${blocks.length} blocks loaded`}</p>
@@ -73,6 +86,7 @@ export function ContentBlockEditor({ initial }: { initial: ExampleContentBlockEn
       entries={blocks}
       onChange={(entries) => {
         setBlocks(entries);
+        saveGuardRef.current.markChanged();
         setSaveState("Unsaved changes");
       }}
       title="Blocks"
@@ -127,7 +141,7 @@ export function ContentBlockEditor({ initial }: { initial: ExampleContentBlockEn
       <h2 className="text-lg font-semibold">Unsaved public preview</h2>
       <ContentBlockRenderer blocks={blocks.map((entry) => ({
         ...entry,
-        heading: entry.headingByLocale[locale === "tr" ? "tr" : "en"] || entry.heading,
+        heading: entry.headingByLocale[getExampleBlockLocale(locale)] || entry.heading,
       }))} />
     </section>
   </div>;

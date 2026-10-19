@@ -26,6 +26,10 @@ export function resolveExampleBlockHeading(block: ExampleContentBlock, locale: "
   return block.headingByLocale[locale] || block.heading;
 }
 
+export function getExampleBlockLocale(locale: string): "en" | "tr" {
+  return locale.toLowerCase().split("-")[0] === "tr" ? "tr" : "en";
+}
+
 export const blockKinds: Record<ExampleBlockKind, { label: string }> = {
   hero: { label: "Hero" },
   quote: { label: "Quote" },
@@ -71,7 +75,7 @@ export const exampleBlockDefinition: AdminCollectionDefinition<ExampleContentBlo
       problems.push({ field: "headingByLocale", message: "English and Turkish headings must be text under 10,000 characters." });
     }
     if (entry.kind === "hero") {
-      if (!isText(value.imageAlt)) {
+      if (!isText(value.imageAlt) || (isText(value.imageUrl) && Boolean(value.imageUrl) && !value.imageAlt.trim())) {
         problems.push({ field: "imageAlt", message: "Image description must be text under 10,000 characters." });
       }
       if (!isText(value.imageUrl)) {
