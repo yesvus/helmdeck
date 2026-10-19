@@ -155,6 +155,26 @@ first row you create through the form the way you find out the form works.
 npm run typecheck
 ```
 
+## Rising popularity
+
+The analytics query can compare a recent window of page views with the equally long window before it. Call it on the server with the persistence adapter that stores the analytics events:
+
+```ts
+import { ADMIN_ANALYTICS_PAGE_VIEW, adminAnalyticsRisingPaths, adminChartDayRange } from "@yesvus/helmdeck";
+import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
+
+export function loadRisingPaths(store: AdminPersistenceAdapter) {
+  return adminAnalyticsRisingPaths(store, {
+    range: adminChartDayRange(7, new Date()),
+    kind: ADMIN_ANALYTICS_PAGE_VIEW,
+    minViews: 5,
+    limit: 10,
+  });
+}
+```
+
+The result has `paths` and `total`; each path includes `recentViews` and `previousViews`. `minViews` excludes paths with too little recent traffic. `growthRate` is the relative increase (`1` means 100%) and is `null` when the previous window had no views. Paths with no baseline sort first, followed by growth rate and stable path order.
+
 In this repository, `pnpm typecheck:template` runs the same compiler over this directory after
 linking the package into `template/node_modules`, which is what keeps a template nobody compiles from
 being copied stale.

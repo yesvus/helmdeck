@@ -524,6 +524,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "The paths with the most events on them, each with when it was last looked at, ranked so equal counts hold still between loads.",
     keywords: "top paths ranking last viewed popular",
   },
+  adminAnalyticsRisingPaths: {
+    category: "Analytics",
+    summary:
+      "Paths with a rise in recent views over the equally long preceding period, with a minimum-volume guard and growth rate.",
+    keywords: "rising trending popularity paths growth compare periods",
+  },
   adminAnalyticsSources: {
     category: "Analytics",
     summary:
