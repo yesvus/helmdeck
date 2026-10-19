@@ -41,6 +41,18 @@ describe("AdminSkeleton", () => {
     expect(screen.getByRole("status").lastElementChild?.querySelectorAll(".animate-pulse")).toHaveLength(9);
   });
 
+  it("bounds invalid skeleton counts before rendering placeholders", () => {
+    const { container } = render(<AdminTableSkeleton rowCount={Number.POSITIVE_INFINITY} columnCount={1.5} />);
+    const table = container.firstElementChild;
+
+    expect(table?.children[0]?.children).toHaveLength(1);
+    expect(table?.children[1]?.children).toHaveLength(5);
+
+    const bounded = render(<AdminTableSkeleton rowCount={25} columnCount={-3} />).container.firstElementChild;
+    expect(bounded?.children[0]?.children).toHaveLength(0);
+    expect(bounded?.children[1]?.children).toHaveLength(20);
+  });
+
   it("renders shared form, card-grid, and dashboard shapes", () => {
     const { container } = render(
       <>

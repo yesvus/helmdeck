@@ -2,6 +2,9 @@
 import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "../cn.js";
 
+const normalizePlaceholderCount = (value: number, fallback: number) =>
+  Number.isFinite(value) ? Math.min(20, Math.max(0, Math.floor(value))) : fallback;
+
 export function AdminSkeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
@@ -69,17 +72,20 @@ export function AdminTableSkeleton({
   columnCount?: number;
   className?: string;
 }) {
+  const rows = normalizePlaceholderCount(rowCount, 5);
+  const columns = normalizePlaceholderCount(columnCount, 4);
+
   return (
     <div aria-hidden="true" className={cn("overflow-hidden rounded-xl border border-admin-border", className)}>
       <div className="flex gap-4 border-b border-admin-border bg-admin-surface-muted px-4 py-3">
-        {Array.from({ length: columnCount }, (_, index) => (
+        {Array.from({ length: columns }, (_, index) => (
           <AdminSkeleton key={index} className="h-3 flex-1" />
         ))}
       </div>
       <div className="divide-y divide-admin-border">
-        {Array.from({ length: rowCount }, (_, rowIndex) => (
+        {Array.from({ length: rows }, (_, rowIndex) => (
           <div key={rowIndex} className="flex gap-4 px-4 py-4">
-            {Array.from({ length: columnCount }, (_, columnIndex) => (
+            {Array.from({ length: columns }, (_, columnIndex) => (
               <AdminSkeleton key={columnIndex} className={cn("h-4 flex-1", columnIndex === 0 && "max-w-40")} />
             ))}
           </div>
@@ -90,9 +96,11 @@ export function AdminTableSkeleton({
 }
 
 export function AdminFormSkeleton({ fieldCount = 4, className }: { fieldCount?: number; className?: string }) {
+  const fields = normalizePlaceholderCount(fieldCount, 4);
+
   return (
     <div aria-hidden="true" className={cn("space-y-5", className)}>
-      {Array.from({ length: fieldCount }, (_, index) => (
+      {Array.from({ length: fields }, (_, index) => (
         <div key={index} className="space-y-2">
           <AdminSkeleton className="h-4 w-28" />
           <AdminSkeleton className="h-10 w-full rounded-lg" />
@@ -113,9 +121,11 @@ export function AdminCardGridSkeleton({
   cardCount?: number;
   className?: string;
 }) {
+  const cards = normalizePlaceholderCount(cardCount, 4);
+
   return (
     <div aria-hidden="true" className={cn("grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4", className)}>
-      {Array.from({ length: cardCount }, (_, index) => (
+      {Array.from({ length: cards }, (_, index) => (
         <div key={index} className="space-y-3 rounded-xl border border-admin-border bg-admin-surface p-5">
           <AdminSkeleton className="h-3 w-24" />
           <AdminSkeleton className="h-7 w-28" />
