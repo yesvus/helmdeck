@@ -136,6 +136,7 @@ function toEntry(row: LandingRow): LandingSection {
     title: textOf(row.title),
     titleByLocale: localizedTitlesOf(content.titleByLocale),
     mediaUrl: textOf(content.mediaUrl),
+    mediaAlt: textOf(content.mediaAlt),
   };
 }
 
@@ -151,6 +152,7 @@ function toRow(section: LandingSection, position: number): LandingRow {
       size: section.size,
       titleByLocale: section.titleByLocale ?? { en: "", tr: "" },
       mediaUrl: section.mediaUrl ?? "",
+      mediaAlt: section.mediaAlt ?? "",
     }),
   };
 }
@@ -225,6 +227,7 @@ export async function saveLandingSections(sections: LandingSection[]): Promise<v
         title: textOf(section.title),
         titleByLocale: localizedTitlesOf(section.titleByLocale),
         mediaUrl: textOf(section.mediaUrl),
+        mediaAlt: textOf(section.mediaAlt),
       },
       position,
     };

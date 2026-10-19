@@ -186,11 +186,15 @@ describe("AdminCollectionEditor", () => {
    */
   it("names its screen reader instructions the same way on the server and in the browser", () => {
     const first = render(<Editor initial={twoEntries()} onChange={vi.fn()} />);
-    const firstId = screen.getByRole("button", { name: "Edit 1" }).getAttribute("aria-describedby");
+    const firstId = screen.getAllByRole("button", { name: "Edit 1" })
+      .find((button) => button.getAttribute("aria-roledescription") === "sortable")
+      ?.getAttribute("aria-describedby");
     first.unmount();
 
     render(<Editor initial={twoEntries()} onChange={vi.fn()} />);
-    const secondId = screen.getByRole("button", { name: "Edit 1" }).getAttribute("aria-describedby");
+    const secondId = screen.getAllByRole("button", { name: "Edit 1" })
+      .find((button) => button.getAttribute("aria-roledescription") === "sortable")
+      ?.getAttribute("aria-describedby");
 
     expect(firstId).toBeTruthy();
     expect(secondId).toBe(firstId);
@@ -203,6 +207,6 @@ describe("AdminCollectionEditor", () => {
       </AdminI18nProvider>,
     );
 
-    expect(screen.getByRole("button", { name: "Edit 1" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit 1" })).toHaveLength(2);
   });
 });

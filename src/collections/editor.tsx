@@ -170,6 +170,7 @@ export function AdminCollectionEditor<T>({
           {sortable.orderedItems.map((entry, index) => {
             const entryProblems = problemsById.get(entry.id) ?? [];
             const isSelected = selectedId === entry.id;
+            const entryLabel = renderSummary?.(entry, index) || `${labels.edit} ${index + 1}`;
             const selected = isSelected ? "border-admin-brand-500" : "border-admin-border";
             return (
               <li key={entry.id} className="border-b border-admin-border last:border-b-0">
@@ -183,7 +184,7 @@ export function AdminCollectionEditor<T>({
                       onClick={() => setSelectedId(isSelected ? null : entry.id)}
                       className="min-w-0 flex-1 text-left text-sm font-semibold text-zinc-900"
                     >
-                      {renderSummary?.(entry, index) ?? title ?? `${labels.edit} ${index + 1}`}
+                      {entryLabel}
                     </button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => handleDuplicate(entry.id)} aria-label={`${labels.duplicate} ${index + 1}`}>
                       <Copy className="h-4 w-4" />
@@ -197,7 +198,7 @@ export function AdminCollectionEditor<T>({
                     <ul role="alert" className="flex flex-col gap-1">
                       {entryProblems.map(({ field, message }, problemIndex) => (
                         <li key={`${field ?? "entry"}-${problemIndex}`} className="text-xs font-medium text-admin-danger-text">
-                          <span className="font-semibold">{renderSummary?.(entry, index) ?? `${labels.edit} ${index + 1}`}: </span>
+                          <span className="font-semibold">{entryLabel}: </span>
                           {field ? <><span className="font-semibold">{field}: </span>{message}</> : message}
                         </li>
                       ))}

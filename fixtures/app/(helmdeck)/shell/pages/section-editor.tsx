@@ -81,6 +81,7 @@ export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
               heading: entry.titleByLocale?.[activeContentLocale] || entry.title || landingSectionName(entry.widget),
               copy: landingSectionCopy(entry.widget),
               mediaUrl: entry.mediaUrl ?? "",
+              mediaAlt: entry.mediaAlt ?? "",
             },
           },
         ]),
@@ -198,6 +199,13 @@ export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
                 onValueChange={(mediaUrl) => patch(entry.id, { mediaUrl })}
               />
             </div>
+
+            <AdminField label="Image description" className="sm:col-span-2">
+              <AdminInput
+                value={entry.mediaAlt ?? ""}
+                onChange={(event) => patch(entry.id, { mediaAlt: event.target.value })}
+              />
+            </AdminField>
           </div>
         )}
       />

@@ -178,6 +178,7 @@ describe("the landing page arrangement", () => {
               title: "Renamed by a person",
               titleByLocale: { en: "A new heading", tr: "Yeni başlık" },
               mediaUrl: "https://example.com/hero.jpg",
+              mediaAlt: "A blue sofa in a living room",
               size: "lg" as const,
             }
           : section,
@@ -189,12 +190,14 @@ describe("the landing page arrangement", () => {
       title: "Renamed by a person",
       titleByLocale: { en: "A new heading", tr: "Yeni başlık" },
       mediaUrl: "https://example.com/hero.jpg",
+      mediaAlt: "A blue sofa in a living room",
       size: "lg",
     });
     expect(JSON.parse(String((await store.landingRows())[0].content))).toEqual({
       size: "lg",
       titleByLocale: { en: "A new heading", tr: "Yeni başlık" },
       mediaUrl: "https://example.com/hero.jpg",
+      mediaAlt: "A blue sofa in a living room",
     });
   });
 

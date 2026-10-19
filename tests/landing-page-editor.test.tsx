@@ -149,6 +149,7 @@ describe("the landing page editor", () => {
     await user.type(screen.getByLabelText("English heading"), "Unsaved English title");
     await user.clear(screen.getByLabelText("Turkish heading"));
     await user.type(screen.getByLabelText("Turkish heading"), "Kaydedilmemiş başlık");
+    await user.type(screen.getByLabelText("Image description"), "A room with a sofa");
 
     expect(saved).toHaveLength(0);
     expect(screen.getByRole("button", { name: "Unsaved English title · xl" })).toBeInTheDocument();

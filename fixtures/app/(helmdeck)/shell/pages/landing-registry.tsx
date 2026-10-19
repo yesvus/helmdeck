@@ -26,11 +26,18 @@ export type LandingSectionValue = AdminDashboardPlacementValue & {
   title: string;
   titleByLocale?: Record<string, string>;
   mediaUrl?: string;
+  mediaAlt?: string;
 };
 
 export type LandingSection = AdminCollectionEntry<LandingSectionValue>;
 
-export type LandingSectionData = { heading: string; copy: string; mediaUrl: string };
+export type LandingSectionData = { heading: string; copy: string; mediaUrl: string; mediaAlt: string };
+
+function landingSectionImage(data: LandingSectionData) {
+  return data.mediaUrl
+    ? <img src={data.mediaUrl} alt={data.mediaAlt} className="max-h-48 w-full rounded-lg object-cover" />
+    : null;
+}
 
 export const landingWidgets = createAdminWidgetRegistry({
   hero: defineAdminWidget<LandingSectionData>({
@@ -40,7 +47,7 @@ export const landingWidgets = createAdminWidgetRegistry({
     sizes: ["xl"],
     render: (data) => (
       <div className="space-y-2">
-        {data.mediaUrl ? <img src={data.mediaUrl} alt="" className="max-h-48 w-full rounded-lg object-cover" /> : null}
+        {landingSectionImage(data)}
         <p className="text-2xl font-semibold text-zinc-900">{data.heading}</p>
         <p className="text-sm text-zinc-600">{data.copy}</p>
       </div>
@@ -52,6 +59,7 @@ export const landingWidgets = createAdminWidgetRegistry({
     sizes: ["lg", "xl"],
     render: (data) => (
       <div className="space-y-1">
+        {landingSectionImage(data)}
         <p className="text-base font-semibold text-zinc-900">{data.heading}</p>
         <p className="text-sm text-zinc-600">{data.copy}</p>
       </div>
@@ -63,6 +71,7 @@ export const landingWidgets = createAdminWidgetRegistry({
     sizes: ["md", "lg", "xl"],
     render: (data) => (
       <div className="space-y-1">
+        {landingSectionImage(data)}
         <p className="text-base font-semibold text-zinc-900">{data.heading}</p>
         <p className="text-sm text-zinc-600">{data.copy}</p>
       </div>
@@ -74,6 +83,7 @@ export const landingWidgets = createAdminWidgetRegistry({
     sizes: ["md", "lg"],
     render: (data) => (
       <div className="space-y-1">
+        {landingSectionImage(data)}
         <p className="text-base font-semibold text-zinc-900">{data.heading}</p>
         <p className="text-sm text-zinc-600">{data.copy}</p>
       </div>
@@ -85,6 +95,7 @@ export const landingWidgets = createAdminWidgetRegistry({
     sizes: ["sm", "md", "lg", "xl"],
     render: (data) => (
       <div className="space-y-1">
+        {landingSectionImage(data)}
         <p className="text-base font-semibold text-zinc-900">{data.heading}</p>
         <p className="text-sm text-zinc-600">{data.copy}</p>
       </div>
@@ -109,8 +120,9 @@ export const landingSections: AdminCollectionDefinition<LandingSectionValue> = {
     { name: "title" },
     { name: "titleByLocale", label: "Localized heading" },
     { name: "mediaUrl", label: "Section image" },
+    { name: "mediaAlt", label: "Image description" },
   ],
-  create: () => ({ widget: "", size: "sm", title: "", titleByLocale: { en: "", tr: "" }, mediaUrl: "" }),
+  create: () => ({ widget: "", size: "sm", title: "", titleByLocale: { en: "", tr: "" }, mediaUrl: "", mediaAlt: "" }),
   validate: (entry) => placements.validate(entry),
 };
 

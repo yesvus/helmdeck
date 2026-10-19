@@ -1184,7 +1184,15 @@ This is the adapter to start on. A filter runs through `json_extract`, which SQL
 Validation can return strings for entry-level problems or `{ field, message }` values, where `field` is the declared field name. Give the field a `label` to show friendly error copy:
 
 ```tsx
-import { AdminCollectionEditor, AdminInput, type AdminCollectionDefinition } from "@yesvus/helmdeck";
+"use client";
+
+import { useState } from "react";
+import {
+  AdminCollectionEditor,
+  AdminInput,
+  type AdminCollectionDefinition,
+  type AdminCollectionEntry,
+} from "@yesvus/helmdeck";
 
 type Block = { title: string };
 
@@ -1195,16 +1203,27 @@ const definition: AdminCollectionDefinition<Block> = {
   validate: (entry) => entry.title.trim() ? [] : [{ field: "title", message: "A title is required" }],
 };
 
-<AdminCollectionEditor
-  definition={definition}
-  entries={entries}
-  onChange={setEntries}
-  renderSummary={(entry) => entry.title || "Untitled"}
-  renderFields={(entry) => <AdminInput value={entry.title} onChange={(event) => update(entry.id, event.target.value)} />}
-/>
+export function BlockEditor() {
+  const [entries, setEntries] = useState<AdminCollectionEntry<Block>[]>([]);
+  const update = (id: string, title: string) => {
+    setEntries((current) => current.map((entry) => entry.id === id ? { ...entry, title } : entry));
+  };
+
+  return (
+    <AdminCollectionEditor
+      definition={definition}
+      entries={entries}
+      onChange={setEntries}
+      renderSummary={(entry) => entry.title || "Untitled"}
+      renderFields={(entry) => (
+        <AdminInput value={entry.title} onChange={(event) => update(entry.id, event.target.value)} />
+      )}
+    />
+  );
+}
 ```
 
-`renderFields` can compose existing form primitives, including `AdminMediaField`, and host-defined localized values. The editor owns editing and entry identity; the host owns the public renderer, persistence and preview.
+`renderFields` can compose existing form primitives, including `AdminMediaField`, and host-defined localized values. The editor owns collection mechanics and stable entry identity; the host renders and updates fields and owns the public renderer, persistence and preview.
 
 ## Content lifecycle
 
