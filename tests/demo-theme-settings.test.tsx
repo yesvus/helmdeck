@@ -174,7 +174,11 @@ function controlNames(scope: HTMLElement): (string | null)[] {
 async function openSettingsPage(query: Record<string, string> = {}) {
   cleanup();
   const page = await onTheServer(() => SiteSettingsPage({ searchParams: Promise.resolve(query) }));
-  const rendered = render(<AdminI18nProvider locale="en">{page}</AdminI18nProvider>);
+  const rendered = render(
+    <AdminThemeProvider>
+      <AdminI18nProvider locale="en">{page}</AdminI18nProvider>
+    </AdminThemeProvider>,
+  );
   const form = rendered.container.querySelector("form");
   if (!form) throw new Error("the settings page rendered no form");
   return { ...rendered, form, user: userEvent.setup() };
@@ -274,19 +278,23 @@ describe("the settings page offers the theme surface the package declares", () =
     expect(controlNames(site)).toEqual(["name", "support_email"]);
   }, 30_000);
 
-  it("keeps out the theme decisions the package already makes", async () => {
+  it("keeps theme mode in appearance settings and leaves other theme decisions to the package", async () => {
     await signIn();
     const { container } = await openSettingsPage();
 
-    // A page offering colour mode, a radius or a type scale is not offering more, it is becoming a
-    // second source of truth for a contrast guarantee the package holds. The names are the ones
-    // that would be the obvious way in, and the accent appears exactly once: one control for one
-    // value, so there is no second answer to what the brand colour is.
+    expect(screen.getByRole("combobox", { name: "Color mode" })).toBeInTheDocument();
     for (const field of container.querySelectorAll("input, select")) {
       const described = `${field.getAttribute("name")} ${field.getAttribute("aria-label") ?? ""}`;
-      expect(described).not.toMatch(/mode|radius|font|scale|spacing|palette|contrast/);
+      expect(described).not.toMatch(/radius|font|scale|spacing|palette|contrast/);
     }
     expect(container.querySelectorAll('[name="accent"]')).toHaveLength(1);
+  }, 30_000);
+
+  it("keeps colour mode out of the shell topbar", async () => {
+    await signIn();
+    await openShell();
+
+    expect(screen.queryByRole("combobox", { name: "Color mode" })).not.toBeInTheDocument();
   }, 30_000);
 });
 
