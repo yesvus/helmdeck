@@ -43,6 +43,8 @@ export type AdminResourceField = {
    * rather than a box, and makes the write checked against that store on the server.
    */
   reference?: AdminResourceReference;
+  /** The permission required to show this field in generated resource views. */
+  readPermission?: AdminPermission;
   /**
    * Rendered instead of the default control, for a field the primitives do not cover. Code, and
    * irreducibly so: a control is a component, so a definition declaring one has to be built on the
@@ -407,9 +409,10 @@ export function adminResourceRecordId(value: unknown): string {
 export function adminResourceValues(
   definition: AdminResourceDefinition,
   form: FormData,
+  fields: readonly AdminResourceField[] = definition.fields,
 ): Record<string, unknown> {
   const values: Record<string, unknown> = {};
-  for (const field of definition.fields) {
+  for (const field of fields) {
     const raw = form.get(field.name);
     if (field.parse) {
       values[field.name] = field.parse(raw);

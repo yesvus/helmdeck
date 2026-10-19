@@ -5,8 +5,8 @@ import type {
   AdminSession,
 } from "../adapters/index.js";
 
-/** The record a permission is about, for a host whose rules decide per record. */
-export type AdminPermissionContext = { resourceId?: string };
+/** The record or field a permission is about, for a host whose rules decide at that scope. */
+export type AdminPermissionContext = { resourceId?: string; field?: string };
 
 /**
  * The one function a host writes: may this session perform this permission.

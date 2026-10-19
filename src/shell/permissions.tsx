@@ -2,7 +2,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { AdminPermission, AdminPermissionsAdapter } from "../adapters/index.js";
+import type { AdminPermission, AdminPermissionCheckContext, AdminPermissionsAdapter } from "../adapters/index.js";
 import { useAdminMessages } from "../i18n.js";
 import { cn } from "../cn.js";
 
@@ -20,7 +20,7 @@ export type AdminPermissionContextValue = {
    * never read as permission granted. The cost is that `AdminCan` used without a provider
    * hides everything, which is why that case also warns in development.
    */
-  check: (permission: AdminPermission, context?: { resourceId?: string }) => Promise<boolean>;
+  check: (permission: AdminPermission, context?: AdminPermissionCheckContext) => Promise<boolean>;
 };
 
 const AdminPermissionsContext = createContext<AdminPermissionContextValue | null>(null);
@@ -40,8 +40,8 @@ const DENIED_WITHOUT_ADAPTER =
   "AdminCan was used without an AdminPermissionsProvider. Denying, because a missing adapter " +
   "must not read as permission granted. Wrap the tree in AdminPermissionsProvider, or drop the guard.";
 
-function cacheKey(permission: AdminPermission, resourceId?: string): string {
-  return `${permission}\u0000${resourceId ?? ""}`;
+function cacheKey(permission: AdminPermission, context?: AdminPermissionCheckContext): string {
+  return `${permission}\u0000${context?.resourceId ?? ""}\u0000${context?.field ?? ""}`;
 }
 
 /**
@@ -74,7 +74,7 @@ export function AdminPermissionsProvider({
   }
 
   const check = useCallback(
-    (permission: AdminPermission, context?: { resourceId?: string }) => {
+    (permission: AdminPermission, context?: AdminPermissionCheckContext) => {
       if (!adapter) {
         return Promise.resolve(false);
       }
@@ -83,7 +83,7 @@ export function AdminPermissionsProvider({
         cache.current = new Map();
         cachedVersion.current = version;
       }
-      const key = cacheKey(permission, context?.resourceId);
+      const key = cacheKey(permission, context);
       const cached = cache.current.get(key);
       if (cached) return cached;
       // The promise is cached rather than its result, so two guards mounting in the same
@@ -127,7 +127,7 @@ export function useAdminPermissions(): AdminPermissionContextValue {
  */
 export function useAdminPermission(
   permission: AdminPermission | undefined,
-  context?: { resourceId?: string },
+  context?: AdminPermissionCheckContext,
 ): AdminPermissionState {
   const { check, adapter } = useAdminPermissions();
   const [record, setRecord] = useState<{ key: string; state: AdminPermissionState } | null>(null);
@@ -135,7 +135,8 @@ export function useAdminPermission(
   // Depending on it re-ran this effect on every render, and the effect sets state, so the
   // render never settled. The primitives are what the cache is keyed on anyway.
   const resourceId = context?.resourceId;
-  const key = cacheKey(permission ?? "", resourceId);
+  const field = context?.field;
+  const key = cacheKey(permission ?? "", { resourceId, field });
 
   // No permission named means none is required, so nothing is asked and nothing is withheld.
   // The hooks below still run in the same order either way, since returning early here would
@@ -147,7 +148,7 @@ export function useAdminPermission(
     if (permission === undefined) return;
     if (!adapter) warnNoAdapter();
     let active = true;
-    const scope = resourceId === undefined ? undefined : { resourceId };
+    const scope = resourceId === undefined && field === undefined ? undefined : { resourceId, field };
     void check(permission, scope).then(
       (allowed) => {
         if (active) setRecord({ key, state: allowed ? "allowed" : "denied" });
@@ -160,13 +161,62 @@ export function useAdminPermission(
     return () => {
       active = false;
     };
-  }, [adapter, check, key, permission, resourceId]);
+  }, [adapter, check, key, permission, resourceId, field]);
+
+  return state;
+}
+
+export type AdminPermissionMapRequest = {
+  key: string;
+  permission?: AdminPermission;
+  context?: AdminPermissionCheckContext;
+};
+
+export function useAdminPermissionMap(requests: readonly AdminPermissionMapRequest[]) {
+  const { check, adapter } = useAdminPermissions();
+  const signature = JSON.stringify(
+    requests.map(({ key, permission, context }) => [key, permission ?? null, context?.resourceId ?? null, context?.field ?? null]),
+  );
+  const [record, setRecord] = useState<{
+    signature: string;
+    check: AdminPermissionContextValue["check"];
+    states: Record<string, AdminPermissionState>;
+  } | null>(null);
+  const state = useMemo(() => {
+    if (record?.signature === signature && record.check === check) return record.states;
+    return Object.fromEntries(requests.map(({ key, permission }) => [key, permission === undefined ? "allowed" : "checking"]));
+  }, [check, record, requests, signature]);
+
+  useEffect(() => {
+    const entries = JSON.parse(signature) as Array<[string, AdminPermission | null, string | null, string | null]>;
+    if (!adapter && entries.some(([, permission]) => permission !== null)) warnNoAdapter();
+    let active = true;
+    void Promise.all(
+      entries.map(async ([key, permission, resourceId, field]) => {
+        if (permission === null) return [key, "allowed"] as const;
+        try {
+          const allowed = await check(permission, {
+            ...(resourceId === null ? {} : { resourceId }),
+            ...(field === null ? {} : { field }),
+          });
+          return [key, allowed ? "allowed" : "denied"] as const;
+        } catch {
+          return [key, "error"] as const;
+        }
+      }),
+    ).then((resolved) => {
+      if (active) setRecord({ signature, check, states: Object.fromEntries(resolved) });
+    });
+    return () => {
+      active = false;
+    };
+  }, [adapter, check, signature]);
 
   return state;
 }
 
 /** Whether one permission is currently held. `false` while it is still being resolved. */
-export function useAdminCan(permission: AdminPermission, context?: { resourceId?: string }): boolean {
+export function useAdminCan(permission: AdminPermission, context?: AdminPermissionCheckContext): boolean {
   return useAdminPermission(permission, context) === "allowed";
 }
 
