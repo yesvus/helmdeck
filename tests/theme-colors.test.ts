@@ -21,7 +21,8 @@ import { describe, expect, it } from "vitest";
 //
 // A subtree that must not theme at all, such as a static illustration of a light-mode
 // screen, is wrapped in `admin-theme-fixed:start` and `admin-theme-fixed:end`. A single
-// line can carry a bare `admin-theme-fixed` marker instead.
+// line can carry a bare `admin-theme-fixed` marker instead. The dark-preview marker is
+// reserved for fixture examples that deliberately exercise scoped dark utility overrides.
 //
 // Scope is `src/`, which is published to consumers, and `fixtures/`, which is the demo
 // people actually look at. Both have carried these defects. An earlier version scanned
@@ -105,7 +106,9 @@ function riskyIn(file: string): string[] {
     const matches = [...line.matchAll(RISKY)];
     if (matches.length === 0) return;
     const context = lines.slice(Math.max(0, index - LOOKBACK), index + 1).join("\n");
-    if (matches.length === 1 && (context.includes(LINE_MARKER) || context.includes(DARK_PREVIEW_MARKER))) return;
+    const fixtureDarkPreview =
+      file.startsWith(join(process.cwd(), "fixtures")) && context.includes(DARK_PREVIEW_MARKER);
+    if (matches.length === 1 && (context.includes(LINE_MARKER) || fixtureDarkPreview)) return;
     for (const match of matches) {
       risky.push(`${file}:${index + 1} ${match[1]}`);
     }
