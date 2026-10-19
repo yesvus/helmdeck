@@ -94,10 +94,10 @@ describe("AdminCollectionEditor", () => {
   });
 
   it("surfaces validation problems per entry, naming the entry they belong to", () => {
-    render(<Editor initial={[{ id: "bad", title: "  " }]} onChange={vi.fn()} />);
+    render(<Editor initial={[{ id: "bad", title: "" }]} onChange={vi.fn()} />);
 
     const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("A block needs a title");
+    expect(alert).toHaveTextContent("Untitled: A block needs a title");
   });
 
   it("surfaces the field associated with a validation problem", () => {
