@@ -28,6 +28,7 @@ export type {
 export {
   ADMIN_ANALYTICS_MAX_EVENTS_PER_READ,
   adminAnalyticsRead,
+  adminAnalyticsRisingPaths,
   adminAnalyticsRetain,
   adminAnalyticsSeries,
   adminAnalyticsSources,
@@ -36,6 +37,9 @@ export {
 export type {
   AdminAnalyticsPoint,
   AdminAnalyticsReadOptions,
+  AdminAnalyticsRisingPath,
+  AdminAnalyticsRisingPaths,
+  AdminAnalyticsRisingPathsOptions,
   AdminAnalyticsRetainOptions,
   AdminAnalyticsRetention,
   AdminAnalyticsSeries,

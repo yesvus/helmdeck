@@ -437,6 +437,82 @@ export async function adminAnalyticsTopPaths(
   return { paths, total: byPath.buckets.length, unkeyed: byPath.unkeyed };
 }
 
+export type AdminAnalyticsRisingPath = {
+  path: string;
+  recentViews: number;
+  previousViews: number;
+  /** Relative increase, where 1 is 100%; null when no previous views provide a baseline. */
+  growthRate: number | null;
+};
+
+export type AdminAnalyticsRisingPaths = {
+  paths: AdminAnalyticsRisingPath[];
+  total: number;
+};
+
+export type AdminAnalyticsRisingPathsOptions = AdminAnalyticsReadOptions & {
+  /** Recent day keys, compared with the equally long period immediately before them. */
+  range: readonly string[];
+  /** Paths below this many recent views are omitted. */
+  minViews: number;
+  /** Maximum number of rising paths returned. */
+  limit: number;
+};
+
+/**
+ * Ranks paths whose recent view count exceeds the immediately preceding equal-length period.
+ * A zero previous count has no finite growth rate, so the path is returned with a null rate.
+ */
+export async function adminAnalyticsRisingPaths(
+  store: AdminPersistenceAdapter,
+  options: AdminAnalyticsRisingPathsOptions,
+): Promise<AdminAnalyticsRisingPaths> {
+  if (!Number.isSafeInteger(options.minViews) || options.minViews < 1) {
+    throw new AdminAnalyticsError("a minimum view count must be a whole number from one up.");
+  }
+  if (options.range.length === 0 || !options.range.every((key) => DAY.test(key))) {
+    refuseRange([...options.range]);
+  }
+
+  const firstDay = new Date(`${options.range[0]}T00:00:00.000Z`);
+  const previousRange = Array.from({ length: options.range.length }, (_, index) => {
+    const day = new Date(firstDay);
+    day.setUTCDate(day.getUTCDate() - options.range.length + index);
+    return day.toISOString().slice(0, 10);
+  });
+  const [recent, previous] = await Promise.all([
+    adminAnalyticsRead(store, options),
+    adminAnalyticsRead(store, { ...options, range: previousRange }),
+  ]);
+  const countByPath = (rows: readonly AdminAnalyticsEventRow[]) => {
+    const counts = new Map<string, number>();
+    for (const row of rows) counts.set(row.path, (counts.get(row.path) ?? 0) + 1);
+    return counts;
+  };
+  const recentCounts = countByPath(recent);
+  const previousCounts = countByPath(previous);
+  const candidates = [...recentCounts]
+    .filter(([path, views]) => path.trim() !== "" && views >= options.minViews && views > (previousCounts.get(path) ?? 0))
+    .map(([path, recentViews]) => {
+      const previousViews = previousCounts.get(path) ?? 0;
+      return {
+        path,
+        recentViews,
+        previousViews,
+        growthRate: previousViews === 0 ? null : (recentViews - previousViews) / previousViews,
+      };
+    })
+    .sort((left, right) => {
+      if (left.growthRate === null && right.growthRate !== null) return -1;
+      if (left.growthRate !== null && right.growthRate === null) return 1;
+      return (right.growthRate ?? 0) - (left.growthRate ?? 0) ||
+        right.recentViews - left.recentViews ||
+        left.path.localeCompare(right.path);
+    });
+
+  return { paths: candidates.slice(0, Math.max(0, Math.floor(options.limit))), total: candidates.length };
+}
+
 export type AdminAnalyticsSource = {
   /** The label the host recorded with the event, which is the host's own vocabulary. */
   source: string;

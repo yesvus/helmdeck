@@ -6,6 +6,7 @@ import {
   AdminAnalyticsError,
   adminAnalyticsEventValue,
   adminAnalyticsRead,
+  adminAnalyticsRisingPaths,
   adminAnalyticsRecord,
   adminAnalyticsRetain,
   adminAnalyticsSeries,
@@ -399,6 +400,59 @@ describe("top paths and sources over the events that were captured", () => {
 
     expect(views.totals.views).toBe(4);
     expect(signups.totals.views).toBe(1);
+  });
+});
+
+describe("rising paths compare equal-length adjacent periods", () => {
+  it("applies the minimum-volume guard and ranks tied growth consistently", async () => {
+    const store = createMemoryPersistenceAdapter();
+    await recordAll(store, [
+      view({ path: "/alpha", at: "2026-09-24T09:00:00.000Z" }),
+      view({ path: "/alpha", at: "2026-09-28T09:00:00.000Z" }),
+      view({ path: "/alpha", at: "2026-09-29T09:00:00.000Z" }),
+      view({ path: "/alpha", at: "2026-09-30T09:00:00.000Z" }),
+      view({ path: "/beta", at: "2026-09-23T09:00:00.000Z" }),
+      view({ path: "/beta", at: "2026-09-28T09:00:00.000Z" }),
+      view({ path: "/beta", at: "2026-09-29T09:00:00.000Z" }),
+      view({ path: "/beta", at: "2026-09-30T09:00:00.000Z" }),
+      view({ path: "/sparse", at: "2026-09-30T10:00:00.000Z" }),
+      view({ path: "/declining", at: "2026-09-24T10:00:00.000Z" }),
+      view({ path: "/declining", at: "2026-09-25T10:00:00.000Z" }),
+      view({ path: "/declining", at: "2026-09-28T10:00:00.000Z" }),
+    ]);
+
+    const result = await adminAnalyticsRisingPaths(store, {
+      range: ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"],
+      minViews: 3,
+      limit: 10,
+    });
+
+    expect(result.paths).toEqual([
+      { path: "/alpha", recentViews: 3, previousViews: 1, growthRate: 2 },
+      { path: "/beta", recentViews: 3, previousViews: 1, growthRate: 2 },
+    ]);
+    expect(result.total).toBe(2);
+  });
+
+  it("returns a null rate for a newly popular path and rejects an invalid guard", async () => {
+    const store = createMemoryPersistenceAdapter();
+    await recordAll(store, [
+      view({ path: "/new", at: "2026-09-28T09:00:00.000Z" }),
+      view({ path: "/new", at: "2026-09-29T09:00:00.000Z" }),
+    ]);
+
+    const result = await adminAnalyticsRisingPaths(store, {
+      range: ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"],
+      minViews: 2,
+      limit: 5,
+    });
+
+    expect(result.paths).toEqual([{ path: "/new", recentViews: 2, previousViews: 0, growthRate: null }]);
+    await expect(adminAnalyticsRisingPaths(store, {
+      range: ["2026-09-27"],
+      minViews: 0,
+      limit: 5,
+    })).rejects.toThrow(/minimum view count/);
   });
 });
 
