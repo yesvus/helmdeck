@@ -3,6 +3,54 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "../cn.js";
+import { Button, type ButtonProps } from "./button.js";
+import { Tooltip } from "./tooltip.js";
+
+export type AdminTableActionVariant = "primary" | "secondary" | "destructive";
+export type AdminTableActionSize = "compact" | "comfortable";
+
+export type AdminTableActionButtonProps = Omit<ButtonProps, "asChild" | "children" | "size" | "variant" | "aria-label"> & {
+  label: string;
+  icon: ReactNode;
+  variant?: AdminTableActionVariant;
+  actionSize?: AdminTableActionSize;
+  iconOnly?: boolean;
+};
+
+const actionVariants = {
+  primary: "default",
+  secondary: "outline",
+  destructive: "destructive",
+} as const;
+
+export function AdminTableActionButton({
+  label,
+  icon,
+  variant = "secondary",
+  actionSize = "compact",
+  iconOnly = false,
+  className,
+  ...props
+}: AdminTableActionButtonProps) {
+  const button = (
+    <Button
+      {...props}
+      aria-label={iconOnly ? label : undefined}
+      size={iconOnly ? "icon" : actionSize === "compact" ? "sm" : "default"}
+      variant={actionVariants[variant]}
+      className={cn(
+        variant === "secondary" && "border-zinc-200",
+        iconOnly && actionSize === "compact" && "h-8 w-8",
+        className,
+      )}
+    >
+      <span aria-hidden="true" className="inline-flex shrink-0">{icon}</span>
+      {iconOnly ? null : <span>{label}</span>}
+    </Button>
+  );
+
+  return iconOnly ? <Tooltip content={label} label={label}>{button}</Tooltip> : button;
+}
 
 export function useAdminTableSelection<Key extends string | number>(initialKeys: Key[] = []) {
   const [selectedKeys, setSelectedKeys] = useState<Set<Key>>(() => new Set(initialKeys));

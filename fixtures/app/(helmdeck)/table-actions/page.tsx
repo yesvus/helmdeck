@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AdminTable, AdminTableBulkActions, AdminTableRowActions, Button, useAdminTableSelection } from "@yesvus/helmdeck";
+import { Eye, Pencil, Trash2 } from "lucide-react";
+import { AdminTable, AdminTableActionButton, AdminTableBulkActions, AdminTableRowActions, Button, useAdminTableSelection } from "@yesvus/helmdeck";
 import { Frame } from "../../../components/frame";
 
 const rows = [
@@ -44,9 +45,9 @@ export default function TableActionsPage() {
               header: "Actions",
               className: "min-w-48",
               cell: (row) => (
-                <AdminTableRowActions label={`Actions for ${row.name}`} destructive={<Button size="sm" variant="destructive">Delete</Button>}>
-                  <Button size="sm" variant="outline">Edit</Button>
-                  <Button size="sm" variant="secondary">Open</Button>
+                <AdminTableRowActions label={`Actions for ${row.name}`} destructive={<AdminTableActionButton label="Delete" icon={<Trash2 className="size-4" />} variant="destructive" iconOnly />}>
+                  <AdminTableActionButton label="Edit" icon={<Pencil className="size-4" />} iconOnly />
+                  <AdminTableActionButton label="Open" icon={<Eye className="size-4" />} variant="primary" iconOnly />
                 </AdminTableRowActions>
               ),
             },

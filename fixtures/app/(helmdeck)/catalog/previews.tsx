@@ -16,7 +16,7 @@
 
 import { useState, type ComponentType, type ReactNode } from "react";
 import type { AdminAuditEvent, AdminMediaAdapter, AdminMediaItem } from "@yesvus/helmdeck";
-import { AlertTriangle, BarChart3, CheckCircle2, Info, LineChart, Package, Palette, Rows3, type LucideIcon } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Eye, Info, LineChart, Package, Palette, Pencil, Rows3, Trash2, type LucideIcon } from "lucide-react";
 import {
   ADMIN_DENSITIES,
   AdminActivityPage,
@@ -88,6 +88,7 @@ import {
   AdminSubmitButton,
   AdminSurfaceCard,
   AdminTable,
+  AdminTableActionButton,
   AdminTableBulkActions,
   AdminTableRowActions,
   AdminTextarea,
@@ -765,6 +766,13 @@ export const catalogPreviews: Record<string, ComponentType> = {
 
   AdminTable: () => (
     <AdminTable caption="Catalogue sample" columns={COLUMNS} rows={ROWS} getKey={(row) => row.id} />
+  ),
+  AdminTableActionButton: () => (
+    <div className="flex items-center gap-2">
+      <AdminTableActionButton label="Edit" icon={<Pencil className="size-4" />} iconOnly />
+      <AdminTableActionButton label="Open" icon={<Eye className="size-4" />} variant="primary" iconOnly />
+      <AdminTableActionButton label="Delete" icon={<Trash2 className="size-4" />} variant="destructive" iconOnly />
+    </div>
   ),
   AdminTableBulkActions: BulkActionsSample,
   AdminTableRowActions: () => (

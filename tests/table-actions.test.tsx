@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AdminTable, AdminTableBulkActions, AdminTableRowActions, Button, useAdminTableSelection } from "../src/primitives/index.js";
+import { AdminTable, AdminTableActionButton, AdminTableBulkActions, AdminTableRowActions, Button, useAdminTableSelection } from "../src/primitives/index.js";
 
 type Row = { id: number; name: string };
 
@@ -53,6 +53,25 @@ describe("table action primitives", () => {
   it("keeps destructive actions in a separately spaced group", () => {
     render(<AdminTableRowActions label="Record actions" destructive={<Button>Delete</Button>}><Button>Edit</Button></AdminTableRowActions>);
     expect(screen.getByRole("group", { name: "Record actions" })).toHaveTextContent("EditDelete");
+  });
+
+  it("renders consistently sized labeled actions for each variant", () => {
+    render(
+      <div>
+        <AdminTableActionButton label="Edit" icon={<svg />} variant="primary" />
+        <AdminTableActionButton label="Open" icon={<svg />} variant="secondary" actionSize="comfortable" />
+        <AdminTableActionButton label="Delete" icon={<svg />} variant="destructive" />
+      </div>,
+    );
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveClass("h-8", "px-3");
+    expect(screen.getByRole("button", { name: "Open" })).toHaveClass("h-9", "px-4", "border-zinc-200");
+    expect(screen.getByRole("button", { name: "Delete" })).toHaveClass("bg-admin-danger-action");
+  });
+
+  it("provides an accessible label and tooltip for icon-only actions", () => {
+    render(<AdminTableActionButton label="Open record" icon={<svg />} iconOnly />);
+    expect(screen.getByRole("button", { name: "Open record" })).toHaveAttribute("aria-describedby");
+    expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent("Open record");
   });
 
   it("provides a controlled selection hook", () => {
