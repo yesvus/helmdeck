@@ -81,6 +81,7 @@ describe("theme tokens", () => {
     expect(baseline).toContain(".text-neutral-950");
     expect(baseline).toContain(".border-neutral-200");
     expect(baseline).toContain("input:not([type=\"checkbox\"])");
+    expect(baseline).toContain(":where(input:not([type=\"checkbox\"])");
     expect(baseline).toContain("select, textarea");
     expect(baseline).toContain("table");
     expect(baseline).toContain("color: var(--admin-text-primary)");
