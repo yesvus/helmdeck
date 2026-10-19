@@ -282,7 +282,9 @@ describe("the settings page offers the theme surface the package declares", () =
     await signIn();
     const { container } = await openSettingsPage();
 
-    expect(screen.getByRole("combobox", { name: "Color mode" })).toBeInTheDocument();
+    const appearance = container.querySelector<HTMLElement>("#appearance");
+    if (!appearance) throw new Error("The Appearance section was not rendered.");
+    expect(within(appearance).getByRole("combobox", { name: "Color mode" })).toBeInTheDocument();
     for (const field of container.querySelectorAll("input, select")) {
       const described = `${field.getAttribute("name")} ${field.getAttribute("aria-label") ?? ""}`;
       expect(described).not.toMatch(/radius|font|scale|spacing|palette|contrast/);
