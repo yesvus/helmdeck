@@ -72,6 +72,15 @@ describe("theme boot script", () => {
 });
 
 describe("fixture theme controls", () => {
+  it("shows standard host surfaces and controls inside the theme demo", () => {
+    renderControls();
+
+    expect(screen.getByRole("region", { name: "Host content dark-mode preview" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Host name" })).toHaveClass("bg-white", "text-neutral-950");
+    expect(screen.getByRole("combobox", { name: "Host status" })).toHaveClass("bg-white", "text-neutral-950");
+    expect(screen.getByRole("table")).toHaveClass("border-neutral-200");
+  });
+
   it("retains dark mode after remounting the theme editor", async () => {
     const user = userEvent.setup();
     const firstMount = renderControls();
