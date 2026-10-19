@@ -642,6 +642,8 @@ const posts = defineAdminResource({
 
 `AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` shapes the generated form's submission from its declared fields; it runs in the browser and does not protect a server action called directly. The server write boundary must receive the resource definitions, as shown in [Enforcing a permission on the server](#enforcing-a-permission-on-the-server). The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
 
+Set `readPermission` on a field to hide its generated list column and form control from sessions without that permission. This is presentation filtering, not server-side write protection: validate and filter submitted fields at the server action boundary, as described in [Enforcing a permission on the server](#enforcing-a-permission-on-the-server).
+
 An existing record form can show revision history and restore a prior version by passing the host's lifecycle actions:
 
 ```tsx
