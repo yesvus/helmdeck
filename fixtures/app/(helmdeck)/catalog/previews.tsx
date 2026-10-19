@@ -43,6 +43,7 @@ import {
   AdminFormSection,
   AdminI18nProvider,
   AdminInput,
+  AdminLoadingState,
   AdminListItemCard,
   AdminLoginScreen,
   AdminMediaAspectRatioHint,
@@ -73,6 +74,10 @@ import {
   AdminSettingsFooter,
   AdminSelect,
   AdminSkeleton,
+  AdminTableSkeleton,
+  AdminFormSkeleton,
+  AdminCardGridSkeleton,
+  AdminDashboardSkeleton,
   AdminSortableCard,
   AdminSortableDndContext,
   AdminSortableRow,
@@ -799,6 +804,15 @@ export const catalogPreviews: Record<string, ComponentType> = {
     </div>
   ),
   AdminContentSkeleton: () => <AdminContentSkeleton />,
+  AdminLoadingState: () => (
+    <AdminLoadingState label="Loading products">
+      <AdminTableSkeleton rowCount={3} columnCount={3} />
+    </AdminLoadingState>
+  ),
+  AdminTableSkeleton: () => <AdminTableSkeleton rowCount={3} columnCount={4} />,
+  AdminFormSkeleton: () => <AdminFormSkeleton fieldCount={3} />,
+  AdminCardGridSkeleton: () => <AdminCardGridSkeleton cardCount={3} />,
+  AdminDashboardSkeleton: () => <AdminDashboardSkeleton />,
   AdminEmptyState: () => (
     <AdminEmptyState
       title="No products yet"

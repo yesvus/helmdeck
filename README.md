@@ -6,7 +6,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 
 - Responsive shell with navigation, command search, breadcrumbs, profile actions, mobile navigation, and login presentation.
 - Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, and status primitives.
-- Data-heavy primitives including tables, pagination, modals, toasts, skeletons, sortable lists, and destructive confirmations.
+- Data-heavy primitives including tables, pagination, modals, toasts, accessible loading states and content-shaped skeletons, sortable lists, and destructive confirmations.
 - Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
 - Six ready dashboard tiles (stat, table, list, time-series chart, ranked chart, activity feed) that render the engine's four states themselves, so a host registers a tile rather than writing one.
 - Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
@@ -20,6 +20,20 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 - A language preference in the settings page, persisted for the current browser tab and replaceable with a host-owned per-reader adapter.
 - A static bilingual fixture app for the hosted demo.
 - A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
+
+## Loading states
+
+Use a localized announcement with a page-shaped skeleton. Skeletons are decorative, and animations stop for users who request reduced motion.
+
+```tsx
+import { AdminLoadingState, AdminTableSkeleton } from "@yesvus/helmdeck";
+
+<AdminLoadingState label="Loading products">
+  <AdminTableSkeleton rowCount={6} columnCount={4} />
+</AdminLoadingState>
+```
+
+`AdminFormSkeleton`, `AdminCardGridSkeleton`, and `AdminDashboardSkeleton` cover other common admin layouts. Pass `className` to customize the shared layout classes.
 
 ## Install
 

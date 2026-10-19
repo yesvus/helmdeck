@@ -2,7 +2,15 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AdminSelect } from "../src/primitives/select";
-import { AdminSkeleton, AdminContentSkeleton } from "../src/primitives/skeleton";
+import {
+  AdminSkeleton,
+  AdminContentSkeleton,
+  AdminLoadingState,
+  AdminTableSkeleton,
+  AdminFormSkeleton,
+  AdminCardGridSkeleton,
+  AdminDashboardSkeleton,
+} from "../src/primitives/skeleton";
 import { AdminStatusPill } from "../src/primitives/status-pill";
 
 describe("AdminSkeleton", () => {
@@ -16,6 +24,39 @@ describe("AdminSkeleton", () => {
     const { container } = render(<AdminContentSkeleton />);
     const placeholders = container.querySelectorAll(".animate-pulse");
     expect(placeholders.length).toBeGreaterThan(5);
+    expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("provides an accessible loading announcement around decorative placeholders", () => {
+    render(
+      <AdminLoadingState label="Loading products">
+        <AdminTableSkeleton rowCount={2} columnCount={3} />
+      </AdminLoadingState>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading products");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    expect(screen.getByRole("status").firstElementChild).toHaveClass("sr-only");
+    expect(screen.getByRole("status").lastElementChild).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("status").lastElementChild?.querySelectorAll(".animate-pulse")).toHaveLength(9);
+  });
+
+  it("renders shared form, card-grid, and dashboard shapes", () => {
+    const { container } = render(
+      <>
+        <AdminFormSkeleton fieldCount={2} />
+        <AdminCardGridSkeleton cardCount={3} />
+        <AdminDashboardSkeleton />
+      </>,
+    );
+
+    expect(container.children).toHaveLength(3);
+    expect(Array.from(container.children, (element) => element.getAttribute("aria-hidden"))).toEqual([
+      "true",
+      "true",
+      "true",
+    ]);
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(20);
   });
 });
 
