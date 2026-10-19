@@ -18,7 +18,6 @@ import type { AdminMessages } from "../i18n.js";
 import { AdminEmptyState } from "../primitives/empty-state.js";
 import { Button } from "../primitives/button.js";
 import { AdminSkeleton } from "../primitives/skeleton.js";
-import { AdminWidgetRetrySubmit } from "./retry-submit.js";
 import { AdminWidgetPermanentError, adminWidgetRetryIsWorthwhile } from "./retry.js";
 import type { AdminWidgetDefinition, AdminWidgetState } from "./types.js";
 
@@ -71,7 +70,9 @@ export function adminWidgetBody<TData>({
                 canRetry ? (
                   retryAction ? (
                     <form action={retryAction}>
-                      <AdminWidgetRetrySubmit label={messages.widget.retry} />
+                      <Button type="submit" size="sm" variant="ghost">
+                        {messages.widget.retry}
+                      </Button>
                     </form>
                   ) : (
                     <Button type="button" size="sm" variant="ghost" onClick={onRetry}>

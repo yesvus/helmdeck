@@ -16,7 +16,6 @@ import {
 import { AdminDashboardLayout, dashboardGridClassName } from "../src/dashboard/layout";
 import { AdminDashboardServerTiles } from "../src/dashboard/server-tiles";
 import { AdminDashboardTiles } from "../src/dashboard/tiles";
-import { AdminWidgetRetrySubmit } from "../src/widgets/retry-submit";
 import { createAdminWidgetRegistry, defineAdminWidget } from "../src/widgets/registry";
 
 const counter = defineAdminWidget<{ total: number }>({
@@ -375,7 +374,7 @@ describe("AdminDashboardServerTiles", () => {
     const retry = vi.fn(async (formData: FormData) => { void formData; });
     const view = render(
       <form action={retry}>
-        <AdminWidgetRetrySubmit label="Try again" />
+        <button type="submit">Try again</button>
       </form>,
     );
     fireEvent.submit(view.container.querySelector("form")!);
