@@ -6,7 +6,7 @@ import {
   adminCollectionValidate,
   adminCollectionValues,
 } from "../src/collections/registry";
-import { createExampleBlock, exampleBlockDefinition, isValidExampleBlockId, type ExampleContentBlock } from "../examples/independent-host/host/block-definition";
+import { createExampleBlock, exampleBlockDefinition, isValidExampleBlockId, resolveExampleBlockHeading, type ExampleContentBlock } from "../examples/independent-host/host/block-definition";
 
 describe("independent host content blocks", () => {
   it("keeps typed block identities through reorder and serialization", () => {
@@ -55,5 +55,17 @@ describe("independent host content blocks", () => {
     expect(isValidExampleBlockId("block_hero-1")).toBe(true);
     expect(isValidExampleBlockId(`block_${"a".repeat(100)}`)).toBe(false);
     expect(isValidExampleBlockId("<script>alert(1)</script>")).toBe(false);
+  });
+
+  it("resolves localized headings with a generic fallback", () => {
+    const block = {
+      ...createExampleBlock("hero"),
+      heading: "Generic heading",
+      headingByLocale: { en: "English heading", tr: "Türkçe başlık" },
+    };
+
+    expect(resolveExampleBlockHeading(block, "en")).toBe("English heading");
+    expect(resolveExampleBlockHeading(block, "tr")).toBe("Türkçe başlık");
+    expect(resolveExampleBlockHeading({ ...block, headingByLocale: { en: "", tr: "" } }, "en")).toBe("Generic heading");
   });
 });

@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { ContentBlockRenderer } from "@/components/content-block-renderer";
+import { resolveExampleBlockHeading } from "@/host/block-definition";
 import { readContentBlocks } from "@/host/content-blocks";
 
 export default async function BlocksPreviewPage() {
   const blocks = await readContentBlocks();
+  const localizedBlocks = blocks.map((block) => ({
+    ...block,
+    heading: resolveExampleBlockHeading(block, "en"),
+  }));
   return <main className="mx-auto max-w-5xl space-y-6 px-6 py-12">
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
@@ -12,6 +17,6 @@ export default async function BlocksPreviewPage() {
       </div>
       <Link href="/admin/blocks" className="text-sm font-semibold text-indigo-700 underline">Edit content blocks</Link>
     </header>
-    <ContentBlockRenderer blocks={blocks} />
+    <ContentBlockRenderer blocks={localizedBlocks} />
   </main>;
 }

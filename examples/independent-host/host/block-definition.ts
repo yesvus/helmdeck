@@ -22,6 +22,10 @@ export function isValidExampleBlockId(id: string) {
   return /^[A-Za-z0-9_-]{1,100}$/.test(id);
 }
 
+export function resolveExampleBlockHeading(block: ExampleContentBlock, locale: "en" | "tr") {
+  return block.headingByLocale[locale] || block.heading;
+}
+
 export const blockKinds: Record<ExampleBlockKind, { label: string }> = {
   hero: { label: "Hero" },
   quote: { label: "Quote" },
