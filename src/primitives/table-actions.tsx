@@ -4,7 +4,6 @@
 import { useState, type ReactNode } from "react";
 import { cn } from "../cn.js";
 import { Button, type ButtonProps } from "./button.js";
-import { Tooltip } from "./tooltip.js";
 
 export type AdminTableActionVariant = "primary" | "secondary" | "destructive";
 export type AdminTableActionSize = "compact" | "comfortable";
@@ -32,15 +31,16 @@ export function AdminTableActionButton({
   className,
   ...props
 }: AdminTableActionButtonProps) {
-  const button = (
+  return (
     <Button
       {...props}
       aria-label={iconOnly ? label : undefined}
-      size={iconOnly ? "icon" : actionSize === "compact" ? "sm" : "default"}
+      title={iconOnly ? label : undefined}
+      size={actionSize === "compact" ? "sm" : "default"}
       variant={actionVariants[variant]}
       className={cn(
-        variant === "secondary" && "border-zinc-200",
-        iconOnly && actionSize === "compact" && "h-8 w-8",
+        iconOnly && actionSize === "compact" && "w-8 px-0",
+        iconOnly && actionSize === "comfortable" && "w-9 px-0",
         className,
       )}
     >
@@ -48,8 +48,6 @@ export function AdminTableActionButton({
       {iconOnly ? null : <span>{label}</span>}
     </Button>
   );
-
-  return iconOnly ? <Tooltip content={label} label={label}>{button}</Tooltip> : button;
 }
 
 export function useAdminTableSelection<Key extends string | number>(initialKeys: Key[] = []) {

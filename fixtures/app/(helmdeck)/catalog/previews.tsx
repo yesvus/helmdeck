@@ -768,10 +768,11 @@ export const catalogPreviews: Record<string, ComponentType> = {
     <AdminTable caption="Catalogue sample" columns={COLUMNS} rows={ROWS} getKey={(row) => row.id} />
   ),
   AdminTableActionButton: () => (
-    <div className="flex items-center gap-2">
-      <AdminTableActionButton label="Edit" icon={<Pencil className="size-4" />} iconOnly />
-      <AdminTableActionButton label="Open" icon={<Eye className="size-4" />} variant="primary" iconOnly />
-      <AdminTableActionButton label="Delete" icon={<Trash2 className="size-4" />} variant="destructive" iconOnly />
+    <div className="flex flex-wrap items-center gap-2">
+      <AdminTableActionButton label="Edit" icon={<Pencil className="size-4" />} />
+      <AdminTableActionButton label="Open" icon={<Eye className="size-4" />} variant="primary" actionSize="comfortable" />
+      <AdminTableActionButton label="Delete" icon={<Trash2 className="size-4" />} variant="destructive" />
+      <AdminTableActionButton label="Quick edit" icon={<Pencil className="size-4" />} iconOnly />
     </div>
   ),
   AdminTableBulkActions: BulkActionsSample,

@@ -64,14 +64,16 @@ describe("table action primitives", () => {
       </div>,
     );
     expect(screen.getByRole("button", { name: "Edit" })).toHaveClass("h-8", "px-3");
-    expect(screen.getByRole("button", { name: "Open" })).toHaveClass("h-9", "px-4", "border-zinc-200");
+    expect(screen.getByRole("button", { name: "Open" })).toHaveClass("h-9", "px-4", "border-zinc-300");
     expect(screen.getByRole("button", { name: "Delete" })).toHaveClass("bg-admin-danger-action");
   });
 
-  it("provides an accessible label and tooltip for icon-only actions", () => {
+  it("provides an accessible name and native tooltip without disclosure semantics", () => {
     render(<AdminTableActionButton label="Open record" icon={<svg />} iconOnly />);
-    expect(screen.getByRole("button", { name: "Open record" })).toHaveAttribute("aria-describedby");
-    expect(screen.getByRole("tooltip", { hidden: true })).toHaveTextContent("Open record");
+    const button = screen.getByRole("button", { name: "Open record" });
+    expect(button).toHaveAttribute("title", "Open record");
+    expect(button).not.toHaveAttribute("aria-expanded");
+    expect(button).toHaveClass("h-8", "w-8", "px-0");
   });
 
   it("provides a controlled selection hook", () => {
