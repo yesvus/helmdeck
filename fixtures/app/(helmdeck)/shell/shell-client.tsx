@@ -5,7 +5,6 @@ import Link from "next/link.js";
 import { createContext, useContext, type ReactNode } from "react";
 import {
   AdminShell,
-  AdminThemePreference,
   AdminThemeSettingsProvider,
   AdminPermissionsProvider,
   DEFAULT_ADMIN_DENSITY,
@@ -83,7 +82,6 @@ export function ShellClient({
             viewSiteHref="/"
             profileHref="/shell/profile"
             onLogout={signOutAction}
-            topbarExtra={<AdminThemePreference />}
             profileMenuExtra={
               <Link
                 className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
