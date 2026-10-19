@@ -86,9 +86,9 @@ export function AdminCollectionEditor<T>({
 
   const problems = useMemo(() => adminCollectionValidate(definition, entries), [definition, entries]);
   const problemsById = useMemo(() => {
-    const grouped = new Map<string, string[]>();
+    const grouped = new Map<string, { field?: string; message: string }[]>();
     for (const problem of problems) {
-      grouped.set(problem.id, [...(grouped.get(problem.id) ?? []), problem.message]);
+      grouped.set(problem.id, [...(grouped.get(problem.id) ?? []), { field: problem.field, message: problem.message }]);
     }
     return grouped;
   }, [problems]);
@@ -190,9 +190,10 @@ export function AdminCollectionEditor<T>({
 
                   {entryProblems.length > 0 ? (
                     <ul role="alert" className="flex flex-col gap-1">
-                      {entryProblems.map((message) => (
-                        <li key={message} className="text-xs font-medium text-admin-danger-text">
-                          {message}
+                      {entryProblems.map(({ field, message }, problemIndex) => (
+                        <li key={`${field ?? "entry"}-${problemIndex}`} className="text-xs font-medium text-admin-danger-text">
+                          <span className="font-semibold">{renderSummary?.(entry, index) ?? `${labels.edit} ${index + 1}`}: </span>
+                          {field ? <><span className="font-semibold">{field}: </span>{message}</> : message}
                         </li>
                       ))}
                     </ul>

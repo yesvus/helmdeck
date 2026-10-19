@@ -6,6 +6,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 
 - Responsive shell with navigation, command search, breadcrumbs, profile actions, mobile navigation, and login presentation.
 - Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, and status primitives.
+- A typed collection editor with add, duplicate, remove, pointer and keyboard reorder, host-rendered fields, and per-entry validation. See [Editing a typed collection](#editing-a-typed-collection).
 - Data-heavy primitives including tables, pagination, modals, toasts, accessible loading states and content-shaped skeletons, sortable lists, and destructive confirmations.
 - Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
 - Six ready dashboard tiles (stat, table, list, time-series chart, ranked chart, activity feed) that render the engine's four states themselves, so a host registers a tile rather than writing one.
@@ -1175,6 +1176,35 @@ It answers `queryPage` as well, so a list reading through it draws its search bo
 A comparison ranks before it compares, and so does an ordering, and both rank by the same written rule: nothing first, then numbers and booleans, then text. That is the database's own order of storage classes, and the adapter states it rather than leaving it to the engine, so a comparison and an ordering are the same rule read twice rather than two that happen to agree. A text value is above a number however the two would compare as text, and a boolean is the number a database stores it as, so `true` and `1` order as each other. A value the record does not have ranks with the nulls rather than above them, and reading an ordering the other way reverses each class and puts the nulls at the end. **A null is the lowest class, and a range filter can be given one**, so `gt(null)` is every record that is not null or absent, `gte(null)` is every record, `lt(null)` is none, and `lte(null)` is the null and the absent. That is where a three-valued language and a two-valued one part company: there is no value to compare and nothing compares against nothing, so the class decides and the operator still says which way. Both shipped adapters rank the same way, which is what lets a fixture and a database answer the same question alike.
 
 This is the adapter to start on. A filter runs through `json_extract`, which SQLite cannot index the way it can a column, so once a resource is large enough that the scan shows, put it behind a mapped schema and the same `AdminPersistenceAdapter`.
+
+## Editing a typed collection
+
+`AdminCollectionEditor` works with a controlled list from `src/collections/registry`: the host defines entry fields, creates entries, validates them, and supplies the fields to render. It provides selection, add, duplicate, remove, pointer and keyboard reordering, and a deliberate empty state. The host keeps the current list, so the same value can drive an unsaved preview and a save action.
+
+Validation can return strings for entry-level problems or `{ field, message }` values to name the field:
+
+```tsx
+import { AdminCollectionEditor, AdminInput, type AdminCollectionDefinition } from "@yesvus/helmdeck";
+
+type Block = { title: string };
+
+const definition: AdminCollectionDefinition<Block> = {
+  name: "blocks",
+  fields: [{ name: "title" }],
+  create: () => ({ title: "" }),
+  validate: (entry) => entry.title.trim() ? [] : [{ field: "title", message: "A title is required" }],
+};
+
+<AdminCollectionEditor
+  definition={definition}
+  entries={entries}
+  onChange={setEntries}
+  renderSummary={(entry) => entry.title || "Untitled"}
+  renderFields={(entry) => <AdminInput value={entry.title} onChange={(event) => update(entry.id, event.target.value)} />}
+/>
+```
+
+`renderFields` can compose existing form primitives, including `AdminMediaField`, and host-defined localized values. The editor owns editing and entry identity; the host owns the public renderer, persistence and preview.
 
 ## Content lifecycle
 

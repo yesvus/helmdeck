@@ -122,7 +122,7 @@ export const seedLandingSections = [
     kind: "hero",
     title: "A sofa that arrives before you have chosen one",
     position: 0,
-    content: JSON.stringify({ size: "xl" }),
+    content: JSON.stringify({ size: "xl", titleByLocale: { en: "A sofa that arrives before you have chosen one", tr: "Seçmeden önce kapınızda" }, mediaUrl: "" }),
   },
   {
     id: "sec_features",
@@ -130,7 +130,7 @@ export const seedLandingSections = [
     kind: "features",
     title: "Flat-pack, assembled in the room it will live in",
     position: 1,
-    content: JSON.stringify({ size: "lg" }),
+    content: JSON.stringify({ size: "lg", titleByLocale: { en: "Flat-pack, assembled in the room it will live in", tr: "Yaşayacağı odada kurulur" }, mediaUrl: "" }),
   },
   {
     id: "sec_pricing",
@@ -138,7 +138,7 @@ export const seedLandingSections = [
     kind: "pricing",
     title: "Everything under 900, with delivery included",
     position: 2,
-    content: JSON.stringify({ size: "md" }),
+    content: JSON.stringify({ size: "md", titleByLocale: { en: "Everything under 900, with delivery included", tr: "Teslimat dahil, 900'ün altında" }, mediaUrl: "" }),
   },
   {
     id: "sec_faq",
@@ -146,7 +146,7 @@ export const seedLandingSections = [
     kind: "faq",
     title: "Returns for 60 days, no questions asked",
     position: 3,
-    content: JSON.stringify({ size: "sm" }),
+    content: JSON.stringify({ size: "sm", titleByLocale: { en: "Returns for 60 days, no questions asked", tr: "60 gün koşulsuz iade" }, mediaUrl: "" }),
   },
 ] as const;
 

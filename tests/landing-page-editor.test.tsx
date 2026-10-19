@@ -134,6 +134,21 @@ describe("the landing page editor", () => {
     expect(screen.getByText("Renamed by a person")).toBeInTheDocument();
   });
 
+  it("edits localized headings and exposes the media field inside an entry", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    await user.click(summaryOf("A sofa that arrives early", "xl"));
+    expect(screen.getByText("Section image")).toBeInTheDocument();
+    await user.clear(screen.getByLabelText("English heading"));
+    await user.type(screen.getByLabelText("English heading"), "Unsaved English title");
+    await user.clear(screen.getByLabelText("Turkish heading"));
+    await user.type(screen.getByLabelText("Turkish heading"), "Kaydedilmemiş başlık");
+
+    await waitFor(() => expect(lastSaved()[0]?.titleByLocale).toEqual({ en: "Unsaved English title", tr: "Kaydedilmemiş başlık" }));
+    expect(screen.getByRole("button", { name: "Unsaved English title · xl" })).toBeInTheDocument();
+  });
+
   it("edits a width and sends the edit", async () => {
     const user = userEvent.setup();
     renderEditor();

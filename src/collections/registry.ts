@@ -21,6 +21,8 @@ export type AdminCollectionField = {
   parse?: (raw: FormDataEntryValue | null) => unknown;
 };
 
+export type AdminCollectionValidationProblem = string | { field: string; message: string };
+
 export type AdminCollectionDefinition<T> = {
   /** The form field name the collection serializes to. */
   name: string;
@@ -31,7 +33,7 @@ export type AdminCollectionDefinition<T> = {
    * Returns one message per problem, or an empty array when the entry is valid. Kept as messages
    * rather than a schema so a host can express a rule the engine has no vocabulary for.
    */
-  validate?: (entry: AdminCollectionEntry<T>) => string[];
+  validate?: (entry: AdminCollectionEntry<T>) => AdminCollectionValidationProblem[];
 };
 
 export function adminCollectionEntryId(value: unknown): string {
@@ -223,13 +225,18 @@ export function adminCollectionFormData<T>(
 export function adminCollectionValidate<T>(
   definition: AdminCollectionDefinition<T>,
   entries: readonly AdminCollectionEntry<T>[],
-): { index: number; id: string; message: string }[] {
+): { index: number; id: string; field?: string; message: string }[] {
   const validate = definition.validate;
   if (!validate) return [];
-  const problems: { index: number; id: string; message: string }[] = [];
+  const problems: { index: number; id: string; field?: string; message: string }[] = [];
   entries.forEach((entry, index) => {
-    for (const message of validate(entry)) {
-      problems.push({ index, id: entry.id, message });
+    for (const problem of validate(entry)) {
+      problems.push({
+        index,
+        id: entry.id,
+        ...(typeof problem === "string" ? {} : { field: problem.field }),
+        message: typeof problem === "string" ? problem : problem.message,
+      });
     }
   });
   return problems;
@@ -239,6 +246,6 @@ export function adminCollectionValidate<T>(
 export function adminCollectionFirstProblem<T>(
   definition: AdminCollectionDefinition<T>,
   entries: readonly AdminCollectionEntry<T>[],
-): { index: number; id: string; message: string } | undefined {
+): { index: number; id: string; field?: string; message: string } | undefined {
   return adminCollectionValidate(definition, entries)[0];
 }

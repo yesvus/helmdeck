@@ -24,11 +24,13 @@ import {
 export type LandingSectionValue = AdminDashboardPlacementValue & {
   /** The heading a person wrote, stored in its own column rather than in the section's document. */
   title: string;
+  titleByLocale?: Record<string, string>;
+  mediaUrl?: string;
 };
 
 export type LandingSection = AdminCollectionEntry<LandingSectionValue>;
 
-export type LandingSectionData = { heading: string; copy: string };
+export type LandingSectionData = { heading: string; copy: string; mediaUrl: string };
 
 export const landingWidgets = createAdminWidgetRegistry({
   hero: defineAdminWidget<LandingSectionData>({
@@ -38,6 +40,7 @@ export const landingWidgets = createAdminWidgetRegistry({
     sizes: ["xl"],
     render: (data) => (
       <div className="space-y-2">
+        {data.mediaUrl ? <img src={data.mediaUrl} alt="" className="max-h-48 w-full rounded-lg object-cover" /> : null}
         <p className="text-2xl font-semibold text-zinc-900">{data.heading}</p>
         <p className="text-sm text-zinc-600">{data.copy}</p>
       </div>
@@ -100,8 +103,14 @@ const placements = adminDashboardCollection(landingWidgets);
  */
 export const landingSections: AdminCollectionDefinition<LandingSectionValue> = {
   name: "sections",
-  fields: [{ name: "widget" }, { name: "size" }, { name: "title" }],
-  create: () => ({ widget: "", size: "sm", title: "" }),
+  fields: [
+    { name: "widget" },
+    { name: "size" },
+    { name: "title" },
+    { name: "titleByLocale" },
+    { name: "mediaUrl" },
+  ],
+  create: () => ({ widget: "", size: "sm", title: "", titleByLocale: { en: "", tr: "" }, mediaUrl: "" }),
   validate: (entry) => placements.validate(entry),
 };
 

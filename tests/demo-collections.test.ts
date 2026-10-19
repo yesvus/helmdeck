@@ -167,18 +167,35 @@ describe("the landing page arrangement", () => {
     expect(await positions()).toEqual([0, 1, 2]);
   });
 
-  it("keeps an edited heading and width after a re-read", async () => {
+  it("keeps edited headings, localized strings, media and width after a re-read", async () => {
     const before = await sections();
 
     await store.saveLandingSections(
       before.map((section) =>
-        section.id === "sec_hero" ? { ...section, title: "Renamed by a person", size: "lg" as const } : section,
+        section.id === "sec_hero"
+          ? {
+              ...section,
+              title: "Renamed by a person",
+              titleByLocale: { en: "A new heading", tr: "Yeni başlık" },
+              mediaUrl: "https://example.com/hero.jpg",
+              size: "lg" as const,
+            }
+          : section,
       ),
     );
 
-    expect((await sections())[0]).toMatchObject({ id: "sec_hero", title: "Renamed by a person", size: "lg" });
-    // The width has no column of its own, so it only survives if the document was written and read.
-    expect(JSON.parse(String((await store.landingRows())[0].content))).toEqual({ size: "lg" });
+    expect((await sections())[0]).toMatchObject({
+      id: "sec_hero",
+      title: "Renamed by a person",
+      titleByLocale: { en: "A new heading", tr: "Yeni başlık" },
+      mediaUrl: "https://example.com/hero.jpg",
+      size: "lg",
+    });
+    expect(JSON.parse(String((await store.landingRows())[0].content))).toEqual({
+      size: "lg",
+      titleByLocale: { en: "A new heading", tr: "Yeni başlık" },
+      mediaUrl: "https://example.com/hero.jpg",
+    });
   });
 
   it("leaves another page's rows alone", async () => {

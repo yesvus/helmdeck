@@ -209,6 +209,18 @@ describe("collection submission", () => {
 
     expect(adminCollectionValues(definition, form)[0]).toHaveProperty("title", "");
   });
+
+  it("round-trips localized values and media fields with the entry identity", () => {
+    const richDefinition: AdminCollectionDefinition<{ titleByLocale: Record<string, string>; mediaUrl: string }> = {
+      name: "blocks",
+      fields: [{ name: "titleByLocale" }, { name: "mediaUrl" }],
+      create: () => ({ titleByLocale: { en: "", tr: "" }, mediaUrl: "" }),
+    };
+    const entry = { id: "stable", titleByLocale: { en: "Hello", tr: "Merhaba" }, mediaUrl: "https://example.com/image.jpg" };
+    const form = adminCollectionFormData(richDefinition, [entry]);
+
+    expect(adminCollectionValues(richDefinition, form)).toEqual([entry]);
+  });
 });
 
 describe("collection validation", () => {
@@ -241,6 +253,17 @@ describe("collection validation", () => {
 
     expect(adminCollectionValidate(definition, list)).toEqual([
       { index: 1, id: "bad", message: "A block needs a title" },
+    ]);
+  });
+
+  it("retains a field name for field-level validation", () => {
+    const fieldDefinition: AdminCollectionDefinition<Block> = {
+      ...definition,
+      validate: (entry) => entry.title.trim() ? [] : [{ field: "title", message: "A block needs a title" }],
+    };
+
+    expect(adminCollectionValidate(fieldDefinition, [{ id: "bad", kind: "hero", title: "  " }])).toEqual([
+      { index: 0, id: "bad", field: "title", message: "A block needs a title" },
     ]);
   });
 
