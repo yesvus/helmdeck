@@ -24,8 +24,6 @@ import {
 import { saveLandingSections } from "../../../../lib/demo-collections";
 import { getDemoMediaCatalogItems } from "../../../../media";
 
-const landingMediaItems = getDemoMediaCatalogItems();
-
 /**
  * The landing page, arranged with the engine's collection editor and stored as rows.
  *
@@ -44,6 +42,7 @@ const landingMediaItems = getDemoMediaCatalogItems();
  */
 export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
   const [entries, setEntries] = useState(initial);
+  const landingMediaItems = getDemoMediaCatalogItems();
   const { contentLocale } = useAdminContentLocale();
   const { interfaceLocale } = useAdminInterfaceLocale();
   const activeContentLocale = contentLocale || interfaceLocale;

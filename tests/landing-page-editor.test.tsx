@@ -152,6 +152,9 @@ describe("the landing page editor", () => {
     await user.type(screen.getByLabelText("Image description"), "A room with a sofa");
 
     expect(saved).toHaveLength(0);
+    expect(saveLandingSections).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ titleByLocale: { en: "Unsaved English title", tr: "Kaydedilmemiş başlık" } }),
+    ]));
     expect(screen.getByRole("button", { name: "Unsaved English title · xl" })).toBeInTheDocument();
     expect(screen.getByText("Unsaved English title")).toBeInTheDocument();
   });

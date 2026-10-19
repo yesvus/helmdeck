@@ -46,4 +46,18 @@ describe("public fixture media", () => {
     expect(items).toHaveLength(2);
     expect(items.every((item) => item.source === "external" && /^https?:\/\//i.test(item.publicUrl))).toBe(true);
   });
+
+  it("refreshes the landing editor catalog after an external image is added", async () => {
+    const item = await demoMediaAdapter.addExternal?.({
+      name: "Fresh exterior photo",
+      url: "https://images.example.org/fresh-exterior.jpg",
+      kind: "image",
+    });
+
+    expect(item).toBeDefined();
+    expect(getDemoMediaCatalogItems()).toContainEqual(expect.objectContaining({
+      name: "Fresh exterior photo",
+      publicUrl: "https://images.example.org/fresh-exterior.jpg",
+    }));
+  });
 });

@@ -201,6 +201,16 @@ describe("the landing page arrangement", () => {
     });
   });
 
+  it.each([null, { url: "https://example.com/image.jpg" }, "javascript:alert(1)", "//example.com/image.jpg"])(
+    "rejects invalid section media URLs (%s)",
+    async (mediaUrl) => {
+      await expect(store.saveLandingSections([
+        { ...arrangement[0], mediaUrl: mediaUrl as string },
+        ...arrangement.slice(1),
+      ])).rejects.toThrow(/image URL must use http\(s\) or a root-relative path/);
+    },
+  );
+
   it("leaves another page's rows alone", async () => {
     const before = await store.otherPageRows();
 
