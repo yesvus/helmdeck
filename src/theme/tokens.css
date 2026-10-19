@@ -174,6 +174,50 @@
   --admin-success-action-hover: #15803d;
 }
 
+@layer utilities {
+  :where([data-admin-theme="dark"]) {
+    color: var(--admin-text-primary);
+  }
+
+  :where([data-admin-theme="dark"]) .bg-white {
+    background-color: var(--admin-surface);
+  }
+
+  :where([data-admin-theme="dark"]) :is(.bg-neutral-50, .bg-gray-50) {
+    background-color: var(--admin-surface-subtle);
+  }
+
+  :where([data-admin-theme="dark"]) :is(.bg-neutral-100, .bg-gray-100) {
+    background-color: var(--admin-surface-muted);
+  }
+
+  :where([data-admin-theme="dark"]) :is(.text-neutral-950, .text-gray-950, .text-black) {
+    color: var(--admin-text-primary);
+  }
+
+  :where([data-admin-theme="dark"]) :where(div, section, article, aside, main, table, thead, tbody, tr, th, td):is(.border-neutral-200, .border-gray-200) {
+    border-color: var(--admin-border);
+  }
+
+  :where([data-admin-theme="dark"]) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), select, textarea) {
+    border-color: var(--admin-border-strong);
+    background-color: var(--admin-surface);
+    color: var(--admin-text-primary);
+  }
+
+  :where([data-admin-theme="dark"]) :is(input, textarea)::placeholder {
+    color: var(--admin-text-muted);
+  }
+
+  :where([data-admin-theme="dark"]) table {
+    border-color: var(--admin-border);
+  }
+
+  :where([data-admin-theme="dark"]) :is(th, td) {
+    border-color: var(--admin-border);
+  }
+}
+
 @keyframes admin-fade-in {
   from { opacity:  0; }
   to { opacity: 1; }
