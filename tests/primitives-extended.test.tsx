@@ -20,6 +20,11 @@ describe("AdminSkeleton", () => {
     expect(el).toHaveClass("bg-admin-skeleton", "animate-pulse", "rounded-md");
   });
 
+  it("keeps placeholders hidden from assistive technology even when callers pass attributes", () => {
+    const { getByTestId } = render(<AdminSkeleton data-testid="skeleton" aria-hidden={false} />);
+    expect(getByTestId("skeleton")).toHaveAttribute("aria-hidden", "true");
+  });
+
   it("renders AdminContentSkeleton placeholders", () => {
     const { container } = render(<AdminContentSkeleton />);
     const placeholders = container.querySelectorAll(".animate-pulse");

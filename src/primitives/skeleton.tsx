@@ -8,9 +8,9 @@ const normalizePlaceholderCount = (value: number, fallback: number) =>
 export function AdminSkeleton({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      {...props}
       aria-hidden="true"
       className={cn("animate-pulse motion-reduce:animate-none rounded-md bg-admin-skeleton", className)}
-      {...props}
     />
   );
 }
