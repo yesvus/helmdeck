@@ -78,7 +78,7 @@ export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
             data: {
               heading: entry.titleByLocale?.[activeContentLocale] || entry.title || landingSectionName(entry.widget),
               copy: landingSectionCopy(entry.widget),
-              mediaUrl: entry.mediaUrl,
+              mediaUrl: entry.mediaUrl ?? "",
             },
           },
         ]),
