@@ -235,6 +235,36 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "placeholder loading page",
     renderable: true,
   },
+  AdminLoadingState: {
+    category: "Data display",
+    summary: "An accessible loading status that announces localized text and groups decorative placeholders.",
+    keywords: "loading live region status accessible announcement",
+    renderable: true,
+  },
+  AdminTableSkeleton: {
+    category: "Data display",
+    summary: "A table-shaped placeholder with configurable row and column counts.",
+    keywords: "loading table rows columns placeholder",
+    renderable: true,
+  },
+  AdminFormSkeleton: {
+    category: "Data display",
+    summary: "A form-shaped placeholder with configurable field count.",
+    keywords: "loading form fields placeholder",
+    renderable: true,
+  },
+  AdminCardGridSkeleton: {
+    category: "Data display",
+    summary: "A responsive grid of placeholder cards with a configurable count.",
+    keywords: "loading card grid dashboard placeholder",
+    renderable: true,
+  },
+  AdminDashboardSkeleton: {
+    category: "Data display",
+    summary: "A dashboard-shaped placeholder with summary cards, chart and activity rows.",
+    keywords: "loading dashboard chart activity placeholder",
+    renderable: true,
+  },
   AdminEmptyState: {
     category: "Data display",
     summary: "What a list shows when it has nothing: why, and the one action that changes it.",

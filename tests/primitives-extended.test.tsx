@@ -2,7 +2,15 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AdminSelect } from "../src/primitives/select";
-import { AdminSkeleton, AdminContentSkeleton } from "../src/primitives/skeleton";
+import {
+  AdminSkeleton,
+  AdminContentSkeleton,
+  AdminLoadingState,
+  AdminTableSkeleton,
+  AdminFormSkeleton,
+  AdminCardGridSkeleton,
+  AdminDashboardSkeleton,
+} from "../src/primitives/skeleton";
 import { AdminStatusPill } from "../src/primitives/status-pill";
 
 describe("AdminSkeleton", () => {
@@ -12,10 +20,65 @@ describe("AdminSkeleton", () => {
     expect(el).toHaveClass("bg-admin-skeleton", "animate-pulse", "rounded-md");
   });
 
+  it("keeps placeholders hidden from assistive technology even when callers pass attributes", () => {
+    const { getByTestId } = render(<AdminSkeleton data-testid="skeleton" aria-hidden={false} />);
+    expect(getByTestId("skeleton")).toHaveAttribute("aria-hidden", "true");
+  });
+
   it("renders AdminContentSkeleton placeholders", () => {
     const { container } = render(<AdminContentSkeleton />);
     const placeholders = container.querySelectorAll(".animate-pulse");
     expect(placeholders.length).toBeGreaterThan(5);
+    expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("provides an accessible loading announcement around decorative placeholders", () => {
+    render(
+      <AdminLoadingState label="Loading products" role="alert" aria-live="off">
+        <AdminTableSkeleton rowCount={2} columnCount={3} />
+      </AdminLoadingState>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading products");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status")).toHaveClass("space-y-6");
+    expect(screen.getByRole("status").firstElementChild).toHaveClass("sr-only");
+    expect(screen.getByRole("status").lastElementChild).toHaveAttribute("aria-hidden", "true");
+    const table = screen.getByRole("status").lastElementChild;
+    expect(table?.querySelectorAll(".animate-pulse")).toHaveLength(9);
+    expect(table?.firstElementChild?.firstElementChild).toHaveClass("max-w-40");
+    expect(table?.lastElementChild?.firstElementChild?.firstElementChild).toHaveClass("max-w-40");
+  });
+
+  it("bounds invalid skeleton counts before rendering placeholders", () => {
+    const { container } = render(<AdminTableSkeleton rowCount={Number.POSITIVE_INFINITY} columnCount={1.5} />);
+    const table = container.firstElementChild;
+
+    expect(table?.children[0]?.children).toHaveLength(1);
+    expect(table?.children[1]?.children).toHaveLength(5);
+
+    const bounded = render(<AdminTableSkeleton rowCount={25} columnCount={-3} />).container.firstElementChild;
+    expect(bounded?.children[0]?.children).toHaveLength(0);
+    expect(bounded?.children[1]?.children).toHaveLength(20);
+  });
+
+  it("renders shared form, card-grid, and dashboard shapes", () => {
+    const { container } = render(
+      <>
+        <AdminFormSkeleton fieldCount={2} />
+        <AdminCardGridSkeleton cardCount={3} />
+        <AdminDashboardSkeleton />
+      </>,
+    );
+
+    expect(container.children).toHaveLength(3);
+    expect(Array.from(container.children, (element) => element.getAttribute("aria-hidden"))).toEqual([
+      "true",
+      "true",
+      "true",
+    ]);
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(20);
   });
 });
 
