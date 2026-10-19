@@ -15,6 +15,7 @@ afterEach(() => {
   document.documentElement.removeAttribute("data-admin-theme");
   document.documentElement.removeAttribute("style");
   window.localStorage.removeItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY);
+  window.localStorage.removeItem("helmdeck-demo-theme");
 });
 
 function renderControls() {
@@ -36,6 +37,15 @@ describe("theme boot script", () => {
     runBoot();
 
     expect(document.documentElement.dataset.adminTheme).toBe("dark");
+  });
+
+  it("migrates the fixture preference key before applying the theme", () => {
+    window.localStorage.setItem("helmdeck-demo-theme", "dark");
+    runBoot();
+
+    expect(document.documentElement.dataset.adminTheme).toBe("dark");
+    expect(window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY)).toBe("dark");
+    expect(window.localStorage.getItem("helmdeck-demo-theme")).toBeNull();
   });
 
   // A complete-enough stub: the provider subscribes to the media query, so a bare { matches }
@@ -83,6 +93,10 @@ describe("fixture theme controls", () => {
 
     expect(screen.getByRole("combobox", { name: "Renk modu" })).toHaveValue("system");
     expect(screen.getByRole("option", { name: "Açık" })).toBeInTheDocument();
+  });
+
+  it("requires the provider for the reusable selector", () => {
+    expect(() => render(<AdminThemePreference />)).toThrow("AdminThemePreference requires AdminThemeProvider");
   });
 
   it("shows standard host surfaces and controls inside the theme demo", () => {
@@ -193,6 +207,28 @@ describe("fixture theme controls", () => {
     } finally {
       // A failed assertion above would otherwise leave a live root subscribed to the
       // module-level listener set, still writing to the document for the rest of the suite.
+      const activeRoot = root;
+      if (activeRoot) await act(async () => activeRoot.unmount());
+      container.remove();
+    }
+  });
+
+  it("keeps the pre-paint theme through hydration", async () => {
+    window.localStorage.setItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY, "dark");
+    new Function(ADMIN_THEME_BOOT_SCRIPT)();
+    const tree = <AdminThemeProvider><ThemeControls /></AdminThemeProvider>;
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(tree);
+    document.body.append(container);
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    try {
+      await act(async () => {
+        root = hydrateRoot(container, tree);
+      });
+
+      expect(document.documentElement.dataset.adminTheme).toBe("dark");
+      expect(screen.getByRole("combobox", { name: "Color mode" })).toHaveValue("dark");
+    } finally {
       const activeRoot = root;
       if (activeRoot) await act(async () => activeRoot.unmount());
       container.remove();

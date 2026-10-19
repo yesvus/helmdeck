@@ -2,7 +2,7 @@
 "use client";
 
 import { useAdminMessages } from "../i18n.js";
-import { useAdminTheme, type AdminThemePreferenceValue } from "./preference.js";
+import { useAdminTheme, useAdminThemeProviderValue, type AdminThemePreferenceValue } from "./preference.js";
 
 export function AdminThemePreference({
   onThemeChange,
@@ -11,6 +11,7 @@ export function AdminThemePreference({
 }) {
   const messages = useAdminMessages().themePreference;
   const { theme, setTheme } = useAdminTheme();
+  if (!useAdminThemeProviderValue()) throw new Error("AdminThemePreference requires AdminThemeProvider");
 
   function changeTheme(value: AdminThemePreferenceValue) {
     setTheme(value);

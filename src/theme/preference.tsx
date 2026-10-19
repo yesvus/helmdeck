@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { ADMIN_THEME_PREFERENCE_STORAGE_KEY } from "./preference-boot.js";
 
 export type AdminThemePreferenceValue = "light" | "dark" | "system";
@@ -21,6 +21,7 @@ const listeners = new Set<() => void>();
 let snapshot = serverSnapshot;
 let memoryTheme: AdminThemePreferenceValue | null = null;
 const context = createContext<AdminThemeValue | null>(null);
+const subscribeHydration = () => () => {};
 const outsideProvider: AdminThemeValue = {
   theme: "system",
   resolvedTheme: "light",
@@ -30,7 +31,9 @@ const outsideProvider: AdminThemeValue = {
 
 function readStoredTheme() {
   try {
-    return memoryTheme ?? window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY);
+    if (memoryTheme !== null) return memoryTheme;
+    return window.localStorage.getItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY)
+      ?? window.localStorage.getItem("helmdeck-demo-theme");
   } catch {
     return memoryTheme;
   }
@@ -68,11 +71,13 @@ function notify() {
 
 export function AdminThemeProvider({ children }: { children: ReactNode }) {
   const { theme, systemTheme } = useSyncExternalStore(subscribe, readSnapshot, () => serverSnapshot);
+  const ready = useSyncExternalStore(subscribeHydration, () => true, () => false);
   const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   const setTheme = useCallback((value: AdminThemePreferenceValue) => {
     try {
       window.localStorage.setItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY, value);
+      window.localStorage.removeItem("helmdeck-demo-theme");
     } catch {
       memoryTheme = value;
       notify();
@@ -82,11 +87,18 @@ export function AdminThemeProvider({ children }: { children: ReactNode }) {
     notify();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!ready) return;
     document.documentElement.dataset.adminTheme = resolvedTheme;
-  }, [resolvedTheme]);
+  }, [ready, resolvedTheme]);
 
-  return <context.Provider value={{ theme, resolvedTheme, setTheme, ready: true }}>{children}</context.Provider>;
+  const value = useMemo(() => ({ theme, resolvedTheme, setTheme, ready }), [theme, resolvedTheme, setTheme, ready]);
+
+  return <context.Provider value={value}>{children}</context.Provider>;
+}
+
+export function useAdminThemeProviderValue() {
+  return useContext(context);
 }
 
 export function useAdminTheme(): AdminThemeValue {
