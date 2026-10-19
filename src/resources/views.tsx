@@ -1015,6 +1015,11 @@ export function AdminResourceForm({
     ),
     [fields, fieldPermissionStates],
   );
+  const hiddenFieldNames = useMemo(
+    () => fields.filter((field) => field.readPermission !== undefined && fieldPermissionStates[field.name] !== "allowed").map((field) => field.name),
+    [fields, fieldPermissionStates],
+  );
+  const fieldPermissionsChecking = fieldPermissionRequests.some(({ key }) => fieldPermissionStates[key] === "checking");
   // Keyed by the id it was read for, so a different record is loading again rather than
   // showing the previous one, and so a resolved miss is distinguishable from no answer yet.
   const [read, setRead] = useState<{
@@ -1123,6 +1128,7 @@ export function AdminResourceForm({
       return;
     }
     if (held === "checking") return;
+    if (fieldPermissionsChecking) return;
     const form = event.currentTarget;
     const parsed = adminResourceValues(definition, new FormData(form), visibleFields);
 
@@ -1136,11 +1142,17 @@ export function AdminResourceForm({
     setPending(true);
     setMessage("");
     try {
+      const retainedFields = Object.fromEntries(
+        hiddenFieldNames
+          .filter((field) => values !== null && Object.hasOwn(values, field))
+          .map((field) => [field, values?.[field]]),
+      );
+      const updateValues = { ...parsed, ...retainedFields };
       const saved = isNew
         ? await persistence.create<AdminResourceRecord>(definition.resource, parsed)
         : history?.update
-          ? await history.update(definition.resource, id, parsed)
-          : await persistence.update<AdminResourceRecord>(definition.resource, id, parsed);
+          ? await history.update(definition.resource, id, updateValues)
+          : await persistence.update<AdminResourceRecord>(definition.resource, id, updateValues);
       const normalized = { ...saved, id: adminResourceRecordId(saved) };
       if (!isNew) {
         setRead({ resource: definition.resource, id, scopeToken, value: normalized });
@@ -1288,6 +1300,7 @@ export function AdminResourceForm({
           definition={definition}
           id={id}
           record={values as AdminResourceRecord}
+          hiddenFieldNames={hiddenFieldNames}
           version={historyVersion}
           actions={history}
           busy={pending}
@@ -1312,7 +1325,7 @@ export function AdminResourceForm({
 
       {granted ? (
         <AdminFormActions>
-          <Button type="submit" disabled={pending} aria-busy={pending || undefined}>
+          <Button type="submit" disabled={pending || fieldPermissionsChecking} aria-busy={pending || undefined}>
             {pending ? (labels?.saving ?? i18n.shell.resourceSaving) : (labels?.save ?? i18n.shell.resourceSave)}
           </Button>
         </AdminFormActions>
