@@ -164,15 +164,21 @@ describe("the landing page editor", () => {
     const user = userEvent.setup();
     renderEditor();
     await user.click(summaryOf("A sofa that arrives early", "xl"));
+    let item: Awaited<ReturnType<NonNullable<typeof demoMediaAdapter.addExternal>>> | undefined;
 
-    await demoMediaAdapter.addExternal?.({
-      name: "Fresh catalog image",
-      url: "https://images.example.org/fresh-catalog-image.jpg",
-      kind: "image",
-    });
-    await user.click(screen.getAllByRole("button", { name: "Select media" })[1]);
+    try {
+      item = await demoMediaAdapter.addExternal?.({
+        name: "Fresh catalog image",
+        url: "https://images.example.org/fresh-catalog-image.jpg",
+        kind: "image",
+      });
+      expect(item).toBeDefined();
+      await user.click(screen.getAllByRole("button", { name: "Select media" })[1]);
 
-    expect(await screen.findByRole("button", { name: /Fresh catalog image/ })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: /Fresh catalog image/ })).toBeInTheDocument();
+    } finally {
+      if (item) await demoMediaAdapter.delete?.(item);
+    }
   });
 
   it("edits a width and sends the edit", async () => {
