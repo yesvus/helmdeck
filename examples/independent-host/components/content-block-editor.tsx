@@ -104,7 +104,7 @@ export function ContentBlockEditor({ initial }: { initial: ExampleContentBlockEn
               {Object.entries(blockKinds).map(([kind, definition]) => <option key={kind} value={kind}>{definition.label}</option>)}
             </AdminSelect>
           </AdminField>
-          <AdminField label="Heading">
+          <AdminField label="Fallback heading">
             <AdminInput value={entry.heading} onChange={(event) => patch(entry.id, { heading: event.target.value })} />
           </AdminField>
           <AdminField label="English heading">

@@ -12,7 +12,7 @@ describe("independent host content blocks", () => {
   it("keeps typed block identities through reorder and serialization", () => {
     const hero = adminCollectionAdd<ExampleContentBlock>([], {
       ...createExampleBlock("hero"),
-      heading: "A useful workspace",
+      heading: "A useful workspace fallback",
       headingByLocale: { en: "A useful workspace", tr: "Kullanışlı bir çalışma alanı" },
       copy: "A typed hero block.",
     })[0];
@@ -29,6 +29,7 @@ describe("independent host content blocks", () => {
 
     expect(restored).toEqual([quote, hero]);
     expect(new Set(restored.map((entry) => entry.id)).size).toBe(2);
+    expect(resolveExampleBlockHeading(restored[1], "en")).toBe("A useful workspace");
   });
 
   it("validates fields declared by each host block", () => {
