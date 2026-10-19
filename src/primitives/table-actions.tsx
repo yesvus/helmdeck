@@ -3,6 +3,7 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "../cn.js";
+import { useAdminMessages } from "../i18n.js";
 import { Button, type ButtonProps } from "./button.js";
 
 export type AdminTableActionVariant = "primary" | "secondary" | "destructive";
@@ -31,7 +32,8 @@ export function AdminTableActionButton({
   className,
   ...props
 }: AdminTableActionButtonProps) {
-  const accessibleLabel = label.trim() || (typeof props.title === "string" ? props.title.trim() : "") || "Table action";
+  const i18n = useAdminMessages();
+  const accessibleLabel = label.trim() || (typeof props.title === "string" ? props.title.trim() : "") || i18n.common.tableAction;
   return (
     <Button
       {...props}
