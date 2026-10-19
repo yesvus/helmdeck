@@ -86,14 +86,15 @@ export function AdminCollectionEditor<T>({
 
   const problems = useMemo(() => adminCollectionValidate(definition, entries), [definition, entries]);
   const problemsById = useMemo(() => {
-    const grouped = new Map<string, { field?: string; message: string }[]>();
-    for (const problem of problems) {
-      grouped.set(problem.id, [...(grouped.get(problem.id) ?? []), {
-        field: problem.field
-          ? definition.fields.find((field) => field.name === problem.field)?.label ?? problem.field
-          : undefined,
-        message: problem.message,
-      }]);
+      const grouped = new Map<string, { field?: string; message: string }[]>();
+      for (const problem of problems) {
+        const field = problem.field
+          ? definition.fields.find((candidate) => candidate.name === problem.field)
+          : undefined;
+        grouped.set(problem.id, [...(grouped.get(problem.id) ?? []), {
+          field: field ? field.label ?? field.name : undefined,
+          message: problem.message,
+        }]);
     }
     return grouped;
   }, [definition.fields, problems]);

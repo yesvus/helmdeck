@@ -135,6 +135,18 @@ describe("AdminCollectionEditor", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Untitled: Block title: A block needs a title");
   });
 
+  it("does not display undeclared validation fields", () => {
+    const fieldDefinition: AdminCollectionDefinition<Block> = {
+      ...definition,
+      validate: () => [{ field: "internalTitleKey", message: "A block needs a title" }],
+    };
+
+    render(<Editor definition={fieldDefinition} initial={twoEntries()} onChange={vi.fn()} />);
+
+    expect(screen.getAllByRole("alert")[0]).toHaveTextContent("first: A block needs a title");
+    expect(screen.getAllByRole("alert")[0]).not.toHaveTextContent("internalTitleKey");
+  });
+
   it("reports no alert for a valid entry", () => {
     render(<Editor initial={[{ id: "ok", title: "fine" }]} onChange={vi.fn()} />);
 
