@@ -5,7 +5,7 @@ import type { AdminFormActionState } from "@yesvus/helmdeck";
 import { adminCollectionFirstProblem, adminCollectionValues } from "@yesvus/helmdeck";
 import { persistence } from "@/host/persistence";
 import { getHostSession } from "@/host/session";
-import { exampleBlockDefinition } from "@/host/block-definition";
+import { exampleBlockDefinition, isValidExampleBlockId } from "@/host/block-definition";
 
 export async function saveProfile(_state: AdminFormActionState, formData: FormData): Promise<AdminFormActionState> {
   const session = await getHostSession();
@@ -30,6 +30,9 @@ export async function saveContentBlocks(formData: FormData) {
   if (rawBlocks.length > 100) return { status: "error" as const, message: "A page can contain at most 100 blocks." };
   const blocks = adminCollectionValues(exampleBlockDefinition, formData);
   if (blocks.length !== rawBlocks.length) return { status: "error" as const, message: "The submitted block data is invalid." };
+  if (blocks.some((block) => !isValidExampleBlockId(block.id))) {
+    return { status: "error" as const, message: "Block identities must use at most 100 letters, numbers, underscores, or hyphens." };
+  }
   if (new Set(blocks.map((block) => block.id)).size !== blocks.length) {
     return { status: "error" as const, message: "Every block must have a unique identity." };
   }

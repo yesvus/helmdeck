@@ -18,6 +18,10 @@ export type ExampleContentBlock = ExampleBlockFields & (
 
 export type ExampleContentBlockEntry = AdminCollectionEntry<ExampleContentBlock>;
 
+export function isValidExampleBlockId(id: string) {
+  return /^[A-Za-z0-9_-]{1,100}$/.test(id);
+}
+
 export const blockKinds: Record<ExampleBlockKind, { label: string }> = {
   hero: { label: "Hero" },
   quote: { label: "Quote" },

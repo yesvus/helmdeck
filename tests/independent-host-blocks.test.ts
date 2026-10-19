@@ -6,7 +6,7 @@ import {
   adminCollectionValidate,
   adminCollectionValues,
 } from "../src/collections/registry";
-import { createExampleBlock, exampleBlockDefinition, type ExampleContentBlock } from "../examples/independent-host/host/block-definition";
+import { createExampleBlock, exampleBlockDefinition, isValidExampleBlockId, type ExampleContentBlock } from "../examples/independent-host/host/block-definition";
 
 describe("independent host content blocks", () => {
   it("keeps typed block identities through reorder and serialization", () => {
@@ -49,5 +49,11 @@ describe("independent host content blocks", () => {
     } as unknown as ExampleContentBlock);
 
     expect(adminCollectionValidate(exampleBlockDefinition, malformed).map(({ field }) => field)).toEqual(["heading", "copy", "imageUrl"]);
+  });
+
+  it("accepts only bounded identifier characters for block IDs", () => {
+    expect(isValidExampleBlockId("block_hero-1")).toBe(true);
+    expect(isValidExampleBlockId(`block_${"a".repeat(100)}`)).toBe(false);
+    expect(isValidExampleBlockId("<script>alert(1)</script>")).toBe(false);
   });
 });
