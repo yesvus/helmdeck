@@ -10,6 +10,7 @@ export * from "./dashboard/model.js";
 export * from "./dashboard/layout.js";
 export * from "./dashboard/grid.js";
 export * from "./dashboard/tiles.js";
+export * from "./dashboard/server-tiles.js";
 export * from "./widgets/types.js";
 export * from "./widgets/registry.js";
 export * from "./widgets/data.js";

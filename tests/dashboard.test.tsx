@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { renderToPipeableStream } from "react-dom/server";
+import { PassThrough } from "node:stream";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AdminI18nProvider } from "../src/i18n";
@@ -12,6 +14,8 @@ import {
   type AdminDashboard,
 } from "../src/dashboard/model";
 import { AdminDashboardLayout, dashboardGridClassName } from "../src/dashboard/layout";
+import { AdminDashboardServerTiles } from "../src/dashboard/server-tiles";
+import { AdminDashboardTiles } from "../src/dashboard/tiles";
 import { createAdminWidgetRegistry, defineAdminWidget } from "../src/widgets/registry";
 
 const counter = defineAdminWidget<{ total: number }>({
@@ -268,5 +272,122 @@ describe("AdminDashboardLayout", () => {
     render(<Harness registry={registry} placements={[]} states={{}} />);
 
     expect(screen.getByText("This dashboard has no widgets yet.")).toBeInTheDocument();
+  });
+});
+
+describe("AdminDashboardServerTiles", () => {
+  function stream(element: React.ReactElement) {
+    return new Promise<string>((resolve, reject) => {
+      const output = new PassThrough();
+      const chunks: Buffer[] = [];
+      output.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      output.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+      output.on("error", reject);
+      const stream = renderToPipeableStream(element, {
+        onAllReady() {
+          stream.pipe(output);
+        },
+        onError: reject,
+      });
+    });
+  }
+
+  it("streams a fast tile while its slow neighbour still shows loading", async () => {
+    const placements = dashboard(["counter", "sm"], ["chart", "lg"]).placements;
+    let releaseSlow!: (data: { points: number[] }) => void;
+    const slow = new Promise<{ points: number[] }>((resolve) => { releaseSlow = resolve; });
+    let streamed = "";
+    let resolveFast!: () => void;
+    const fastRendered = new Promise<void>((resolve) => { resolveFast = resolve; });
+    let resolveDone!: () => void;
+    const done = new Promise<void>((resolve) => { resolveDone = resolve; });
+    const output = new PassThrough();
+    output.on("data", (chunk) => {
+      streamed += chunk.toString();
+      if (streamed.includes("7<!-- --> signups")) resolveFast();
+    });
+    output.on("end", resolveDone);
+    const renderer = renderToPipeableStream(
+      <AdminDashboardServerTiles
+        registry={registry}
+        placements={placements}
+        loaders={{ p0: async () => ({ total: 7 }), p1: () => slow }}
+      />,
+      { onShellReady: () => renderer.pipe(output), onError: () => undefined },
+    );
+
+    await fastRendered;
+    expect(streamed).toContain('data-widget="counter"');
+    expect(streamed).toContain('data-widget-state="loading"');
+    expect(streamed).toContain('data-widget="chart"');
+    releaseSlow({ points: [1, 2] });
+    await done;
+
+    expect(streamed).toContain('data-widget-state="ready"');
+    expect(streamed).toContain("2<!-- --> points");
+    expect(streamed).toContain("md:col-span-1");
+    expect(streamed).toContain("lg:col-span-3");
+  });
+
+  it("turns one loader rejection into its own retryable error tile", async () => {
+    const placements = dashboard(["counter", "sm"], ["chart", "lg"]).placements;
+    const retry = vi.fn(async () => {});
+    const html = await stream(
+      <AdminDashboardServerTiles
+        registry={registry}
+        placements={placements}
+        loaders={{
+          p0: async () => ({ total: 4 }),
+          p1: async () => { throw new Error("Chart service unavailable"); },
+        }}
+        retryActions={{ p1: retry }}
+      />,
+    );
+
+    expect(html).toContain("Chart service unavailable");
+    expect(html).toContain("4<!-- --> signups");
+    expect(html).toContain('data-widget="chart"');
+    expect(html).toContain('data-widget-state="error"');
+    expect(html).toContain('action="');
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it("keeps placement and state markup aligned with the other dashboard entry points", async () => {
+    const placement = dashboard(["counter", "sm"]).placements;
+    const layout = render(
+      <Harness
+        registry={registry}
+        placements={placement}
+        states={{ p0: { status: "ready", data: { total: 9 } } }}
+      />,
+    );
+    const layoutTile = layout.container.querySelector("[data-placement]")!;
+    const expected = {
+      placement: layoutTile.getAttribute("data-placement"),
+      widget: layoutTile.getAttribute("data-widget"),
+      state: layout.container.querySelector("[data-widget-state]")!.getAttribute("data-widget-state"),
+    };
+    layout.unmount();
+
+    const live = render(
+      <AdminI18nProvider locale="en">
+        <AdminDashboardTiles registry={registry} placements={placement} loaders={{ p0: async () => ({ total: 9 }) }} />
+      </AdminI18nProvider>,
+    );
+    await waitFor(() => expect(live.container.querySelector('[data-widget-state="ready"]')).not.toBeNull());
+    const liveTile = live.container.querySelector("[data-placement]")!;
+    expect({
+      placement: liveTile.getAttribute("data-placement"),
+      widget: liveTile.getAttribute("data-widget"),
+      state: live.container.querySelector("[data-widget-state]")!.getAttribute("data-widget-state"),
+    }).toEqual(expected);
+    live.unmount();
+
+    const html = await stream(
+      <AdminDashboardServerTiles registry={registry} placements={placement} loaders={{ p0: async () => ({ total: 9 }) }} />,
+    );
+    expect(html).toContain(`data-placement="${expected.placement}"`);
+    expect(html).toContain(`data-widget="${expected.widget}"`);
+    expect(html).toContain(`data-widget-state="${expected.state}"`);
   });
 });

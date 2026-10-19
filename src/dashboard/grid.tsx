@@ -62,6 +62,7 @@ export function AdminDashboardTile({
   definition,
   state,
   onRetry,
+  retryAction,
   problems,
   copy,
 }: {
@@ -69,6 +70,7 @@ export function AdminDashboardTile({
   definition: AdminWidgetDefinition<unknown>;
   state: AdminWidgetState<unknown>;
   onRetry?: () => void;
+  retryAction?: (formData: FormData) => void | Promise<void>;
   problems: string[];
   copy: AdminDashboardCopy;
 }) {
@@ -91,6 +93,7 @@ export function AdminDashboardTile({
         state={state}
         messages={copy}
         onRetry={onRetry}
+        retryAction={retryAction}
         className="h-full"
       />
     </div>
