@@ -174,7 +174,9 @@ export function AdminCollectionEditor<T>({
             const fallbackLabel = `${labels.edit} ${index + 1}`;
             const entryLabel = typeof summary === "string"
               ? summary.trim() || fallbackLabel
-              : summary ?? fallbackLabel;
+              : typeof summary === "boolean"
+                ? fallbackLabel
+                : summary ?? fallbackLabel;
             const selected = isSelected ? "border-admin-brand-500" : "border-admin-border";
             return (
               <li key={entry.id} className="border-b border-admin-border last:border-b-0">

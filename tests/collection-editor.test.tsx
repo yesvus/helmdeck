@@ -106,6 +106,22 @@ describe("AdminCollectionEditor", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Untitled: A block needs a title");
   });
 
+  it("uses a positional label when a summary renders no text", () => {
+    render(
+      <AdminI18nProvider locale="en">
+        <AdminCollectionEditor
+          definition={definition}
+          entries={twoEntries()}
+          onChange={vi.fn()}
+          renderSummary={() => true}
+          title="Blocks"
+        />
+      </AdminI18nProvider>,
+    );
+
+    expect(screen.getAllByRole("button", { name: "Edit 1" })).toHaveLength(2);
+  });
+
   it("surfaces the field associated with a validation problem", () => {
     const fieldDefinition: AdminCollectionDefinition<Block> = {
       ...definition,
