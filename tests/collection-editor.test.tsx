@@ -120,6 +120,7 @@ describe("AdminCollectionEditor", () => {
     );
 
     expect(screen.getAllByRole("button", { name: "Edit 1" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Edit 2" })).toHaveLength(2);
   });
 
   it("surfaces the field associated with a validation problem", () => {
