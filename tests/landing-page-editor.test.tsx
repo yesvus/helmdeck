@@ -32,6 +32,7 @@ vi.mock("../fixtures/lib/demo-collections", () => ({
 const { LandingPageEditor } = await import("../fixtures/app/(helmdeck)/shell/pages/section-editor");
 const { default: PagesPage } = await import("../fixtures/app/(helmdeck)/shell/pages/page");
 const { saveLandingSections } = await import("../fixtures/lib/demo-collections");
+const { demoMediaAdapter } = await import("../fixtures/media");
 
 const arrangement: LandingSection[] = [
   { id: "sec_hero", widget: "hero", size: "xl", title: "A sofa that arrives early" },
@@ -157,6 +158,21 @@ describe("the landing page editor", () => {
     ]));
     expect(screen.getByRole("button", { name: "Unsaved English title · xl" })).toBeInTheDocument();
     expect(screen.getByText("Unsaved English title")).toBeInTheDocument();
+  });
+
+  it("shows catalog images added while the editor is mounted", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(summaryOf("A sofa that arrives early", "xl"));
+
+    await demoMediaAdapter.addExternal?.({
+      name: "Fresh catalog image",
+      url: "https://images.example.org/fresh-catalog-image.jpg",
+      kind: "image",
+    });
+    await user.click(screen.getAllByRole("button", { name: "Select media" })[1]);
+
+    expect(await screen.findByRole("button", { name: /Fresh catalog image/ })).toBeInTheDocument();
   });
 
   it("edits a width and sends the edit", async () => {
