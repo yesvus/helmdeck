@@ -5,7 +5,10 @@ import { AdminWorkspace } from "@/components/admin-workspace";
 
 const nav: AdminNavGroup[] = [{
   label: "Workspace",
-  items: [{ href: "/admin", label: "Overview", icon: "overview" }],
+  items: [
+    { href: "/admin", label: "Overview", icon: "overview" },
+    { href: "/admin/blocks", label: "Content blocks", icon: "overview" },
+  ],
 }];
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
