@@ -59,6 +59,23 @@ The database is `./helmdeck.db`, created on the first query, and nothing has to 
 that. `HELMDECK_DATABASE_URL` overrides it, and a `libsql://` URL with `HELMDECK_DATABASE_TOKEN` beside
 it is a hosted database, so growing into one is two environment variables rather than a rewrite.
 
+## Tailwind CSS v4 setup
+
+Tailwind v4 does not scan dependencies in `node_modules` automatically. The template's
+`app/globals.css` explicitly scans Helmdeck's compiled package and imports its theme tokens inside
+the Tailwind entry stylesheet, in this order:
+
+```css
+@import "tailwindcss";
+@source "../node_modules/@yesvus/helmdeck/dist";
+@import "@yesvus/helmdeck/theme.css";
+```
+
+Keep the theme import in the CSS entry file, after `@import "tailwindcss"`. Do not import it from a
+React component stylesheet or layout: Tailwind must process its `@theme` directives to generate
+utilities such as `bg-admin-surface` and `border-admin-border`. If the package is installed at a
+different location, update the `@source` path to the package's `dist` directory.
+
 ## What is where
 
 | File | What it is |
