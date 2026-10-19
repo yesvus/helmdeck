@@ -466,6 +466,35 @@ describe("rising paths compare equal-length adjacent periods", () => {
       })).rejects.toThrow(/adminChartDayRange/);
     }
   });
+
+  it("reads a rows-only store once for both adjacent periods", async () => {
+    const backing = createMemoryPersistenceAdapter();
+    await recordAll(backing, [
+      view({ path: "/popular", at: "2026-09-24T09:00:00.000Z" }),
+      view({ path: "/popular", at: "2026-09-28T09:00:00.000Z" }),
+      view({ path: "/popular", at: "2026-09-29T09:00:00.000Z" }),
+    ]);
+    let reads = 0;
+    const store: AdminPersistenceAdapter = {
+      read: backing.read,
+      query: async <T>(resource: string, query?: Record<string, unknown>) => {
+        reads += 1;
+        return backing.query<T>(resource, query);
+      },
+      create: backing.create,
+      update: backing.update,
+      delete: backing.delete,
+    };
+
+    const result = await adminAnalyticsRisingPaths(store, {
+      range: ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30"],
+      minViews: 2,
+      limit: 5,
+    });
+
+    expect(result.paths).toEqual([{ path: "/popular", recentViews: 2, previousViews: 1, growthRate: 1 }]);
+    expect(reads).toBe(1);
+  });
 });
 
 describe("the resource name the rows are written under", () => {
