@@ -38,7 +38,10 @@ describe("AdminSkeleton", () => {
     expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
     expect(screen.getByRole("status").firstElementChild).toHaveClass("sr-only");
     expect(screen.getByRole("status").lastElementChild).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByRole("status").lastElementChild?.querySelectorAll(".animate-pulse")).toHaveLength(9);
+    const table = screen.getByRole("status").lastElementChild;
+    expect(table?.querySelectorAll(".animate-pulse")).toHaveLength(9);
+    expect(table?.firstElementChild?.firstElementChild).toHaveClass("max-w-40");
+    expect(table?.lastElementChild?.firstElementChild?.firstElementChild).toHaveClass("max-w-40");
   });
 
   it("bounds invalid skeleton counts before rendering placeholders", () => {

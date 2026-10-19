@@ -79,7 +79,10 @@ export function AdminTableSkeleton({
     <div aria-hidden="true" className={cn("overflow-hidden rounded-xl border border-admin-border", className)}>
       <div className="flex gap-4 border-b border-admin-border bg-admin-surface-muted px-4 py-3">
         {Array.from({ length: columns }, (_, index) => (
-          <AdminSkeleton key={index} className="h-3 flex-1" />
+          <AdminSkeleton
+            key={index}
+            className={cn("h-3 flex-1", index === 0 && "max-w-40")}
+          />
         ))}
       </div>
       <div className="divide-y divide-admin-border">
