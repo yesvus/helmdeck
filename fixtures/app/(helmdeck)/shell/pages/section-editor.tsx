@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AdminCollectionEditor,
   AdminDashboardLayout,
@@ -22,7 +22,7 @@ import {
   type LandingSection,
 } from "./landing-registry";
 import { saveLandingSections } from "../../../../lib/demo-collections";
-import { getDemoMediaCatalogItems } from "../../../../media";
+import { getDemoMediaCatalogItems, subscribeDemoMediaCatalog } from "../../../../media";
 
 /**
  * The landing page, arranged with the engine's collection editor and stored as rows.
@@ -42,12 +42,14 @@ import { getDemoMediaCatalogItems } from "../../../../media";
  */
 export function LandingPageEditor({ initial }: { initial: LandingSection[] }) {
   const [entries, setEntries] = useState(initial);
-  const landingMediaItems = getDemoMediaCatalogItems();
+  const [landingMediaItems, setLandingMediaItems] = useState(getDemoMediaCatalogItems);
   const { contentLocale } = useAdminContentLocale();
   const { interfaceLocale } = useAdminInterfaceLocale();
   const activeContentLocale = contentLocale || interfaceLocale;
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => subscribeDemoMediaCatalog(setLandingMediaItems), []);
 
   const persist = useCallback(async (next: LandingSection[]) => {
     setSaveState("saving");
