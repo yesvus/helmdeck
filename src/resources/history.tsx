@@ -53,6 +53,7 @@ export function AdminResourceHistoryPanel({
   definition,
   id,
   record,
+  hiddenFieldNames = [],
   version,
   actions,
   busy,
@@ -63,6 +64,7 @@ export function AdminResourceHistoryPanel({
   definition: AdminResourceDefinition;
   id: string;
   record: AdminResourceRecord;
+  hiddenFieldNames?: string[];
   version: number;
   actions: AdminResourceHistoryActions;
   busy: boolean;
@@ -78,6 +80,7 @@ export function AdminResourceHistoryPanel({
         definition={definition}
         id={id}
         record={record}
+        hiddenFieldNames={hiddenFieldNames}
         version={version}
         actions={actions}
         busy={busy}
@@ -109,6 +112,7 @@ function AdminResourceHistoryContent({
   definition,
   id,
   record,
+  hiddenFieldNames,
   version,
   actions,
   busy,
@@ -119,6 +123,7 @@ function AdminResourceHistoryContent({
   definition: AdminResourceDefinition;
   id: string;
   record: AdminResourceRecord;
+  hiddenFieldNames: string[];
   version: number;
   actions: AdminResourceHistoryActions;
   busy: boolean;
@@ -179,6 +184,7 @@ function AdminResourceHistoryContent({
 
   const currentResult =
     result?.resource === definition.resource && result.id === id && result.version === version ? result : null;
+  const hiddenFields = new Set(hiddenFieldNames);
 
   return (
     <AdminSurfaceCard>
@@ -202,15 +208,20 @@ function AdminResourceHistoryContent({
         ) : (
           <ol className="divide-y divide-admin-border">
             {currentResult.rows.map((revision, index) => {
-              const fields = Object.keys(revision.snapshot);
+              const snapshot = Object.fromEntries(Object.entries(revision.snapshot).filter(([field]) => !hiddenFields.has(field)));
+              const fields = Object.keys(snapshot);
+              const previous = currentResult.rows[index - 1]?.snapshot;
+              const visiblePrevious = previous === undefined
+                ? undefined
+                : Object.fromEntries(Object.entries(previous).filter(([field]) => !hiddenFields.has(field)));
               const next = index === 0
                 ? Object.fromEntries(
                     fields
                       .filter((field) => Object.hasOwn(record, field))
                       .map((field) => [field, record[field]]),
                   )
-                : currentResult.rows[index - 1].snapshot;
-              const changes = changedFields(revision.snapshot, next, fields);
+                : visiblePrevious ?? {};
+              const changes = changedFields(snapshot, next, fields);
               const actor = revision.actor;
               return (
                 <li key={revision.id} className="space-y-3 px-5 py-4">

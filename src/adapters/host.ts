@@ -3,9 +3,10 @@ import type { AdminSession } from "./session.js";
 import type { AdminResourcePage, AdminResourceQuery } from "./query.js";
 
 export type AdminPermission = string;
+export type AdminPermissionCheckContext = { resourceId?: string; field?: string };
 
 export type AdminPermissionsAdapter = {
-  can: (permission: AdminPermission, context?: { resourceId?: string }) => Promise<boolean>;
+  can: (permission: AdminPermission, context?: AdminPermissionCheckContext) => Promise<boolean>;
 };
 
 export type AdminPersistenceAdapter = {
