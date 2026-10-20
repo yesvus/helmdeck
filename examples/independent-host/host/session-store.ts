@@ -1,5 +1,5 @@
 import "server-only";
-import { mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -10,6 +10,7 @@ function sessionDatabase(): DatabaseSync {
   const filename = resolve(process.env.INDEPENDENT_HOST_SESSION_DB ?? ".next/independent-host-sessions.sqlite");
   mkdirSync(dirname(filename), { recursive: true });
   database = new DatabaseSync(filename);
+  chmodSync(filename, 0o600);
   database.exec("PRAGMA busy_timeout = 5000");
   database.exec("CREATE TABLE IF NOT EXISTS host_sessions (id TEXT PRIMARY KEY, expires_at INTEGER NOT NULL, state TEXT NOT NULL)");
   return database;
