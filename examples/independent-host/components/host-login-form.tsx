@@ -13,12 +13,16 @@ export function HostLoginForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
-    const result = await login({
-      email: String(values.get("email") ?? ""),
-      password: String(values.get("password") ?? ""),
-    });
-    if (result.ok) router.replace(returnTo ?? "/admin");
-    else setMessage(result.message);
+    try {
+      const result = await login({
+        email: String(values.get("email") ?? ""),
+        password: String(values.get("password") ?? ""),
+      });
+      if (result.ok) router.replace(returnTo ?? "/admin");
+      else setMessage(result.message);
+    } catch {
+      setMessage("Sign in could not be completed. Please try again.");
+    }
   }
 
   return (
@@ -40,7 +44,7 @@ export function HostLoginForm() {
       </label>
       <button className="rounded bg-zinc-900 px-4 py-2 text-white" type="submit">Sign in</button>
       <p role="status">{message}</p>
-      <p className="text-sm text-zinc-600">Demo password: helmdeck-demo</p>
+      {process.env.NODE_ENV !== "production" && <p className="text-sm text-zinc-600">Demo password: helmdeck-demo</p>}
     </form>
   );
 }

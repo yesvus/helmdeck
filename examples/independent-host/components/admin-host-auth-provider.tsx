@@ -7,10 +7,7 @@ import { getHostSession, loginHost, logoutHost } from "@/host/session";
 export function AdminHostAuthProvider({ children }: { children: ReactNode }) {
   const adapter = useMemo<AdminAuthAdapter>(() => ({
     getSession: getHostSession,
-    async login(credentials) {
-      const session = await loginHost(credentials.email, credentials.password);
-      return session ? { ok: true, session } : { ok: false, message: "Email or password was incorrect." };
-    },
+    login: loginHost,
     logout: logoutHost,
   }), []);
 
