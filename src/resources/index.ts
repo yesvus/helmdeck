@@ -7,6 +7,7 @@ export {
   adminResourceReference,
   adminResourceReferenceValue,
   adminResourceValues,
+  adminResourceValuesFromRecord,
   defineAdminResource,
 } from "./registry.js";
 export type {

@@ -70,6 +70,7 @@ const DOCUMENTED_FUNCTIONS = [
   "adminReturnTo",
   "defineAdminResource",
   "adminResourceValues",
+  "adminResourceValuesFromRecord",
   "createAdminPermissionCheck",
   "createAdminPermissionGuard",
   "createAdminResourceActions",

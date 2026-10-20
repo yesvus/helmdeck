@@ -439,6 +439,36 @@ export function adminResourceValues(
 }
 
 /**
+ * Reads a structured value into declared resource fields without converting or filling missing keys.
+ *
+ * Form submissions have a value for every rendered control, but a JSON write may omit fields the
+ * caller did not render. Omissions stay absent so a partial update can distinguish them from an
+ * explicit `null`, empty string, or `false` supplied to clear a field.
+ */
+export function adminResourceValuesFromRecord(
+  definition: AdminResourceDefinition,
+  value: unknown,
+): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("A resource value must be an object");
+  }
+
+  const incoming = value as Record<string, unknown>;
+  const values: Record<string, unknown> = {};
+  for (const field of definition.fields) {
+    if (Object.prototype.hasOwnProperty.call(incoming, field.name)) {
+      Object.defineProperty(values, field.name, {
+        configurable: true,
+        enumerable: true,
+        value: incoming[field.name],
+        writable: true,
+      });
+    }
+  }
+  return values;
+}
+
+/**
  * The id a stored value names, or null for one that names nothing.
  *
  * A number is a row id in a store that numbers its rows, and a form's value is a string either way.
