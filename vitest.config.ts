@@ -13,6 +13,16 @@ const entry = (path: string) => fileURLToPath(new URL(path, import.meta.url));
  * the package by name. Anchored patterns cannot overrun into each other.
  */
 export default defineConfig({
+  // This store test covers SQLite, not the server-only runtime marker.
+  plugins: [{
+    name: "session-store-test-server-only-stub",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (source === "server-only" && importer?.split("?")[0] === entry("./examples/independent-host/host/session-store.ts")) {
+        return entry("./tests/server-only.ts");
+      }
+    },
+  }],
   resolve: {
     alias: [
       { find: /^@yesvus\/helmdeck$/, replacement: entry("./src/index.ts") },

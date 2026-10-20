@@ -1,6 +1,6 @@
 # Independent host example
 
-This small Next.js App Router host uses Helmdeck exclusively through `@yesvus/helmdeck` public exports. The sample has no backend: its session is host-resolved, persistence is an in-memory host adapter, and media upload returns a placeholder URL. Replace these seams with the host's auth, data, and storage services for a deployed application.
+This small Next.js App Router host uses Helmdeck exclusively through `@yesvus/helmdeck` public exports. The sample has no backend: its auth session uses Helmdeck's signed-cookie baseline adapter, persistence is an in-memory host adapter, and media upload returns a placeholder URL. Replace these seams with the host's auth, data, and storage services for a deployed application.
 
 ## Setup
 
@@ -19,8 +19,9 @@ Open <http://localhost:3000>. `/` redirects to `/admin`.
 ## Configuration and integration seams
 
 - `app/layout.tsx` applies the exported pre-paint theme script and wraps the app in `AdminThemeProvider`; `components/admin-workspace.tsx` places `AdminThemePreference` in the shell top bar. Theme selection is stored locally and supports light, dark, and system modes.
-- `components/admin-workspace.tsx` configures `AdminShell` navigation, branding, session input, and the `AdminI18nProvider` interface locale. The example intentionally sets English independently from stored or content locale. The static sample omits a logout callback.
-- `host/session.ts` is the host-owned session resolution seam. Resolve a real session there and enforce access in host route handlers and server actions. Shell role filtering is presentation only.
+- `components/admin-host-auth-provider.tsx` adapts host server actions to `AdminAuthAdapter` and wraps the app in `AdminAuthProvider`. The admin layout uses `AdminRequireSession` for client state and validates the session on the server before rendering protected routes. The proxy checks cookie presence only, redirects cookie-less visitors with their deep link, and forwards the requested path so the layout preserves it when rejecting an expired or invalid session.
+- `host/session.ts` configures the baseline `createSessionAuthAdapter` with sample credentials (`editor@example.test` / `helmdeck-demo`), a host-local SQLite session registry, and a process-local login throttle. The sample credentials are accepted only outside production. Generate `INDEPENDENT_HOST_SESSION_SECRET` with `generateSessionSecret()` and keep it stable across instances. Before enabling sign-in in production or across multiple instances, replace the demonstration verification and session registry with the host's identity system and shared store, and replace the throttle with a shared limiter. Host layouts and actions enforce access; shell role filtering is presentation only.
+- `/admin/profile` mounts `AdminProfilePage` with the resolved session and sign-out action.
 - `host/persistence.ts` implements the public `AdminPersistenceAdapter` contract over process-local memory. `host/actions.ts` demonstrates a server action validating input, writing through that seam, and revalidating the host route.
 - `/admin/projects` and `/admin/orders` use host-defined resource declarations with the package's generated lists and forms; the client adapter calls host server actions, which authorize and validate access to the host's persistence.
 - `/admin/dashboard` registers shipped stat widgets and renders them through `AdminDashboardLayout` with host-resolved data.
