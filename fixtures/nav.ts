@@ -43,7 +43,7 @@ export const sampleNav: AdminNavGroup[] = [
         keywords: ["delivery", "dispatch", "tracking", "orders in transit"],
       },
       { href: "/shell/media", label: "Media library", shortLabel: "Media", icon: "media", mobilePrimary: true },
-      { href: "/shell/messages", label: "Contact messages", shortLabel: "Messages", icon: "mail" },
+      { href: "/shell/messages", label: "Contact messages", shortLabel: "Messages", icon: "mail", roles: ["admin"] },
       { href: "/shell/orders", label: "Orders", shortLabel: "Orders", icon: "file", roles: ["admin"] },
       {
         // The collection engine and its editor, driving rows that are really stored. Without an entry
