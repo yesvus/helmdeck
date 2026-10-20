@@ -31,6 +31,7 @@ const DOCUMENTED_COMPONENTS = [
   "AdminContactForm",
   "AdminInboxList",
   "AdminInboxMessage",
+  "AdminTrashPage",
   "AdminShell",
 ];
 

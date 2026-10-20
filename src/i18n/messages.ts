@@ -36,6 +36,11 @@ import {
   turkishAdminInboxMessages,
   type AdminInboxMessages,
 } from "../inbox/messages.js";
+import {
+  defaultAdminTrashMessages,
+  turkishAdminTrashMessages,
+  type AdminTrashMessages,
+} from "../trash/messages.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -140,6 +145,7 @@ export type AdminMessages = {
   /** The words the activity trail prints itself, which a trail cannot read from a context. */
   activity?: AdminActivityMessages;
   inbox?: AdminInboxMessages;
+  trash?: AdminTrashMessages;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -177,6 +183,7 @@ export const englishAdminMessages: AdminMessages = {
   resourceHistory: defaultAdminResourceHistoryMessages,
   activity: defaultAdminActivityMessages,
   inbox: defaultAdminInboxMessages,
+  trash: defaultAdminTrashMessages,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -372,6 +379,7 @@ export const turkishAdminMessages: AdminMessages = {
   resourceHistory: turkishAdminResourceHistoryMessages,
   activity: turkishAdminActivityMessages,
   inbox: turkishAdminInboxMessages,
+  trash: turkishAdminTrashMessages,
   widget: {
     emptyTitle: "Gösterilecek veri yok",
     emptyBody: "Bu bileşen için henüz veri yok.",

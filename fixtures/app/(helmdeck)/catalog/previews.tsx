@@ -45,6 +45,7 @@ import {
   AdminI18nProvider,
   AdminInboxList,
   AdminInboxMessage,
+  AdminTrashPage,
   AdminInput,
   AdminLoadingState,
   AdminListItemCard,
@@ -717,6 +718,18 @@ export const catalogPreviews: Record<string, ComponentType> = {
       message={{ id: "inbox-1", sender: "Ada Lovelace", subject: "Product question", preview: "Could you tell me more?", body: "Could you tell me more about the product?", receivedAt: "2026-10-20T10:00:00.000Z", status: "unread" }}
       onMarkRead={() => {}}
       onArchive={() => {}}
+    />
+  ),
+  AdminTrashPage: () => (
+    <AdminTrashPage
+      items={[
+        { id: "trash-post-1", resource: "Posts", label: "Spring collection", deletedAt: "2026-10-19T12:00:00.000Z", deletedBy: "Ada Lovelace" },
+        { id: "trash-product-1", resource: "Products", label: "Retired table lamp", deletedAt: "2026-10-18T09:15:00.000Z", deletedBy: "Grace Hopper" },
+      ]}
+      onRestore={() => {}}
+      onPurge={() => {}}
+      onRestoreMany={() => {}}
+      onPurgeMany={() => {}}
     />
   ),
 

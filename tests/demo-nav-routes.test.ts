@@ -58,6 +58,11 @@ describe("the demo's own sidebar", () => {
     expect(messages?.roles).toEqual(["admin"]);
   });
 
+  it("keeps trash management on the admin-only route", () => {
+    const trash = sampleNav.flatMap((group) => group.items).find((item) => item.href === "/shell/trash");
+    expect(trash?.roles).toEqual(["admin"]);
+  });
+
   it("names an icon the package accepts, so a sidebar never renders a blank", () => {
     // The icon vocabulary is a closed union in the package. An unknown name is a type error today,
     // and this is here so the failure names the entry rather than the file it was written in.

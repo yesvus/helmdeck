@@ -88,6 +88,14 @@ export const sampleNav: AdminNavGroup[] = [
         keywords: ["revisions", "restore", "versions", "undo", "what did it say"],
       },
       {
+        href: "/shell/trash",
+        label: "Trash",
+        shortLabel: "Trash",
+        icon: "trash",
+        roles: ["admin"],
+        keywords: ["deleted", "restore", "purge", "recycle bin"],
+      },
+      {
         // Administrators only, and that is the rule's answer rather than a decoration: the trail holds
         // every writer's writes, so the link and the read behind it are decided by the same permission.
         href: "/shell/activity",
