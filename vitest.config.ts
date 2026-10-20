@@ -19,6 +19,12 @@ export default defineConfig({
     enforce: "pre",
     resolveId(source, importer) {
       if (
+        source === "next/cache" &&
+        importer?.split("?")[0] === entry("./examples/independent-host/host/actions.ts")
+      ) {
+        return entry("./tests/next-cache.ts");
+      }
+      if (
         source === "server-only" &&
         [
           entry("./examples/independent-host/host/session-store.ts"),

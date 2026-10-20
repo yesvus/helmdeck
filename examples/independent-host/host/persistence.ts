@@ -38,12 +38,16 @@ let seeded: Promise<void> | undefined;
 
 async function createIfMissing(resource: string, id: string, value: unknown): Promise<void> {
   if (await store.read(resource, id)) return;
+  const record = value && typeof value === "object" && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>), id }
+    : { id, value };
   try {
-    await store.create(resource, value);
+    await store.create(resource, record);
   } catch (cause) {
     if (await store.read(resource, id)) return;
     throw cause;
   }
+  if (!(await store.read(resource, id))) throw new Error(`The SQLite adapter did not store ${resource} record ${id}`);
 }
 
 async function ensureSeeded(): Promise<void> {
