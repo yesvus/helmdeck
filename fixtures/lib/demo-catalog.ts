@@ -131,6 +131,18 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "contact email subject message inquiry public form",
     renderable: true,
   },
+  AdminInboxList: {
+    category: "Data display",
+    summary: "Presents host-provided messages with status, paging, and optional host callbacks.",
+    keywords: "inbox contact support unread archive messages list",
+    renderable: true,
+  },
+  AdminInboxMessage: {
+    category: "Data display",
+    summary: "Presents one host-provided message with read and archive callbacks.",
+    keywords: "inbox contact support detail unread archive message",
+    renderable: true,
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",
@@ -1564,6 +1576,16 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Activity",
     summary: "The Turkish wording of the same strings, for a host whose shell is in Turkish.",
     keywords: "labels copy activity turkish wording",
+  },
+  defaultAdminInboxMessages: {
+    category: "Internationalisation",
+    summary: "The English wording inbox views use for statuses and loading or empty states.",
+    keywords: "labels copy inbox wording messages",
+  },
+  turkishAdminInboxMessages: {
+    category: "Internationalisation",
+    summary: "The Turkish wording inbox views use for statuses and loading or empty states.",
+    keywords: "labels copy inbox turkish messages",
   },
   AdminScopeProvider: {
     category: "Resources",

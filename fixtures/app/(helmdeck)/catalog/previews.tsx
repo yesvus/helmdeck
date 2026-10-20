@@ -43,6 +43,8 @@ import {
   AdminFormCard,
   AdminFormSection,
   AdminI18nProvider,
+  AdminInboxList,
+  AdminInboxMessage,
   AdminInput,
   AdminLoadingState,
   AdminListItemCard,
@@ -696,6 +698,27 @@ function MediaLightboxPreview() {
 export const catalogPreviews: Record<string, ComponentType> = {
   AdminSettingsFooter: () => <AdminSettingsFooter>Host build 42</AdminSettingsFooter>,
   AdminContactForm: () => <AdminContactForm onSubmit={async () => {}} />,
+  AdminInboxList: () => (
+    <AdminInboxList
+      messages={[
+        { id: "inbox-1", sender: "Ada Lovelace", subject: "Product question", preview: "Could you tell me more?", receivedAt: "2026-10-20T10:00:00.000Z", status: "unread" },
+        { id: "inbox-2", sender: "Grace Hopper", subject: "Order follow-up", preview: "Thank you for the quick reply.", receivedAt: "2026-10-19T09:30:00.000Z", status: "read" },
+      ]}
+      onOpen={() => {}}
+      onMarkRead={() => {}}
+      onArchive={() => {}}
+      page={1}
+      pageCount={3}
+      onPageChange={() => {}}
+    />
+  ),
+  AdminInboxMessage: () => (
+    <AdminInboxMessage
+      message={{ id: "inbox-1", sender: "Ada Lovelace", subject: "Product question", preview: "Could you tell me more?", body: "Could you tell me more about the product?", receivedAt: "2026-10-20T10:00:00.000Z", status: "unread" }}
+      onMarkRead={() => {}}
+      onArchive={() => {}}
+    />
+  ),
 
   Button: () => (
     <div className="flex flex-wrap items-center gap-2">
