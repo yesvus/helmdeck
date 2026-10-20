@@ -46,6 +46,7 @@ export function AdminVisitorTrendChart({
       integerTicks
       height={height}
       className={className}
+      tableLabels={{ period: messages.period }}
     />
   );
 }
@@ -75,6 +76,7 @@ export function AdminDeviceBreakdownChart({
       formatters={formatters}
       integerTicks
       valueLabel={messages.deviceVisits}
+      tableLabels={{ item: messages.item, value: messages.value }}
       className={className}
     />
   );

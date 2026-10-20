@@ -159,31 +159,41 @@ describe("visitor and device analytics charts", () => {
     expect(screen.getAllByText("Sayfa görüntüleme")).toHaveLength(2);
     expect(screen.getAllByText("Tekil ziyaretçi")).toHaveLength(2);
     expect(screen.getByRole("table")).toHaveTextContent("19 Eki");
+    expect(screen.getByRole("table")).toHaveTextContent("Dönem");
     expect(document.querySelectorAll("polyline")).toHaveLength(2);
     await userEvent.setup().hover(document.querySelector('[data-chart-hit="2026-10-19"]') as Element);
     expect(screen.getByRole("status")).toHaveTextContent("Sayfa görüntüleme");
     expect(screen.getByRole("status")).toHaveTextContent("Tekil ziyaretçi");
   });
 
-  it("renders host-classified device counts as an accessible responsive ranking", () => {
+  it("renders localized host-classified device counts as an accessible responsive ranking", () => {
     render(
-      <AdminDeviceBreakdownChart
-        ariaLabel="Visits by device"
-        items={[
-          { key: "desktop", label: "Desktop", visits: 21 },
-          { key: "mobile", label: "Mobile", visits: 13 },
-        ]}
-        formatters={counts}
-      />,
+      <AdminI18nProvider locale="tr">
+        <AdminDeviceBreakdownChart
+          ariaLabel="Visits by device"
+          items={[
+            { key: "desktop", label: "Desktop", visits: 21 },
+            { key: "mobile", label: "Mobile", visits: 13 },
+          ]}
+          formatters={counts}
+        />
+      </AdminI18nProvider>,
     );
 
     expect(screen.getByRole("img", { name: "Visits by device" })).toBeInTheDocument();
-    expect(screen.getAllByText("21")).toHaveLength(2);
-    expect(screen.getAllByText("visits")).toHaveLength(2);
+    expect(screen.getByText("21")).toBeInTheDocument();
+    expect(screen.getAllByText("ziyaret")).toHaveLength(2);
     const desktopWidth = Number.parseFloat((document.querySelector('[data-chart-bar="desktop"]') as HTMLElement).style.width);
     const mobileWidth = Number.parseFloat((document.querySelector('[data-chart-bar="mobile"]') as HTMLElement).style.width);
     expect(desktopWidth).toBeGreaterThan(mobileWidth);
     expect(mobileWidth).toBeGreaterThan(0);
+    expect(document.querySelector('[data-chart-bar="desktop"]')?.parentElement?.parentElement).toHaveClass(
+      "grid-cols-[minmax(0,9rem)_1fr_auto]",
+      "sm:grid-cols-[minmax(0,11rem)_1fr_auto]",
+    );
+    expect(screen.getByRole("table")).toHaveTextContent("Öğe");
+    expect(screen.getByRole("table")).toHaveTextContent("Değer");
+    expect(screen.getByRole("table")).toHaveTextContent("21 ziyaret");
   });
 });
 

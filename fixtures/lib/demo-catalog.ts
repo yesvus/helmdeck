@@ -343,6 +343,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "frame card states loading empty error ready",
     renderable: true,
   },
+  defaultAdminChartTableLabels: {
+    category: "Charts",
+    summary: "English default headings for the accessible chart data table.",
+    keywords: "chart table labels accessible period item value",
+  },
   AdminTimeSeriesChart: {
     category: "Charts",
     summary:

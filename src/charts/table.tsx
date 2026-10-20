@@ -25,6 +25,14 @@ export type AdminChartFormatters = {
   tick: (value: number) => string;
 };
 
+export type AdminChartTableLabels = { period: string; item: string; value: string };
+
+export const defaultAdminChartTableLabels: AdminChartTableLabels = {
+  period: "Period",
+  item: "Item",
+  value: "Value",
+};
+
 export function adminChartFormatters(
   unit: AdminChartUnit,
   options: { locale?: string; currency?: string } = {},
@@ -45,11 +53,13 @@ export function AdminChartTable({
   categories,
   series,
   format,
+  labels = defaultAdminChartTableLabels,
 }: {
   caption: string;
   categories: ReadonlyArray<{ key: string; label: string }>;
   series: readonly AdminChartSeries[];
   format: (value: number) => string;
+  labels?: Pick<AdminChartTableLabels, "period">;
 }) {
   return (
     <div className="sr-only">
@@ -57,7 +67,7 @@ export function AdminChartTable({
         <caption>{caption}</caption>
         <thead>
           <tr>
-            <th scope="col">Period</th>
+            <th scope="col">{labels.period}</th>
             {series.map((entry) => (
               <th key={entry.key} scope="col">
                 {entry.label}

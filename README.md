@@ -1537,6 +1537,8 @@ Turkish defaults through `AdminI18nProvider`, and `ariaLabel` remains host-provi
 device classifications and counts, keeping device detection and event collection in their own policy.
 
 ```tsx
+"use client";
+
 import {
   AdminDeviceBreakdownChart,
   AdminVisitorTrendChart,

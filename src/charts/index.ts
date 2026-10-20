@@ -19,8 +19,8 @@ export type {
   AdminChartSeries,
   AdminChartSeriesClasses,
 } from "./series-types.js";
-export { adminChartFormatters, AdminChartTable } from "./table.js";
-export type { AdminChartFormatters, AdminChartUnit } from "./table.js";
+export { adminChartFormatters, AdminChartTable, defaultAdminChartTableLabels } from "./table.js";
+export type { AdminChartFormatters, AdminChartUnit, AdminChartTableLabels } from "./table.js";
 export { AdminChartFrame, defaultAdminChartFrameLabels } from "./frame.js";
 export type { AdminChartFrameLabels, AdminChartStatus } from "./frame.js";
 export { AdminTimeSeriesChart } from "./time-series.js";
