@@ -17,6 +17,7 @@ export default defineConfig({
     alias: [
       { find: /^@yesvus\/helmdeck$/, replacement: entry("./src/index.ts") },
       { find: /^@yesvus\/helmdeck\/baseline$/, replacement: entry("./src/baseline.ts") },
+      { find: /^server-only$/, replacement: entry("./tests/server-only.ts") },
     ],
   },
   test: {

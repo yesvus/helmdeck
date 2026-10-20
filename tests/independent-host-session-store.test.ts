@@ -4,8 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../examples/independent-host/node_modules/server-only/index.js", () => ({}));
-
 describe("independent host session store", () => {
   let directory: string | undefined;
   const originalDatabasePath = process.env.INDEPENDENT_HOST_SESSION_DB;
