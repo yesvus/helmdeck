@@ -28,6 +28,7 @@ const DOCUMENTED_COMPONENTS = [
   "AdminSettingsPage",
   "AdminResourceList",
   "AdminResourceForm",
+  "AdminContactForm",
   "AdminShell",
 ];
 

@@ -405,6 +405,10 @@ const OMISSIONS = [
     slug: "a second interface language",
     absent: () => !anyFile(/\bAdminLocaleAdapter\b|\bdefineAdminMessages\b|contentLocale/),
   },
+  {
+    slug: "a contact form endpoint",
+    absent: () => !anyFile(/\bAdminContactForm\b|submitContact|contact_messages/),
+  },
 ];
 
 function anyFile(pattern: RegExp): boolean {

@@ -125,6 +125,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "actions footer submit cancel",
     renderable: true,
   },
+  AdminContactForm: {
+    category: "Forms and fields",
+    summary: "Collects a bounded contact message and submits it through a host callback.",
+    keywords: "contact email subject message inquiry public form",
+    renderable: true,
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",

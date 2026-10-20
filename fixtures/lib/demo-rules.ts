@@ -48,6 +48,7 @@ const EXPOSED = new Set([
   "dashboard_placements",
   "customers",
   "shipments",
+  "contact_messages",
 ]);
 
 export function exposedResource(resource: string): boolean {
@@ -89,9 +90,10 @@ const ROLE_RULES: ReadonlyMap<string, RoleRule> = new Map([
  * Orders are listed as an administrator's page by the navigation already, and a rule that let the
  * action through while the link was hidden would make that filtering decoration. Activity is here for
  * the same reason and one more: the trail holds every writer's writes, so an editor reading it would
- * be reading two colleagues' work by accident.
+ * be reading two colleagues' work by accident. Contact messages contain private correspondence and
+ * remain administrator-only.
  */
-const ADMIN_ONLY = new Set(["orders", "activity"]);
+const ADMIN_ONLY = new Set(["orders", "activity", "contact_messages"]);
 
 /**
  * Permissions that are not about an exposed resource, decided by the same rule and the same role.
