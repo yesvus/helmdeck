@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminRecordSearch } from "../src/shell/admin-record-search.js";
+import { AdminSearch } from "../src/shell/admin-search.js";
 import { AdminShell } from "../src/shell/admin-shell.js";
 import type { AdminSearchAdapter } from "../src/adapters/search.js";
 
@@ -48,6 +49,8 @@ describe("AdminRecordSearch", () => {
 
     expect(await screen.findByRole("option", { name: /Order 4412/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Ada Lovelace/ })).toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-expanded", "true");
+    expect(input).toHaveAttribute("aria-controls");
     expect(screen.getByRole("status")).toHaveTextContent("2 results");
     expect(search).toHaveBeenLastCalledWith("4412", expect.any(AbortSignal));
 
@@ -68,6 +71,8 @@ describe("AdminRecordSearch", () => {
 
     fireEvent.change(input, { target: { value: "nothing" } });
     expect(screen.getByText("Searching records.")).toBeInTheDocument();
+    expect(input).toHaveAttribute("aria-expanded", "false");
+    expect(input).not.toHaveAttribute("aria-controls");
     first.resolve([]);
     expect(await screen.findByText("No matching records.")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("0 results");
@@ -107,6 +112,36 @@ describe("AdminRecordSearch", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("combobox", { name: "Search records" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Search records" })).toHaveFocus();
+  });
+
+  it("keeps focus in record search when both search shortcuts are mounted", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <AdminSearch groups={[]} />
+        <AdminRecordSearch adapter={{ search: vi.fn(async () => []) }} />
+      </>,
+    );
+
+    await user.keyboard("{Control>}{Shift>}k{/Shift}{/Control}");
+    const input = screen.getByRole("combobox", { name: "Search records" });
+    await waitFor(() => expect(input).toHaveFocus());
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(input).toHaveFocus();
+  });
+
+  it("does not select a result when Enter activates the close button", async () => {
+    const user = userEvent.setup();
+    const search = vi.fn<AdminSearchAdapter["search"]>().mockResolvedValue([result("4412")]);
+    render(<AdminRecordSearch adapter={{ search }} />);
+    await user.click(screen.getByRole("button", { name: "Search records" }));
+    await user.type(screen.getByRole("combobox", { name: "Search records" }), "4412");
+    await screen.findByRole("option", { name: /Order 4412/ });
+
+    screen.getByRole("button", { name: "Close record search" }).focus();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("does not add record search to a shell without an adapter", () => {

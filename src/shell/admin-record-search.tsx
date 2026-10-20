@@ -56,7 +56,9 @@ export function AdminRecordSearch({
       : { status: "loading" }
     : loadedState, [loadedState, term]);
   const results = state.status === "ready" ? state.data : [];
-  const countLabel = mergedLabels.recordSearchResultCount ?? ((count: number) => `${count} results`);
+  const countLabel = (count: number) => (count === 1
+    ? mergedLabels.recordSearchOneResult
+    : mergedLabels.recordSearchManyResults).replace("{count}", String(count));
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -140,7 +142,7 @@ export function AdminRecordSearch({
             } else if (event.key === "ArrowUp" && results.length) {
               event.preventDefault();
               setActiveSelection({ term, index: (activeIndex - 1 + results.length) % results.length });
-            } else if (event.key === "Enter" && results.length) {
+            } else if (event.key === "Enter" && results.length && event.target === inputRef.current) {
               event.preventDefault();
               selectActive();
             }
@@ -153,8 +155,8 @@ export function AdminRecordSearch({
               role="combobox"
               aria-label={mergedLabels.recordSearchLabel}
               aria-autocomplete="list"
-              aria-expanded={Boolean(term)}
-              aria-controls={`${listId}-results`}
+              aria-expanded={Boolean(results.length)}
+              aria-controls={results.length ? `${listId}-results` : undefined}
               aria-activedescendant={results.length ? `${listId}-result-${activeIndex}` : undefined}
               value={query}
               onChange={(event) => setQuery(event.target.value)}

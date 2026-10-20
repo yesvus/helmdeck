@@ -82,7 +82,7 @@ export function AdminSearch({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
+      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLocaleLowerCase() === "k") {
         event.preventDefault();
         onExpand?.();
         window.setTimeout(() => inputRef.current?.focus(), 0);

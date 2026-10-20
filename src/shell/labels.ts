@@ -7,15 +7,16 @@ export type AdminShellLabels = {
   searchPlaceholder: string;
   searchHint: string;
   searchNoResults: string;
-  recordSearchOpen: string;
-  recordSearchLabel: string;
-  recordSearchPlaceholder: string;
-  recordSearchHint: string;
-  recordSearchResultsLabel: string;
-  recordSearchNoResults: string;
-  recordSearchLoading: string;
-  recordSearchResultCount: (count: number) => string;
-  recordSearchClose: string;
+  recordSearchOpen?: string;
+  recordSearchLabel?: string;
+  recordSearchPlaceholder?: string;
+  recordSearchHint?: string;
+  recordSearchResultsLabel?: string;
+  recordSearchNoResults?: string;
+  recordSearchLoading?: string;
+  recordSearchOneResult?: string;
+  recordSearchManyResults?: string;
+  recordSearchClose?: string;
   mobileMore: string;
   breadcrumbLabel: string;
   segmentNew: string;
@@ -62,7 +63,9 @@ export type AdminShellLabels = {
   resourceLoading: string;
 };
 
-export const defaultAdminLabels: AdminShellLabels = {
+export type ResolvedAdminShellLabels = Required<AdminShellLabels>;
+
+export const defaultAdminLabels: ResolvedAdminShellLabels = {
   sidebarExpand: "Expand sidebar",
   sidebarCollapse: "Collapse sidebar",
   brandLabel: "Admin",
@@ -77,7 +80,8 @@ export const defaultAdminLabels: AdminShellLabels = {
   recordSearchResultsLabel: "Record search results",
   recordSearchNoResults: "No matching records.",
   recordSearchLoading: "Searching records.",
-  recordSearchResultCount: (count) => `${count} ${count === 1 ? "result" : "results"}`,
+  recordSearchOneResult: "1 result",
+  recordSearchManyResults: "{count} results",
   recordSearchClose: "Close record search",
   mobileMore: "More",
   breadcrumbLabel: "Breadcrumb",
@@ -125,6 +129,6 @@ export const defaultAdminLabels: AdminShellLabels = {
   resourceLoading: "Loading...",
 };
 
-export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): AdminShellLabels {
+export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): ResolvedAdminShellLabels {
   return { ...defaultAdminLabels, ...labels };
 }

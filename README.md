@@ -1418,10 +1418,22 @@ Two narrower limits, stated rather than left to be discovered. A record is recor
 
 `AdminScopeAdapter` supplies the URL and resource-filter mapping consumed by `AdminScopeProvider`; the authorized request scope is passed separately. See [Request-scoped resources and links](#request-scoped-resources-and-links).
 
-`AdminSearchAdapter` powers the optional record-search affordance beside the page finder. Its `search` method returns records with a resource, id, display label, and destination href. The adapter must only return records the current session may read. Search endpoints and every destination route must independently authenticate and authorize requests; filtering results in the interface is not authorization. `createAdminSearchAdapter` is a reference composer for resource search functions and `AdminPermissionsAdapter`: it checks resource-level read access before querying and record-level access before returning each match.
+`AdminSearchAdapter` powers the optional record-search affordance beside the page finder. Its `search` method returns `AdminRecordSearchResult` objects with `resource`, `resourceId`, `resourceLabel`, `label`, and `href`. The adapter must only return records the current session may read. Search endpoints and every destination route must independently authenticate and authorize requests; filtering results in the interface is not authorization. `createAdminSearchAdapter` is a reference composer for resource search functions and `AdminPermissionsAdapter`: it checks resource-level read access before querying and record-level access before returning each match. The permission adapter must inspect `resourceId` in its context to apply record-level rules. Each resource search receives a limit, defaults to 10 results, and can set `maxResults` from 1 to 50; record permission checks run in batches of eight per resource. Partial results remain available when one configured resource search fails, while all resources failing produces the shared error state. Result-count overrides are strings, and the `{count}` placeholder in the plural label is replaced with the result total.
 
 ```tsx
 import { AdminShell, createAdminSearchAdapter } from "@yesvus/helmdeck";
+
+async function searchOrders(query: string, signal: AbortSignal, limit: number) {
+  const response = await fetch(`/api/admin/orders/search?q=${encodeURIComponent(query)}&limit=${limit}`, { signal });
+  if (!response.ok) throw new Error("Order search failed");
+  return response.json() as Promise<Array<{ id: string; label: string; href: string }>>;
+}
+
+async function searchCustomers(query: string, signal: AbortSignal, limit: number) {
+  const response = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(query)}&limit=${limit}`, { signal });
+  if (!response.ok) throw new Error("Customer search failed");
+  return response.json() as Promise<Array<{ id: string; label: string; href: string }>>;
+}
 
 const recordSearch = createAdminSearchAdapter({
   permissions,
@@ -1429,12 +1441,14 @@ const recordSearch = createAdminSearchAdapter({
     {
       resource: "orders",
       label: "Orders",
-      search: (query, signal) => searchOrders(query, signal),
+      permission: "orders.read",
+      maxResults: 10,
+      search: (query, signal, limit) => searchOrders(query, signal, limit),
     },
     {
       resource: "customers",
       label: "Customers",
-      search: (query, signal) => searchCustomers(query, signal),
+      search: (query, signal, limit) => searchCustomers(query, signal, limit),
     },
   ],
 });
