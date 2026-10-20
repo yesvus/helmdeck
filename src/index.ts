@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 export * from "./adapters/index.js";
 export * from "./activity/index.js";
+export { AdminUserManagementPage } from "./users/page.js";
+export type { AdminUserManagementPageProps, AdminUserManagementRecord } from "./users/page.js";
+export { defaultAdminUserManagementMessages, turkishAdminUserManagementMessages } from "./users/messages.js";
+export type { AdminUserManagementMessages } from "./users/messages.js";
 export * from "./aggregate/index.js";
 export * from "./analytics/index.js";
 export * from "./analytics-export/index.js";

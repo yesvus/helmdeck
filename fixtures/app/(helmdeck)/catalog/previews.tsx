@@ -21,6 +21,7 @@ import {
   ADMIN_DENSITIES,
   AdminActivityPage,
   AdminActivityTimeline,
+  AdminUserManagementPage,
   AdminMediaLibrary,
   AdminMediaLibraryPage,
   AdminBanner,
@@ -1228,6 +1229,43 @@ export const catalogPreviews: Record<string, ComponentType> = {
         <AdminActivityPage events={PREVIEW_EVENTS} now={() => PREVIEW_NOW} />
       </ActivityWindow>
     </AdminI18nProvider>
+  ),
+  AdminUserManagementPage: () => (
+    <AdminUserManagementPage
+      users={[
+        {
+          id: "preview-editor",
+          email: "editor@example.test",
+          name: "Aylin Editor",
+          role: "editor",
+          disabled: false,
+          createdAt: "2026-09-01T12:00:00.000Z",
+          lastActivityAt: "2026-09-20T12:00:00.000Z",
+          recentActivity: [
+            {
+              action: "update",
+              resource: "posts",
+              resourceId: "post-1",
+              occurredAt: "2026-09-20T12:00:00.000Z",
+              actor: { email: "editor@example.test", name: "Aylin Editor", role: "editor" },
+              metadata: { fields: ["title"] },
+            },
+          ],
+          sessions: [
+            {
+              id: "preview-session",
+              accountId: "preview-editor",
+              email: "editor@example.test",
+              role: "editor",
+              disabled: false,
+              expiresAt: Math.floor(PREVIEW_NOW.getTime() / 1000) + 3600,
+              current: false,
+            },
+          ],
+        },
+      ]}
+      roles={["admin", "editor"]}
+    />
   ),
 
   AdminThemeSettingsProvider: () => (

@@ -538,6 +538,10 @@ export const accounts = createAccountAdmin(store, {
 
 `list`, `create`, `setRole`, `setDisabled`, `listSessions` and `endSession` each take the caller's session and return `{ ok: true, ... }` or `{ ok: false, message }`. The two predicates that need to decide about one record are handed its id rather than the row, so the question is asked before the store is reached; a host that wants to decide on the record looks it up in its own rule, which is where a store read belongs. **Every predicate is a host policy and absent means refused**, for the same reason as `mayEndAllSessions`. The package has no vocabulary for roles, so `may` is the only thing that knows what one is.
 
+#### User management page
+
+`AdminUserManagementPage` accepts `users`, `roles`, and optional `onSetRole`, `onSetDisabled`, `onResetPassword`, `onEndSession`, and `onUpdated` props. Each user can include `lastActivityAt`, `recentActivity` audit events, and active `sessions`. Operation callbacks are supplied by the host, so password-reset delivery and account/session writes remain in host server actions. Omit a callback to hide its control, and authorize every server action on the server because presentation does not enforce permission.
+
 Three decisions are worth stating, because each is the other answer too.
 
 **A role the host's rule does not define still signs in, and the rule is what refuses it.** The package stores a role as a string and never interprets one, so there is nothing here to refuse a sign-in with, and a rule that does not define a role grants it nothing anyway. The `roles` list is a typo-catcher consulted on the two writes that name a role, refused with the name and the list; it is not a gate on signing in. The alternative costs the person at the keyboard a login failure with a reason they cannot see, where a login that succeeds into an admin showing nothing is a rule the host can be asked about. A host that has declared no `roles` at all has said what none of its roles are, so any string is written and its own rule decides.
