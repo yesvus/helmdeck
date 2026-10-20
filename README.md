@@ -11,7 +11,7 @@ Helmdeck takes care of the admin interface and its reusable workflows. It does n
 | Dashboard tiles, charts, analytics views, media workflows, inbox and content lifecycle views | Data storage, media storage, authorization rules, and server-side enforcement |
 | Theme, localization, accessible states, and reusable interaction patterns | Application routes, deployment, and public-facing rendering |
 
-The adapters define where the host connects its services. UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](#starter-template) shows a working host with a local SQLite store and generated resource pages. The [independent host](./examples/independent-host) demonstrates integrating the package into a separate Next.js application.
+The adapters define where the host connects its services. UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](#starter-template) shows a working host with a local SQLite store and generated resource pages. The [independent host](https://github.com/yesvus/helmdeck/tree/main/examples/independent-host) demonstrates integrating the package into a separate Next.js application.
 
 The detailed [primitive and adapter reference](#host-integration-contracts) remains below. It describes the building blocks behind the engine for hosts that need custom workflows.
 
