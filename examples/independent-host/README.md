@@ -1,6 +1,6 @@
 # Independent host example
 
-This small Next.js App Router host uses Helmdeck exclusively through `@yesvus/helmdeck` public exports. The sample has no backend: its auth session uses Helmdeck's signed-cookie baseline adapter, persistence is an in-memory host adapter, and media upload returns a placeholder URL. Replace these seams with the host's auth, data, and storage services for a deployed application.
+This small Next.js App Router host uses Helmdeck through `@yesvus/helmdeck` public exports. Its auth session uses Helmdeck's signed-cookie baseline adapter, persistence uses the public SQLite adapter with a local file, and media upload returns a placeholder URL. The local database demonstrates the persistence contract across process restarts; replace these seams with shared host services for a deployed application.
 
 ## Setup
 
@@ -22,7 +22,7 @@ Open <http://localhost:3000>. `/` redirects to `/admin`.
 - `components/admin-host-auth-provider.tsx` adapts host server actions to `AdminAuthAdapter` and wraps the app in `AdminAuthProvider`. The admin layout uses `AdminRequireSession` for client state and validates the session on the server before rendering protected routes. The proxy checks cookie presence only, redirects cookie-less visitors with their deep link, and forwards the requested path so the layout preserves it when rejecting an expired or invalid session.
 - `host/session.ts` configures the baseline `createSessionAuthAdapter` with sample credentials (`editor@example.test` / `helmdeck-demo`), a host-local SQLite session registry, and a process-local login throttle. The sample credentials are accepted only outside production. Generate `INDEPENDENT_HOST_SESSION_SECRET` with `generateSessionSecret()` and keep it stable across instances. Before enabling sign-in in production or across multiple instances, replace the demonstration verification and session registry with the host's identity system and shared store, and replace the throttle with a shared limiter. Host layouts and actions enforce access; shell role filtering is presentation only.
 - `/admin/profile` mounts `AdminProfilePage` with the resolved session and sign-out action.
-- `host/persistence.ts` implements the public `AdminPersistenceAdapter` contract over process-local memory. `host/actions.ts` demonstrates a server action validating input, writing through that seam, and revalidating the host route.
+- `host/persistence.ts` implements the public `AdminPersistenceAdapter` contract over `.next/independent-host-data.sqlite`, seeded on first use. Set `INDEPENDENT_HOST_DATA_DB` to choose another local database path. `host/actions.ts` demonstrates a server action validating input, writing through that seam, and revalidating the host route.
 - `/admin/projects` and `/admin/orders` use host-defined resource declarations with the package's generated lists and forms; the client adapter calls host server actions, which authorize and validate access to the host's persistence.
 - `/admin/dashboard` registers shipped stat widgets and renders them through `AdminDashboardLayout` with host-resolved data.
 - `host/media.ts` implements `AdminMediaAdapter`. Listing and upload are deliberately local stand-ins. Configure real listing, storage, signed URLs, and mutations in the host adapter, then pass it to `AdminMediaUpload`.
