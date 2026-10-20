@@ -12,7 +12,7 @@ const dependencies = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
 }));
 
-vi.mock("next/cache", () => ({ revalidatePath: dependencies.revalidatePath }));
+vi.mock("../tests/next-cache", () => ({ revalidatePath: dependencies.revalidatePath }));
 vi.mock("../examples/independent-host/host/session", () => ({ getHostSession: dependencies.getHostSession }));
 vi.mock("../examples/independent-host/host/persistence", () => ({
   persistence: {
@@ -46,6 +46,22 @@ describe("independent host content block action", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     dependencies.getHostSession.mockResolvedValue({ role: "editor" });
+  });
+
+  it("saves valid blocks in a stable record envelope", async () => {
+    const blocks = [validQuote("block_one")];
+    const form = adminCollectionFormData(exampleBlockDefinition, blocks);
+
+    await expect(saveContentBlocks(form)).resolves.toEqual({
+      status: "success",
+      message: "Content blocks saved.",
+    });
+    expect(dependencies.update).toHaveBeenCalledWith("content-blocks", "landing", {
+      id: "landing",
+      blocks,
+    });
+    expect(dependencies.revalidatePath).toHaveBeenCalledWith("/admin/blocks");
+    expect(dependencies.revalidatePath).toHaveBeenCalledWith("/blocks-preview");
   });
 
   it("rejects duplicate submitted IDs without writing", async () => {
