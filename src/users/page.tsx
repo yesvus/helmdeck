@@ -56,12 +56,13 @@ export function AdminUserManagementPage({
   const messages = { ...defaultAdminUserManagementMessages, ...adminMessages.users };
   const locale = adminMessages.searchLocale;
   const [selectedId, setSelectedId] = useState(users[0]?.id ?? "");
-  const [roleDraft, setRoleDraft] = useState<string | null>(null);
+  const [roleDraft, setRoleDraft] = useState<{ accountId: string; value: string } | null>(null);
   const [confirmDisableId, setConfirmDisableId] = useState("");
   const [busy, setBusy] = useState("");
   const [feedback, setFeedback] = useState("");
   const selected = users.find((user) => user.id === selectedId) ?? users[0];
   const activeSessions = useMemo(() => selected?.sessions ?? [], [selected]);
+  const roleValue = selected && roleDraft?.accountId === selected.id ? roleDraft.value : selected?.role ?? "";
 
   async function run(key: string, operation: () => Promise<void>, success: string) {
     setBusy(key);
@@ -99,7 +100,7 @@ export function AdminUserManagementPage({
                   className="flex w-full items-start justify-between gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                   onClick={() => {
                     setSelectedId(user.id);
-                    setRoleDraft(user.role ?? "");
+                    setRoleDraft({ accountId: user.id, value: user.role ?? "" });
                     setConfirmDisableId("");
                     setFeedback("");
                   }}
@@ -125,7 +126,7 @@ export function AdminUserManagementPage({
             <div className="mt-5 flex flex-wrap items-end gap-3">
               {onSetRole ? (
                 <AdminField label={messages.role}>
-                  <AdminSelect value={roleDraft ?? selected.role ?? ""} onChange={(event) => setRoleDraft(event.currentTarget.value)}>
+                  <AdminSelect value={roleValue} onChange={(event) => setRoleDraft({ accountId: selected.id, value: event.currentTarget.value })}>
                     <option value="">{messages.noRole}</option>
                     {roles.map((role) => <option key={role} value={role}>{role}</option>)}
                   </AdminSelect>
@@ -134,8 +135,8 @@ export function AdminUserManagementPage({
               {onSetRole ? (
                 <Button
                   size="sm"
-                  disabled={busy !== "" || (roleDraft ?? selected.role ?? "") === (selected.role ?? "")}
-                  onClick={() => void run("role", () => onSetRole(selected.id, roleDraft ?? selected.role ?? ""), messages.saved)}
+                  disabled={busy !== "" || roleValue === (selected.role ?? "")}
+                  onClick={() => void run("role", () => onSetRole(selected.id, roleValue), messages.saved)}
                 >{messages.saveRole}</Button>
               ) : null}
               {onSetDisabled && !selected.disabled ? (

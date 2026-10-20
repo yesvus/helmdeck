@@ -83,6 +83,22 @@ describe("AdminUserManagementPage", () => {
     expect(onSetRole).toHaveBeenCalledWith("user-1", "");
   });
 
+  it("resets the role draft when refreshed account data replaces the selected account", async () => {
+    const user = userEvent.setup();
+    const onSetRole = vi.fn().mockResolvedValue(undefined);
+    const { rerender } = render(
+      <AdminUserManagementPage users={users} roles={["admin", "editor"]} onSetRole={onSetRole} />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("Role"), "admin");
+    rerender(
+      <AdminUserManagementPage users={[{ id: "user-2", email: "admin@example.test", role: "editor", disabled: false }]} roles={["admin", "editor"]} onSetRole={onSetRole} />,
+    );
+
+    expect(screen.getByLabelText("Role")).toHaveValue("editor");
+    expect(screen.getByRole("button", { name: "Save role" })).toBeDisabled();
+  });
+
   it("renders an empty state when no accounts are available", () => {
     render(<AdminUserManagementPage users={[]} roles={[]} />);
     expect(screen.getByText("No accounts to manage.")).toBeInTheDocument();
