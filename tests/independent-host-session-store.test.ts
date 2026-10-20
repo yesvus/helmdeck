@@ -6,9 +6,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("independent host session store", () => {
   let directory: string | undefined;
+  let closeDatabase: (() => void) | undefined;
   const originalDatabasePath = process.env.INDEPENDENT_HOST_SESSION_DB;
 
   afterEach(() => {
+    closeDatabase?.();
+    closeDatabase = undefined;
     vi.resetModules();
     if (originalDatabasePath === undefined) delete process.env.INDEPENDENT_HOST_SESSION_DB;
     else process.env.INDEPENDENT_HOST_SESSION_DB = originalDatabasePath;
@@ -25,6 +28,7 @@ describe("independent host session store", () => {
     process.env.INDEPENDENT_HOST_SESSION_DB = filename;
 
     const store = await import("../examples/independent-host/host/session-store");
+    closeDatabase = store.closeSessionDatabase;
     store.createSession("legacy-migrated", Date.now() + 60_000);
 
     expect(store.getSessionExpiry("legacy-migrated")).toBeGreaterThan(Date.now());
@@ -46,6 +50,7 @@ describe("independent host session store", () => {
     process.env.INDEPENDENT_HOST_SESSION_DB = filename;
 
     const store = await import("../examples/independent-host/host/session-store");
+    closeDatabase = store.closeSessionDatabase;
     expect(() => store.createSession("retry", Date.now() + 60_000)).toThrow();
 
     const repairDatabase = new DatabaseSync(filename);

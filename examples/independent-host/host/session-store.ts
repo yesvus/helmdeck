@@ -5,6 +5,11 @@ import { DatabaseSync } from "node:sqlite";
 
 let database: DatabaseSync | undefined;
 
+export function closeSessionDatabase(): void {
+  database?.close();
+  database = undefined;
+}
+
 function sessionDatabase(): DatabaseSync {
   if (database) return database;
   const filename = resolve(process.env.INDEPENDENT_HOST_SESSION_DB ?? ".next/independent-host-sessions.sqlite");
