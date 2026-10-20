@@ -36,18 +36,24 @@ mkdirSync(dirname(filename), { recursive: true });
 const store = createSqlitePersistenceAdapter({ url: filename });
 let seeded: Promise<void> | undefined;
 
+async function createIfMissing(resource: string, id: string, value: unknown): Promise<void> {
+  if (await store.read(resource, id)) return;
+  try {
+    await store.create(resource, value);
+  } catch (cause) {
+    if (await store.read(resource, id)) return;
+    throw cause;
+  }
+}
+
 async function ensureSeeded(): Promise<void> {
   if (seeded) return seeded;
   seeded = (async () => {
+    if (await store.read("independent-host-meta", "seeded")) return;
     for (const [resource, id, value] of seedRecords) {
-      if (await store.read(resource, id)) continue;
-      try {
-        await store.create(resource, value);
-      } catch (cause) {
-        if (await store.read(resource, id)) continue;
-        throw cause;
-      }
+      await createIfMissing(resource, id, value);
     }
+    await createIfMissing("independent-host-meta", "seeded", { id: "seeded" });
   })().catch((cause: unknown) => {
     seeded = undefined;
     throw cause;
