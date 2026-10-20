@@ -1605,6 +1605,22 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "activity audit page route log trail",
     renderable: true,
   },
+  AdminUserManagementPage: {
+    category: "Auth and permissions",
+    summary: "A full account-management page for host-provided role, status, session, and activity operations.",
+    keywords: "users accounts roles sessions disable activity management password reset",
+    renderable: true,
+  },
+  defaultAdminUserManagementMessages: {
+    category: "Internationalisation",
+    summary: "English labels for the reusable account-management page.",
+    keywords: "users accounts roles sessions activity labels",
+  },
+  turkishAdminUserManagementMessages: {
+    category: "Internationalisation",
+    summary: "Turkish labels for the reusable account-management page.",
+    keywords: "users accounts roles sessions activity turkish labels",
+  },
   adminActivityTone: {
     category: "Activity",
     summary: "The tone an action reads as in a trail, so a feed is scanned rather than read.",

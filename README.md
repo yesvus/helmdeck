@@ -259,6 +259,8 @@ function toneForStatus(status: "healthy" | "degraded" | "failed"): AdminTone {
 
 `AdminShell` points its profile entry at `${homeHref}/profile` when no `profileHref` is given, so mount `AdminProfilePage` there and the entry works with no wiring. `AdminSettingsPage` is a frame that takes sections as props, and is what `settingsHref` should point at.
 
+`AdminUserManagementPage` provides a full account-management surface rather than a modal-only flow. Hosts pass account records without credential fields, the role vocabulary, sessions, recent audit events for each account, and server actions for role changes, enable/disable, password-reset delivery, and session revocation. Omit an operation callback to omit its control. The host remains responsible for permission checks inside every server action; hiding a control is only presentation.
+
 ```tsx
 // app/admin/profile/page.tsx
 <AdminProfilePage session={session} settingsHref="/admin/settings" onSignOut={signOut} />

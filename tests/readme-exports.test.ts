@@ -34,6 +34,7 @@ const DOCUMENTED_COMPONENTS = [
   "AdminTrashPage",
   "AdminVisitorTrendChart",
   "AdminDeviceBreakdownChart",
+  "AdminUserManagementPage",
   "AdminShell",
 ];
 
