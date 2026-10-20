@@ -9,13 +9,19 @@ function sessionDatabase(): DatabaseSync {
   if (database) return database;
   const filename = resolve(process.env.INDEPENDENT_HOST_SESSION_DB ?? ".next/independent-host-sessions.sqlite");
   mkdirSync(dirname(filename), { recursive: true });
-  database = new DatabaseSync(filename);
-  chmodSync(filename, 0o600);
-  database.exec("PRAGMA busy_timeout = 5000");
-  database.exec("CREATE TABLE IF NOT EXISTS host_sessions (id TEXT PRIMARY KEY, expires_at INTEGER NOT NULL)");
-  const columns = database.prepare("PRAGMA table_info(host_sessions)").all() as { name: string }[];
-  if (columns.some(({ name }) => name === "state")) database.exec("ALTER TABLE host_sessions DROP COLUMN state");
-  return database;
+  const candidate = new DatabaseSync(filename);
+  try {
+    chmodSync(filename, 0o600);
+    candidate.exec("PRAGMA busy_timeout = 5000");
+    candidate.exec("CREATE TABLE IF NOT EXISTS host_sessions (id TEXT PRIMARY KEY, expires_at INTEGER NOT NULL)");
+    const columns = candidate.prepare("PRAGMA table_info(host_sessions)").all() as { name: string }[];
+    if (columns.some(({ name }) => name === "state")) candidate.exec("ALTER TABLE host_sessions DROP COLUMN state");
+  } catch (cause) {
+    candidate.close();
+    throw cause;
+  }
+  database = candidate;
+  return candidate;
 }
 
 function removeExpiredSessions(db: DatabaseSync): void {
