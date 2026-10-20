@@ -146,6 +146,18 @@ each is one you have to make rather than one you have to find later.
 7. **A second interface language.** `app/layout.tsx` says `locale="en"` and nothing else. The package
    ships English and Turkish dictionaries; registering your own is `defineAdminMessages`, and content
    language is a separate concern the package keeps out of its URLs unless you map it.
+8. **A contact form endpoint.** `AdminContactForm` renders and submits the common contact fields, but
+   the Server Action that validates, rate-limits, stores, or emails a message belongs to your app.
+   Treat its input as untrusted and write through your own persistence adapter or data-access layer.
+
+```tsx
+import { AdminContactForm } from "@yesvus/helmdeck";
+import { submitContact } from "./actions";
+
+export default function ContactPage() {
+  return <AdminContactForm onSubmit={submitContact} />;
+}
+```
 
 Also absent, and deliberately so: any records. The store arrives empty, which is what makes the
 first row you create through the form the way you find out the form works.

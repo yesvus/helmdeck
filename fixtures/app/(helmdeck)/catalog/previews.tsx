@@ -28,6 +28,7 @@ import {
   AdminChartFrame,
   AdminChartTable,
   AdminContextualHelp,
+  AdminContactForm,
   AdminContentSkeleton,
   AdminDashboardLayout,
   AdminDashboardMissingTile,
@@ -694,6 +695,7 @@ function MediaLightboxPreview() {
 
 export const catalogPreviews: Record<string, ComponentType> = {
   AdminSettingsFooter: () => <AdminSettingsFooter>Host build 42</AdminSettingsFooter>,
+  AdminContactForm: () => <AdminContactForm onSubmit={async () => {}} />,
 
   Button: () => (
     <div className="flex flex-wrap items-center gap-2">

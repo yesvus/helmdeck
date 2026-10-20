@@ -69,6 +69,7 @@ const EXPOSED = [
   "dashboard_placements",
   "customers",
   "shipments",
+  "contact_messages",
 ];
 
 const OPERATIONS = ["read", "create", "update", "delete"];
@@ -114,7 +115,7 @@ function expected(session: AdminSession, permission: AdminPermission): boolean {
   if (!OPERATIONS.includes(operation)) return false;
   if (session.role === "admin") return true;
   if (session.role !== "editor") return false;
-  if (resource === "orders") return false;
+  if (resource === "orders" || resource === "contact_messages") return false;
   return operation !== "delete";
 }
 
@@ -178,7 +179,7 @@ describe("the rule the package evaluates", () => {
     expect(decided).toHaveLength(ROLES.length * PERMISSIONS.length);
   });
 
-  it("exposes the eight resources it is written to expose, and hides the two it must", () => {
+  it("exposes the nine resources it is written to expose, and hides the two it must", () => {
     for (const resource of EXPOSED) {
       expect(exposedResource(resource), resource).toBe(true);
     }

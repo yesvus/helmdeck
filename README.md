@@ -5,7 +5,7 @@ Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Rou
 ## Included
 
 - Responsive shell with navigation, command search, breadcrumbs, profile actions, mobile navigation, and login presentation.
-- Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, and status primitives.
+- Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, status primitives, and a host-adapted contact form.
 - A typed collection editor with add, duplicate, remove, pointer and keyboard reorder, host-rendered fields, and per-entry validation. See [Editing a typed collection](#editing-a-typed-collection).
 - Data-heavy primitives including tables, pagination, modals, toasts, accessible loading states and content-shaped skeletons, sortable lists, and destructive confirmations.
 - Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
@@ -35,6 +35,17 @@ import { AdminLoadingState, AdminTableSkeleton } from "@yesvus/helmdeck";
 ```
 
 `AdminFormSkeleton`, `AdminCardGridSkeleton`, and `AdminDashboardSkeleton` cover other common admin layouts. Pass `className` to customize the shared layout classes.
+
+## Contact form
+
+`AdminContactForm` collects bounded name, email, subject, and message fields, then hands them to a host callback. The host owns server-side validation, abuse controls, persistence, and any email delivery.
+
+```tsx
+import { AdminContactForm } from "@yesvus/helmdeck";
+import { submitContact } from "./actions";
+
+<AdminContactForm onSubmit={submitContact} />;
+```
 
 ## Install
 

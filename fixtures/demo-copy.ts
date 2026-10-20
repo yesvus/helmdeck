@@ -21,6 +21,7 @@ export const demoCopy = {
       ["/media", "Media workflows", "Adapter contract, upload progress, picker, and media fields."],
       ["/primitives", "Component catalog", "The complete primitive set in a single reference page."],
       ["/login", "Login screen", "Presentational authentication surface for application-owned actions."],
+      ["/contact", "Contact form", "Public message submission backed by the fixture persistence adapter."],
     ],
     shellSettings: {
       title: "Site settings",
