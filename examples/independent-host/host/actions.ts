@@ -93,7 +93,7 @@ export async function saveContentBlocks(formData: FormData) {
   const problem = adminCollectionFirstProblem(exampleBlockDefinition, blocks);
   if (problem) return { status: "error" as const, message: problem.message };
 
-  await persistence.update("content-blocks", "landing", blocks);
+  await persistence.update("content-blocks", "landing", { id: "landing", blocks });
   revalidatePath("/admin/blocks");
   revalidatePath("/blocks-preview");
   return { status: "success" as const, message: "Content blocks saved." };

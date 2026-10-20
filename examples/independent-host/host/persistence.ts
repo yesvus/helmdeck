@@ -10,7 +10,7 @@ const seedRecords: readonly [string, string, unknown][] = [
   ["projects", "project_02", { id: "project_02", name: "Customer portal", status: "Planning", owner: "Avery Chen" }],
   ["orders", "order_01", { id: "order_01", reference: "ORD-1042", customer: "Jordan Lee", status: "Paid" }],
   ["orders", "order_02", { id: "order_02", reference: "ORD-1043", customer: "Avery Chen", status: "Pending" }],
-  ["content-blocks", "landing", [
+  ["content-blocks", "landing", { id: "landing", blocks: [
     {
       id: "block_hero",
       kind: "hero",
@@ -28,10 +28,10 @@ const seedRecords: readonly [string, string, unknown][] = [
       copy: "The team made the move feel easy.",
       attribution: "Jordan Lee, customer",
     },
-  ]],
+  ] }],
 ];
 
-const filename = resolve(process.env.INDEPENDENT_HOST_DATA_DB ?? ".next/independent-host-data.sqlite");
+const filename = resolve(process.env.INDEPENDENT_HOST_DATA_DB ?? ".data/independent-host-data.sqlite");
 mkdirSync(dirname(filename), { recursive: true });
 const store = createSqlitePersistenceAdapter({ url: filename });
 let seeded: Promise<void> | undefined;

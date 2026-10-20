@@ -14,6 +14,7 @@ describe("independent host persistence", () => {
   });
 
   it("seeds once and persists host writes through a second adapter instance", async () => {
+    vi.resetModules();
     directory = mkdtempSync(join(tmpdir(), "helmdeck-independent-host-data-"));
     const filename = join(directory, "records.sqlite");
     vi.stubEnv("INDEPENDENT_HOST_DATA_DB", filename);
@@ -33,6 +34,11 @@ describe("independent host persistence", () => {
     vi.resetModules();
     const restartedHost = await import("../examples/independent-host/host/persistence");
     await expect(restartedHost.persistence.query("projects")).resolves.toHaveLength(1);
+    const contentBlocks = await restartedHost.persistence.read<{ blocks: { id: string }[] }>(
+      "content-blocks",
+      "landing",
+    );
+    expect(contentBlocks?.blocks.map(({ id }) => id)).toEqual(["block_hero", "block_quote"]);
     await expect(restartedHost.persistence.read("workspace-profile", "workspace")).resolves.toMatchObject({
       id: "workspace",
       name: "Saved profile",
