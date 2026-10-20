@@ -1,26 +1,19 @@
 # Helmdeck
 
-Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Router applications. It provides a responsive shell, accessible UI primitives, typed localization dictionaries, and adapter-backed media workflows while leaving authentication, data access, routes, and domain operations to the host application.
+Helmdeck is a reusable, MIT-licensed admin dashboard engine for Next.js App Router applications. Install it to get a working admin shell, generated resource lists and forms, dashboard tiles, analytics, media and content-lifecycle workflows, and the shared interaction patterns around them. You configure resources and connect host-owned services through typed adapters and callbacks instead of building each admin surface from scratch.
 
-## Included
+Helmdeck takes care of the admin interface and its reusable workflows. It does not own your application backend:
 
-- Responsive shell with navigation, command search, breadcrumbs, profile actions, mobile navigation, and login presentation.
-- Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, status primitives, and a host-adapted contact form.
-- A typed collection editor with add, duplicate, remove, pointer and keyboard reorder, host-rendered fields, and per-entry validation. See [Editing a typed collection](#editing-a-typed-collection).
-- Data-heavy primitives including tables, pagination, modals, toasts, accessible loading states and content-shaped skeletons, sortable lists, and destructive confirmations.
-- Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
-- Six ready dashboard tiles (stat, table, list, time-series chart, ranked chart, activity feed) that render the engine's four states themselves, so a host registers a tile rather than writing one.
-- Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
-- A ready-made media library page over the same adapter: searchable and filterable grid, upload, lightbox preview, and a delete offered only for assets this installation stores. See [The media library page](#the-media-library-page).
-- CSV export and import over the resource seam: the list a query names as a downloadable file, and a file read into the store a row at a time.
-- Visitor analytics over the same persistence seam: record a page view or a named event, and read back views, unique visitors, top paths and sources per day. The visitor key and the retention window are the host's, and nothing here derives or defaults either.
-- An analytics report as a file: the period, the policy behind it, and the figures per day, per path and per source, with the totals stated in the file where a spreadsheet can check them against the rows above them.
-- A content lifecycle over the host's own rows: revision history a person can read and restore from, a soft delete with a trash, and a way back from both. See [Content lifecycle](#content-lifecycle).
-- An activity page over the host's audit events: filters for action, actor and date, expandable event details, and the tones that make a trail scannable. See [Reading the trail in a page](#reading-the-trail-in-a-page).
-- English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
-- A language preference in the settings page, persisted for the current browser tab and replaceable with a host-owned per-reader adapter.
-- A static bilingual fixture app for the hosted demo.
-- A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
+| Helmdeck provides | Your host provides |
+| --- | --- |
+| Responsive admin shell, navigation, profile and sign-in presentation | User identity, credentials, and session policy |
+| Resource registry, generated lists and forms, search, filters, sorting, paging, import and export | Resource definitions, validation and domain rules |
+| Dashboard tiles, charts, analytics views, media workflows, inbox and content lifecycle views | Data storage, media storage, authorization rules, and server-side enforcement |
+| Theme, localization, accessible states, and reusable interaction patterns | Application routes, deployment, and public-facing rendering |
+
+The adapters define where the host connects its services. UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](#starter-template) shows a working host with a local SQLite store and generated resource pages. The [independent host](./examples/independent-host) demonstrates integrating the package into a separate Next.js application.
+
+The detailed [primitive and adapter reference](#host-integration-contracts) remains below. It describes the building blocks behind the engine for hosts that need custom workflows.
 
 ## Loading states
 
