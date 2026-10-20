@@ -130,5 +130,8 @@ export const defaultAdminLabels: ResolvedAdminShellLabels = {
 };
 
 export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): ResolvedAdminShellLabels {
-  return { ...defaultAdminLabels, ...labels };
+  const definedLabels = Object.fromEntries(
+    Object.entries(labels ?? {}).filter(([, value]) => value !== undefined),
+  ) as Partial<AdminShellLabels>;
+  return { ...defaultAdminLabels, ...definedLabels };
 }

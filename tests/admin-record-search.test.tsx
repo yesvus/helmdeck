@@ -149,4 +149,18 @@ describe("AdminRecordSearch", () => {
 
     expect(screen.queryByRole("button", { name: "Search records" })).not.toBeInTheDocument();
   });
+
+  it("keeps defaults when an optional label override is undefined", async () => {
+    const user = userEvent.setup();
+    render(
+      <AdminRecordSearch
+        adapter={{ search: async () => [result("4412"), result("4413")] }}
+        labels={{ recordSearchManyResults: undefined }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Search records" }));
+    await user.type(screen.getByRole("combobox", { name: "Search records" }), "441");
+
+    expect(await screen.findByRole("status")).toHaveTextContent("2 results");
+  });
 });

@@ -29,6 +29,8 @@ export type AdminSearchResource = {
 
 const DEFAULT_SEARCH_LIMIT = 10;
 const MAX_SEARCH_LIMIT = 50;
+const SEARCH_OVERFETCH_FACTOR = 5;
+const MAX_SEARCH_CANDIDATES = 250;
 const PERMISSION_CHECK_BATCH_SIZE = 8;
 
 function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -54,6 +56,23 @@ function raceWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T
   });
 }
 
+async function canRead(
+  permissions: AdminPermissionsAdapter,
+  permission: AdminPermission,
+  signal: AbortSignal,
+  context?: { resourceId?: string },
+): Promise<boolean> {
+  try {
+    return await raceWithAbort(Promise.resolve().then(() => {
+      signal.throwIfAborted();
+      return context ? permissions.can(permission, context) : permissions.can(permission);
+    }), signal);
+  } catch (error) {
+    if (signal.aborted) throw error;
+    return false;
+  }
+}
+
 async function searchResource(
   source: AdminSearchResource,
   permissions: AdminPermissionsAdapter,
@@ -61,29 +80,21 @@ async function searchResource(
   signal: AbortSignal,
 ): Promise<AdminRecordSearchResult[]> {
   const permission = source.permission ?? `${source.resource}.read`;
-  if (!(await raceWithAbort(Promise.resolve().then(() => {
-    signal.throwIfAborted();
-    return permissions.can(permission);
-  }), signal))) return [];
+  if (!(await canRead(permissions, permission, signal))) return [];
 
   const limit = source.maxResults ?? DEFAULT_SEARCH_LIMIT;
+  const candidateLimit = Math.min(limit * SEARCH_OVERFETCH_FACTOR, MAX_SEARCH_CANDIDATES);
   const candidates = (await raceWithAbort(Promise.resolve().then(() => {
     signal.throwIfAborted();
-    return source.search(term, signal, limit);
-  }), signal)).slice(0, limit);
+    return source.search(term, signal, candidateLimit);
+  }), signal)).slice(0, candidateLimit);
   const allowed: boolean[] = [];
 
   for (let offset = 0; offset < candidates.length; offset += PERMISSION_CHECK_BATCH_SIZE) {
     signal.throwIfAborted();
     const batch = candidates.slice(offset, offset + PERMISSION_CHECK_BATCH_SIZE);
     const answers = await Promise.all(batch.map((candidate) =>
-      raceWithAbort(
-        Promise.resolve().then(() => {
-          signal.throwIfAborted();
-          return permissions.can(permission, { resourceId: candidate.id });
-        }),
-        signal,
-      ),
+      canRead(permissions, permission, signal, { resourceId: candidate.id }),
     ));
     allowed.push(...answers);
   }
@@ -96,7 +107,7 @@ async function searchResource(
         label: candidate.label,
         href: candidate.href,
       }]
-    : []);
+      : []).slice(0, limit);
 }
 
 export function createAdminSearchAdapter({

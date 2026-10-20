@@ -36,10 +36,10 @@ describe("createAdminSearchAdapter", () => {
         href: "/customers/c-1",
       },
     ]);
-    expect(searchOrders).toHaveBeenCalledWith("441", expect.any(AbortSignal), 10);
+    expect(searchOrders).toHaveBeenCalledWith("441", expect.any(AbortSignal), 50);
     expect(can.mock.invocationCallOrder[0]).toBeLessThan(searchOrders.mock.invocationCallOrder[0]);
     expect(can.mock.invocationCallOrder[1]).toBeLessThan(searchOrders.mock.invocationCallOrder[0]);
-    expect(searchCustomers).toHaveBeenCalledWith("441", expect.any(AbortSignal), 10);
+    expect(searchCustomers).toHaveBeenCalledWith("441", expect.any(AbortSignal), 50);
     expect(can).toHaveBeenCalledWith("orders.read");
     expect(can).toHaveBeenCalledWith("orders.read", { resourceId: "4412" });
     expect(can).toHaveBeenCalledWith("orders.read", { resourceId: "4413" });
@@ -69,6 +69,22 @@ describe("createAdminSearchAdapter", () => {
     expect(search).not.toHaveBeenCalled();
   });
 
+  it("does not query resources whose specific read permission is denied", async () => {
+    const searchOrders = vi.fn(async () => []);
+    const searchCustomers = vi.fn(async () => []);
+    const adapter = createAdminSearchAdapter({
+      permissions: { can: vi.fn(async (permission: string) => permission !== "customers.read") },
+      resources: [
+        { resource: "orders", label: "Orders", search: searchOrders },
+        { resource: "customers", label: "Customers", search: searchCustomers },
+      ],
+    });
+
+    await expect(adapter.search("Ada", new AbortController().signal)).resolves.toEqual([]);
+    expect(searchOrders).toHaveBeenCalledOnce();
+    expect(searchCustomers).not.toHaveBeenCalled();
+  });
+
   it("keeps successful resource results when another resource search fails", async () => {
     const adapter = createAdminSearchAdapter({
       permissions: { can: vi.fn(async () => true) },
@@ -96,9 +112,57 @@ describe("createAdminSearchAdapter", () => {
     });
 
     await expect(adapter.search("Order", new AbortController().signal)).resolves.toHaveLength(3);
-    expect(search).toHaveBeenCalledWith("Order", expect.any(AbortSignal), 3);
+    expect(search).toHaveBeenCalledWith("Order", expect.any(AbortSignal), 15);
     expect(can).toHaveBeenCalledWith("orders.view");
-    expect(can).toHaveBeenCalledTimes(4);
+    expect(can).toHaveBeenCalledTimes(13);
+  });
+
+  it("treats rejected resource-level permission checks as denials", async () => {
+    const searchOrders = vi.fn(async () => [{ id: "1", label: "Order 1", href: "/orders/1" }]);
+    const searchCustomers = vi.fn(async () => [{ id: "c-1", label: "Ada Lovelace", href: "/customers/c-1" }]);
+    const adapter = createAdminSearchAdapter({
+      permissions: {
+        can: vi.fn(async (permission: string, context?: { resourceId?: string }) => {
+          if (!context && permission === "orders.read") throw new Error("Permission service unavailable");
+          return true;
+        }),
+      },
+      resources: [
+        { resource: "orders", label: "Orders", search: searchOrders },
+        { resource: "customers", label: "Customers", search: searchCustomers },
+      ],
+    });
+
+    await expect(adapter.search("Ada", new AbortController().signal)).resolves.toMatchObject([
+      { resource: "customers", resourceId: "c-1", label: "Ada Lovelace" },
+    ]);
+    expect(searchOrders).not.toHaveBeenCalled();
+    expect(searchCustomers).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed on rejected permission checks and applies the result limit after filtering", async () => {
+    const can = vi.fn(async (_permission: string, context?: { resourceId?: string }) => {
+      if (context?.resourceId === "1") throw new Error("Permission service unavailable");
+      return context?.resourceId !== "2";
+    });
+    const adapter = createAdminSearchAdapter({
+      permissions: { can },
+      resources: [{
+        resource: "orders",
+        label: "Orders",
+        maxResults: 2,
+        search: async () => Array.from({ length: 4 }, (_, index) => ({
+          id: String(index + 1),
+          label: `Order ${index + 1}`,
+          href: `/orders/${index + 1}`,
+        })),
+      }],
+    });
+
+    await expect(adapter.search("Order", new AbortController().signal)).resolves.toMatchObject([
+      { resourceId: "3", label: "Order 3" },
+      { resourceId: "4", label: "Order 4" },
+    ]);
   });
 
   it("limits concurrent record permission checks and stops filtering promptly on abort", async () => {
