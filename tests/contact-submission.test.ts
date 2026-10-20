@@ -1,9 +1,23 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from "vitest";
 import { createMemoryPersistenceAdapter } from "../src/baseline/memory";
-import { parseContactSubmission, persistContactSubmission } from "../fixtures/lib/contact-submission";
+import {
+  createContactSubmissionThrottle,
+  parseContactSubmission,
+  persistContactSubmission,
+} from "../fixtures/lib/contact-submission";
 
 describe("parseContactSubmission", () => {
+  it("caps contact submissions per process window and resets after the window", () => {
+    let current = 1000;
+    const allow = createContactSubmissionThrottle({ limit: 2, windowMs: 500, now: () => current });
+    allow();
+    allow();
+    expect(allow).toThrow(/Too many contact messages/);
+    current += 500;
+    expect(allow).not.toThrow();
+  });
+
   it("trims and returns the supported contact fields", () => {
     expect(parseContactSubmission({
       name: " Ada ",
