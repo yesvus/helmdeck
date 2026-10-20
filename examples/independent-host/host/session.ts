@@ -2,7 +2,7 @@
 import { createLoginThrottle, createSessionAuthAdapter } from "@yesvus/helmdeck/baseline";
 import type { AdminLoginCredentials, AdminLoginResult, AdminSession } from "@yesvus/helmdeck";
 import { HOST_SESSION_COOKIE } from "./session-cookie";
-import { activateSession, createPendingSession as storePendingSession, getSessionExpiry, revokeSession } from "./session-store";
+import { createSession as storeSession, getSessionExpiry, revokeSession } from "./session-store";
 
 const sampleSession: AdminSession = { email: "editor@example.test", name: "Sample editor", role: "editor" };
 const sessionMaxAgeSeconds = 60 * 60 * 24 * 14;
@@ -19,27 +19,27 @@ function hostAuth() {
     verify: ({ email, password }) => process.env.NODE_ENV !== "production"
       && email === sampleSession.email
       && password === "helmdeck-demo"
-      ? createPendingSession()
+      ? createStoredSession()
       : null,
     getUser: (id) => {
       const expiresAt = getSessionExpiry(id);
       if (!expiresAt || expiresAt <= Date.now()) return null;
       return { ...sampleSession, id };
     },
-    onSession: (id) => {
-      if (id) activateSession(id);
-    },
     maxAge: sessionMaxAgeSeconds,
+    onError: (cause) => {
+      throw cause;
+    },
     secure: process.env.NODE_ENV === "production",
     invalidMessage: "Email or password was incorrect.",
     throttle: loginThrottle,
   });
 }
 
-function createPendingSession(): string {
+function createStoredSession(): string {
   const id = crypto.randomUUID();
   const expiresAt = Date.now() + sessionMaxAgeSeconds * 1000;
-  storePendingSession(id, expiresAt);
+  storeSession(id, expiresAt);
   return id;
 }
 
