@@ -67,6 +67,22 @@ import { AdminInboxList } from "@yesvus/helmdeck";
 />;
 ```
 
+## Trash management
+
+`AdminTrashPage` presents host-mapped removed records and calls host callbacks for restore and permanent purge. It includes selection, bulk actions, destructive confirmation, optimistic row removal, and English/Turkish labels. Hosts own the trash schema, lifecycle operations, authorization, and data loading. Map either a separate trash table or rows selected by a soft-delete timestamp into `AdminTrashItem`.
+
+```tsx
+import { AdminTrashPage } from "@yesvus/helmdeck";
+
+<AdminTrashPage
+  items={trashedRecords}
+  onRestore={(item) => lifecycle.restoreFromTrash(item.resource, item.id)}
+  onPurge={(item) => lifecycle.purge(item.resource, item.id)}
+  onRestoreMany={(items) => restoreSelected(items)}
+  onPurgeMany={(items) => purgeSelected(items)}
+/>;
+```
+
 ## Install
 
 ```bash

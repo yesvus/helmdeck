@@ -143,6 +143,22 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "inbox contact support detail unread archive message",
     renderable: true,
   },
+  AdminTrashPage: {
+    category: "Resources",
+    summary: "Lists host-provided removed records with restore and confirmed permanent-purge actions.",
+    keywords: "trash deleted recycle bin restore purge bulk selection",
+    renderable: true,
+  },
+  defaultAdminTrashMessages: {
+    category: "Internationalisation",
+    summary: "The English wording the trash page uses for actions and empty states.",
+    keywords: "labels copy trash wording deleted restore purge",
+  },
+  turkishAdminTrashMessages: {
+    category: "Internationalisation",
+    summary: "The Turkish wording the trash page uses for actions and empty states.",
+    keywords: "labels copy trash turkish restore purge",
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",
