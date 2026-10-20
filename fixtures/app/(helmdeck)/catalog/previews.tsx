@@ -29,6 +29,7 @@ import {
   AdminChartTable,
   AdminContextualHelp,
   AdminContactForm,
+  AdminDeviceBreakdownChart,
   AdminContentSkeleton,
   AdminDashboardLayout,
   AdminDashboardMissingTile,
@@ -98,6 +99,7 @@ import {
   AdminTextarea,
   AdminThemeSettingsProvider,
   AdminTimeSeriesChart,
+  AdminVisitorTrendChart,
   AdminToastCard,
   AdminToastViewport,
   AdminUrlFeedback,
@@ -1279,6 +1281,31 @@ export const catalogPreviews: Record<string, ComponentType> = {
         </p>
       </div>
     </div>
+  ),
+
+  AdminVisitorTrendChart: () => (
+    <AdminVisitorTrendChart
+      ariaLabel="Page views and visitors by day"
+      points={[
+        { key: "2026-10-17", label: "Oct 17", views: 27, visitors: 18 },
+        { key: "2026-10-18", label: "Oct 18", views: 34, visitors: 23 },
+        { key: "2026-10-19", label: "Oct 19", views: 0, visitors: 0 },
+        { key: "2026-10-20", label: "Oct 20", views: 42, visitors: 31 },
+      ]}
+      formatters={counts}
+    />
+  ),
+
+  AdminDeviceBreakdownChart: () => (
+    <AdminDeviceBreakdownChart
+      ariaLabel="Visits by device"
+      items={[
+        { key: "desktop", label: "Desktop", visits: 124 },
+        { key: "mobile", label: "Mobile", visits: 87 },
+        { key: "tablet", label: "Tablet", visits: 19 },
+      ]}
+      formatters={counts}
+    />
   ),
 
   AdminRankChart: () => (

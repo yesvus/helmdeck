@@ -32,6 +32,8 @@ const DOCUMENTED_COMPONENTS = [
   "AdminInboxList",
   "AdminInboxMessage",
   "AdminTrashPage",
+  "AdminVisitorTrendChart",
+  "AdminDeviceBreakdownChart",
   "AdminShell",
 ];
 

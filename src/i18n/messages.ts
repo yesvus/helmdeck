@@ -41,6 +41,11 @@ import {
   turkishAdminTrashMessages,
   type AdminTrashMessages,
 } from "../trash/messages.js";
+import {
+  defaultAdminAnalyticsChartMessages,
+  turkishAdminAnalyticsChartMessages,
+  type AdminAnalyticsChartMessages,
+} from "../charts/analytics-messages.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -146,6 +151,7 @@ export type AdminMessages = {
   activity?: AdminActivityMessages;
   inbox?: AdminInboxMessages;
   trash?: AdminTrashMessages;
+  analyticsCharts?: AdminAnalyticsChartMessages;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -184,6 +190,7 @@ export const englishAdminMessages: AdminMessages = {
   activity: defaultAdminActivityMessages,
   inbox: defaultAdminInboxMessages,
   trash: defaultAdminTrashMessages,
+  analyticsCharts: defaultAdminAnalyticsChartMessages,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -380,6 +387,7 @@ export const turkishAdminMessages: AdminMessages = {
   activity: turkishAdminActivityMessages,
   inbox: turkishAdminInboxMessages,
   trash: turkishAdminTrashMessages,
+  analyticsCharts: turkishAdminAnalyticsChartMessages,
   widget: {
     emptyTitle: "Gösterilecek veri yok",
     emptyBody: "Bu bileşen için henüz veri yok.",

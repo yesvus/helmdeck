@@ -1529,6 +1529,33 @@ more series over an ordered set of categories, as bars or as lines, and `AdminRa
 things against a labelled axis. `AdminChartFrame` is the card they live in, and it carries the four
 states a load can be in.
 
+For visitor analytics, `AdminVisitorTrendChart` maps daily page-view and unique-visitor points to the
+responsive time-series chart. `AdminDeviceBreakdownChart` maps host-classified device counts to the
+accessible ranked chart. Both use the same theme tokens, axis formatting, and screen-reader tables as
+the general chart primitives. The visitor-series labels and device-count suffix have English and
+Turkish defaults through `AdminI18nProvider`, and `ariaLabel` remains host-provided. Hosts supply the
+device classifications and counts, keeping device detection and event collection in their own policy.
+
+```tsx
+import {
+  AdminDeviceBreakdownChart,
+  AdminVisitorTrendChart,
+  adminChartFormatters,
+} from "@yesvus/helmdeck";
+
+<AdminVisitorTrendChart
+  ariaLabel="Page views and unique visitors by day"
+  points={series.points}
+  formatters={adminChartFormatters("count")}
+/>
+
+<AdminDeviceBreakdownChart
+  ariaLabel="Visits by device"
+  items={deviceCounts}
+  formatters={adminChartFormatters("count")}
+/>;
+```
+
 Bring your own data. These components take points and draw them, so what appears on screen is
 whatever the host's own query returned, and the only thing the package decides is how to draw it.
 

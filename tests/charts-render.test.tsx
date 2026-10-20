@@ -2,7 +2,14 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { AdminRankChart, AdminTimeSeriesChart, adminChartFormatters } from "../src/charts";
+import {
+  AdminDeviceBreakdownChart,
+  AdminRankChart,
+  AdminTimeSeriesChart,
+  AdminVisitorTrendChart,
+  adminChartFormatters,
+} from "../src/charts";
+import { AdminI18nProvider } from "../src/i18n/provider";
 
 /**
  * The two chart components rendered on their own, with points written down by hand.
@@ -130,6 +137,53 @@ describe("a short range still gets bars narrow enough not to touch", () => {
     const heights = [revenue.height, orders.height].filter((height) => height > 1);
     expect(heights).toHaveLength(2);
     expect(heights[0] / heights[1]).toBeCloseTo(10, 1);
+  });
+});
+
+describe("visitor and device analytics charts", () => {
+  it("plots page views and unique visitors with localized series names", async () => {
+    render(
+      <AdminI18nProvider locale="tr">
+        <AdminVisitorTrendChart
+          ariaLabel="Son iki günün ziyaretleri"
+          points={[
+            { key: "2026-10-19", label: "19 Eki", views: 12, visitors: 8 },
+            { key: "2026-10-20", label: "20 Eki", views: 9, visitors: 6 },
+          ]}
+          formatters={counts}
+        />
+      </AdminI18nProvider>,
+    );
+
+    expect(screen.getByRole("img", { name: "Son iki günün ziyaretleri" })).toBeInTheDocument();
+    expect(screen.getAllByText("Sayfa görüntüleme")).toHaveLength(2);
+    expect(screen.getAllByText("Tekil ziyaretçi")).toHaveLength(2);
+    expect(screen.getByRole("table")).toHaveTextContent("19 Eki");
+    expect(document.querySelectorAll("polyline")).toHaveLength(2);
+    await userEvent.setup().hover(document.querySelector('[data-chart-hit="2026-10-19"]') as Element);
+    expect(screen.getByRole("status")).toHaveTextContent("Sayfa görüntüleme");
+    expect(screen.getByRole("status")).toHaveTextContent("Tekil ziyaretçi");
+  });
+
+  it("renders host-classified device counts as an accessible responsive ranking", () => {
+    render(
+      <AdminDeviceBreakdownChart
+        ariaLabel="Visits by device"
+        items={[
+          { key: "desktop", label: "Desktop", visits: 21 },
+          { key: "mobile", label: "Mobile", visits: 13 },
+        ]}
+        formatters={counts}
+      />,
+    );
+
+    expect(screen.getByRole("img", { name: "Visits by device" })).toBeInTheDocument();
+    expect(screen.getAllByText("21")).toHaveLength(2);
+    expect(screen.getAllByText("visits")).toHaveLength(2);
+    const desktopWidth = Number.parseFloat((document.querySelector('[data-chart-bar="desktop"]') as HTMLElement).style.width);
+    const mobileWidth = Number.parseFloat((document.querySelector('[data-chart-bar="mobile"]') as HTMLElement).style.width);
+    expect(desktopWidth).toBeGreaterThan(mobileWidth);
+    expect(mobileWidth).toBeGreaterThan(0);
   });
 });
 

@@ -357,6 +357,28 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "rank bar horizontal rows axis",
     renderable: true,
   },
+  defaultAdminAnalyticsChartMessages: {
+    category: "Internationalisation",
+    summary: "English series labels for page views, unique visitors, and device visit counts.",
+    keywords: "analytics chart labels pageviews visitors devices",
+  },
+  turkishAdminAnalyticsChartMessages: {
+    category: "Internationalisation",
+    summary: "Turkish series labels for page views, unique visitors, and device visit counts.",
+    keywords: "analytics chart labels turkish pageviews visitors devices",
+  },
+  AdminVisitorTrendChart: {
+    category: "Charts",
+    summary: "Plots host-provided page views and unique visitors by day using the responsive time-series chart.",
+    keywords: "analytics visitors pageviews trend chart days",
+    renderable: true,
+  },
+  AdminDeviceBreakdownChart: {
+    category: "Charts",
+    summary: "Ranks host-classified device visit counts with the accessible horizontal bar chart.",
+    keywords: "analytics devices desktop mobile tablet breakdown visits",
+    renderable: true,
+  },
   AdminChartTable: {
     category: "Charts",
     summary:
