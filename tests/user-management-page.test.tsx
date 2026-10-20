@@ -104,6 +104,21 @@ describe("AdminUserManagementPage", () => {
     expect(screen.getByRole("button", { name: "Save role" })).toBeDisabled();
   });
 
+  it("resets selection when an empty account list is repopulated", () => {
+    const { rerender } = render(<AdminUserManagementPage users={users.slice(0, 1)} roles={[]} />);
+    rerender(<AdminUserManagementPage users={[]} roles={[]} />);
+    expect(screen.getByText("No accounts to manage.")).toBeInTheDocument();
+
+    rerender(
+      <AdminUserManagementPage
+        users={[{ id: "new-user", email: "new@example.test", disabled: false }]}
+        roles={[]}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: /new@example.test/ })[0]).toHaveAttribute("aria-current", "true");
+  });
+
   it("renders an empty state when no accounts are available", () => {
     render(<AdminUserManagementPage users={[]} roles={[]} />);
     expect(screen.getByText("No accounts to manage.")).toBeInTheDocument();

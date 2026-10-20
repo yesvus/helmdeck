@@ -36,6 +36,7 @@ export type AdminUserManagementPageProps = {
 
 type UserManagementLocalState = {
   sourceUsers: readonly AdminUserManagementRecord[];
+  selectedId: string;
   updates: Record<string, Partial<AdminUserManagementRecord>>;
   roleDraft: { accountId: string; value: string; baseRole: string } | null;
 };
@@ -67,16 +68,20 @@ export function AdminUserManagementPage({
   const adminMessages = useAdminMessages();
   const messages = { ...defaultAdminUserManagementMessages, ...adminMessages.users };
   const locale = adminMessages.searchLocale;
-  const [selectedId, setSelectedId] = useState(users[0]?.id ?? "");
   const [confirmDisableId, setConfirmDisableId] = useState("");
   const [busy, setBusy] = useState("");
   const [feedback, setFeedback] = useState("");
-  const [localState, setLocalState] = useState<UserManagementLocalState>({ sourceUsers: users, updates: {}, roleDraft: null });
+  const [localState, setLocalState] = useState<UserManagementLocalState>({
+    sourceUsers: users,
+    selectedId: users[0]?.id ?? "",
+    updates: {},
+    roleDraft: null,
+  });
   const currentState = localState.sourceUsers === users
     ? localState
-    : { sourceUsers: users, updates: {}, roleDraft: null };
+    : { sourceUsers: users, selectedId: users[0]?.id ?? "", updates: {}, roleDraft: null };
   const displayedUsers = users.map((user) => ({ ...user, ...currentState.updates[user.id] }));
-  const selected = displayedUsers.find((user) => user.id === selectedId) ?? displayedUsers[0];
+  const selected = displayedUsers.find((user) => user.id === currentState.selectedId);
   const activeSessions = selected?.sessions ?? [];
   const roleValue = selected && currentState.roleDraft?.accountId === selected.id && currentState.roleDraft.baseRole === (selected.role ?? "")
     ? currentState.roleDraft.value
@@ -85,7 +90,7 @@ export function AdminUserManagementPage({
   function updateLocalState(update: (current: UserManagementLocalState) => UserManagementLocalState) {
     setLocalState((current) => update(current.sourceUsers === users
       ? current
-      : { sourceUsers: users, updates: {}, roleDraft: null }));
+      : { sourceUsers: users, selectedId: users[0]?.id ?? "", updates: {}, roleDraft: null }));
   }
 
   async function run(key: string, operation: () => Promise<void>, success: string, onSuccess?: () => void) {
@@ -125,8 +130,11 @@ export function AdminUserManagementPage({
                   className="flex w-full items-start justify-between gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                   disabled={busy !== ""}
                   onClick={() => {
-                    setSelectedId(user.id);
-                    updateLocalState((current) => ({ ...current, roleDraft: { accountId: user.id, value: user.role ?? "", baseRole: user.role ?? "" } }));
+                    updateLocalState((current) => ({
+                      ...current,
+                      selectedId: user.id,
+                      roleDraft: { accountId: user.id, value: user.role ?? "", baseRole: user.role ?? "" },
+                    }));
                     setConfirmDisableId("");
                     setFeedback("");
                   }}
