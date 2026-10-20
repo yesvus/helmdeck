@@ -1619,6 +1619,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Reads a submitted resource form back into a record, coercing each field's type.",
     keywords: "formdata values record parse",
   },
+  adminResourceValuesFromRecord: {
+    category: "Resources",
+    summary: "Copies declared own fields from a structured value while preserving omitted fields.",
+    keywords: "json record values fields whitelist structured partial",
+  },
   adminResourcePath: {
     category: "Resources",
     summary: "The URL path a resource lives at, derived from its name when it declares none.",
