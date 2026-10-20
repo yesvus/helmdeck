@@ -29,6 +29,8 @@ const DOCUMENTED_COMPONENTS = [
   "AdminResourceList",
   "AdminResourceForm",
   "AdminContactForm",
+  "AdminInboxList",
+  "AdminInboxMessage",
   "AdminShell",
 ];
 

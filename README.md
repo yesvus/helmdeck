@@ -47,6 +47,26 @@ import { submitContact } from "./actions";
 <AdminContactForm onSubmit={submitContact} />;
 ```
 
+## Message inbox
+
+`AdminInboxList` and `AdminInboxMessage` present a host-mapped message shape and call host-owned callbacks for opening, marking read, or archiving. Hosts provide the data, paging, routes, authorization, and persistence. English and Turkish interface messages are included, with `labels` available for local overrides.
+
+List items follow `AdminInboxItem`: `id`, `sender`, `subject`, `preview`, `receivedAt`, and a `status` of `unread`, `read`, or `archived`. The detail component takes `AdminInboxMessageData`, which adds `body`.
+
+```tsx
+import { AdminInboxList } from "@yesvus/helmdeck";
+
+<AdminInboxList
+  messages={messages}
+  page={page}
+  pageCount={pageCount}
+  onPageChange={setPage}
+  onOpen={(message) => router.push(`/admin/messages/${message.id}`)}
+  onMarkRead={(message) => markRead(message.id)}
+  onArchive={(message) => archive(message.id)}
+/>;
+```
+
 ## Install
 
 ```bash
