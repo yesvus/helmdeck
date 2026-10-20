@@ -1418,6 +1418,34 @@ Two narrower limits, stated rather than left to be discovered. A record is recor
 
 `AdminScopeAdapter` supplies the URL and resource-filter mapping consumed by `AdminScopeProvider`; the authorized request scope is passed separately. See [Request-scoped resources and links](#request-scoped-resources-and-links).
 
+`AdminSearchAdapter` powers the optional record-search affordance beside the page finder. Its `search` method returns records with a resource, id, display label, and destination href. The adapter must only return records the current session may read. Search endpoints and every destination route must independently authenticate and authorize requests; filtering results in the interface is not authorization. `createAdminSearchAdapter` is a reference composer for resource search functions and `AdminPermissionsAdapter`: it checks resource-level read access before querying and record-level access before returning each match.
+
+```tsx
+import { AdminShell, createAdminSearchAdapter } from "@yesvus/helmdeck";
+
+const recordSearch = createAdminSearchAdapter({
+  permissions,
+  resources: [
+    {
+      resource: "orders",
+      label: "Orders",
+      search: (query, signal) => searchOrders(query, signal),
+    },
+    {
+      resource: "customers",
+      label: "Customers",
+      search: (query, signal) => searchCustomers(query, signal),
+    },
+  ],
+});
+
+<AdminShell nav={nav} recordSearchAdapter={recordSearch}>
+  {children}
+</AdminShell>;
+```
+
+The record search opens with `Ctrl/⌘ Shift K`, supports arrow-key selection, Enter navigation, Escape dismissal, and announces result counts. Its loading, empty, error, and retry behavior uses the shared widget state and data loader. Leave `recordSearchAdapter` unset to keep the shell's page finder without showing record search.
+
 `AdminAuditAdapter` accepts the events a resource write leaves behind, and `AdminCacheInvalidationAdapter` receives the same writes so the host can invalidate its own caches. These two are not free-standing: `createAdminResourceActions` calls them, after the store has answered, and only for the calls that were allowed to reach it. [Recording the writes and dropping the caches](#recording-the-writes-and-dropping-the-caches) is the whole of what they are told and when. `AdminPreviewAdapter` generates preview URLs for host routes. Route paths, schemas, content, and cache tags remain in the host; these contracts intentionally do not define or expose them.
 
 Compose the optional host services independently and pass the existing auth and media adapters to components that consume them:
@@ -1435,6 +1463,7 @@ export const hostAdapters: AdminHostAdapters = {
   audit,
   preview,
   cache,
+  search: recordSearch,
 };
 ```
 

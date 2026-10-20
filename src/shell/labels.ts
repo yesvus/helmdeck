@@ -7,6 +7,15 @@ export type AdminShellLabels = {
   searchPlaceholder: string;
   searchHint: string;
   searchNoResults: string;
+  recordSearchOpen: string;
+  recordSearchLabel: string;
+  recordSearchPlaceholder: string;
+  recordSearchHint: string;
+  recordSearchResultsLabel: string;
+  recordSearchNoResults: string;
+  recordSearchLoading: string;
+  recordSearchResultCount: (count: number) => string;
+  recordSearchClose: string;
   mobileMore: string;
   breadcrumbLabel: string;
   segmentNew: string;
@@ -61,6 +70,15 @@ export const defaultAdminLabels: AdminShellLabels = {
   searchPlaceholder: "Search pages and settings",
   searchHint: "Search (Ctrl/⌘ K)",
   searchNoResults: "No matching pages or settings.",
+  recordSearchOpen: "Search records",
+  recordSearchLabel: "Search records",
+  recordSearchPlaceholder: "Search records across resources",
+  recordSearchHint: "Search records (Ctrl/⌘ Shift K)",
+  recordSearchResultsLabel: "Record search results",
+  recordSearchNoResults: "No matching records.",
+  recordSearchLoading: "Searching records.",
+  recordSearchResultCount: (count) => `${count} ${count === 1 ? "result" : "results"}`,
+  recordSearchClose: "Close record search",
   mobileMore: "More",
   breadcrumbLabel: "Breadcrumb",
   segmentNew: "New",
