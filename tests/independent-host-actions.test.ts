@@ -5,16 +5,31 @@ import { exampleBlockDefinition, type ExampleContentBlockEntry } from "../exampl
 const dependencies = vi.hoisted(() => ({
   getHostSession: vi.fn(),
   update: vi.fn(),
+  query: vi.fn(),
+  read: vi.fn(),
+  create: vi.fn(),
+  delete: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: dependencies.revalidatePath }));
 vi.mock("../examples/independent-host/host/session", () => ({ getHostSession: dependencies.getHostSession }));
 vi.mock("../examples/independent-host/host/persistence", () => ({
-  persistence: { update: dependencies.update },
+  persistence: {
+    query: dependencies.query,
+    read: dependencies.read,
+    create: dependencies.create,
+    update: dependencies.update,
+    delete: dependencies.delete,
+  },
 }));
 
-const { saveContentBlocks } = await import("../examples/independent-host/host/actions");
+const {
+  createExampleResource,
+  queryExampleResource,
+  saveContentBlocks,
+  updateExampleResource,
+} = await import("../examples/independent-host/host/actions");
 
 function validQuote(id: string): ExampleContentBlockEntry {
   return {
@@ -53,5 +68,63 @@ describe("independent host content block action", () => {
     });
     expect(dependencies.update).not.toHaveBeenCalled();
     expect(dependencies.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("independent host resource actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dependencies.getHostSession.mockResolvedValue({ role: "editor" });
+  });
+
+  it("reads only registered resources through the host adapter", async () => {
+    dependencies.query.mockResolvedValue([{ id: "project_01" }]);
+
+    await expect(queryExampleResource("projects", { status: "Active" })).resolves.toEqual([
+      { id: "project_01" },
+    ]);
+    expect(dependencies.query).toHaveBeenCalledWith("projects", { status: "Active" });
+    await expect(queryExampleResource("users")).rejects.toThrow(/not available/);
+    expect(dependencies.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks host authorization before reading records", async () => {
+    dependencies.getHostSession.mockResolvedValue({ role: "viewer" });
+
+    await expect(queryExampleResource("projects")).rejects.toThrow(/not authorized/);
+    expect(dependencies.query).not.toHaveBeenCalled();
+  });
+
+  it("validates generated-form writes against the host resource fields", async () => {
+    await expect(createExampleResource("projects", {
+      name: "Launch",
+      status: "Active",
+      owner: "Jordan Lee",
+      unexpected: "value",
+    })).rejects.toThrow(/unsupported field/);
+    expect(dependencies.create).not.toHaveBeenCalled();
+
+    dependencies.create.mockResolvedValue({ id: "project_03", name: "Launch" });
+    await expect(createExampleResource("projects", {
+      name: " Launch ",
+      status: " Active ",
+      owner: " Jordan Lee ",
+    })).resolves.toEqual({ id: "project_03", name: "Launch" });
+    expect(dependencies.create).toHaveBeenCalledWith("projects", {
+      name: "Launch",
+      status: "Active",
+      owner: "Jordan Lee",
+    });
+  });
+
+  it("does not let an update create a record that the host cannot read", async () => {
+    dependencies.read.mockResolvedValue(null);
+
+    await expect(updateExampleResource("projects", "missing", {
+      name: "Launch",
+      status: "Active",
+      owner: "Jordan Lee",
+    })).rejects.toThrow(/no longer exists/);
+    expect(dependencies.update).not.toHaveBeenCalled();
   });
 });

@@ -7,6 +7,60 @@ import { persistence } from "./persistence";
 import { getHostSession } from "./session";
 import { exampleBlockDefinition, isValidExampleBlockId } from "./block-definition";
 
+const resourceNames = new Set(["projects", "orders"]);
+
+function checkedResource(resource: string) {
+  if (!resourceNames.has(resource)) throw new Error("This resource is not available in the example host.");
+  return resource;
+}
+
+async function requireEditor() {
+  const session = await getHostSession();
+  if (!session || session.role !== "editor") throw new Error("You are not authorized to manage these records.");
+}
+
+function checkedResourceValues(resource: string, value: unknown): Record<string, string> {
+  const fields = resource === "projects" ? ["name", "status", "owner"] : ["reference", "customer", "status"];
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("Record values must be an object.");
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((key) => !fields.includes(key))) {
+    throw new Error("Record values contain an unsupported field.");
+  }
+  const checked = Object.fromEntries(fields.map((field) => {
+    const entry = record[field];
+    if (typeof entry !== "string" || entry.trim() === "" || entry.length > 120) {
+      throw new Error(`The ${field} field must be a non-empty string of at most 120 characters.`);
+    }
+    return [field, entry.trim()];
+  }));
+  return checked;
+}
+
+export async function queryExampleResource(resource: string, query?: Record<string, unknown>) {
+  await requireEditor();
+  return persistence.query(checkedResource(resource), query);
+}
+
+export async function readExampleResource(resource: string, id: string) {
+  await requireEditor();
+  return persistence.read(checkedResource(resource), id);
+}
+
+export async function createExampleResource(resource: string, value: unknown) {
+  await requireEditor();
+  const checked = checkedResource(resource);
+  return persistence.create(checked, checkedResourceValues(checked, value));
+}
+
+export async function updateExampleResource(resource: string, id: string, value: unknown) {
+  await requireEditor();
+  const checked = checkedResource(resource);
+  if (!(await persistence.read(checked, id))) throw new Error("This record no longer exists.");
+  return persistence.update(checked, id, { ...checkedResourceValues(checked, value), id });
+}
+
 export async function saveProfile(_state: AdminFormActionState, formData: FormData): Promise<AdminFormActionState> {
   const session = await getHostSession();
   if (!session || session.role !== "editor") {

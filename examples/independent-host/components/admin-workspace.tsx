@@ -1,7 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AdminI18nProvider, AdminShell, AdminThemePreference, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
+import { useMemo } from "react";
+import {
+  AdminI18nProvider,
+  AdminPermissionsProvider,
+  AdminShell,
+  AdminThemePreference,
+  type AdminNavGroup,
+  type AdminSession,
+  type AdminPermissionsAdapter,
+} from "@yesvus/helmdeck";
 
 export function AdminWorkspace({
   nav,
@@ -12,7 +21,11 @@ export function AdminWorkspace({
   session: AdminSession;
   children: ReactNode;
 }) {
-  return <AdminI18nProvider locale="en">
+  const permissions = useMemo<AdminPermissionsAdapter>(() => ({
+    can: async () => session.role === "editor",
+  }), [session.role]);
+
+  return <AdminPermissionsProvider adapter={permissions}><AdminI18nProvider locale="en">
     <AdminShell
       nav={nav}
       session={session}
@@ -22,5 +35,5 @@ export function AdminWorkspace({
     >
       {children}
     </AdminShell>
-  </AdminI18nProvider>;
+  </AdminI18nProvider></AdminPermissionsProvider>;
 }

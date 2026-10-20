@@ -3,6 +3,10 @@ import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
 
 const records = new Map<string, unknown>([
   ["workspace-profile:workspace", { name: "Sample editor" }],
+  ["projects:project_01", { id: "project_01", name: "Spring launch", status: "Active", owner: "Jordan Lee" }],
+  ["projects:project_02", { id: "project_02", name: "Customer portal", status: "Planning", owner: "Avery Chen" }],
+  ["orders:order_01", { id: "order_01", reference: "ORD-1042", customer: "Jordan Lee", status: "Paid" }],
+  ["orders:order_02", { id: "order_02", reference: "ORD-1043", customer: "Avery Chen", status: "Pending" }],
   ["content-blocks:landing", [
     {
       id: "block_hero",
