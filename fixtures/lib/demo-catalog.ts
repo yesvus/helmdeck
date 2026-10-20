@@ -878,6 +878,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "search find command palette",
     renderable: true,
   },
+  AdminRecordSearch: {
+    category: "Shell and navigation",
+    summary: "Searches host-authorized records across the resources the host selects.",
+    keywords: "records global search orders customers async permissions keyboard",
+    renderable: true,
+  },
   AdminProfileMenu: {
     category: "Shell and navigation",
     summary: "The account menu: the session's email, the profile and site links, and sign-out.",
@@ -2183,6 +2189,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Adapters",
     summary: "The session adapter over a store the host owns. Reached at `@yesvus/helmdeck/baseline`.",
     keywords: "session auth adapter baseline",
+  },
+  createAdminSearchAdapter: {
+    category: "Adapters",
+    summary: "Composes resource searches with resource- and record-level permission checks.",
+    keywords: "search adapter records permission authorized resource",
   },
   createMemoryPersistenceAdapter: {
     category: "Adapters",

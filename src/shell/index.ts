@@ -11,6 +11,7 @@ export { AdminSettingsPage } from "./admin-settings-page.js";
 export { AdminLanguagePreference } from "./admin-language-preference.js";
 export { AdminSettingsFooter } from "./admin-settings-footer.js";
 export { AdminSearch } from "./admin-search.js";
+export { AdminRecordSearch } from "./admin-record-search.js";
 export {
   AdminCan,
   AdminPermissionsProvider,

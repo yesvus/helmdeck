@@ -7,6 +7,16 @@ export type AdminShellLabels = {
   searchPlaceholder: string;
   searchHint: string;
   searchNoResults: string;
+  recordSearchOpen?: string;
+  recordSearchLabel?: string;
+  recordSearchPlaceholder?: string;
+  recordSearchHint?: string;
+  recordSearchResultsLabel?: string;
+  recordSearchNoResults?: string;
+  recordSearchLoading?: string;
+  recordSearchOneResult?: string;
+  recordSearchManyResults?: string;
+  recordSearchClose?: string;
   mobileMore: string;
   breadcrumbLabel: string;
   segmentNew: string;
@@ -53,7 +63,9 @@ export type AdminShellLabels = {
   resourceLoading: string;
 };
 
-export const defaultAdminLabels: AdminShellLabels = {
+export type ResolvedAdminShellLabels = Required<AdminShellLabels>;
+
+export const defaultAdminLabels: ResolvedAdminShellLabels = {
   sidebarExpand: "Expand sidebar",
   sidebarCollapse: "Collapse sidebar",
   brandLabel: "Admin",
@@ -61,6 +73,16 @@ export const defaultAdminLabels: AdminShellLabels = {
   searchPlaceholder: "Search pages and settings",
   searchHint: "Search (Ctrl/⌘ K)",
   searchNoResults: "No matching pages or settings.",
+  recordSearchOpen: "Search records",
+  recordSearchLabel: "Search records",
+  recordSearchPlaceholder: "Search records across resources",
+  recordSearchHint: "Search records (Ctrl/⌘ Shift K)",
+  recordSearchResultsLabel: "Record search results",
+  recordSearchNoResults: "No matching records.",
+  recordSearchLoading: "Searching records.",
+  recordSearchOneResult: "1 result",
+  recordSearchManyResults: "{count} results",
+  recordSearchClose: "Close record search",
   mobileMore: "More",
   breadcrumbLabel: "Breadcrumb",
   segmentNew: "New",
@@ -107,6 +129,9 @@ export const defaultAdminLabels: AdminShellLabels = {
   resourceLoading: "Loading...",
 };
 
-export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): AdminShellLabels {
-  return { ...defaultAdminLabels, ...labels };
+export function mergeAdminLabels(labels?: Partial<AdminShellLabels>): ResolvedAdminShellLabels {
+  const definedLabels = Object.fromEntries(
+    Object.entries(labels ?? {}).filter(([, value]) => value !== undefined),
+  ) as Partial<AdminShellLabels>;
+  return { ...defaultAdminLabels, ...definedLabels };
 }

@@ -71,6 +71,7 @@ import {
   AdminPagination,
   AdminPendingButton,
   AdminProfileMenu,
+  AdminRecordSearch,
   AdminRankChart,
   AdminRepeaterListField,
   AdminSaveButton,
@@ -1123,6 +1124,9 @@ export const catalogPreviews: Record<string, ComponentType> = {
     </Contained>
   ),
   AdminSearch: () => <AdminSearch groups={NAV} entries={SEARCH_ENTRIES} />,
+  AdminRecordSearch: () => (
+    <AdminRecordSearch adapter={{ search: async () => [] }} />
+  ),
   AdminProfileMenu: () => (
     <div className="flex justify-end">
       <AdminProfileMenu

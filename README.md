@@ -1418,6 +1418,48 @@ Two narrower limits, stated rather than left to be discovered. A record is recor
 
 `AdminScopeAdapter` supplies the URL and resource-filter mapping consumed by `AdminScopeProvider`; the authorized request scope is passed separately. See [Request-scoped resources and links](#request-scoped-resources-and-links).
 
+`AdminSearchAdapter` powers the optional record-search affordance beside the page finder. Its `search` method returns `AdminRecordSearchResult` objects with `resource`, `resourceId`, `resourceLabel`, `label`, and `href`. The adapter must only return records the current session may read. Search endpoints and every destination route must independently authenticate and authorize requests; filtering results in the interface is not authorization. `createAdminSearchAdapter` is a reference composer for resource search functions and `AdminPermissionsAdapter`: it checks resource-level read access before querying and record-level access before returning each match. The permission adapter must inspect `resourceId` in its context to apply record-level rules. Each source receives a candidate limit five times the requested result count, capped at 250, so authorized matches can fill the result list after filtering. Returned results default to 10 per resource and `maxResults` can set that from 1 to 50; record permission checks run in batches of eight. Partial results remain available when one configured resource search fails, while all resources failing produces the shared error state. Result-count overrides are strings, and the `{count}` placeholder in the plural label is replaced with the result total.
+
+```tsx
+import { AdminShell, createAdminSearchAdapter } from "@yesvus/helmdeck";
+
+async function searchOrders(query: string, signal: AbortSignal, limit: number) {
+  const response = await fetch(`/api/admin/orders/search?q=${encodeURIComponent(query)}&limit=${limit}`, { signal });
+  if (!response.ok) throw new Error("Order search failed");
+  return response.json() as Promise<Array<{ id: string; label: string; href: string }>>;
+}
+
+async function searchCustomers(query: string, signal: AbortSignal, limit: number) {
+  const response = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(query)}&limit=${limit}`, { signal });
+  if (!response.ok) throw new Error("Customer search failed");
+  return response.json() as Promise<Array<{ id: string; label: string; href: string }>>;
+}
+
+const recordSearch = createAdminSearchAdapter({
+  permissions,
+  resources: [
+    {
+      resource: "orders",
+      label: "Orders",
+      permission: "orders.read",
+      maxResults: 10,
+      search: (query, signal, limit) => searchOrders(query, signal, limit),
+    },
+    {
+      resource: "customers",
+      label: "Customers",
+      search: (query, signal, limit) => searchCustomers(query, signal, limit),
+    },
+  ],
+});
+
+<AdminShell nav={nav} recordSearchAdapter={recordSearch}>
+  {children}
+</AdminShell>;
+```
+
+The record search opens with `Ctrl/⌘ Shift K`, supports arrow-key selection, Enter navigation, Escape dismissal, and announces result counts. Its loading, empty, error, and retry behavior uses the shared widget state and data loader. Leave `recordSearchAdapter` unset to keep the shell's page finder without showing record search.
+
 `AdminAuditAdapter` accepts the events a resource write leaves behind, and `AdminCacheInvalidationAdapter` receives the same writes so the host can invalidate its own caches. These two are not free-standing: `createAdminResourceActions` calls them, after the store has answered, and only for the calls that were allowed to reach it. [Recording the writes and dropping the caches](#recording-the-writes-and-dropping-the-caches) is the whole of what they are told and when. `AdminPreviewAdapter` generates preview URLs for host routes. Route paths, schemas, content, and cache tags remain in the host; these contracts intentionally do not define or expose them.
 
 Compose the optional host services independently and pass the existing auth and media adapters to components that consume them:
@@ -1435,6 +1477,7 @@ export const hostAdapters: AdminHostAdapters = {
   audit,
   preview,
   cache,
+  search: recordSearch,
 };
 ```
 

@@ -15,6 +15,8 @@ import { AdminNavLink, isAdminNavItemActive } from "./admin-nav.js";
 import { resolveNavIcon } from "./nav-icons.js";
 import { AdminProfileMenu } from "./admin-profile-menu.js";
 import { AdminSearch, type AdminSearchEntry } from "./admin-search.js";
+import { AdminRecordSearch } from "./admin-record-search.js";
+import type { AdminSearchAdapter } from "../adapters/search.js";
 import { cn } from "../cn.js";
 import { AdminShellProvider, type AdminShellBrand } from "./context.js";
 import type { AdminShellLabels } from "./labels.js";
@@ -79,6 +81,7 @@ export function AdminShell({
   brand,
   labels,
   searchEntries,
+  recordSearchAdapter,
   searchNormalize,
   resolveBreadcrumbSegment,
   currentPageTitle,
@@ -98,6 +101,7 @@ export function AdminShell({
   brand?: AdminShellBrand;
   labels?: Partial<AdminShellLabels>;
   searchEntries?: AdminSearchEntry[];
+  recordSearchAdapter?: AdminSearchAdapter;
   searchNormalize?: (value: string) => string;
   resolveBreadcrumbSegment?: (segment: string, labels: AdminShellLabels) => string;
   currentPageTitle?: string;
@@ -384,6 +388,7 @@ export function AdminShell({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              {recordSearchAdapter ? <AdminRecordSearch adapter={recordSearchAdapter} labels={labels} /> : null}
               {topbarExtra ? (
                 <div className="flex items-center justify-end gap-2">{topbarExtra}</div>
               ) : null}
