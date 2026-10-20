@@ -5,6 +5,7 @@ import {
   createContactSubmissionThrottle,
   parseContactSubmission,
   persistContactSubmission,
+  validateAndThrottleContactSubmission,
 } from "../fixtures/lib/contact-submission";
 
 describe("parseContactSubmission", () => {
@@ -16,6 +17,28 @@ describe("parseContactSubmission", () => {
     expect(allow).toThrow(/Too many contact messages/);
     current += 500;
     expect(allow).not.toThrow();
+  });
+
+  it("validates before charging the contact submission quota", () => {
+    const allow = createContactSubmissionThrottle({ limit: 1 });
+    expect(() => validateAndThrottleContactSubmission({ name: "" }, allow)).toThrow(/invalid/);
+    expect(validateAndThrottleContactSubmission({
+      name: "Ada",
+      email: "ada@example.com",
+      subject: "Question",
+      message: "Hello",
+    }, allow)).toEqual({
+      name: "Ada",
+      email: "ada@example.com",
+      subject: "Question",
+      message: "Hello",
+    });
+    expect(() => validateAndThrottleContactSubmission({
+      name: "Ada",
+      email: "ada@example.com",
+      subject: "Question",
+      message: "Hello",
+    }, allow)).toThrow(/Too many contact messages/);
   });
 
   it("trims and returns the supported contact fields", () => {

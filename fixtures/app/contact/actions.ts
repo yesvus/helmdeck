@@ -3,10 +3,13 @@
 
 import { demoPersistence } from "../../lib/demo-persistence";
 import { ensureDemoSeeded } from "../../lib/ensure-seeded";
-import { allowContactSubmission, persistContactSubmission } from "../../lib/contact-submission";
+import {
+  persistContactSubmission,
+  validateAndThrottleContactSubmission,
+} from "../../lib/contact-submission";
 
 export async function submitContactMessage(input: unknown): Promise<void> {
-  allowContactSubmission();
+  const submission = validateAndThrottleContactSubmission(input);
   await ensureDemoSeeded();
-  await persistContactSubmission(demoPersistence().adapter, input);
+  await persistContactSubmission(demoPersistence().adapter, submission);
 }

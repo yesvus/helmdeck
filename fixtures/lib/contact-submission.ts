@@ -31,6 +31,16 @@ export function createContactSubmissionThrottle({
 
 export const allowContactSubmission = createContactSubmissionThrottle();
 
+export function validateAndThrottleContactSubmission(
+  value: unknown,
+  allow: () => void = allowContactSubmission,
+): AdminContactSubmission {
+  const submission = parseContactSubmission(value);
+  if (!submission) throw new Error("The contact message is invalid");
+  allow();
+  return submission;
+}
+
 function boundedText(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
