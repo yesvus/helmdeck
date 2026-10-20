@@ -27,6 +27,7 @@ const users = [
     sessions: [
       { id: "session-1", accountId: "user-1", email: "editor@example.test", expiresAt: 1_800_000_000, current: false, disabled: false },
       { id: "session-2", accountId: "user-1", email: "editor@example.test", expiresAt: 1_800_000_000, current: true, disabled: false },
+      { id: "session-3", accountId: "user-1", email: "editor@example.test", expiresAt: Number.MAX_VALUE, current: false, disabled: false },
     ],
   },
   { id: "user-2", email: "admin@example.test", role: "admin", disabled: true },
@@ -58,8 +59,13 @@ describe("AdminUserManagementPage", () => {
     expect(screen.getByText(/Son etkinlik:/)).toBeInTheDocument();
     expect(screen.getByText("Son işlemler")).toBeInTheDocument();
     expect(screen.getAllByText("update")).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: "Oturumu sonlandır" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Oturumu sonlandır" })).toHaveLength(2);
     expect(screen.getByText(/Bu oturum/)).toBeInTheDocument();
+    expect(screen.getByText(/Belirtilmedi/)).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Oturumu sonlandır" })[0]);
+    expect(onEndSession).toHaveBeenCalledWith("session-1");
+    expect(screen.queryByText(/session-1/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Hesabı devre dışı bırak" }));
     expect(screen.getByText("Bu hesabı devre dışı bırakmak etkin oturumları sonlandırır.")).toBeInTheDocument();
@@ -68,9 +74,8 @@ describe("AdminUserManagementPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Parola sıfırlama gönder" }));
     expect(onResetPassword).toHaveBeenCalledWith("user-1");
-    await user.click(screen.getByRole("button", { name: "Oturumu sonlandır" }));
-    expect(onEndSession).toHaveBeenCalledWith("session-1");
     expect(onUpdated).toHaveBeenCalledTimes(3);
+    expect(screen.queryByRole("button", { name: "Hesabı devre dışı bırak" })).not.toBeInTheDocument();
   });
 
   it("renders a host's role vocabulary and supports clearing the assigned role", async () => {
@@ -83,7 +88,7 @@ describe("AdminUserManagementPage", () => {
     expect(onSetRole).toHaveBeenCalledWith("user-1", "");
   });
 
-  it("resets the role draft when refreshed account data replaces the selected account", async () => {
+  it("resets the role draft when refreshed account data changes", async () => {
     const user = userEvent.setup();
     const onSetRole = vi.fn().mockResolvedValue(undefined);
     const { rerender } = render(
@@ -92,7 +97,7 @@ describe("AdminUserManagementPage", () => {
 
     await user.selectOptions(screen.getByLabelText("Role"), "admin");
     rerender(
-      <AdminUserManagementPage users={[{ id: "user-2", email: "admin@example.test", role: "editor", disabled: false }]} roles={["admin", "editor"]} onSetRole={onSetRole} />,
+      <AdminUserManagementPage users={users.map((account) => ({ ...account }))} roles={["admin", "editor"]} onSetRole={onSetRole} />,
     );
 
     expect(screen.getByLabelText("Role")).toHaveValue("editor");

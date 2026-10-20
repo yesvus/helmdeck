@@ -14,6 +14,7 @@ export type AdminUserManagementMessages = {
   created: string;
   lastActivity: string;
   noActivity: string;
+  notRecorded: string;
   recentActivity: string;
   noRecentActivity: string;
   saveRole: string;
@@ -40,7 +41,7 @@ export const defaultAdminUserManagementMessages: AdminUserManagementMessages = {
   title: "User management",
   description: "Manage accounts, access, sessions, and user activity.",
   accounts: "Accounts",
-  accountCount: (count) => `${count} accounts`,
+  accountCount: (count) => `${count} ${count === 1 ? "account" : "accounts"}`,
   name: "Name",
   email: "Email",
   role: "Role",
@@ -50,6 +51,7 @@ export const defaultAdminUserManagementMessages: AdminUserManagementMessages = {
   created: "Created",
   lastActivity: "Last activity",
   noActivity: "No recorded activity",
+  notRecorded: "Not recorded",
   recentActivity: "Recent actions",
   noRecentActivity: "No recent actions for this user.",
   saveRole: "Save role",
@@ -86,6 +88,7 @@ export const turkishAdminUserManagementMessages: AdminUserManagementMessages = {
   created: "Oluşturulma",
   lastActivity: "Son etkinlik",
   noActivity: "Kaydedilmiş etkinlik yok",
+  notRecorded: "Belirtilmedi",
   recentActivity: "Son işlemler",
   noRecentActivity: "Bu kullanıcı için yakın zamanda işlem yok.",
   saveRole: "Rolü kaydet",
@@ -98,7 +101,7 @@ export const turkishAdminUserManagementMessages: AdminUserManagementMessages = {
   resetPassword: "Parola sıfırlama gönder",
   resetRequested: "Parola sıfırlama isteği gönderildi.",
   sessions: "Etkin oturumlar",
-  expires: "Son kullanma",
+  expires: "Geçerlilik tarihi",
   currentSession: "Bu oturum",
   endSession: "Oturumu sonlandır",
   sessionEnded: "Oturum sonlandırıldı.",

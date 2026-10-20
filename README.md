@@ -259,8 +259,6 @@ function toneForStatus(status: "healthy" | "degraded" | "failed"): AdminTone {
 
 `AdminShell` points its profile entry at `${homeHref}/profile` when no `profileHref` is given, so mount `AdminProfilePage` there and the entry works with no wiring. `AdminSettingsPage` is a frame that takes sections as props, and is what `settingsHref` should point at.
 
-`AdminUserManagementPage` provides a full account-management surface rather than a modal-only flow. Hosts pass account records without credential fields, the role vocabulary, sessions, recent audit events for each account, and server actions for role changes, enable/disable, password-reset delivery, and session revocation. Omit an operation callback to omit its control. The host remains responsible for permission checks inside every server action; hiding a control is only presentation.
-
 ```tsx
 // app/admin/profile/page.tsx
 <AdminProfilePage session={session} settingsHref="/admin/settings" onSignOut={signOut} />
@@ -539,6 +537,10 @@ export const accounts = createAccountAdmin(store, {
 ```
 
 `list`, `create`, `setRole`, `setDisabled`, `listSessions` and `endSession` each take the caller's session and return `{ ok: true, ... }` or `{ ok: false, message }`. The two predicates that need to decide about one record are handed its id rather than the row, so the question is asked before the store is reached; a host that wants to decide on the record looks it up in its own rule, which is where a store read belongs. **Every predicate is a host policy and absent means refused**, for the same reason as `mayEndAllSessions`. The package has no vocabulary for roles, so `may` is the only thing that knows what one is.
+
+#### User management page
+
+`AdminUserManagementPage` accepts `users`, `roles`, and optional `onSetRole`, `onSetDisabled`, `onResetPassword`, `onEndSession`, and `onUpdated` props. Each user can include `lastActivityAt`, `recentActivity` audit events, and active `sessions`. Operation callbacks are supplied by the host, so password-reset delivery and account/session writes remain in host server actions. Omit a callback to hide its control, and authorize every server action on the server because presentation does not enforce permission.
 
 Three decisions are worth stating, because each is the other answer too.
 
