@@ -35,7 +35,7 @@ export function HostLoginForm() {
           type="email"
           autoComplete="username"
           required
-          defaultValue="editor@example.test"
+          defaultValue={process.env.NODE_ENV !== "production" ? "editor@example.test" : undefined}
         />
       </label>
       <label className="grid gap-1">
