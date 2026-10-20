@@ -149,6 +149,7 @@ each is one you have to make rather than one you have to find later.
 8. **A contact form endpoint.** `AdminContactForm` renders and submits the common contact fields, but
    the Server Action that validates, rate-limits, stores, or emails a message belongs to your app.
    Treat its input as untrusted and write through your own persistence adapter or data-access layer.
+   Use a shared rate-limit store when the app runs across multiple server instances.
 
 ```tsx
 import { AdminContactForm } from "@yesvus/helmdeck";

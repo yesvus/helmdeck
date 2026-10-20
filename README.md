@@ -38,7 +38,7 @@ import { AdminLoadingState, AdminTableSkeleton } from "@yesvus/helmdeck";
 
 ## Contact form
 
-`AdminContactForm` collects bounded name, email, subject, and message fields, then hands them to a host callback. The host owns server-side validation, abuse controls, persistence, and any email delivery.
+`AdminContactForm` collects bounded name, email, subject, and message fields, then hands them to a host callback. The host owns server-side validation, abuse controls, persistence, and any email delivery. The fixture applies a per-process submission cap; deployments with multiple server instances should use a shared rate-limit store.
 
 ```tsx
 import { AdminContactForm } from "@yesvus/helmdeck";
