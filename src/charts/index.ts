@@ -19,10 +19,14 @@ export type {
   AdminChartSeries,
   AdminChartSeriesClasses,
 } from "./series-types.js";
-export { adminChartFormatters, AdminChartTable } from "./table.js";
-export type { AdminChartFormatters, AdminChartUnit } from "./table.js";
+export { adminChartFormatters, AdminChartTable, defaultAdminChartTableLabels } from "./table.js";
+export type { AdminChartFormatters, AdminChartUnit, AdminChartTableLabels } from "./table.js";
 export { AdminChartFrame, defaultAdminChartFrameLabels } from "./frame.js";
 export type { AdminChartFrameLabels, AdminChartStatus } from "./frame.js";
 export { AdminTimeSeriesChart } from "./time-series.js";
 export { AdminRankChart } from "./rank.js";
 export type { AdminRankItem } from "./rank.js";
+export { AdminVisitorTrendChart, AdminDeviceBreakdownChart } from "./analytics.js";
+export type { AdminVisitorTrendPoint, AdminDeviceBreakdownItem } from "./analytics.js";
+export { defaultAdminAnalyticsChartMessages, turkishAdminAnalyticsChartMessages } from "./analytics-messages.js";
+export type { AdminAnalyticsChartMessages } from "./analytics-messages.js";

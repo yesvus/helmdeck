@@ -343,6 +343,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "frame card states loading empty error ready",
     renderable: true,
   },
+  defaultAdminChartTableLabels: {
+    category: "Charts",
+    summary: "English default headings for the accessible chart data table.",
+    keywords: "chart table labels accessible period item value",
+  },
   AdminTimeSeriesChart: {
     category: "Charts",
     summary:
@@ -355,6 +360,28 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary:
       "One row per thing with its bar against a labelled axis, built from elements rather than SVG so a long name truncates instead of overlapping.",
     keywords: "rank bar horizontal rows axis",
+    renderable: true,
+  },
+  defaultAdminAnalyticsChartMessages: {
+    category: "Internationalisation",
+    summary: "English series labels for page views, unique visitors, and device visit counts.",
+    keywords: "analytics chart labels pageviews visitors devices",
+  },
+  turkishAdminAnalyticsChartMessages: {
+    category: "Internationalisation",
+    summary: "Turkish series labels for page views, unique visitors, and device visit counts.",
+    keywords: "analytics chart labels turkish pageviews visitors devices",
+  },
+  AdminVisitorTrendChart: {
+    category: "Charts",
+    summary: "Plots host-provided page views and unique visitors by day using the responsive time-series chart.",
+    keywords: "analytics visitors pageviews trend chart days",
+    renderable: true,
+  },
+  AdminDeviceBreakdownChart: {
+    category: "Charts",
+    summary: "Ranks host-classified device visit counts with the accessible horizontal bar chart.",
+    keywords: "analytics devices desktop mobile tablet breakdown visits",
     renderable: true,
   },
   AdminChartTable: {

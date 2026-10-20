@@ -47,6 +47,7 @@ export function AdminTimeSeriesChart({
   seriesClasses,
   className,
   ariaLabel,
+  tableLabels,
 }: {
   categories: ReadonlyArray<AdminChartCategory>;
   series: readonly AdminChartSeries[];
@@ -57,6 +58,7 @@ export function AdminTimeSeriesChart({
   seriesClasses?: readonly AdminChartSeriesClasses[];
   className?: string;
   ariaLabel: string;
+  tableLabels?: { period: string };
 }) {
   const [active, setActive] = useState<number | null>(null);
 
@@ -251,6 +253,7 @@ export function AdminTimeSeriesChart({
         categories={categories}
         series={series}
         format={formatters.value}
+        labels={tableLabels}
       />
     </figure>
   );
