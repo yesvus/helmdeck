@@ -102,7 +102,7 @@ export function AdminSwitch({
           "peer-checked:bg-brand-600 peer-checked:after:translate-x-5",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-2",
           "peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
-          "peer-data-[invalid]:bg-red-500",
+          "peer-data-invalid:bg-red-500",
         )}
       />
     </span>
