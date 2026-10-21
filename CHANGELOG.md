@@ -18,6 +18,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - `AdminCalendar`, `AdminDatePicker` and `AdminDateRangePicker`: the date controls, in the admin theme and in the reader's locale. A day is a `YYYY-MM-DD` string and a month is a `YYYY-MM` string, the week starts on the day the locale starts it, and the reader moves through the days with the arrow keys and through the months with the page keys.
 - `AdminDataTable` and `useAdminDataTable`: the table with the behaviour layer on top, for the rows a host already holds. A search field, the filters, sortable headers and a pager, over a column definition list. The sorting cycles ascending, descending and back to the rows' own order, the same way the resource list's own control does it, and the resource list keeps its server-side behaviour.
 
+- The data table's column settings: which columns are shown, where they are pinned and in what order, with a resize handle on the header and a drag handle in the settings panel. The column state is part of the table's state, so a host can hold it.
+
 ### Changed
 
 - The README states the batteries-included commitment and gains a Component primitives reference listing every primitive the package exports from its root, so a host can see what ships before deciding what to write.
