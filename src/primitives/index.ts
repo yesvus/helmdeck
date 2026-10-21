@@ -15,6 +15,8 @@ export { AdminDestructiveAction } from "./destructive-action.js";
 export { AdminContextualHelp } from "./contextual-help.js";
 export { AdminContactForm } from "./contact-form.js";
 export type { AdminContactFormLabels, AdminContactSubmission } from "./contact-form.js";
+export { AdminAvatar, AdminBadge, AdminBreadcrumb, AdminProgress, AdminSeparator } from "./display.js";
+export type { AdminAvatarSize, AdminBreadcrumbItem } from "./display.js";
 export { Tooltip, TooltipProvider } from "./tooltip.js";
 export { AdminEmptyState } from "./empty-state.js";
 export { AdminField, AdminFieldGrid, AdminFormActions, AdminFormSection } from "./field.js";

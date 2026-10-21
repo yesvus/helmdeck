@@ -11,6 +11,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 ### Added
 
 - `AdminCheckbox`, `AdminSwitch`, `AdminRadioGroup` and `AdminToggle`: the form controls a settings screen needs, on the same tokens as the other primitives. Inside an `AdminField` a control takes the field's id, its hint and its error state, so the label names it and the error marks it. The radio group moves between its options with the arrow keys, and the table's row selection uses the checkbox primitive.
+- `AdminBadge`, `AdminAvatar`, `AdminProgress`, `AdminSeparator` and `AdminBreadcrumb`: the display pieces a row and a page header are made of. The avatar falls back to the person's initials when there is no picture, the progress bar reads its value out as a percentage, and the breadcrumb marks the current page with `aria-current`. The shell's own breadcrumbs render through the new primitive.
 
 ### Changed
 
