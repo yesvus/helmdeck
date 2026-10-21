@@ -395,6 +395,8 @@ export function AdminDataTable<T>({
       align: column.align,
       width: columnState?.size ? `${columnState.size}px` : column.width,
       style: pinnedOffsets[column.key],
+      // The sticky position is on the body cells as well as on the header, so a pinned column
+      // stays put for the whole height of the table and not only for its heading.
       className: cn(
         column.className,
         pinned === "left" && "sticky left-0 z-10 bg-admin-surface",
