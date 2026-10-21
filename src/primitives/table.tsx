@@ -4,6 +4,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
+import { AdminCheckbox } from "./form-controls.js";
 
 export type AdminTableColumn<T> = {
   key: string;
@@ -52,18 +53,16 @@ export function AdminTable<T>({
           <tr className="border-b border-zinc-200 bg-zinc-50">
             {selection ? (
               <th scope="col" className="w-12 px-3 py-3 text-left">
-                <input
-                  type="checkbox"
+                <AdminCheckbox
                   aria-label={selection.selectAllLabel}
                   checked={allSelected}
                   disabled={rows.length === 0}
-                  ref={(element) => { if (element) element.indeterminate = someSelected && !allSelected; }}
+                  indeterminate={someSelected && !allSelected}
                   onChange={(event) => {
                     const next = new Set(selection.selectedKeys);
                     rows.forEach((row) => event.target.checked ? next.add(getKey(row)) : next.delete(getKey(row)));
                     selection.onSelectionChange(next);
                   }}
-                  className="h-4 w-4 rounded border-zinc-300 accent-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                 />
               </th>
             ) : null}
@@ -101,8 +100,7 @@ export function AdminTable<T>({
               >
                 {selection ? (
                   <td className="w-12 px-3 py-4 align-middle">
-                    <input
-                      type="checkbox"
+                    <AdminCheckbox
                       aria-label={`${selection.label} ${String(getKey(row))}`}
                       checked={selection.selectedKeys.has(getKey(row))}
                       onChange={(event) => {
@@ -111,7 +109,6 @@ export function AdminTable<T>({
                         else next.delete(getKey(row));
                         selection.onSelectionChange(next);
                       }}
-                      className="h-4 w-4 rounded border-zinc-300 accent-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                     />
                   </td>
                 ) : null}

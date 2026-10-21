@@ -59,7 +59,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Area | Primitives |
 | --- | --- |
 | Surfaces and layout | `AdminSurfaceCard`, `AdminSectionCard`, `AdminFormCard`, `AdminListItemCard`, `AdminStatCard`, `AdminBanner`, `AdminSectionIntro`, `AdminSplitFormLayout`, `AdminPageActionLink` |
-| Forms | `AdminField`, `AdminFieldGrid`, `AdminFormSection`, `AdminFormActions`, `AdminInput`, `AdminTextarea`, `AdminSelect`, `AdminManagedForm`, `AdminRepeaterListField`, `AdminContactForm`, `AdminContextualHelp` |
+| Forms | `AdminField`, `AdminFieldGrid`, `AdminFormSection`, `AdminFormActions`, `AdminInput`, `AdminTextarea`, `AdminSelect`, `AdminCheckbox`, `AdminSwitch`, `AdminRadioGroup`, `AdminToggle`, `AdminManagedForm`, `AdminRepeaterListField`, `AdminContactForm`, `AdminContextualHelp` |
 | Buttons | `Button`, `AdminSubmitButton`, `AdminSaveButton`, `AdminPendingButton`, `AdminDestructiveAction` |
 | Tables | `AdminTable`, `AdminTableActionButton`, `AdminTableRowActions`, `AdminTableBulkActions`, `AdminPagination`, `useAdminTableSelection` |
 | Dialogs, tooltips and toasts | `AdminModal` with its header, body, footer, title, description, trigger and close parts, `Tooltip`, `TooltipProvider`, `AdminToastCard`, `AdminToastViewport` |
@@ -69,6 +69,40 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
 
 The shell, the generated resource views, the dashboard, the charts, the media library, the inbox, the activity timeline and the trash view are exported from the same package root. See [Getting started](#getting-started-the-admin-baseline) for the engine behind them, and [Host integration contracts](#host-integration-contracts) for the seams a host connects to.
+
+## Form controls
+
+`AdminCheckbox`, `AdminSwitch`, `AdminRadioGroup` and `AdminToggle` are the controls a settings form needs, on the same tokens as `AdminInput`.
+
+```tsx
+import { AdminCheckbox, AdminField, AdminRadioGroup, AdminSwitch, AdminToggle } from "@yesvus/helmdeck";
+
+<AdminField label="Send a receipt" hint="Goes to the billing address" id="receipt">
+  <AdminCheckbox />
+</AdminField>
+
+<AdminField label="Email notifications" id="notifications">
+  <AdminSwitch />
+</AdminField>
+
+<AdminField label="Visibility" id="visibility">
+  <AdminRadioGroup
+    name="visibility"
+    options={[
+      { value: "public", label: "Public" },
+      { value: "private", label: "Private", hint: "Only your team sees it" },
+    ]}
+  />
+</AdminField>
+
+<AdminToggle pressed={compact} onPressedChange={setCompact}>
+  Compact
+</AdminToggle>
+```
+
+Inside an `AdminField` a control takes the field's id, its hint and its error state, so the label names it, the hint describes it and the error marks it as invalid. A field without an id still names the control, because its label wraps it.
+
+`AdminRadioGroup` moves between its options with the arrow keys, and skips the options that are disabled. `AdminSwitch` reports its state as a switch rather than as a checked box. `AdminToggle` reports its state with `aria-pressed`, so it reads as pressed rather than as checked.
 
 ## Loading states
 
