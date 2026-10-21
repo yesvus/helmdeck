@@ -40,10 +40,34 @@ describe("AdminAvatar", () => {
     const { container } = render(<AdminAvatar name="Ada Lovelace" src="/missing.png" />);
     fireEvent.error(container.querySelector("img")!);
     expect(screen.getByText("AL")).toBeInTheDocument();
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("reads out the alternative text when there is no picture to show", () => {
+    const { container } = render(<AdminAvatar name="Ada Lovelace" alt="Ada Lovelace" />);
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByText("Ada Lovelace")).toHaveClass("sr-only");
+    expect(screen.getByText("AL")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("tries a new source after an earlier one failed", () => {
+    const { container, rerender } = render(<AdminAvatar name="Ada Lovelace" src="/missing.png" />);
+    fireEvent.error(container.querySelector("img")!);
+    expect(screen.getByText("AL")).toBeInTheDocument();
+
+    rerender(<AdminAvatar name="Ada Lovelace" src="/ada.png" />);
+    expect(container.querySelector("img")).toHaveAttribute("src", "/ada.png");
   });
 });
 
 describe("AdminProgress", () => {
+  it("keeps a number that is not finite out of its values", () => {
+    render(<AdminProgress value={Number.NaN} max={Number.POSITIVE_INFINITY} label="Import progress" />);
+    const bar = screen.getByRole("progressbar", { name: "Import progress" });
+    expect(bar).toHaveAttribute("aria-valuenow", "0");
+    expect(bar).toHaveAttribute("aria-valuemax", "100");
+    expect(bar).toHaveAttribute("aria-valuetext", "0%");
+  });
   it("reads its value out to assistive technology", () => {
     render(<AdminProgress value={40} label="Import progress" />);
     const bar = screen.getByRole("progressbar", { name: "Import progress" });

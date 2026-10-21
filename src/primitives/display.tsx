@@ -78,8 +78,10 @@ export function AdminAvatar({
   alt?: string;
   className?: string;
 }) {
-  const [failed, setFailed] = useState(false);
-  const showImage = Boolean(src) && !failed;
+  // The source that failed is the one that is remembered, so a new source is tried again rather
+  // than inheriting the failure of the last one.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImage = Boolean(src) && failedSrc !== src;
   return (
     <span
       className={cn(
@@ -92,11 +94,14 @@ export function AdminAvatar({
         <img
           src={src}
           alt={alt}
-          onError={() => setFailed(true)}
+          onError={() => setFailedSrc(src ?? null)}
           className="h-full w-full object-cover"
         />
       ) : (
-        <span aria-hidden={alt ? undefined : "true"}>{initialsFrom(name)}</span>
+        <>
+          <span aria-hidden="true">{initialsFrom(name)}</span>
+          {alt ? <span className="sr-only">{alt}</span> : null}
+        </>
       )}
     </span>
   );
@@ -119,8 +124,11 @@ export function AdminProgress({
   showValue?: boolean;
   className?: string;
 }) {
-  const boundedMax = max > 0 ? max : 100;
-  const boundedValue = Math.min(Math.max(value, 0), boundedMax);
+  // A number that is not finite would put "NaN" into the ARIA values and into the width of the
+  // bar, so it is bounded into something a reader can be told about.
+  const boundedMax = Number.isFinite(max) && max > 0 ? max : 100;
+  const safeValue = Number.isFinite(value) ? value : 0;
+  const boundedValue = Math.min(Math.max(safeValue, 0), boundedMax);
   const percent = Math.round((boundedValue / boundedMax) * 100);
   return (
     <div className={cn("grid gap-1.5", className)}>
@@ -206,14 +214,14 @@ export function AdminBreadcrumb({
         {items.map((item, index) => {
           // A trail that names its current page is taken at its word; one that does not names its
           // last page, which is where the reader is.
-          const named = items.some((candidate) => candidate.current !== undefined);
+          const named = items.some((candidate) => candidate.current === true);
           const current = item.current ?? (!named && index === items.length - 1);
           return (
             <li key={index} className="flex min-w-0 items-center gap-1.5">
               {index > 0 ? <ChevronRight className="h-3 w-3 shrink-0" aria-hidden="true" /> : null}
               {current ? (
                 <span aria-current="page" className="truncate text-zinc-700">{item.label}</span>
-              ) : item.href && typeof item.label === "string" ? (
+              ) : item.href ? (
                 <a href={item.href} className="truncate hover:text-zinc-900">{item.label}</a>
               ) : (
                 <span className="truncate">{item.label}</span>
