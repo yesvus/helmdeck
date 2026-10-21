@@ -30,6 +30,36 @@ import {
   AdminChartTable,
   AdminCheckbox,
   AdminContextualHelp,
+  AdminContextMenu,
+  AdminContextMenuContent,
+  AdminContextMenuItem,
+  AdminContextMenuLabel,
+  AdminContextMenuSeparator,
+  AdminContextMenuTrigger,
+  AdminDropdownMenu,
+  AdminDropdownMenuCheckboxItem,
+  AdminDropdownMenuContent,
+  AdminDropdownMenuItem,
+  AdminDropdownMenuLabel,
+  AdminDropdownMenuRadioGroup,
+  AdminDropdownMenuRadioItem,
+  AdminDropdownMenuSeparator,
+  AdminDropdownMenuTrigger,
+  AdminPopover,
+  AdminPopoverClose,
+  AdminPopoverContent,
+  AdminPopoverDescription,
+  AdminPopoverTitle,
+  AdminPopoverTrigger,
+  AdminSheet,
+  AdminSheetBody,
+  AdminSheetClose,
+  AdminSheetContent,
+  AdminSheetDescription,
+  AdminSheetFooter,
+  AdminSheetHeader,
+  AdminSheetTitle,
+  AdminSheetTrigger,
   AdminContactForm,
   AdminDeviceBreakdownChart,
   AdminContentSkeleton,
@@ -718,9 +748,97 @@ function ToggleSample() {
       Compact
     </AdminToggle>
   );
+
+/** Every overlay part is shown inside a real overlay, since none of them renders anything alone. */
+function dropdownPart(children: ReactNode): ComponentType {
+  return function DropdownPart() {
+    const [open, setOpen] = useState(false);
+    return (
+      <AdminDropdownMenu open={open} onOpenChange={setOpen}>
+        <AdminDropdownMenuTrigger asChild>
+          <Button variant="outline" onClick={() => setOpen(true)}>Open the menu</Button>
+        </AdminDropdownMenuTrigger>
+        <AdminDropdownMenuContent>{children}</AdminDropdownMenuContent>
+      </AdminDropdownMenu>
+    );
+  };
+}
+
+function popoverPart(children: ReactNode): ComponentType {
+  return function PopoverPart() {
+    const [open, setOpen] = useState(false);
+    return (
+      <AdminPopover open={open} onOpenChange={setOpen}>
+        <AdminPopoverTrigger asChild>
+          <Button variant="outline" onClick={() => setOpen(true)}>Open the popover</Button>
+        </AdminPopoverTrigger>
+        <AdminPopoverContent>{children}</AdminPopoverContent>
+      </AdminPopover>
+    );
+  };
+}
+
+function contextMenuPart(children: ReactNode): ComponentType {
+  return function ContextMenuPart() {
+    return (
+      <AdminContextMenu>
+        <AdminContextMenuTrigger asChild>
+          <Button variant="outline">Right click the record</Button>
+        </AdminContextMenuTrigger>
+        <AdminContextMenuContent>{children}</AdminContextMenuContent>
+      </AdminContextMenu>
+    );
+  };
+}
+
+function sheetPart(children: ReactNode): ComponentType {
+  return function SheetPart() {
+    const [open, setOpen] = useState(false);
+    return (
+      <AdminSheet open={open} onOpenChange={setOpen}>
+        <AdminSheetTrigger asChild>
+          <Button variant="outline" onClick={() => setOpen(true)}>Open the sheet</Button>
+        </AdminSheetTrigger>
+        <AdminSheetContent side="right" aria-label="Sheet sample">
+          <div className="space-y-3">{children}</div>
+        </AdminSheetContent>
+      </AdminSheet>
+    );
+  };
+
 }
 
 export const catalogPreviews: Record<string, ComponentType> = {
+  AdminDropdownMenu: dropdownPart(<AdminDropdownMenuItem>Duplicate</AdminDropdownMenuItem>),
+  AdminDropdownMenuTrigger: dropdownPart(<AdminDropdownMenuItem>Duplicate</AdminDropdownMenuItem>),
+  AdminDropdownMenuContent: dropdownPart(<AdminDropdownMenuItem>Duplicate</AdminDropdownMenuItem>),
+  AdminDropdownMenuItem: dropdownPart(<AdminDropdownMenuItem>Duplicate</AdminDropdownMenuItem>),
+  AdminDropdownMenuLabel: dropdownPart(<><AdminDropdownMenuLabel>Record</AdminDropdownMenuLabel><AdminDropdownMenuItem>Duplicate</AdminDropdownMenuItem></>),
+  AdminDropdownMenuSeparator: dropdownPart(<><AdminDropdownMenuItem>Duplicate</AdminDropdownMenuItem><AdminDropdownMenuSeparator /><AdminDropdownMenuItem>Delete</AdminDropdownMenuItem></>),
+  AdminDropdownMenuCheckboxItem: dropdownPart(<AdminDropdownMenuCheckboxItem checked>Show archived</AdminDropdownMenuCheckboxItem>),
+  AdminDropdownMenuRadioGroup: dropdownPart(<AdminDropdownMenuRadioGroup value="grid" onValueChange={() => {}}><AdminDropdownMenuRadioItem value="grid">Grid</AdminDropdownMenuRadioItem></AdminDropdownMenuRadioGroup>),
+  AdminDropdownMenuRadioItem: dropdownPart(<AdminDropdownMenuRadioGroup value="grid" onValueChange={() => {}}><AdminDropdownMenuRadioItem value="grid">Grid</AdminDropdownMenuRadioItem></AdminDropdownMenuRadioGroup>),
+  AdminPopover: popoverPart(<p className="text-sm text-zinc-600">Filters for the list.</p>),
+  AdminPopoverTrigger: popoverPart(<p className="text-sm text-zinc-600">Filters for the list.</p>),
+  AdminPopoverContent: popoverPart(<p className="text-sm text-zinc-600">Filters for the list.</p>),
+  AdminPopoverClose: popoverPart(<AdminPopoverClose asChild><Button variant="outline">Close</Button></AdminPopoverClose>),
+  AdminPopoverTitle: popoverPart(<AdminPopoverTitle>Filters</AdminPopoverTitle>),
+  AdminPopoverDescription: popoverPart(<><AdminPopoverTitle>Filters</AdminPopoverTitle><AdminPopoverDescription>Only the columns you pick.</AdminPopoverDescription></>),
+  AdminContextMenu: contextMenuPart(<AdminContextMenuItem>Duplicate</AdminContextMenuItem>),
+  AdminContextMenuTrigger: contextMenuPart(<AdminContextMenuItem>Duplicate</AdminContextMenuItem>),
+  AdminContextMenuContent: contextMenuPart(<AdminContextMenuItem>Duplicate</AdminContextMenuItem>),
+  AdminContextMenuItem: contextMenuPart(<AdminContextMenuItem>Duplicate</AdminContextMenuItem>),
+  AdminContextMenuLabel: contextMenuPart(<><AdminContextMenuLabel>Record</AdminContextMenuLabel><AdminContextMenuItem>Duplicate</AdminContextMenuItem></>),
+  AdminContextMenuSeparator: contextMenuPart(<><AdminContextMenuItem>Duplicate</AdminContextMenuItem><AdminContextMenuSeparator /><AdminContextMenuItem>Delete</AdminContextMenuItem></>),
+  AdminSheet: sheetPart(<p className="text-sm text-zinc-600">The record's details.</p>),
+  AdminSheetTrigger: sheetPart(<p className="text-sm text-zinc-600">The record's details.</p>),
+  AdminSheetContent: sheetPart(<p className="text-sm text-zinc-600">The record's details.</p>),
+  AdminSheetClose: sheetPart(<AdminSheetClose asChild><Button variant="outline">Close</Button></AdminSheetClose>),
+  AdminSheetTitle: sheetPart(<AdminSheetTitle>Details</AdminSheetTitle>),
+  AdminSheetDescription: sheetPart(<><AdminSheetTitle>Details</AdminSheetTitle><AdminSheetDescription>Everything the record holds.</AdminSheetDescription></>),
+  AdminSheetHeader: sheetPart(<AdminSheetHeader><AdminSheetTitle>Details</AdminSheetTitle></AdminSheetHeader>),
+  AdminSheetBody: sheetPart(<AdminSheetBody>Everything the record holds.</AdminSheetBody>),
+  AdminSheetFooter: sheetPart(<AdminSheetFooter><Button variant="outline">Close</Button></AdminSheetFooter>),
   AdminSettingsFooter: () => <AdminSettingsFooter>Host build 42</AdminSettingsFooter>,
   AdminContactForm: () => <AdminContactForm onSubmit={async () => {}} />,
   AdminInboxList: () => (

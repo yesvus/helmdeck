@@ -19,6 +19,39 @@ export { AdminAvatar, AdminBadge, AdminBreadcrumb, AdminProgress, AdminSeparator
 export type { AdminAvatarSize, AdminBreadcrumbItem } from "./display.js";
 export { AdminAccordion, AdminTabs } from "./disclosure.js";
 export type { AdminAccordionItem, AdminAccordionProps, AdminTabItem, AdminTabsProps } from "./disclosure.js";
+export {
+  AdminContextMenu,
+  AdminContextMenuContent,
+  AdminContextMenuItem,
+  AdminContextMenuLabel,
+  AdminContextMenuSeparator,
+  AdminContextMenuTrigger,
+  AdminDropdownMenu,
+  AdminDropdownMenuCheckboxItem,
+  AdminDropdownMenuContent,
+  AdminDropdownMenuItem,
+  AdminDropdownMenuLabel,
+  AdminDropdownMenuRadioGroup,
+  AdminDropdownMenuRadioItem,
+  AdminDropdownMenuSeparator,
+  AdminDropdownMenuTrigger,
+  AdminPopover,
+  AdminPopoverClose,
+  AdminPopoverContent,
+  AdminPopoverDescription,
+  AdminPopoverTitle,
+  AdminPopoverTrigger,
+  AdminSheet,
+  AdminSheetBody,
+  AdminSheetClose,
+  AdminSheetContent,
+  AdminSheetDescription,
+  AdminSheetFooter,
+  AdminSheetHeader,
+  AdminSheetTitle,
+  AdminSheetTrigger,
+} from "./overlays.js";
+export type { AdminSheetSide } from "./overlays.js";
 export { Tooltip, TooltipProvider } from "./tooltip.js";
 export { AdminEmptyState } from "./empty-state.js";
 export { AdminField, AdminFieldGrid, AdminFormActions, AdminFormSection } from "./field.js";

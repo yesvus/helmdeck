@@ -66,6 +66,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Status and empty states | `AdminStatusPill`, `AdminEmptyState` |
 | Display | `AdminBadge`, `AdminAvatar`, `AdminProgress`, `AdminSeparator`, `AdminBreadcrumb` |
 | Disclosure | `AdminTabs`, `AdminAccordion` |
+| Overlays | `AdminDropdownMenu`, `AdminPopover`, `AdminContextMenu`, `AdminSheet` |
 | Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
 | Drag and drop | `AdminSortableDndContext`, `AdminSortableRow`, `AdminSortableCard`, `AdminDragHandle`, `AdminSortableToast`, `useAdminSortableList` |
 | Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
@@ -154,6 +155,49 @@ import { AdminAccordion } from "@yesvus/helmdeck";
   ]}
   defaultOpenIds={["details"]}
 />
+## Overlays
+
+`AdminDropdownMenu`, `AdminPopover`, `AdminContextMenu` and `AdminSheet` are the overlays an admin screen reaches for. They are built on the Radix primitives the package already depends on for its dialog, so the focus handling is the one a browser user expects: the focus moves into the overlay, it comes back to the control that opened it, and escape and a click outside close it.
+
+```tsx
+import {
+  AdminDropdownMenu,
+  AdminDropdownMenuContent,
+  AdminDropdownMenuItem,
+  AdminDropdownMenuSeparator,
+  AdminDropdownMenuTrigger,
+} from "@yesvus/helmdeck";
+
+<AdminDropdownMenu>
+  <AdminDropdownMenuTrigger asChild>
+    <Button variant="outline">Actions</Button>
+  </AdminDropdownMenuTrigger>
+  <AdminDropdownMenuContent>
+    <AdminDropdownMenuItem onSelect={duplicate}>Duplicate</AdminDropdownMenuItem>
+    <AdminDropdownMenuSeparator />
+    <AdminDropdownMenuItem destructive onSelect={remove}>Delete</AdminDropdownMenuItem>
+  </AdminDropdownMenuContent>
+</AdminDropdownMenu>
+```
+
+A menu holds the focus while it is open and gives it back to the trigger when it closes. A popover moves the focus into its content and gives it back to the trigger when it closes. A popover is not modal by default, because a modal popover makes the page behind it inert and hides it from screen readers; a host that wants the focus held inside the popover passes `modal`.
+
+`AdminContextMenu` opens on a right click over the area it wraps.
+
+`AdminSheet` is a panel that slides in from an edge. It keeps the same measurements as the dialog: 2rem clear of the top and the bottom edge, and 1rem clear of the side edges it is not attached to. It has the same header, body and footer parts and the same close button.
+
+```tsx
+import { AdminSheet, AdminSheetBody, AdminSheetContent, AdminSheetTitle, AdminSheetTrigger } from "@yesvus/helmdeck";
+
+<AdminSheet>
+  <AdminSheetTrigger asChild>
+    <Button variant="outline">Open details</Button>
+  </AdminSheetTrigger>
+  <AdminSheetContent side="right">
+    <AdminSheetTitle>Details</AdminSheetTitle>
+    <AdminSheetBody>Everything the record holds.</AdminSheetBody>
+  </AdminSheetContent>
+</AdminSheet>
 ```
 
 ## Loading states
@@ -402,7 +446,7 @@ The sign-out-everywhere control is yours to supply, because the auth contract de
 
 ### Dialog layout
 
-`AdminModalContent` keeps its existing direct-child API, but it only bounds the height. `AdminModalBody` is the scroll container, so compose `AdminModalHeader`, `AdminModalBody`, and `AdminModalFooter` for anything taller than the dialog: the header and footer stay pinned while the body scrolls, and footer actions stack on narrow screens. Content placed directly in the dialog is clipped rather than scrolled, which keeps one scrollbar instead of two. Width belongs to the consumer: any `w-` or `max-w-` utility you pass, at any breakpoint, replaces the built-in default width rather than competing with it. The default is 32rem from the `sm` breakpoint up, the width shadcn/ui defaults a dialog to. Below `sm` the dialog spans the width less 1rem per side; above it the dialog is capped and centred, so the side margin grows with the viewport. Its height is capped at the smaller of 56rem and the viewport less 4rem, so the dialog keeps 2rem clear of the top and bottom edges whenever its content is tall enough to need that room. It also keeps 1rem clear of the side edges, unless you pair a `w-` with your own `max-w-`, in which case your max-width is the only bound and a fixed width can exceed a narrow viewport. Set `preventClose` while a submission is pending to block Escape, outside-click, and close-button dismissal. Destructive confirmations use `AdminDestructiveAction` and remain separate from ordinary dialogs.
+`AdminModalContent` keeps its existing direct-child API, but it only bounds the height. `AdminModalBody` is the scroll container, so compose `AdminModalHeader`, `AdminModalBody`, and `AdminModalFooter` for anything taller than the dialog: the header and footer stay pinned while the body scrolls, and footer actions stack on narrow screens. Content placed directly in the dialog is clipped rather than scrolled, which keeps one scrollbar instead of two. Width belongs to the consumer: any `w-` or `max-w-` utility you pass, at any breakpoint, replaces the built-in default width rather than competing with it. The default is 32rem from the `sm` breakpoint up, the width shadcn/ui defaults a dialog to. Below `sm` the dialog spans the width less 1rem per side; above it the dialog is capped and centred, so the side margin grows with the viewport. Its height is capped at the smaller of 56rem and the viewport less 4rem, so the dialog keeps 2rem clear of the top and bottom edges whenever its content is tall enough to need that room. It also keeps 1rem clear of the side edges, unless you pair a `w-` with your own `max-w-`, in which case your max-width is the only bound and a fixed width can exceed a narrow viewport. Set `preventClose` while a submission is pending to block Escape, outside-click, and close-button dismissal. Destructive confirmations use `AdminDestructiveAction` and remain separate from ordinary dialogs. `AdminSheetContent` keeps the same measurements on the edges it is not attached to, so a sheet slides in from an edge with the dialog's own gutter: 2rem clear of the top and the bottom edge, and 1rem clear of the side edges.
 
 ```tsx
 <AdminModalContent preventClose={saving}>

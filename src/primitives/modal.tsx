@@ -6,28 +6,18 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
+import {
+  hasHorizontalPlacement,
+  hasMaxWidthUtility,
+  hasVerticalPlacement,
+  hasWidthUtility,
+} from "./geometry.js";
 
 export const AdminModal = DialogPrimitive.Root;
 export const AdminModalTrigger = DialogPrimitive.Trigger;
 export const AdminModalClose = DialogPrimitive.Close;
 export const AdminModalTitle = DialogPrimitive.Title;
 export const AdminModalDescription = DialogPrimitive.Description;
-
-// Tailwind variants carry digits ("2xl:"), brackets, and pseudo-classes ("[&:hover]:",
-// "min-[900px]:"), so splitting on the last colon is wrong and matching "[a-z]+:" silently
-// ignores every breakpoint from 2xl up. Take the segment after the final colon that sits
-// outside any brackets, which resolves all of those forms.
-function utilityName(className: string): string {
-  let depth = 0;
-  let start = 0;
-  for (let index = 0; index < className.length; index += 1) {
-    const character = className[index];
-    if (character === "[" || character === "(") depth += 1;
-    else if (character === "]" || character === ")") depth -= 1;
-    else if (character === ":" && depth === 0) start = index + 1;
-  }
-  return className.slice(start);
-}
 
 export function AdminModalContent({
   className,
@@ -42,23 +32,11 @@ export function AdminModalContent({
   preventClose?: boolean;
 }) {
   const i18n = useAdminMessages();
-  const utilities = className?.split(/\s+/).map((name) => utilityName(name).replace(/^!/, "")) ?? [];
-  // A gutter class is a width and a max-w is not, so they answer separate questions. A max-w-only
-  // consumer keeps the gutter. A w-only consumer needs an explicit bound instead, because with the
-  // gutter gone nothing stops a fixed rem width from exceeding the viewport. The default cap
-  // surrenders to either, since a max-width smaller than the requested width wins by clamping
-  // rather than losing the cascade.
-  const hasWidthUtility = utilities.some((name) => /^w-/.test(name));
-  const hasMaxWidthUtility = utilities.some((name) => /^max-w-/.test(name));
-  const hasAnyWidthUtility = hasWidthUtility || hasMaxWidthUtility;
+  const hasAnyWidthUtility = hasWidthUtility(className) || hasMaxWidthUtility(className);
   // A bare "inset-" places on both axes, but "inset-x-" only the horizontal and "inset-y-" only the
   // vertical. Without the exclusions each one suppressed the opposite axis's centring anchor too.
-  const hasHorizontalPlacement = utilities.some((name) =>
-    /^-?(?:left|right|start|end|inset-x|inset-inline|inset(?!-(?:y|block)))-/.test(name),
-  );
-  const hasVerticalPlacement = utilities.some((name) =>
-    /^-?(?:top|bottom|inset-y|inset-block|inset(?!-(?:x|inline)))-/.test(name),
-  );
+  const horizontalPlacement = hasHorizontalPlacement(className);
+  const verticalPlacement = hasVerticalPlacement(className);
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-admin-overlay/60 backdrop-blur-sm data-[state=open]:animate-[admin-fade-in_150ms_ease-out]" />
@@ -79,17 +57,17 @@ export function AdminModalContent({
           // centred, so the side margin grows with the viewport: 4rem at 640px, 704px at 1920px.
           // There is deliberately no "sm:w-..." here. The cap is the smaller value at every width
           // above sm, so such a class never decided the rendered width.
-          !hasWidthUtility && "w-[calc(100%_-_2rem)]",
+          !hasWidthUtility(className) && "w-[calc(100%_-_2rem)]",
           // 32rem, the width shadcn/ui defaults a dialog to. Ant Design's 520px is 32.5rem.
           !hasAnyWidthUtility && "sm:max-w-lg",
-          hasWidthUtility && !hasMaxWidthUtility && "max-w-[calc(100%_-_2rem)]",
+          hasWidthUtility(className) && !hasMaxWidthUtility(className) && "max-w-[calc(100%_-_2rem)]",
           // The close button is absolutely positioned in the title row, so the row has to clear it.
           // Reserving it here rather than asking each consumer for a "pr-14" is what stops the
           // requirement from leaking out of this component. The button is 32px wide at 20px from the
           // edge, so its far edge is 52px in: anything less than that puts row content under it.
           showCloseButton && "[&>:first-child]:pr-14",
-          !hasHorizontalPlacement && "left-1/2 -translate-x-1/2",
-          !hasVerticalPlacement && "top-1/2 -translate-y-1/2",
+          !horizontalPlacement && "left-1/2 -translate-x-1/2",
+          !verticalPlacement && "top-1/2 -translate-y-1/2",
           className,
         )}
         {...props}
