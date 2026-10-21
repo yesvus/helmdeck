@@ -752,6 +752,7 @@ function ToggleSample() {
       Compact
     </AdminToggle>
   );
+}
 
 /** Every overlay part is shown inside a real overlay, since none of them renders anything alone. */
 function dropdownPart(children: ReactNode): ComponentType {
