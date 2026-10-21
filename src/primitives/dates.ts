@@ -18,12 +18,30 @@ export type AdminCalendarDay = {
 
 const DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+/**
+ * The date a day falls on, at midnight UTC.
+ *
+ * The year is set with `setUTCFullYear` rather than through `Date.UTC`, because `Date.UTC` reads a
+ * year under a hundred as a year in the twentieth century, and a calendar that gives 0050 a
+ * different day than 1950 is a calendar with two answers to the same question.
+ */
+function adminDayTimestamp(day: AdminCalendarDay): number {
+  const date = new Date(0);
+  date.setUTCFullYear(day.year, day.month - 1, day.day);
+  date.setUTCHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
 export function daysInAdminMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const date = new Date(0);
+  // The day zero of the month after this one is the last day of this one.
+  date.setUTCFullYear(year, month, 0);
+  date.setUTCHours(0, 0, 0, 0);
+  return date.getUTCDate();
 }
 
 export function adminDayIndex(day: AdminCalendarDay): number {
-  return Date.UTC(day.year, day.month - 1, day.day) / 86_400_000;
+  return adminDayTimestamp(day) / 86_400_000;
 }
 
 export function adminDayFromIndex(index: number): AdminCalendarDay {

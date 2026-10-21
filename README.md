@@ -236,7 +236,7 @@ import { AdminDatePicker, AdminDateRangePicker } from "@yesvus/helmdeck";
 <AdminDateRangePicker label="Due between" from={from} to={to} onChange={setRange} />
 ```
 
-A day is a `YYYY-MM-DD` string, and a month is a `YYYY-MM` string, so a value goes into a form field and into a query string without a conversion. The calendar names the days in the reader's locale and starts the week on the day the locale starts it, and it uses the admin theme in both colour modes.
+A day is a `YYYY-MM-DD` string, and a month is a `YYYY-MM` string, so a value goes into a form field and into a query string without a conversion. The calendar names the days in the reader's locale and starts the week on the day the locale starts it, and it uses the admin theme in both colour modes. A runtime that does not know the locale's week starts on Monday, because Monday is the week most of the world starts on.
 
 The reader moves through the days with the arrow keys, through the weeks with the home and end keys, and through the months with the page keys. The field opens a calendar rather than a browser widget, so the theme reaches it and the reader gets the day's own name.
 

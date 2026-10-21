@@ -117,7 +117,7 @@ export function AdminCalendar({
   }, [current.year, current.month, gridStart, offset]);
 
   const weekdayNames = useMemo(() => {
-    const formatter = new Intl.DateTimeFormat(resolvedLocale, { weekday: "short" });
+    const formatter = new Intl.DateTimeFormat(resolvedLocale, { weekday: "short", timeZone: "UTC" });
     // The fourth of January 1970 is a Sunday, so it is the day the week names are counted from.
     const sundayIndex = 3;
     return Array.from({ length: 7 }, (_, index) => formatter.format(
@@ -126,14 +126,14 @@ export function AdminCalendar({
   }, [resolvedLocale, firstWeekday]);
 
   const monthName = useMemo(
-    () => new Intl.DateTimeFormat(resolvedLocale, { month: "long", year: "numeric" })
+    () => new Intl.DateTimeFormat(resolvedLocale, { month: "long", year: "numeric", timeZone: "UTC" })
       .format(new Date(Date.UTC(current.year, current.month - 1, 1))),
     [resolvedLocale, current.year, current.month],
   );
 
   const fullDate = (index: number) => {
     const day = adminDayFromIndex(index);
-    return new Intl.DateTimeFormat(resolvedLocale, { dateStyle: "full" })
+    return new Intl.DateTimeFormat(resolvedLocale, { dateStyle: "full", timeZone: "UTC" })
       .format(new Date(Date.UTC(day.year, day.month - 1, day.day, 12)));
   };
 
@@ -229,7 +229,7 @@ export function AdminCalendar({
                   <div
                     key={index}
                     role="gridcell"
-                    aria-selected={selectedDay || isRangeEdge(index)}
+                    aria-selected={selectedDay || isRangeEdge(index) || isInRange(index)}
                     className="flex items-center justify-center"
                   >
                     <button
@@ -299,7 +299,7 @@ export type AdminDatePickerProps = {
 function formatAdminDate(value: string, locale: string): string {
   const day = parseAdminDay(value);
   if (!day) return value;
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" })
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" })
     .format(new Date(Date.UTC(day.year, day.month - 1, day.day, 12)));
 }
 
@@ -323,14 +323,22 @@ export function AdminDatePicker({
   const { interfaceLocale } = useAdminInterfaceLocale();
   const resolvedLocale = locale ?? interfaceLocale;
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // The calendar takes the focus when it opens, so the field that opened it takes it back.
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
 
   return (
     <div className={cn("relative", className)}>
       <button
+        ref={triggerRef}
         type="button"
         id={id}
         disabled={disabled}
-        aria-label={label}
+        aria-label={value ? `${label}: ${formatAdminDate(value, resolvedLocale)}` : label}
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         className={cn(
@@ -354,7 +362,7 @@ export function AdminDatePicker({
             max={max}
             onSelect={(day) => {
               onChange?.(day);
-              setOpen(false);
+              close();
             }}
           />
         </div>
@@ -397,6 +405,12 @@ export function AdminDateRangePicker({
   const { interfaceLocale } = useAdminInterfaceLocale();
   const resolvedLocale = locale ?? interfaceLocale;
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  const close = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
 
   const summary = from && to
     ? `${formatAdminDate(from, resolvedLocale)} – ${formatAdminDate(to, resolvedLocale)}`
@@ -407,10 +421,11 @@ export function AdminDateRangePicker({
   return (
     <div className={cn("relative", className)}>
       <button
+        ref={triggerRef}
         type="button"
         id={id}
         disabled={disabled}
-        aria-label={label}
+        aria-label={summary ? `${label}: ${summary}` : label}
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
         className={cn(
@@ -432,7 +447,7 @@ export function AdminDateRangePicker({
             max={max}
             onRangeChange={(range) => {
               onChange?.(range);
-              if (range.from && range.to) setOpen(false);
+              if (range.from && range.to) close();
             }}
           />
         </div>

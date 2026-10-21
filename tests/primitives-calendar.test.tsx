@@ -46,8 +46,12 @@ describe("AdminCalendar", () => {
   });
 
   it("marks the selected day and today", () => {
-    render(<AdminCalendar label="Pick a day" defaultMonth="2026-10" locale="en-GB" selected="2026-10-12" />);
+    const today = new Date();
+    const month = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    render(<AdminCalendar label="Pick a day" defaultMonth={month} locale="en-GB" selected={`${month}-12`} />);
     expect(screen.getAllByRole("gridcell").find((cell) => cell.textContent === "12")).toHaveAttribute("aria-selected", "true");
+    const todayButton = screen.getAllByRole("button").find((button) => button.getAttribute("aria-current") === "date");
+    expect(todayButton).toBeInTheDocument();
   });
 
   it("puts a day in the month on screen in the tab order", () => {
@@ -80,24 +84,33 @@ describe("AdminDatePicker", () => {
   it("opens the calendar and reports the day that was chosen", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<AdminDatePicker label="Due date" placeholder="Pick a day" onChange={onChange} />);
+    render(<AdminDatePicker label="Due date" placeholder="Pick a day" value="2026-10-01" locale="en-GB" onChange={onChange} />);
 
-    await user.click(screen.getByRole("button", { name: "Due date" }));
+    await user.click(screen.getByRole("button", { name: "Due date: 1 Oct 2026" }));
     expect(screen.getByRole("grid")).toBeInTheDocument();
-    const day = screen.getAllByRole("button", { name: /October/ })[0]!;
-    await user.click(day);
-    expect(onChange).toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Monday, 12 October 2026" }));
+    expect(onChange).toHaveBeenCalledWith("2026-10-12");
+  });
+
+  it("gives the focus back to the field when the calendar closes", async () => {
+    const user = userEvent.setup();
+    render(<AdminDatePicker label="Due date" value="2026-10-01" locale="en-GB" />);
+
+    const trigger = screen.getByRole("button", { name: "Due date: 1 Oct 2026" });
+    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "Monday, 12 October 2026" }));
+    expect(trigger).toHaveFocus();
   });
 
   it("shows the day it holds", () => {
     render(<AdminDatePicker label="Due date" value="2026-10-12" locale="en-GB" />);
-    expect(screen.getByRole("button", { name: "Due date" })).toHaveTextContent("12 Oct 2026");
+    expect(screen.getByRole("button", { name: "Due date: 12 Oct 2026" })).toHaveTextContent("12 Oct 2026");
   });
 });
 
 describe("AdminDateRangePicker", () => {
   it("shows the range it holds", () => {
     render(<AdminDateRangePicker label="Due between" from="2026-10-08" to="2026-10-12" locale="en-GB" />);
-    expect(screen.getByRole("button", { name: "Due between" })).toHaveTextContent("8 Oct 2026 – 12 Oct 2026");
+    expect(screen.getByRole("button", { name: "Due between: 8 Oct 2026 – 12 Oct 2026" })).toHaveTextContent("8 Oct 2026 – 12 Oct 2026");
   });
 });
