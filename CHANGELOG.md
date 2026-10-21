@@ -8,6 +8,12 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Changed
+
+- The README states the batteries-included commitment and gains a Component primitives reference listing every primitive the package exports from its root, so a host can see what ships before deciding what to write.
+- The README states the decision that Payload becomes the CMS under Helmdeck in the next major version: Payload owns collections, fields, auth, access control, versions, the trash and uploads, and Helmdeck's own resource engine is retired in that release. The six steps that make it work are listed with the fixture file that implements each one.
+- The README states where the line runs: the interface ships, the backend does not, and the host supplies its data model, its rules and its product.
+
 ## 0.13.0
 
 ### Added
