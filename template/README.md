@@ -5,6 +5,11 @@ password against a stored hash, a resource whose list searches, sorts, filters a
 generated from the same description, and a shell around both. There is no database to set up, no
 schema to design, and no second place where a permission is decided.
 
+The interface itself is in the package, not in this template: the shell, the table, the form, the
+dialog, the toast, the empty state, the loading skeleton, the theme, and the English and Turkish
+wording. This template wires them to a store and shows you where your own decisions begin, which
+[What you still have to add](#what-you-still-have-to-add) lists one by one.
+
 ## Setup
 
 From a checkout of the Helmdeck repository's default branch, one command writes a project from this

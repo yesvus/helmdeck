@@ -3,7 +3,7 @@
   "version": "0.13.0",
   "packageManager": "pnpm@12.7.0",
   "type": "module",
-  "description": "A Next.js admin dashboard engine with generated resource views, dashboard tiles, and host-configurable auth and data adapters",
+  "description": "A batteries-included Next.js admin dashboard engine: admin shell, generated resource views, dashboard tiles, a complete set of themed accessible UI primitives, and host-configurable auth and data adapters",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -18,7 +18,11 @@
     "dashboard",
     "nextjs",
     "react",
-    "tailwindcss"
+    "tailwindcss",
+    "batteries-included",
+    "ui-components",
+    "design-system",
+    "admin-panel"
   ],
   "exports": {
     ".": {

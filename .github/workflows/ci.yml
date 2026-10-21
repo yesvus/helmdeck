@@ -37,4 +37,7 @@ jobs:
       # dependencies the way the example's does.
       - run: pnpm typecheck:template
       - run: pnpm build:fixtures
+      # The exported-surface ledger is what catches a removed export. Without this step in the
+      # workflow nothing ran it, so a removal would reach a release and only be noticed by a host.
+      - run: pnpm surface:check
       - run: pnpm audit --prod

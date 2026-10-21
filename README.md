@@ -1,6 +1,6 @@
 # Helmdeck
 
-Helmdeck is a reusable, MIT-licensed admin dashboard engine for Next.js App Router applications. Install it to get a working admin shell, generated resource lists and forms, dashboard tiles, analytics, media and content-lifecycle workflows, and the shared interaction patterns around them. You configure resources and connect host-owned services through typed adapters and callbacks instead of building each admin surface from scratch.
+Helmdeck is a reusable, MIT-licensed admin dashboard engine for Next.js App Router applications. Install it to get a working admin shell, generated resource lists and forms, dashboard tiles, analytics, media and content-lifecycle workflows, and the shared interaction patterns around them. You configure resources and connect host-owned services through typed adapters and callbacks instead of building each admin surface from scratch. It is batteries included: the admin interface itself ships with the package, and what you write is the part that belongs to your product.
 
 Helmdeck takes care of the admin interface and its reusable workflows. It does not own your application backend:
 
@@ -13,7 +13,62 @@ Helmdeck takes care of the admin interface and its reusable workflows. It does n
 
 The adapters define where the host connects its services. UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](#starter-template) shows a working host with a local SQLite store and generated resource pages. The [independent host](https://github.com/yesvus/helmdeck/tree/main/examples/independent-host) demonstrates integrating the package into a separate Next.js application.
 
-The detailed [primitive and adapter reference](#host-integration-contracts) remains below. It describes the building blocks behind the engine for hosts that need custom workflows.
+The next major version changes this arrangement: Payload becomes the CMS under Helmdeck, and Helmdeck's own resource engine is retired. [Payload under the hood](#payload-under-the-hood) states the shape and the six steps that get there.
+
+[Component primitives](#component-primitives) lists what the package already ships, and the [host integration contracts](#host-integration-contracts) section below describes the adapter seams a host connects to.
+
+## Batteries included
+
+An admin interface is mostly the same parts in every product: a shell, a table, a form, a dialog, a toast, an empty state, a loading skeleton, a destructive confirmation, a theme, a dictionary. Those live in the package, styled from the same tokens, keyboard operable, and localized in English and Turkish. You install it and they are there.
+
+The rule that follows from this is short: **a component any admin needs belongs in Helmdeck**, not in the host application. When a host needs a checkbox, a combobox, tabs, or a table that sorts and paginates itself, it should find one here, themed and accessible, rather than write its own for the fourth time in its fourth admin. The [primitive roadmap](https://github.com/yesvus/helmdeck/issues/294) lists what is still on that road.
+
+What stays yours is the part that is genuinely your product: your data, your validation, your authorization rules, and the adapters that connect them. The table above says where that line runs, and the [starter template](#starter-template) shows a host that stopped there.
+
+### What batteries included does not mean
+
+It means the interface ships. It does not mean a backend ships: your records live where your project keeps them, and Helmdeck reaches them through the adapters your host connects. What you write is your data model, your rules and your product.
+
+## Payload under the hood
+
+An admin interface sits on top of a CMS, and Helmdeck does not carry one of its own. **Payload is the CMS under Helmdeck**: collections, fields, auth, access control, versions and drafts, the trash, uploads, hooks and jobs are Payload's. Helmdeck is the application around them: the shell, the primitives, the theme, the dashboard, the charts, the analytics, the activity trail, the media library, the inbox, and the host's own routes.
+
+The next major version makes this the supported shape and retires Helmdeck's own resource engine: the resource registry, the persistence adapter contract and the baseline stores go, and the generated list and form go with them. Payload's own editing is the better answer for nested fields, blocks and relationships than a flat form over JSON documents, and Helmdeck's field model cannot honestly reach that shape without reimplementing Payload's field editors.
+
+Six steps make it work, in this order, and each one already has a working implementation in this repository's demo:
+
+1. **One database.** Payload's adapter and Helmdeck's reads point at the same libsql or Postgres URL. See `fixtures/lib/payload-db.ts`.
+2. **One session.** Payload's auth strategy resolves Helmdeck's session cookie, so there is one sign-in and one sign-out. See `fixtures/lib/payload-auth-strategy.ts`.
+3. **One rule.** Payload's access functions are the rule, and Helmdeck's permission adapter delegates to them. See `fixtures/lib/payload-access.ts`.
+4. **One call site.** Every server read and write goes through one module that always passes `overrideAccess: false` and a user. See `fixtures/lib/payload-content.ts`.
+5. **One look.** Payload's admin is themed with Helmdeck's tokens, in its own route group beside Helmdeck's shell. See `fixtures/lib/payload-theme.ts`.
+6. **Helmdeck's own surfaces read Payload**, so the dashboard, activity, analytics and media show the same records the CMS holds.
+
+Step four is the one to not skip. Payload's `overrideAccess` defaults to `true`, so a Local API call that forgets it reads and writes with no permission check and behaves exactly as though it were correct. There is no error and no log line for the omission. The defence is that there is exactly one module that makes the call, and it always passes both.
+
+The [bridge, the theme, the reference host, the migration and the procedure](https://github.com/yesvus/helmdeck/issues/299) are filed as issues, and the [primitive roadmap](https://github.com/yesvus/helmdeck/issues/294) is what the shell is still missing.
+
+## Component primitives
+
+Every primitive is exported from the package root, and they share the theme tokens, the focus ring, the tone vocabulary and the accessible states.
+
+```tsx
+import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
+```
+
+| Area | Primitives |
+| --- | --- |
+| Surfaces and layout | `AdminSurfaceCard`, `AdminSectionCard`, `AdminFormCard`, `AdminListItemCard`, `AdminStatCard`, `AdminBanner`, `AdminSectionIntro`, `AdminSplitFormLayout`, `AdminPageActionLink` |
+| Forms | `AdminField`, `AdminFieldGrid`, `AdminFormSection`, `AdminFormActions`, `AdminInput`, `AdminTextarea`, `AdminSelect`, `AdminManagedForm`, `AdminRepeaterListField`, `AdminContactForm`, `AdminContextualHelp` |
+| Buttons | `Button`, `AdminSubmitButton`, `AdminSaveButton`, `AdminPendingButton`, `AdminDestructiveAction` |
+| Tables | `AdminTable`, `AdminTableActionButton`, `AdminTableRowActions`, `AdminTableBulkActions`, `AdminPagination`, `useAdminTableSelection` |
+| Dialogs, tooltips and toasts | `AdminModal` with its header, body, footer, title, description, trigger and close parts, `Tooltip`, `TooltipProvider`, `AdminToastCard`, `AdminToastViewport` |
+| Status and empty states | `AdminStatusPill`, `AdminEmptyState` |
+| Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
+| Drag and drop | `AdminSortableDndContext`, `AdminSortableRow`, `AdminSortableCard`, `AdminDragHandle`, `AdminSortableToast`, `useAdminSortableList` |
+| Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
+
+The shell, the generated resource views, the dashboard, the charts, the media library, the inbox, the activity timeline and the trash view are exported from the same package root. See [Getting started](#getting-started-the-admin-baseline) for the engine behind them, and [Host integration contracts](#host-integration-contracts) for the seams a host connects to.
 
 ## Loading states
 
