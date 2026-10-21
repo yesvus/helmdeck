@@ -2,8 +2,8 @@
 "use client";
 
 import Link from "next/link.js";
-import { ChevronRight } from "lucide-react";
 import type { AdminNavGroup } from "../adapters/index.js";
+import { AdminBreadcrumb } from "../primitives/display.js";
 import { useAdminShell } from "./context.js";
 import type { AdminShellLabels } from "./labels.js";
 import { mergeAdminLabels } from "./labels.js";
@@ -41,19 +41,20 @@ export function AdminBreadcrumbs({
   const resolve = resolveSegmentLabel ?? shell?.resolveBreadcrumbSegment ?? defaultResolve;
   const currentCrumb = trail.crumbs.at(-1);
 
-  return (
-    <nav aria-label={mergedLabels.breadcrumbLabel} className="flex items-center gap-1.5 text-xs text-zinc-500">
-      {trail.crumbs.length === 1 ? (
-        <span className="sr-only" aria-current="page">{currentCrumb?.label}</span>
-      ) : trail.crumbs.map((crumb, index) => (
-        <span key={`${crumb.label}-${index}`} className="flex min-w-0 items-center gap-1.5">
-          {index > 0 ? <ChevronRight className="h-3 w-3 shrink-0" /> : null}
-          {crumb.href && !crumb.current ? <Link href={toHref(crumb.href)} className="truncate hover:text-zinc-900">{crumb.label}</Link> : null}
-          {!crumb.href || crumb.current ? <span aria-current={crumb.current ? "page" : undefined} className={crumb.current ? "truncate text-zinc-700" : "truncate"}>{crumb.href ? crumb.label : resolve(crumb.label, mergedLabels)}</span> : null}
-        </span>
-      ))}
-    </nav>
-  );
+  const items = trail.crumbs.map((crumb) => ({
+    label: crumb.href && !crumb.current
+      ? <Link href={toHref(crumb.href)} className="truncate hover:text-zinc-900">{crumb.label}</Link>
+      : crumb.href
+        ? crumb.label
+        : resolve(crumb.label, mergedLabels),
+    current: crumb.current,
+  }));
+
+  if (trail.crumbs.length === 1) {
+    return <AdminBreadcrumb items={[{ label: currentCrumb?.label }]} label={mergedLabels.breadcrumbLabel} hideSingle />;
+  }
+
+  return <AdminBreadcrumb items={items} label={mergedLabels.breadcrumbLabel} />;
 }
 
 function defaultResolve(segment: string, labels: AdminShellLabels) {

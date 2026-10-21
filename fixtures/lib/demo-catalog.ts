@@ -288,6 +288,36 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "pill badge status tone",
     renderable: true,
   },
+  AdminBadge: {
+    category: "Data display",
+    summary: "A compact label for a count, a category or a tag.",
+    keywords: "badge tag count label",
+    renderable: true,
+  },
+  AdminAvatar: {
+    category: "Data display",
+    summary: "A person's picture, or their initials when there is no picture.",
+    keywords: "avatar initials picture user",
+    renderable: true,
+  },
+  AdminProgress: {
+    category: "Data display",
+    summary: "A progress bar that reads its value out to assistive technology.",
+    keywords: "progress bar loading percentage",
+    renderable: true,
+  },
+  AdminSeparator: {
+    category: "Layout",
+    summary: "A rule between two parts of a page.",
+    keywords: "separator rule divider",
+    renderable: true,
+  },
+  AdminBreadcrumb: {
+    category: "Shell and navigation",
+    summary: "A trail of where the reader is, with the current page marked.",
+    keywords: "breadcrumb trail navigation path",
+    renderable: true,
+  },
   AdminSkeleton: {
     category: "Data display",
     summary: "A single shimmering placeholder, for a host laying out its own skeleton.",

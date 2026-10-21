@@ -64,6 +64,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Tables | `AdminTable`, `AdminTableActionButton`, `AdminTableRowActions`, `AdminTableBulkActions`, `AdminPagination`, `useAdminTableSelection` |
 | Dialogs, tooltips and toasts | `AdminModal` with its header, body, footer, title, description, trigger and close parts, `Tooltip`, `TooltipProvider`, `AdminToastCard`, `AdminToastViewport` |
 | Status and empty states | `AdminStatusPill`, `AdminEmptyState` |
+| Display | `AdminBadge`, `AdminAvatar`, `AdminProgress`, `AdminSeparator`, `AdminBreadcrumb` |
 | Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
 | Drag and drop | `AdminSortableDndContext`, `AdminSortableRow`, `AdminSortableCard`, `AdminDragHandle`, `AdminSortableToast`, `useAdminSortableList` |
 | Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
@@ -103,6 +104,26 @@ import { AdminCheckbox, AdminField, AdminRadioGroup, AdminSwitch, AdminToggle } 
 Inside an `AdminField` a control takes the field's id, its label, its hint and its error state: the label names it, the hint describes it and the error marks it as invalid. A radio group is named by the field's label rather than by a `for` attribute, because a `for` attribute reaches one control and a group holds several.
 
 `AdminRadioGroup` moves between its options with the arrow keys, and skips the options that are disabled. `AdminSwitch` reports its state as a switch rather than as a checked box. `AdminToggle` reports its state with `aria-pressed`, so it reads as pressed rather than as checked.
+
+## Display components
+
+`AdminBadge`, `AdminAvatar`, `AdminProgress`, `AdminSeparator` and `AdminBreadcrumb` are the small pieces a row and a page header are made of.
+
+```tsx
+import { AdminAvatar, AdminBadge, AdminBreadcrumb, AdminProgress, AdminSeparator } from "@yesvus/helmdeck";
+
+<AdminAvatar name="Ada Lovelace" />
+
+<AdminBadge tone="warning">Review</AdminBadge>
+
+<AdminProgress value={64} label="Import progress" showValue />
+
+<AdminSeparator />
+
+<AdminBreadcrumb items={[{ label: "Products", href: "/shell/products" }, { label: "Drafts" }]} />
+```
+
+`AdminAvatar` shows the picture it is given and falls back to the person's initials when there is none or when it does not load. `AdminProgress` reads its value out as a percentage, so the number does not depend on the bar being seen. `AdminBreadcrumb` marks the current page with `aria-current`, and the shell's own breadcrumbs render through it.
 
 ## Loading states
 
