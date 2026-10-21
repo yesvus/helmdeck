@@ -490,7 +490,9 @@ export function AdminDataTable<T>({
   const overscan = virtualize?.overscan ?? 2;
   const total = controls.rows.length;
   const windowSize = virtualize ? Math.ceil(virtualize.height / rowHeight) + overscan * 2 : total;
-  const firstRow = virtualize ? Math.max(0, Math.min(Math.floor(scrollTop / rowHeight) - overscan, total - 1)) : 0;
+  const firstRow = virtualize && total > 0
+    ? Math.max(0, Math.min(Math.floor(scrollTop / rowHeight) - overscan, total - 1))
+    : 0;
   const drawnRows = virtualize
     ? controls.rows.slice(firstRow, Math.min(total, firstRow + windowSize))
     : controls.rows;
