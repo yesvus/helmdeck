@@ -269,6 +269,13 @@ The state can be held by the table or by the host: pass `state` and `onStateChan
 
 The resource list keeps its own server-side behaviour and is not rewritten by this: the list asks the store for a page of rows, and this table is for the rows a host already holds.
 
+**A long table can draw only the rows that are on screen.** Pass `virtualize` with the height of
+a row and the height of the scroll area, and the table draws the rows inside the window and the
+space above and below them, so the scrollbar still shows the length of the whole set. The row
+height is fixed, because a row whose height depends on its content would move the window as it is
+measured. The sorting, the filters, the search, the selection and the expansion all keep working,
+because the table still holds the whole set and only draws part of it.
+
 **A row can expand into a detail, and the rows can be grouped.** Pass `expandable` and the table
 grows a column with a toggle in it; the detail the caller writes is drawn across the whole width of
 the table under the row. Pass `groupBy` and the rows are grouped by that column's value, with a

@@ -384,6 +384,18 @@ export type AdminDataTableProps<T> = {
   subtotal?: (rows: T[]) => ReactNode;
   expandLabel?: string;
   collapseLabel?: string;
+  /**
+   * Draws only the rows that are on screen. The row height is fixed, because a row whose height
+   * depends on its content would move the window as it is measured.
+   */
+  virtualize?: {
+    /** The height of one row, in pixels. */
+    rowHeight: number;
+    /** The height of the scroll area, in pixels. */
+    height: number;
+    /** How many rows are drawn above and below the window, so a scroll does not show a gap. */
+    overscan?: number;
+  };
 };
 
 /**
@@ -417,6 +429,7 @@ export function AdminDataTable<T>({
   subtotal,
   expandLabel,
   collapseLabel,
+  virtualize,
 }: AdminDataTableProps<T>) {
   const i18n = useAdminMessages();
   const controls = useAdminDataTable<T>({
@@ -469,6 +482,20 @@ export function AdminDataTable<T>({
   };
 
   const spanCount = controls.visibleColumns.length + (expandable ? 1 : 0);
+
+  // The rows that are drawn: the ones inside the window, and the space left above and below them
+  // so that the scrollbar keeps the length of the whole set.
+  const [scrollTop, setScrollTop] = useState(0);
+  const rowHeight = virtualize?.rowHeight ?? 0;
+  const overscan = virtualize?.overscan ?? 2;
+  const total = controls.rows.length;
+  const windowSize = virtualize ? Math.ceil(virtualize.height / rowHeight) + overscan * 2 : total;
+  const firstRow = virtualize ? Math.max(0, Math.min(Math.floor(scrollTop / rowHeight) - overscan, total - 1)) : 0;
+  const drawnRows = virtualize
+    ? controls.rows.slice(firstRow, Math.min(total, firstRow + windowSize))
+    : controls.rows;
+  const spaceAbove = virtualize ? firstRow * rowHeight : 0;
+  const spaceBelow = virtualize ? Math.max(0, (total - firstRow - drawnRows.length) * rowHeight) : 0;
 
   const tableColumns: AdminTableColumn<T>[] = controls.visibleColumns.map((column) => {
     const columnState = controls.state.columns?.[column.key];
@@ -594,11 +621,16 @@ export function AdminDataTable<T>({
       ) : null}
       <AdminTable
         columns={withExpansion}
-        rows={controls.rows}
+        rows={drawnRows}
         getKey={getKey}
         caption={caption}
         empty={empty}
         rowClassName={rowClassName}
+        maxHeight={virtualize?.height}
+        onScroll={virtualize ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
+        renderBeforeRows={virtualize && spaceAbove > 0 ? (
+          <tr aria-hidden="true" style={{ height: spaceAbove }} className="border-0 p-0" />
+        ) : undefined}
         renderExtraRows={(row) => {
           const extra: ReactNode[] = [];
           const group = groupOf(row);
@@ -632,6 +664,12 @@ export function AdminDataTable<T>({
                   {expandable(row)}
                 </td>
               </tr>,
+            );
+          }
+          // The space below the last drawn row keeps the scrollbar the length of the whole set.
+          if (virtualize && spaceBelow > 0 && row === drawnRows[drawnRows.length - 1]) {
+            extra.push(
+              <tr key="space-below" aria-hidden="true" style={{ height: spaceBelow }} className="border-0 p-0" />,
             );
           }
           return extra.length ? <>{extra}</> : null;
