@@ -67,6 +67,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Display | `AdminBadge`, `AdminAvatar`, `AdminProgress`, `AdminSeparator`, `AdminBreadcrumb` |
 | Disclosure | `AdminTabs`, `AdminAccordion` |
 | Overlays | `AdminDropdownMenu`, `AdminPopover`, `AdminContextMenu`, `AdminSheet` |
+| Search | `AdminCombobox` |
 | Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
 | Drag and drop | `AdminSortableDndContext`, `AdminSortableRow`, `AdminSortableCard`, `AdminDragHandle`, `AdminSortableToast`, `useAdminSortableList` |
 | Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
@@ -199,6 +200,28 @@ import { AdminSheet, AdminSheetBody, AdminSheetContent, AdminSheetTitle, AdminSh
   </AdminSheetContent>
 </AdminSheet>
 ```
+
+## Combobox
+
+`AdminCombobox` is a field over a list the host loads: a typeahead, a relation picker, a search that asks the server. It takes an async loader and owns the keyboard, which is the part a hand-rolled combobox usually gets wrong.
+
+```tsx
+import { AdminCombobox } from "@yesvus/helmdeck";
+
+<AdminCombobox
+  label="Search records"
+  placeholder="Search records across resources"
+  load={async (term, signal) => {
+    const records = await searchRecords(term, signal);
+    return records.map((record) => ({ id: record.id, label: record.name, value: record }));
+  }}
+  onSelect={(option) => router.push(`/records/${option.id}`)}
+/>
+```
+
+The arrow keys move the active option, the enter key chooses it and the escape key closes the list. The loading, empty and error states are announced to assistive technology, and the error state offers a retry that loads the same term again. The option carries whatever the host needs through `value`, and `renderOption` replaces the default rendering of an option.
+
+`AdminRecordSearch` in the shell renders through this primitive, so the admin-wide record search and a host's own typeahead behave the same way.
 
 ## Loading states
 

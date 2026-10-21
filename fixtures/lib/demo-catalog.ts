@@ -159,6 +159,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The Turkish wording the trash page uses for actions and empty states.",
     keywords: "labels copy trash turkish restore purge",
   },
+  AdminCombobox: {
+    category: "Forms and fields",
+    summary: "A combobox over an async list, with the loading, empty and error states announced.",
+    keywords: "combobox typeahead async search suggestions",
+    renderable: true,
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",

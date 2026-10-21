@@ -44,6 +44,7 @@
     "AdminChartTable",
     "AdminCheckbox",
     "AdminCollectionEditor",
+    "AdminCombobox",
     "AdminContactForm",
     "AdminContentSkeleton",
     "AdminContextMenu",
