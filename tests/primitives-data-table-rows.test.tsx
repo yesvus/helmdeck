@@ -70,4 +70,24 @@ describe("the row features", () => {
     expect(screen.getByText("2 products")).toBeInTheDocument();
     expect(screen.getByText("1 products")).toBeInTheDocument();
   });
+
+  it("draws the rows of a group together", () => {
+    render(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={[
+          { id: "a", name: "Espresso machine", team: "Kitchen", quantity: 3 },
+          { id: "b", name: "Water filter", team: "Plumbing", quantity: 30 },
+          { id: "c", name: "Grinder", team: "Kitchen", quantity: 12 },
+        ]}
+        getKey={(row) => row.id}
+        groupBy="team"
+        groupHeader={(value) => `The ${value} team`}
+      />,
+    );
+
+    const body = screen.getByRole("table").querySelector("tbody")!;
+    const names = Array.from(body.querySelectorAll("td")).map((cell) => cell.textContent);
+    expect(names.indexOf("Grinder")).toBeLessThan(names.indexOf("Water filter"));
+  });
 });
