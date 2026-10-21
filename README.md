@@ -69,6 +69,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Overlays | `AdminDropdownMenu`, `AdminPopover`, `AdminContextMenu`, `AdminSheet` |
 | Search | `AdminCombobox` |
 | Dates | `AdminCalendar`, `AdminDatePicker`, `AdminDateRangePicker` |
+| Tables | `AdminDataTable`, `useAdminDataTable` |
 | Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
 | Drag and drop | `AdminSortableDndContext`, `AdminSortableRow`, `AdminSortableCard`, `AdminDragHandle`, `AdminSortableToast`, `useAdminSortableList` |
 | Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
@@ -239,6 +240,34 @@ import { AdminDatePicker, AdminDateRangePicker } from "@yesvus/helmdeck";
 A day is a `YYYY-MM-DD` string, and a month is a `YYYY-MM` string, so a value goes into a form field and into a query string without a conversion. The calendar names the days in the reader's locale and starts the week on the day the locale starts it, and it uses the admin theme in both colour modes.
 
 The reader moves through the days with the arrow keys, through the weeks with the home and end keys, and through the months with the page keys. The field opens a calendar rather than a browser widget, so the theme reaches it and the reader gets the day's own name.
+
+## Data table
+
+`AdminTable` renders the rows it is handed. `AdminDataTable` is the table with the behaviour layer on top: a search field, the filters, sortable headers and a pager. The hook behind it, `useAdminDataTable`, owns the state and hands back the derived rows and the controls, so a host that needs its own toolbar can drive the same behaviour.
+
+```tsx
+import { AdminDataTable, type AdminDataTableColumn } from "@yesvus/helmdeck";
+
+const columns: AdminDataTableColumn<Product>[] = [
+  { key: "name", header: "Product", cell: (row) => row.name, value: (row) => row.name, sortable: true },
+  { key: "stock", header: "In stock", cell: (row) => row.stock, value: (row) => row.stock, sortable: true, align: "right" },
+];
+
+<AdminDataTable
+  columns={columns}
+  rows={products}
+  getKey={(row) => row.id}
+  filters={[{ key: "stock", label: "In stock at least" }]}
+/>
+```
+
+**A column carries a `value` accessor** as well as its cell renderer, because the table reads values and not the nodes a cell renders. A column without one is not sorted, filtered or searched, which is how a column of buttons stays out of the search.
+
+**The sorting cycles ascending, descending and back to the rows' own order**, one column at a time, the same way the resource list's own control does it.
+
+The state can be held by the table or by the host: pass `state` and `onStateChange` and the table asks the host to change it, the same way a controlled input does.
+
+The resource list keeps its own server-side behaviour and is not rewritten by this: the list asks the store for a page of rows, and this table is for the rows a host already holds.
 
 ## Loading states
 

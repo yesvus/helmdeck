@@ -30,6 +30,7 @@ import {
   AdminChartTable,
   AdminCheckbox,
   AdminCombobox,
+  AdminDataTable,
   AdminCalendar,
   AdminDatePicker,
   AdminDateRangePicker,
@@ -955,6 +956,23 @@ export const catalogPreviews: Record<string, ComponentType> = {
       from="2026-10-08"
       to="2026-10-12"
       locale="en-GB"
+    />
+  ),
+  AdminDataTable: () => (
+    <AdminDataTable
+      columns={[
+        { key: "name", header: "Product", cell: (row) => row.name, value: (row) => row.name, sortable: true },
+        { key: "quantity", header: "In stock", cell: (row) => row.quantity, value: (row) => row.quantity, sortable: true, align: "right" },
+      ]}
+      rows={[
+        { id: "a", name: "Espresso machine", quantity: 3 },
+        { id: "b", name: "Grinder", quantity: 12 },
+        { id: "c", name: "Water filter", quantity: 30 },
+      ]}
+      getKey={(row) => row.id}
+      caption="Catalogue sample"
+      searchLabel="Search products"
+      filters={[{ key: "quantity", label: "In stock at least" }]}
     />
   ),
   AdminInput: () => <AdminInput placeholder="Search the catalogue" />,

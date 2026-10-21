@@ -83,7 +83,7 @@ describe("the catalogue page", () => {
       const total = componentCatalog.length;
       expect(resultCount()).toMatch(new RegExp(`^Showing ${total} of ${total} exports`));
 
-      await user.type(screen.getByRole("searchbox"), "pagination");
+      await user.type(screen.getByRole("searchbox", { name: "Search" }), "pagination");
 
       expect(screen.getByRole("heading", { name: "AdminPagination" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "AdminTable" })).not.toBeInTheDocument();
@@ -97,7 +97,7 @@ describe("the catalogue page", () => {
     async () => {
       const user = userEvent.setup();
       render(<CatalogPage />);
-      await user.type(screen.getByRole("searchbox"), "shimmering");
+      await user.type(screen.getByRole("searchbox", { name: "Search" }), "shimmering");
       expect(screen.getByRole("heading", { name: "AdminSkeleton" })).toBeInTheDocument();
     },
     BUDGET,
@@ -108,7 +108,7 @@ describe("the catalogue page", () => {
     async () => {
       const user = userEvent.setup();
       render(<CatalogPage />);
-      await user.type(screen.getByRole("searchbox"), "zzzznothing");
+      await user.type(screen.getByRole("searchbox", { name: "Search" }), "zzzznothing");
 
       expect(screen.getByText("Nothing in the package matches that.")).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Button" })).not.toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("the catalogue page", () => {
       expect(screen.queryByRole("heading", { name: "Button" })).not.toBeInTheDocument();
       expect(mediaChip).toHaveAttribute("aria-pressed", "true");
 
-      await user.type(screen.getByRole("searchbox"), "placeholder");
+      await user.type(screen.getByRole("searchbox", { name: "Search" }), "placeholder");
       expect(screen.getByRole("heading", { name: "AdminMediaPlaceholder" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "AdminMediaUpload" })).not.toBeInTheDocument();
     },

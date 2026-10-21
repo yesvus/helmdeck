@@ -15,6 +15,16 @@ export { AdminDestructiveAction } from "./destructive-action.js";
 export { AdminContextualHelp } from "./contextual-help.js";
 export { AdminContactForm } from "./contact-form.js";
 export type { AdminContactFormLabels, AdminContactSubmission } from "./contact-form.js";
+export { AdminDataTable, useAdminDataTable } from "./data-table.js";
+export type {
+  AdminDataTableColumn,
+  AdminDataTableControls,
+  AdminDataTableFilter,
+  AdminDataTableProps,
+  AdminDataTableSort,
+  AdminDataTableState,
+  AdminDataTableValue,
+} from "./data-table.js";
 export { AdminCalendar, AdminDatePicker, AdminDateRangePicker } from "./calendar.js";
 export type { AdminCalendarProps, AdminCalendarRange, AdminDatePickerProps, AdminDateRangePickerProps } from "./calendar.js";
 export { AdminCombobox } from "./combobox.js";
