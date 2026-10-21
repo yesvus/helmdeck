@@ -194,6 +194,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The behaviour layer of the data table: the sorting, the filters, the search and the paging.",
     keywords: "hook sort filter search paginate rows",
   },
+  AdminCommandPalette: {
+    category: "Shell and navigation",
+    summary: "A palette of commands over the combobox, opened by a keyboard shortcut.",
+    keywords: "command palette shortcut commands quick",
+    renderable: true,
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",
