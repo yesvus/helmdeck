@@ -11,6 +11,16 @@ updates:
       time: "06:00"
       timezone: Etc/UTC
     open-pull-requests-limit: 5
+    ignore:
+      # TypeScript 7 is the Go compiler. It ships without the JavaScript compiler API that this
+      # repository's own tests read source files with, and typescript-eslint declares
+      # "typescript >=4.8.4 <6.1.0", so the pair does not go together either.
+      - dependency-name: "typescript"
+        versions: [">=7"]
+      # graphql 17 is a major that Payload 3.x does not accept: payload declares
+      # "graphql ^16.8.1" as a peer dependency, and the fixture's CMS is Payload.
+      - dependency-name: "graphql"
+        versions: [">=17"]
     groups:
       # Split by name, not by dependency-type. Dependabot's npm production check only
       # covers dependencies and optionalDependencies, so every package here is classified
@@ -32,7 +42,8 @@ updates:
           - react-dom
           - tailwindcss
       # These two only work together, and TypeScript 7 is currently blocked because the
-      # latest typescript-eslint declares typescript ">=4.8.4 <6.1.0".
+      # latest typescript-eslint declares typescript ">=4.8.4 <6.1.0" and TypeScript 7 ships
+      # without the JavaScript compiler API this repository's tests read source files with.
       type-pair:
         patterns:
           - typescript
