@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     default: "Helmdeck",
     template: "%s | Helmdeck",
   },
-  description: "Reusable admin infrastructure for Next.js products.",
+  description: "An installable admin engine for Next.js products.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
