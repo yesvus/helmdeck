@@ -66,6 +66,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Status and empty states | `AdminStatusPill`, `AdminEmptyState` |
 | Display | `AdminBadge`, `AdminAvatar`, `AdminProgress`, `AdminSeparator`, `AdminBreadcrumb` |
 | Disclosure | `AdminTabs`, `AdminAccordion` |
+| Overlays | `AdminDropdownMenu`, `AdminPopover`, `AdminContextMenu`, `AdminSheet` |
 | Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
 | Drag and drop | `AdminSortableDndContext`, `AdminSortableRow`, `AdminSortableCard`, `AdminDragHandle`, `AdminSortableToast`, `useAdminSortableList` |
 | Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
