@@ -29,6 +29,7 @@ import {
   AdminChartFrame,
   AdminChartTable,
   AdminCheckbox,
+  AdminCombobox,
   AdminContextualHelp,
   AdminContextMenu,
   AdminContextMenuContent,
@@ -929,6 +930,16 @@ export const catalogPreviews: Record<string, ComponentType> = {
         { id: "delivery", title: "Delivery", description: "When it arrives.", children: <p className="text-sm text-zinc-600">Two to four days.</p> },
       ]}
       defaultOpenIds={["details"]}
+    />
+  ),
+  AdminCombobox: () => (
+    <AdminCombobox
+      label="Search records"
+      placeholder="Search records across resources"
+      load={async () => [
+        { id: "order-4412", label: "Order 4412", description: "Orders · 4412" },
+        { id: "customer-c-7", label: "Ada Lovelace", description: "Customers · c-7" },
+      ]}
     />
   ),
   AdminInput: () => <AdminInput placeholder="Search the catalogue" />,
