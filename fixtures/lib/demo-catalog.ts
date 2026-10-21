@@ -183,6 +183,17 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "date range picker days field",
     renderable: true,
   },
+  AdminDataTable: {
+    category: "Data display",
+    summary: "A table with the behaviour layer on top: a search field, filters, sortable headers and a pager.",
+    keywords: "data table sort filter search paginate grid",
+    renderable: true,
+  },
+  useAdminDataTable: {
+    category: "Data display",
+    summary: "The behaviour layer of the data table: the sorting, the filters, the search and the paging.",
+    keywords: "hook sort filter search paginate rows",
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",

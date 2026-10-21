@@ -122,6 +122,9 @@ export type AdminCommonLabels = {
   tableEmpty: string;
   tableAction: string;
   options: string;
+  search: string;
+  ascending: string;
+  descending: string;
   image: string;
   pdfDocument: string;
   mediaDescription: string;
@@ -216,6 +219,9 @@ export const englishAdminMessages: AdminMessages = {
     tableEmpty: "No results.",
     tableAction: "Table action",
     options: "Options",
+    search: "Search",
+    ascending: "ascending",
+    descending: "descending",
     image: "Image",
     pdfDocument: "PDF document",
     mediaDescription: "Media description",
@@ -451,6 +457,9 @@ export const turkishAdminMessages: AdminMessages = {
     tableEmpty: "Sonuç bulunamadı.",
     tableAction: "Tablo işlemi",
     options: "Seçenekler",
+    search: "Ara",
+    ascending: "artan",
+    descending: "azalan",
     image: "Görsel",
     pdfDocument: "PDF belgesi",
     mediaDescription: "Medya açıklaması",

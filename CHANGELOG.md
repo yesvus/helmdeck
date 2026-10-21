@@ -16,6 +16,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - `AdminDropdownMenu`, `AdminPopover`, `AdminContextMenu` and `AdminSheet`: the overlays an admin screen reaches for, built on the Radix primitives the package already depends on. The focus moves into the overlay and comes back to the control that opened it, escape and a click outside close it, and the sheet slides in from an edge with the dialog's own measurements.
 - `AdminCombobox`: a field over a list the host loads, for a typeahead or a relation picker. It owns the keyboard, announces the loading, empty and error states, and offers a retry that loads the same term again. The shell's admin-wide record search renders through it.
 - `AdminCalendar`, `AdminDatePicker` and `AdminDateRangePicker`: the date controls, in the admin theme and in the reader's locale. A day is a `YYYY-MM-DD` string and a month is a `YYYY-MM` string, the week starts on the day the locale starts it, and the reader moves through the days with the arrow keys and through the months with the page keys.
+- `AdminDataTable` and `useAdminDataTable`: the table with the behaviour layer on top, for the rows a host already holds. A search field, the filters, sortable headers and a pager, over a column definition list. The sorting cycles ascending, descending and back to the rows' own order, the same way the resource list's own control does it, and the resource list keeps its server-side behaviour.
 
 ### Changed
 
