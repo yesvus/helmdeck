@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
+import { useId } from "react";
 import type { ReactNode } from "react";
 import { cn } from "../cn.js";
-import { useAdminMessages } from "../i18n.js";
 import {
   AdminModal,
   AdminModalBody,
@@ -46,6 +46,8 @@ export type AdminRecordDetailProps = {
   closeLabel?: string;
   /** Whether the save is in flight, which closes the surface's own dismissal. */
   pending?: boolean;
+  /** What the save button does. The fields are inside a form, and the button submits it. */
+  onSave?: () => void;
   /** The error of the last save, shown under the body. */
   error?: string;
   className?: string;
@@ -71,13 +73,14 @@ export function AdminRecordDetail({
   savingLabel,
   closeLabel,
   pending = false,
+  onSave,
   error,
   className,
   labels,
   trigger,
 }: AdminRecordDetailProps) {
-  const i18n = useAdminMessages();
   const merged = { ...defaultAdminRecordDetailLabels, ...labels };
+  const formId = useId();
 
   return (
     <AdminModal open={open} onOpenChange={onOpenChange}>
@@ -92,7 +95,17 @@ export function AdminRecordDetail({
           {description ? <AdminModalDescription>{description}</AdminModalDescription> : null}
         </AdminModalHeader>
         <AdminModalBody>
-          {children}
+          {/* The fields are inside a form and the save button submits it, so a host that writes a
+              save as a form submission needs no handler of its own. */}
+          <form
+            id={formId}
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSave?.();
+            }}
+          >
+            {children}
+          </form>
           {error ? <p role="alert" className="text-sm leading-5 text-red-700">{error}</p> : null}
         </AdminModalBody>
         <AdminModalFooter>
@@ -100,13 +113,16 @@ export function AdminRecordDetail({
             {actions}
             <Button
               type="submit"
+              form={formId}
               aria-busy={pending}
               disabled={pending}
               className={cn(pending && "cursor-wait opacity-80")}
             >
               {pending ? (savingLabel ?? merged.saving) : (saveLabel ?? merged.save)}
             </Button>
-            <AdminModalClose aria-label={closeLabel ?? merged.close}>{i18n.common.close}</AdminModalClose>
+            <AdminModalClose aria-label={closeLabel ?? merged.close}>
+              {closeLabel ?? merged.close}
+            </AdminModalClose>
           </div>
         </AdminModalFooter>
       </AdminModalContent>

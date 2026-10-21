@@ -56,4 +56,17 @@ describe("AdminRecordDetail", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it("submits the fields when the save button is pressed", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <AdminRecordDetail open onOpenChange={() => {}} title="Order 4412" onSave={onSave}>
+        <input aria-label="Quantity" defaultValue="3" />
+      </AdminRecordDetail>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalled();
+  });
 });
