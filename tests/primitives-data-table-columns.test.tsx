@@ -106,4 +106,5 @@ describe("the column settings", () => {
     const next = onStateChange.mock.calls.at(-1)?.[0] as AdminDataTableState;
     expect(next.columns?.name?.size).toBeGreaterThan(0);
   });
+
 });

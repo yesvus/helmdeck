@@ -461,7 +461,9 @@ export function AdminDataTable<T>({
 
 /** The handle the reader drags to make a column wider or narrower. */
 function AdminColumnResizeHandle({ label, onResize }: { label: string; onResize: (size: number) => void }) {
-  const start = useRef<{ x: number; width: number } | null>(null);
+  // The width the column had when the drag started, and where the pointer was then. The width
+  // is computed from those two, so a drag of ten pixels then twenty is thirty and not fifty.
+  const start = useRef<{ x: number; widthAtStart: number } | null>(null);
   const cell = useRef<HTMLTableCellElement | null>(null);
 
   return (
@@ -473,13 +475,13 @@ function AdminColumnResizeHandle({ label, onResize }: { label: string; onResize:
       onPointerDown={(event) => {
         const element = event.currentTarget.closest("th");
         if (!element) return;
-        start.current = { x: event.clientX, width: element.getBoundingClientRect().width };
+        start.current = { x: event.clientX, widthAtStart: element.getBoundingClientRect().width };
         cell.current = element;
         element.setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
         if (!start.current) return;
-        onResize(start.current.width + (event.clientX - start.current.x));
+        onResize(start.current.widthAtStart + (event.clientX - start.current.x));
       }}
       onPointerUp={() => { start.current = null; }}
       onKeyDown={(event) => {
