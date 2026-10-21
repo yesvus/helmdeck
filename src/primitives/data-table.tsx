@@ -232,6 +232,8 @@ export function useAdminDataTable<T>({
   // otherwise count a page and hold no rows.
   // The rows are grouped before the page takes its share, so a group that spans two pages is
   // headed and totalled over the rows it really holds and not over the part of it on this page.
+  // The grouping reads the column's value whatever the column's own visibility is, so hiding the
+  // column a table is grouped by does not quietly stop the grouping.
   const groups = useMemo(() => {
     if (!groupBy) return null;
     const column = columnByKey.get(groupBy);
