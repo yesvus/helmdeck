@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDown, ArrowUp, GripVertical, Search, Settings2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, GripVertical, Search, Settings2 } from "lucide-react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
 import { AdminCheckbox } from "./form-controls.js";
@@ -75,6 +75,9 @@ export type AdminDataTableState = {
   search: string;
   page: number;
   columns: Record<string, AdminDataTableColumnState>;
+  /** The column the rows are grouped by, and the rows that are expanded. */
+  groupBy: string | null;
+  expandedKeys: Array<string | number>;
 };
 
 export type AdminDataTableControls<T> = {
@@ -98,6 +101,12 @@ export type AdminDataTableControls<T> = {
   pinColumn: (key: string, pinned: "left" | "right" | undefined) => void;
   resizeColumn: (key: string, size: number) => void;
   moveColumn: (from: string, to: string) => void;
+  /** The column the rows are grouped by. */
+  groupBy: string | null;
+  setGroupBy: (key: string | null) => void;
+  /** Whether a row is expanded. */
+  isExpanded: (key: string | number) => boolean;
+  toggleExpanded: (key: string | number) => void;
 };
 
 function defaultMatch(rowValue: AdminDataTableValue, filterValue: string) {
@@ -133,6 +142,7 @@ export function useAdminDataTable<T>({
   initialFilters = [],
   initialSearch = "",
   initialColumns,
+  initialGroupBy = null,
   pageSize = 10,
   state: controlledState,
   onStateChange,
@@ -143,6 +153,7 @@ export function useAdminDataTable<T>({
   initialFilters?: AdminDataTableFilter[];
   initialSearch?: string;
   initialColumns?: Record<string, AdminDataTableColumnState>;
+  initialGroupBy?: string | null;
   pageSize?: number;
   state?: AdminDataTableState;
   onStateChange?: (state: AdminDataTableState) => void;
@@ -153,6 +164,8 @@ export function useAdminDataTable<T>({
     search: initialSearch,
     page: 1,
     columns: initialColumns ?? defaultColumnState(columns),
+    groupBy: initialGroupBy ?? null,
+    expandedKeys: [],
   }));
   const state = controlledState ?? internalState;
 
@@ -276,6 +289,19 @@ export function useAdminDataTable<T>({
     setState({ ...state, columns: { ...columnState, ...columns2 } });
   };
 
+  const groupBy = state.groupBy ?? null;
+
+  const setGroupBy = (key: string | null) => setState({ ...state, groupBy: key });
+
+  const isExpanded = (key: string | number) => state.expandedKeys.includes(key);
+
+  const toggleExpanded = (key: string | number) => {
+    const expanded = isExpanded(key)
+      ? state.expandedKeys.filter((candidate) => candidate !== key)
+      : [...state.expandedKeys, key];
+    setState({ ...state, expandedKeys: expanded });
+  };
+
   return {
     rows: pageRows,
     matchedRows: sortedRows,
@@ -294,6 +320,10 @@ export function useAdminDataTable<T>({
     pinColumn,
     resizeColumn,
     moveColumn,
+    groupBy,
+    setGroupBy,
+    isExpanded,
+    toggleExpanded,
   };
 }
 
@@ -320,6 +350,16 @@ export type AdminDataTableProps<T> = {
   /** The panel that holds the column settings. It is off unless the host asks for it. */
   columnSettings?: boolean;
   columnSettingsLabel?: string;
+  /** The detail a row shows when it is expanded. */
+  expandable?: (row: T) => ReactNode;
+  /** The column the rows are grouped by. */
+  groupBy?: string | null;
+  /** The heading of a group of rows. */
+  groupHeader?: (value: AdminDataTableValue, rows: T[]) => ReactNode;
+  /** The subtotal of a group of rows. */
+  subtotal?: (rows: T[]) => ReactNode;
+  expandLabel?: string;
+  collapseLabel?: string;
 };
 
 /**
@@ -347,6 +387,12 @@ export function AdminDataTable<T>({
   toolbar,
   columnSettings = false,
   columnSettingsLabel,
+  expandable,
+  groupBy = null,
+  groupHeader,
+  subtotal,
+  expandLabel,
+  collapseLabel,
 }: AdminDataTableProps<T>) {
   const i18n = useAdminMessages();
   const controls = useAdminDataTable<T>({
@@ -354,6 +400,7 @@ export function AdminDataTable<T>({
     columns,
     initialSort,
     initialColumns,
+    initialGroupBy: groupBy,
     pageSize,
     state,
     onStateChange,
@@ -386,6 +433,32 @@ export function AdminDataTable<T>({
     }
     return offsets;
   }, [controls.visibleColumns, controls.state.columns]);
+
+  // The rows of a group, in the order they are drawn, so that the group heading and the subtotal
+  // know which row is the first of the group and which is the last.
+  const groups = useMemo(() => {
+    if (!controls.groupBy) return null;
+    const column = controls.visibleColumns.find((candidate) => candidate.key === controls.groupBy);
+    if (!column?.value) return null;
+    const collected = new Map<AdminDataTableValue, T[]>();
+    for (const row of controls.rows) {
+      const value = column.value!(row);
+      const list = collected.get(value) ?? [];
+      list.push(row);
+      collected.set(value, list);
+    }
+    return collected;
+  }, [controls.groupBy, controls.visibleColumns, controls.rows]);
+
+  const groupOf = (row: T) => {
+    if (!groups) return null;
+    for (const [value, rows] of groups) {
+      if (rows.includes(row)) return { value, rows };
+    }
+    return null;
+  };
+
+  const spanCount = controls.visibleColumns.length + (expandable ? 1 : 0);
 
   const tableColumns: AdminTableColumn<T>[] = controls.visibleColumns.map((column) => {
     const columnState = controls.state.columns?.[column.key];
@@ -445,6 +518,32 @@ export function AdminDataTable<T>({
     };
   });
 
+  const withExpansion = expandable
+    ? [
+        {
+          key: "__expansion",
+          header: "",
+          className: "w-12",
+          cell: (row: T) => {
+            const key = getKey(row);
+            const expanded = controls.isExpanded(key);
+            return (
+              <button
+                type="button"
+                aria-expanded={expanded}
+                aria-label={expanded ? collapseLabel : expandLabel}
+                onClick={() => controls.toggleExpanded(key)}
+                className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              >
+                <ChevronRight aria-hidden="true" className={cn("h-4 w-4 transition-transform", expanded && "rotate-90")} />
+              </button>
+            );
+          },
+        } satisfies AdminTableColumn<T>,
+        ...tableColumns,
+      ]
+    : tableColumns;
+
   return (
     <div className={cn("grid gap-3", className)}>
       {search || filters.length > 0 || toolbar || columnSettings ? (
@@ -484,12 +583,49 @@ export function AdminDataTable<T>({
         </div>
       ) : null}
       <AdminTable
-        columns={tableColumns}
+        columns={withExpansion}
         rows={controls.rows}
         getKey={getKey}
         caption={caption}
         empty={empty}
         rowClassName={rowClassName}
+        renderExtraRows={(row) => {
+          const extra: ReactNode[] = [];
+          const group = groupOf(row);
+          if (group) {
+            const isFirst = group.rows[0] === row;
+            const isLast = group.rows[group.rows.length - 1] === row;
+            if (isFirst && groupHeader) {
+              extra.push(
+                <tr key="group" className="border-b border-zinc-200 bg-zinc-50">
+                  <td colSpan={spanCount} className="px-5 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                    {groupHeader(group.value, group.rows)}
+                  </td>
+                </tr>,
+              );
+            }
+            if (isLast && subtotal) {
+              extra.push(
+                <tr key="subtotal" className="border-b border-zinc-100 bg-admin-surface-subtle">
+                  <td colSpan={spanCount} className="px-5 py-2 text-sm font-semibold text-zinc-900">
+                    {subtotal(group.rows)}
+                  </td>
+                </tr>,
+              );
+            }
+          }
+          const key = getKey(row);
+          if (expandable && controls.isExpanded(key)) {
+            extra.push(
+              <tr key="expanded" className="border-b border-zinc-100 bg-admin-surface-subtle">
+                <td colSpan={spanCount} className="px-5 py-4 text-sm text-zinc-700">
+                  {expandable(row)}
+                </td>
+              </tr>,
+            );
+          }
+          return extra.length ? <>{extra}</> : null;
+        }}
       />
       <AdminPagination page={controls.page} pageCount={controls.pageCount} onPageChange={controls.setPage} />
     </div>
