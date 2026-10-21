@@ -23,6 +23,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - The data table's row features: a row expands into a detail the caller writes, the rows group by a column, and a group carries a heading and a subtotal the caller computes.
 - The data table's column settings: which columns are shown, where they are pinned and in what order, with a resize handle on the header and a drag handle in the settings panel. The column state is part of the table's state, so a host can hold it.
 
+- `AdminRecordDetail`: a record's detail in a dialog, with the title, the body, the footer and the pending state for the save, built from the parts the package already ships.
+
 ### Changed
 
 - The README states the batteries-included commitment and gains a Component primitives reference listing every primitive the package exports from its root, so a host can see what ships before deciding what to write.

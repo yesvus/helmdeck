@@ -31,6 +31,7 @@ import {
   AdminCheckbox,
   AdminCombobox,
   AdminCommandPalette,
+  AdminRecordDetail,
   AdminDataTable,
   AdminCalendar,
   AdminDatePicker,
@@ -993,6 +994,17 @@ export const catalogPreviews: Record<string, ComponentType> = {
         { id: "settings", label: "Settings", description: "The workspace settings", onRun: () => {} },
       ]}
     />
+  ),
+  AdminRecordDetail: () => (
+    <AdminRecordDetail
+      open
+      onOpenChange={() => {}}
+      title="Order 4412"
+      description="Placed on the twentieth."
+      actions={<Button variant="outline">Duplicate</Button>}
+    >
+      <p className="text-sm text-zinc-600">The record's fields.</p>
+    </AdminRecordDetail>
   ),
   AdminInput: () => <AdminInput placeholder="Search the catalogue" />,
   AdminTextarea: () => <AdminTextarea rows={3} defaultValue="A short description of the product." />,

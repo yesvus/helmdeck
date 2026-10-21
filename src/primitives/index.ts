@@ -33,6 +33,8 @@ export type {
   AdminCommandPaletteProps,
   AdminCommandPaletteRecord,
 } from "./command-palette.js";
+export { AdminRecordDetail, defaultAdminRecordDetailLabels } from "./record-detail.js";
+export type { AdminRecordDetailLabels, AdminRecordDetailProps } from "./record-detail.js";
 export { AdminCombobox } from "./combobox.js";
 export type { AdminComboboxOption, AdminComboboxProps } from "./combobox.js";
 export { AdminAvatar, AdminBadge, AdminBreadcrumb, AdminProgress, AdminSeparator } from "./display.js";
