@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
+import { cleanup, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AdminNavGroup } from "../src/adapters";
 
 const { getPathname } = vi.hoisted(() => ({ getPathname: vi.fn<() => string | null>() }));
@@ -8,6 +9,7 @@ vi.mock("next/navigation.js", () => ({ usePathname: getPathname }));
 
 import { AdminBreadcrumbs } from "../src/shell/admin-breadcrumbs";
 import { createAdminBreadcrumbTrail } from "../src/shell/use-breadcrumbs";
+import { AdminI18nProvider } from "../src/i18n";
 
 const nav: AdminNavGroup[] = [{
   label: "Admin",
@@ -17,8 +19,26 @@ const nav: AdminNavGroup[] = [{
   ],
 }];
 
+const groupedNav: AdminNavGroup[] = [
+  {
+    label: "Overview",
+    items: [
+      { href: "/", label: "Dashboard" },
+      { href: "/analytics", label: "Analytics" },
+    ],
+  },
+  {
+    label: "Catalog",
+    items: [
+      { href: "/products", label: "Products" },
+      { href: "/categories", label: "Categories" },
+    ],
+  },
+];
+
 describe("admin breadcrumbs", () => {
   beforeEach(() => getPathname.mockReturnValue("/shell/"));
+  afterEach(() => cleanup());
 
   it("returns no trail when the pathname is unavailable during prerendering", () => {
     getPathname.mockReturnValue(null);
@@ -95,5 +115,138 @@ describe("admin breadcrumbs", () => {
     expect(markup).toContain('aria-current="page"');
     expect(markup).toContain("Dashboard");
     expect(markup).toContain("sr-only");
+  });
+
+  it("starts the trail at the section the page belongs to", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/products")?.crumbs).toEqual([
+      { label: "Catalog" },
+      { label: "Products", href: "/products", current: true },
+    ]);
+    expect(createAdminBreadcrumbTrail(groupedNav, "/categories")?.crumbs.map(({ label }) => label)).toEqual([
+      "Catalog",
+      "Categories",
+    ]);
+    expect(createAdminBreadcrumbTrail(groupedNav, "/analytics")?.crumbs.map(({ label }) => label)).toEqual([
+      "Overview",
+      "Analytics",
+    ]);
+  });
+
+  it("shows the section, then the item, then the remaining path segments", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/products/42")?.crumbs).toEqual([
+      { label: "Catalog" },
+      { label: "Products", href: "/products", current: false },
+      { label: "42", current: true },
+    ]);
+  });
+
+  it("shows the dashboard alone on a root page", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/")?.crumbs).toEqual([
+      { label: "Dashboard", href: "/", current: true },
+    ]);
+  });
+
+  it("keeps the flat trail for a navigation that is not grouped", () => {
+    expect(createAdminBreadcrumbTrail(nav, "/shell/settings/")?.crumbs.map(({ label }) => label)).toEqual([
+      "Dashboard",
+      "Settings",
+    ]);
+    expect(createAdminBreadcrumbTrail(nav, "/shell/settings/site")?.crumbs.map(({ label }) => label)).toEqual([
+      "Dashboard",
+      "Settings",
+      "site",
+    ]);
+  });
+
+  it("renders the section as the first crumb of the trail", () => {
+    getPathname.mockReturnValue("/products");
+    const markup = renderToStaticMarkup(<AdminBreadcrumbs groups={groupedNav} />);
+    expect(markup).toContain("Catalog");
+    expect(markup).toContain("Products");
+    expect(markup.indexOf("Catalog")).toBeLessThan(markup.indexOf("Products"));
+  });
+
+  it("renders the section without a link of its own", () => {
+    getPathname.mockReturnValue("/products");
+    render(<AdminBreadcrumbs groups={groupedNav} />);
+    expect(screen.getByText("Catalog")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Catalog" })).toBeNull();
+  });
+
+  it("keeps the dashboard item for a descendant route the dashboard matches", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/reports/monthly")?.crumbs).toEqual([
+      { label: "Overview" },
+      { label: "Dashboard", href: "/", current: false },
+      { label: "reports", current: false },
+      { label: "monthly", current: true },
+    ]);
+    expect(createAdminBreadcrumbTrail(groupedNav, "/reports/monthly", "/")?.crumbs.map(({ label }) => label)).toEqual([
+      "Overview",
+      "Dashboard",
+      "reports",
+      "monthly",
+    ]);
+  });
+
+  it("keeps the item that names the matched route for a descendant path", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/products/42", "/products")?.crumbs).toEqual([
+      { label: "Catalog" },
+      { label: "Products", href: "/products", current: false },
+      { label: "42", current: true },
+    ]);
+  });
+
+  it("shows the route the host calls home alone on its own page", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/products", "/products")?.crumbs).toEqual([
+      { label: "Products", href: "/products", current: true },
+    ]);
+  });
+
+  it("takes the home route the host states on the component", () => {
+    getPathname.mockReturnValue("/products");
+    render(<AdminBreadcrumbs groups={groupedNav} homeHref="/products" />);
+    expect(screen.getByText("Products")).toBeInTheDocument();
+    expect(screen.queryByText("Catalog")).toBeNull();
+  });
+
+  it("keeps the root page of a navigation that states a custom root", () => {
+    const customRootNav: AdminNavGroup[] = [
+      { label: "Overview", items: [{ href: "/shell", label: "Dashboard" }] },
+      { label: "Catalog", items: [{ href: "/shell/products", label: "Products" }] },
+    ];
+
+    expect(createAdminBreadcrumbTrail(customRootNav, "/shell")?.crumbs).toEqual([
+      { label: "Dashboard", href: "/shell", current: true },
+    ]);
+    expect(createAdminBreadcrumbTrail(customRootNav, "/shell", "/shell")?.crumbs).toEqual([
+      { label: "Dashboard", href: "/shell", current: true },
+    ]);
+    expect(createAdminBreadcrumbTrail(customRootNav, "/shell/products")?.crumbs.map(({ label }) => label)).toEqual([
+      "Catalog",
+      "Products",
+    ]);
+  });
+
+  it("resolves the section label through the host label mechanism", () => {
+    getPathname.mockReturnValue("/products");
+    const markup = renderToStaticMarkup(
+      <AdminBreadcrumbs groups={groupedNav} resolveSegmentLabel={(segment) => `resolved:${segment}`} />,
+    );
+    expect(markup).toContain("resolved:Catalog");
+  });
+
+  it("resolves the section label through the Turkish message catalog", () => {
+    getPathname.mockReturnValue("/kayit");
+    const turkishNav: AdminNavGroup[] = [
+      { label: "Genel bakis", items: [{ href: "/", label: "Genel bakis" }] },
+      { label: "new", items: [{ href: "/kayit", label: "Kayit ekle" }] },
+    ];
+    const markup = renderToStaticMarkup(
+      <AdminI18nProvider locale="tr">
+        <AdminBreadcrumbs groups={turkishNav} />
+      </AdminI18nProvider>,
+    );
+    expect(markup).toContain("Yeni");
+    expect(markup).not.toContain("New");
   });
 });
