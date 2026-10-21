@@ -8,6 +8,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Added
+
+- `AdminCheckbox`, `AdminSwitch`, `AdminRadioGroup` and `AdminToggle`: the form controls a settings screen needs, on the same tokens as the other primitives. Inside an `AdminField` a control takes the field's id, its hint and its error state, so the label names it and the error marks it. The radio group moves between its options with the arrow keys, and the table's row selection uses the checkbox primitive.
+
 ### Changed
 
 - The README states the batteries-included commitment and gains a Component primitives reference listing every primitive the package exports from its root, so a host can see what ships before deciding what to write.

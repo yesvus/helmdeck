@@ -191,6 +191,30 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "dropdown options native",
     renderable: true,
   },
+  AdminCheckbox: {
+    category: "Forms and fields",
+    summary: "A checkbox on the package's tokens, named by the field around it.",
+    keywords: "checkbox tick box selection",
+    renderable: true,
+  },
+  AdminSwitch: {
+    category: "Forms and fields",
+    summary: "A switch, which reports its state as on or off rather than as checked.",
+    keywords: "switch toggle on off",
+    renderable: true,
+  },
+  AdminRadioGroup: {
+    category: "Forms and fields",
+    summary: "A group of radios that moves between its options with the arrow keys.",
+    keywords: "radio group options choice",
+    renderable: true,
+  },
+  AdminToggle: {
+    category: "Forms and fields",
+    summary: "A toggle button, which reports its state as pressed.",
+    keywords: "toggle pressed button",
+    renderable: true,
+  },
   adminInputClassName: {
     category: "Forms and fields",
     summary: "The input's class recipe, for a host rendering an input the package does not own.",

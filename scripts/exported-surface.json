@@ -1,5 +1,5 @@
 {
-  "version": "v0.13.0",
+  "version": "0.13.0",
   "exports": [
     "ADMIN_ANALYTICS_BATCH_SIZE",
     "ADMIN_ANALYTICS_FAILURE_HISTORY",
@@ -38,6 +38,7 @@
     "AdminCardGridSkeleton",
     "AdminChartFrame",
     "AdminChartTable",
+    "AdminCheckbox",
     "AdminCollectionEditor",
     "AdminContactForm",
     "AdminContentSkeleton",
@@ -100,6 +101,7 @@
     "AdminPermissionsProvider",
     "AdminProfileMenu",
     "AdminProfilePage",
+    "AdminRadioGroup",
     "AdminRankChart",
     "AdminRecordSearch",
     "AdminRepeaterListField",
@@ -134,6 +136,7 @@
     "AdminStatusPill",
     "AdminSubmitButton",
     "AdminSurfaceCard",
+    "AdminSwitch",
     "AdminTable",
     "AdminTableActionButton",
     "AdminTableBulkActions",
@@ -146,6 +149,7 @@
     "AdminTimeSeriesChart",
     "AdminToastCard",
     "AdminToastViewport",
+    "AdminToggle",
     "AdminTrashPage",
     "AdminUnauthenticatedError",
     "AdminUrlFeedback",

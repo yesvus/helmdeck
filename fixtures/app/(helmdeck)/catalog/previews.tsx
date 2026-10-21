@@ -28,6 +28,7 @@ import {
   AdminBreadcrumbs,
   AdminChartFrame,
   AdminChartTable,
+  AdminCheckbox,
   AdminContextualHelp,
   AdminContactForm,
   AdminDeviceBreakdownChart,
@@ -72,6 +73,7 @@ import {
   AdminPendingButton,
   AdminProfileMenu,
   AdminRecordSearch,
+  AdminRadioGroup,
   AdminRankChart,
   AdminRepeaterListField,
   AdminSaveButton,
@@ -92,6 +94,7 @@ import {
   AdminSplitFormLayout,
   AdminStatCard,
   AdminStatusPill,
+  AdminSwitch,
   AdminSubmitButton,
   AdminSurfaceCard,
   AdminTable,
@@ -99,6 +102,7 @@ import {
   AdminTableBulkActions,
   AdminTableRowActions,
   AdminTextarea,
+  AdminToggle,
   AdminThemeSettingsProvider,
   AdminTimeSeriesChart,
   AdminVisitorTrendChart,
@@ -700,6 +704,15 @@ function MediaLightboxPreview() {
   );
 }
 
+function ToggleSample() {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <AdminToggle pressed={pressed} onPressedChange={setPressed}>
+      Compact
+    </AdminToggle>
+  );
+}
+
 export const catalogPreviews: Record<string, ComponentType> = {
   AdminSettingsFooter: () => <AdminSettingsFooter>Host build 42</AdminSettingsFooter>,
   AdminContactForm: () => <AdminContactForm onSubmit={async () => {}} />,
@@ -793,6 +806,29 @@ export const catalogPreviews: Record<string, ComponentType> = {
       <option value="archived">Archived</option>
     </AdminSelect>
   ),
+  AdminCheckbox: () => (
+    <AdminField label="Send a receipt" hint="Goes to the billing address" id="preview-receipt">
+      <AdminCheckbox defaultChecked />
+    </AdminField>
+  ),
+  AdminSwitch: () => (
+    <AdminField label="Email notifications" id="preview-notifications">
+      <AdminSwitch defaultChecked />
+    </AdminField>
+  ),
+  AdminRadioGroup: () => (
+    <AdminField label="Visibility" id="preview-visibility">
+      <AdminRadioGroup
+        name="preview-visibility"
+        defaultValue="public"
+        options={[
+          { value: "public", label: "Public" },
+          { value: "private", label: "Private", hint: "Only your team sees it" },
+        ]}
+      />
+    </AdminField>
+  ),
+  AdminToggle: ToggleSample,
   AdminRepeaterListField: () => (
     <SampleForm>
       <AdminRepeaterListField
