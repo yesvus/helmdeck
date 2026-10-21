@@ -165,6 +165,18 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "section group fields form",
     renderable: true,
   },
+  AdminTabs: {
+    category: "Layout",
+    summary: "Panels behind tabs, on the ARIA tabs pattern, with the arrow keys moving between them.",
+    keywords: "tabs tablist panels arrow keys",
+    renderable: true,
+  },
+  AdminAccordion: {
+    category: "Layout",
+    summary: "Panels that fold away, one at a time or any number at a time.",
+    keywords: "accordion disclosure panels fold",
+    renderable: true,
+  },
   AdminManagedForm: {
     category: "Forms and fields",
     summary:

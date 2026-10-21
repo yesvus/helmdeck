@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 import type { ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
 import { cn } from "../cn.js";
 import { AdminContextualHelp } from "./contextual-help.js";
+import { AdminAccordion } from "./disclosure.js";
 import { AdminFieldContext, isAdminFormGroup } from "./field-context.js";
 import type { AdminFieldContextValue } from "./field-context.js";
 
@@ -79,35 +79,12 @@ export function AdminFormSection({
   children: ReactNode;
   defaultOpen?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-
+  const id = useId();
   return (
-    <details
-      open={isOpen}
-      onToggle={(event) => setIsOpen(event.currentTarget.open)}
-      className="rounded-admin-card border border-zinc-200 bg-zinc-50 px-4 py-4"
-    >
-      <summary className="cursor-pointer list-none">
-        <span className="flex items-start justify-between gap-4">
-          <span>
-            <span className="flex min-w-0 flex-wrap items-center gap-x-1">
-              <span className="text-sm font-semibold text-zinc-900">{title}</span>
-              {description ? <AdminContextualHelp label={`Help: ${title}`}>{description}</AdminContextualHelp> : null}
-            </span>
-          </span>
-          <span
-            className={cn(
-              "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-admin-surface text-zinc-500 transition-transform duration-200",
-              isOpen && "rotate-180",
-            )}
-            aria-hidden="true"
-          >
-            <ChevronDown className="h-4 w-4" />
-          </span>
-        </span>
-      </summary>
-      <div className="mt-4">{children}</div>
-    </details>
+    <AdminAccordion
+      items={[{ id, title, description, children }]}
+      defaultOpenIds={defaultOpen ? [id] : []}
+    />
   );
 }
 

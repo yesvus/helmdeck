@@ -65,6 +65,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Dialogs, tooltips and toasts | `AdminModal` with its header, body, footer, title, description, trigger and close parts, `Tooltip`, `TooltipProvider`, `AdminToastCard`, `AdminToastViewport` |
 | Status and empty states | `AdminStatusPill`, `AdminEmptyState` |
 | Display | `AdminBadge`, `AdminAvatar`, `AdminProgress`, `AdminSeparator`, `AdminBreadcrumb` |
+| Disclosure | `AdminTabs`, `AdminAccordion` |
 | Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
 | Drag and drop | `AdminSortableDndContext`, `AdminSortableRow`, `AdminSortableCard`, `AdminDragHandle`, `AdminSortableToast`, `useAdminSortableList` |
 | Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
@@ -124,6 +125,36 @@ import { AdminAvatar, AdminBadge, AdminBreadcrumb, AdminProgress, AdminSeparator
 ```
 
 `AdminAvatar` shows the picture it is given and falls back to the person's initials when there is none or when it does not load. `AdminProgress` reads its value out as a percentage, so the number does not depend on the bar being seen. `AdminBreadcrumb` marks the current page with `aria-current`, and the shell's own breadcrumbs render through it.
+
+## Tabs and accordion
+
+`AdminTabs` puts panels behind tabs on the ARIA tabs pattern: one tab is selected at a time, the arrow keys move between the tabs, and the panel that belongs to the selected tab is the one on screen.
+
+```tsx
+import { AdminTabs } from "@yesvus/helmdeck";
+
+<AdminTabs
+  label="Record sections"
+  items={[
+    { id: "details", label: "Details", children: <p>What the product is.</p> },
+    { id: "delivery", label: "Delivery", children: <p>When it arrives.</p> },
+  ]}
+/>
+```
+
+`AdminAccordion` folds panels away. It keeps one panel open at a time, or any number of them when it is told to, and its header is a native disclosure, so it opens with the enter and space keys without a keyboard model of its own. `AdminFormSection` renders through it, which is why a form section and an accordion panel look and behave the same.
+
+```tsx
+import { AdminAccordion } from "@yesvus/helmdeck";
+
+<AdminAccordion
+  items={[
+    { id: "details", title: "Details", children: <p>What the product is.</p> },
+    { id: "delivery", title: "Delivery", description: "When it arrives.", children: <p>Two to four days.</p> },
+  ]}
+  defaultOpenIds={["details"]}
+/>
+```
 
 ## Loading states
 
