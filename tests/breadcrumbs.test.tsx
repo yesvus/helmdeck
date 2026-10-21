@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
+import { cleanup, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AdminNavGroup } from "../src/adapters";
 
 const { getPathname } = vi.hoisted(() => ({ getPathname: vi.fn<() => string | null>() }));
@@ -37,6 +38,7 @@ const groupedNav: AdminNavGroup[] = [
 
 describe("admin breadcrumbs", () => {
   beforeEach(() => getPathname.mockReturnValue("/shell/"));
+  afterEach(() => cleanup());
 
   it("returns no trail when the pathname is unavailable during prerendering", () => {
     getPathname.mockReturnValue(null);
@@ -162,6 +164,61 @@ describe("admin breadcrumbs", () => {
     expect(markup).toContain("Catalog");
     expect(markup).toContain("Products");
     expect(markup.indexOf("Catalog")).toBeLessThan(markup.indexOf("Products"));
+  });
+
+  it("renders the section without a link of its own", () => {
+    getPathname.mockReturnValue("/products");
+    render(<AdminBreadcrumbs groups={groupedNav} />);
+    expect(screen.getByText("Catalog")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Catalog" })).toBeNull();
+  });
+
+  it("keeps the dashboard item for a descendant route the dashboard matches", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/reports/monthly")?.crumbs).toEqual([
+      { label: "Overview" },
+      { label: "Dashboard", href: "/", current: false },
+      { label: "reports", current: false },
+      { label: "monthly", current: true },
+    ]);
+    expect(createAdminBreadcrumbTrail(groupedNav, "/reports/monthly", "/")?.crumbs.map(({ label }) => label)).toEqual([
+      "Overview",
+      "Dashboard",
+      "reports",
+      "monthly",
+    ]);
+  });
+
+  it("leaves a configured home route out when the navigation holds an item above it", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/products/42", "/products")?.crumbs).toEqual([
+      { label: "Catalog" },
+      { label: "42", current: true },
+    ]);
+  });
+
+  it("takes the home route the host states on the component", () => {
+    getPathname.mockReturnValue("/products/42");
+    render(<AdminBreadcrumbs groups={groupedNav} homeHref="/products" />);
+    expect(screen.getByText("Catalog")).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.queryByText("Products")).toBeNull();
+  });
+
+  it("keeps the root page of a navigation that states a custom root", () => {
+    const customRootNav: AdminNavGroup[] = [
+      { label: "Overview", items: [{ href: "/shell", label: "Dashboard" }] },
+      { label: "Catalog", items: [{ href: "/shell/products", label: "Products" }] },
+    ];
+
+    expect(createAdminBreadcrumbTrail(customRootNav, "/shell")?.crumbs).toEqual([
+      { label: "Dashboard", href: "/shell", current: true },
+    ]);
+    expect(createAdminBreadcrumbTrail(customRootNav, "/shell", "/shell")?.crumbs).toEqual([
+      { label: "Dashboard", href: "/shell", current: true },
+    ]);
+    expect(createAdminBreadcrumbTrail(customRootNav, "/shell/products")?.crumbs.map(({ label }) => label)).toEqual([
+      "Catalog",
+      "Products",
+    ]);
   });
 
   it("resolves the section label through the host label mechanism", () => {

@@ -16,12 +16,13 @@ type NavEntry = { group: AdminNavGroup; item: AdminNavItem };
 export function useBreadcrumbs(
   groups?: AdminNavGroup[],
   pathnameOverride?: string,
+  homeHref?: string,
 ): AdminBreadcrumbTrail | null {
   const shell = useAdminShell();
   const pathname = usePathname();
   const nav = groups ?? shell?.nav ?? [];
   const path = pathnameOverride ?? pathname;
-  return path === null ? null : createAdminBreadcrumbTrail(nav, path, shell?.homeHref);
+  return path === null ? null : createAdminBreadcrumbTrail(nav, path, homeHref ?? shell?.homeHref);
 }
 
 export function createAdminBreadcrumbTrail(
@@ -64,9 +65,8 @@ function sectionCrumbs(
 ): AdminBreadcrumbTrail["crumbs"] {
   const crumbs: AdminBreadcrumbTrail["crumbs"] = [];
   const item = matched.item;
-  const dashboard = findDashboard(entries, homeHref);
-  const onDashboard = dashboard !== undefined && itemPath(dashboard.item) === normalizedPath;
-  if (onDashboard) {
+  const root = findRootEntry(entries, homeHref);
+  if (root && itemPath(root.item) === normalizedPath) {
     crumbs.push({ label: item.label, href: item.href, current: true });
     return crumbs;
   }
@@ -75,7 +75,7 @@ function sectionCrumbs(
   const remaining = segments.slice(itemPath(item).split("/").filter(Boolean).length);
   // A section has no route of its own, so it names the place the way the sidebar section does.
   crumbs.push({ label: matched.group.label });
-  if (!dashboard || itemPath(dashboard.item) !== itemPath(item)) {
+  if (!isRedundantHomeItem(entries, findHomeEntry(entries, homeHref), item)) {
     crumbs.push({ label: item.label, href: item.href, current: remaining.length === 0 });
   }
   for (const [index, segment] of remaining.entries()) {
@@ -111,12 +111,38 @@ function flatCrumbs(
   return crumbs;
 }
 
-function findDashboard(entries: NavEntry[], homeHref?: string): NavEntry | undefined {
-  if (homeHref) {
-    const home = entries.find((entry) => itemPath(entry.item) === normalizePath(getAdminHrefPathname(homeHref)));
-    if (home) return home;
-  }
-  return entries.find((entry) => itemPath(entry.item) === "/");
+/**
+ * The route a host calls home. A host states it, so it decides where the trail starts.
+ */
+function findHomeEntry(entries: NavEntry[], homeHref?: string): NavEntry | undefined {
+  if (!homeHref) return undefined;
+  const homePath = normalizePath(getAdminHrefPathname(homeHref));
+  return entries.find((entry) => itemPath(entry.item) === homePath);
+}
+
+/**
+ * The item the navigation starts from: the route the host calls home, the item at the root, or the
+ * first item no other item sits above.
+ */
+function findRootEntry(entries: NavEntry[], homeHref?: string): NavEntry | undefined {
+  const home = findHomeEntry(entries, homeHref);
+  if (home) return home;
+  const root = entries.find((entry) => itemPath(entry.item) === "/");
+  if (root) return root;
+  return entries.find((entry) => !entries.some((other) => other !== entry && isAncestorPath(itemPath(other.item), itemPath(entry.item))));
+}
+
+/**
+ * A home route another navigation item sits above is a page of its section rather than the start of
+ * the navigation, and the section already places the page, so the trail leaves it out.
+ */
+function isRedundantHomeItem(entries: NavEntry[], home: NavEntry | undefined, item: AdminNavItem): boolean {
+  if (!home || itemPath(home.item) !== itemPath(item)) return false;
+  return entries.some((other) => other !== home && isAncestorPath(itemPath(other.item), itemPath(home.item)));
+}
+
+function isAncestorPath(candidatePath: string, path: string) {
+  return candidatePath !== path && path.startsWith(candidatePath === "/" ? "/" : `${candidatePath}/`);
 }
 
 function itemPath(item: AdminNavItem) {

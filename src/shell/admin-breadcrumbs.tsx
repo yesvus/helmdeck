@@ -18,11 +18,13 @@ function prettifySegment(segment: string) {
 export function AdminBreadcrumbs({
   groups,
   pathname,
+  homeHref,
   labels,
   resolveSegmentLabel,
 }: {
   groups?: AdminNavGroup[];
   pathname?: string;
+  homeHref?: string;
   labels?: Partial<AdminShellLabels>;
   resolveSegmentLabel?: (segment: string, labels: AdminShellLabels) => string;
 }) {
@@ -30,7 +32,7 @@ export function AdminBreadcrumbs({
   const i18n = useAdminMessages();
   const toHref = useAdminHref();
   const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...shell?.labels, ...labels });
-  const trail = useBreadcrumbs(groups, pathname);
+  const trail = useBreadcrumbs(groups, pathname, homeHref);
 
   if (!trail) {
     return null;
