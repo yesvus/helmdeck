@@ -498,11 +498,13 @@ export function AdminDataTable<T>({
   // The rows that are drawn: the ones inside the window, and the space left above and below them
   // so that the scrollbar keeps the length of the whole set.
   const [scrollTop, setScrollTop] = useState(0);
-  // The height of a row is never zero, because the window divides by it.
+  // The height of a row is never zero, because the window divides by it, and the height of the
+  // scroll area is never zero, because the window would be empty.
   const rowHeight = Math.max(1, virtualize?.rowHeight ?? 0);
+  const viewportHeight = Math.max(1, virtualize?.height ?? 0);
   const overscan = virtualize?.overscan ?? 2;
   const total = controls.rows.length;
-  const windowSize = virtualize ? Math.ceil(virtualize.height / rowHeight) + overscan * 2 : total;
+  const windowSize = virtualize ? Math.ceil(viewportHeight / rowHeight) + overscan * 2 : total;
 
   // A row takes more than one unit of height when the caller draws a group heading, a subtotal or
   // an expanded detail beside it, and the window counts those units, so the scroll follows the
@@ -671,18 +673,26 @@ export function AdminDataTable<T>({
             const isLast = group.rows[group.rows.length - 1] === row;
             if (isFirst && groupHeader) {
               extra.push(
-                <tr key="group" className="border-b border-zinc-200 bg-zinc-50">
-                  <td colSpan={spanCount} className="px-5 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-                    {groupHeader(group.value, group.rows)}
+                <tr
+                  key="group"
+                  className="border-b border-zinc-200 bg-zinc-50"
+                  style={virtualize ? { height: rowHeight } : undefined}
+                >
+                  <td colSpan={spanCount} className="px-5 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                    <span className="flex h-full items-center">{groupHeader(group.value, group.rows)}</span>
                   </td>
                 </tr>,
               );
             }
             if (isLast && subtotal) {
               extra.push(
-                <tr key="subtotal" className="border-b border-zinc-100 bg-admin-surface-subtle">
-                  <td colSpan={spanCount} className="px-5 py-2 text-sm font-semibold text-zinc-900">
-                    {subtotal(group.rows)}
+                <tr
+                  key="subtotal"
+                  className="border-b border-zinc-100 bg-admin-surface-subtle"
+                  style={virtualize ? { height: rowHeight } : undefined}
+                >
+                  <td colSpan={spanCount} className="px-5 text-sm font-semibold text-zinc-900">
+                    <span className="flex h-full items-center">{subtotal(group.rows)}</span>
                   </td>
                 </tr>,
               );
@@ -691,9 +701,13 @@ export function AdminDataTable<T>({
           const key = getKey(row);
           if (expandable && controls.isExpanded(key)) {
             extra.push(
-              <tr key="expanded" className="border-b border-zinc-100 bg-admin-surface-subtle">
-                <td colSpan={spanCount} className="px-5 py-4 text-sm text-zinc-700">
-                  {expandable(row)}
+              <tr
+                key="expanded"
+                className="border-b border-zinc-100 bg-admin-surface-subtle"
+                style={virtualize ? { height: rowHeight } : undefined}
+              >
+                <td colSpan={spanCount} className="px-5 text-sm text-zinc-700">
+                  <span className="flex h-full items-center">{expandable(row)}</span>
                 </td>
               </tr>,
             );
