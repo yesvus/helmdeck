@@ -171,9 +171,11 @@ export function AdminCalendar({
   const choose = (index: number) => {
     const value = formatAdminDay(adminDayFromIndex(index));
     if (onRangeChange) {
-      if (!range?.from || (range.from && range.to)) {
+      // A start that is not a day is not a start, and the range begins again from this one.
+      const start = range?.from ? parseAdminDay(range.from) : null;
+      if (!start || range?.to) {
         onRangeChange({ from: value });
-      } else if (index < adminDayIndex(parseAdminDay(range.from)!)) {
+      } else if (index < adminDayIndex(start)) {
         onRangeChange({ from: value, to: range.from });
       } else {
         onRangeChange({ from: range.from, to: value });
