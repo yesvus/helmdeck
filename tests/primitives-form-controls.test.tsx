@@ -41,6 +41,17 @@ describe("AdminCheckbox", () => {
     expect(checkbox).toBeChecked();
   });
 
+  it("keeps a name the caller gave it, rather than the field's label", () => {
+    render(
+      <AdminField label="Send a receipt" id="receipt">
+        <AdminCheckbox aria-label="Send the receipt" />
+      </AdminField>,
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: "Send the receipt" });
+    expect(checkbox).not.toHaveAttribute("aria-labelledby");
+  });
+
   it("reports a partly selected state", () => {
     render(<AdminCheckbox aria-label="Select all" indeterminate />);
     expect(screen.getByRole("checkbox", { name: "Select all" })).toHaveProperty("indeterminate", true);

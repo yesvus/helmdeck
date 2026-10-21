@@ -35,6 +35,7 @@ export function AdminCheckbox({
   ref,
   "aria-describedby": describedBy,
   "aria-invalid": invalid,
+  "aria-label": ariaLabel,
   "aria-labelledby": labelledBy,
   ...props
 }: AdminCheckboxProps) {
@@ -46,7 +47,8 @@ export function AdminCheckbox({
       id={id ?? field?.id}
       aria-describedby={describedBy ?? field?.describedBy}
       aria-invalid={invalid ?? (field?.invalid ? true : undefined)}
-      aria-labelledby={labelledBy ?? field?.labelId}
+      aria-label={ariaLabel}
+      aria-labelledby={labelledBy ?? (ariaLabel ? undefined : field?.labelId)}
       ref={composeRefs<HTMLInputElement>(ref, (element) => {
         if (element) element.indeterminate = indeterminate;
       })}
@@ -76,6 +78,7 @@ export function AdminSwitch({
   onChange,
   "aria-describedby": describedBy,
   "aria-invalid": invalid,
+  "aria-label": ariaLabel,
   "aria-labelledby": labelledBy,
   ...props
 }: AdminSwitchProps) {
@@ -89,7 +92,8 @@ export function AdminSwitch({
         id={id ?? field?.id}
         aria-describedby={describedBy ?? field?.describedBy}
         aria-invalid={invalid ?? (field?.invalid ? true : undefined)}
-        aria-labelledby={labelledBy ?? field?.labelId}
+        aria-label={ariaLabel}
+        aria-labelledby={labelledBy ?? (ariaLabel ? undefined : field?.labelId)}
         data-invalid={invalid ?? (field?.invalid ? true : undefined) ? "" : undefined}
         onChange={(event) => {
           onChange?.(event);
@@ -269,7 +273,7 @@ export function AdminToggle({
       id={id ?? field?.id}
       aria-pressed={pressed}
       aria-label={ariaLabel}
-      aria-labelledby={ariaLabelledBy ?? field?.labelId}
+      aria-labelledby={ariaLabelledBy ?? (ariaLabel ? undefined : field?.labelId)}
       aria-describedby={ariaDescribedBy ?? field?.describedBy}
       aria-invalid={field?.invalid ? true : undefined}
       disabled={disabled}
