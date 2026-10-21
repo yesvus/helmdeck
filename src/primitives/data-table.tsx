@@ -174,7 +174,13 @@ export function useAdminDataTable<T>({
       const rightOrder = columnState[right.key]?.order ?? columns.indexOf(right);
       return leftOrder - rightOrder;
     });
-    return ordered.filter((column) => (columnState[column.key]?.visible ?? true));
+    const shown = ordered.filter((column) => (columnState[column.key]?.visible ?? true));
+    // A pinned column is drawn at the edge it is pinned to, whatever the order says.
+    return [
+      ...shown.filter((column) => columnState[column.key]?.pinned === "left"),
+      ...shown.filter((column) => columnState[column.key]?.pinned === undefined),
+      ...shown.filter((column) => columnState[column.key]?.pinned === "right"),
+    ];
   }, [columns, columnState]);
 
   const matchedRows = useMemo(() => {
@@ -353,6 +359,34 @@ export function AdminDataTable<T>({
     onStateChange,
   });
 
+  // A pinned column sits at the edge, and the pinned column before it sits at the edge plus the
+  // width of that one, or the two would lie on top of each other. The width is the one the table
+  // knows: the width the reader dragged the column to, or the pixel width the host gave it.
+  const pinnedOffsets = useMemo(() => {
+    const offsets: Record<string, { left?: string; right?: string }> = {};
+    const widthOf = (column: AdminDataTableColumn<T>) => {
+      const size = controls.state.columns?.[column.key]?.size;
+      if (size) return size;
+      const width = column.width;
+      if (!width) return 0;
+      const pixels = /^(\d+(?:\.\d+)?)px$/.exec(width);
+      return pixels ? Number(pixels[1]) : 0;
+    };
+    let left = 0;
+    let right = 0;
+    for (const column of controls.visibleColumns) {
+      const pinned = controls.state.columns?.[column.key]?.pinned;
+      if (pinned === "left") {
+        offsets[column.key] = { left: `${left}px` };
+        left += widthOf(column);
+      } else if (pinned === "right") {
+        offsets[column.key] = { right: `${right}px` };
+        right += widthOf(column);
+      }
+    }
+    return offsets;
+  }, [controls.visibleColumns, controls.state.columns]);
+
   const tableColumns: AdminTableColumn<T>[] = controls.visibleColumns.map((column) => {
     const columnState = controls.state.columns?.[column.key];
     const pinned = columnState?.pinned;
@@ -360,6 +394,7 @@ export function AdminDataTable<T>({
       key: column.key,
       align: column.align,
       width: columnState?.size ? `${columnState.size}px` : column.width,
+      style: pinnedOffsets[column.key],
       className: cn(
         column.className,
         pinned === "left" && "sticky left-0 z-10 bg-admin-surface",
@@ -477,7 +512,9 @@ function AdminColumnResizeHandle({ label, onResize }: { label: string; onResize:
         if (!element) return;
         start.current = { x: event.clientX, widthAtStart: element.getBoundingClientRect().width };
         cell.current = element;
-        element.setPointerCapture(event.pointerId);
+        // The capture is on the handle, because a captured move is delivered to the element that
+        // captured it and does not travel down to the element that listens for it.
+        event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
         if (!start.current) return;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
 import { AdminCheckbox } from "./form-controls.js";
@@ -14,6 +14,10 @@ export type AdminTableColumn<T> = {
   width?: string;
   className?: string;
   headerClassName?: string;
+  /** The header cell itself, for a caller that measures it. */
+  headerRef?: (element: HTMLTableCellElement | null) => void;
+  /** What the cells of this column carry, such as the offset of a pinned column. */
+  style?: CSSProperties;
 };
 
 export type AdminTableSelection = {
@@ -70,7 +74,8 @@ export function AdminTable<T>({
               <th
                 key={column.key}
                 scope="col"
-                style={{ width: column.width }}
+                ref={column.headerRef}
+                style={{ width: column.width, ...column.style }}
                 className={cn(
                   "px-5 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500",
                   column.align === "right" ? "text-right" : "text-left",
