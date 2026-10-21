@@ -94,6 +94,11 @@ import {
   AdminSplitFormLayout,
   AdminStatCard,
   AdminStatusPill,
+  AdminBadge,
+  AdminAvatar,
+  AdminProgress,
+  AdminSeparator,
+  AdminBreadcrumb,
   AdminSwitch,
   AdminSubmitButton,
   AdminSurfaceCard,
@@ -882,6 +887,29 @@ export const catalogPreviews: Record<string, ComponentType> = {
       <AdminStatusPill tone="info" label="Queued" />
       <AdminStatusPill label="Archived" />
     </div>
+  ),
+  AdminBadge: () => (
+    <div className="flex flex-wrap gap-2">
+      <AdminBadge>12</AdminBadge>
+      <AdminBadge tone="info">Beta</AdminBadge>
+      <AdminBadge tone="warning">Review</AdminBadge>
+    </div>
+  ),
+  AdminAvatar: () => (
+    <div className="flex flex-wrap items-center gap-2">
+      <AdminAvatar name="Ada Lovelace" />
+      <AdminAvatar name="Grace Hopper" size="lg" />
+    </div>
+  ),
+  AdminProgress: () => <AdminProgress value={64} label="Import progress" showValue />,
+  AdminSeparator: () => <AdminSeparator />,
+  AdminBreadcrumb: () => (
+    <AdminBreadcrumb
+      items={[
+        { label: "Products", href: "/shell/products" },
+        { label: "Drafts" },
+      ]}
+    />
   ),
   AdminSkeleton: () => (
     <div className="space-y-2">
