@@ -107,4 +107,21 @@ describe("the column settings", () => {
     expect(next.columns?.name?.size).toBeGreaterThan(0);
   });
 
+  it("draws a pinned column at the edge it is pinned to", () => {
+    render(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={rows}
+        getKey={(row) => row.id}
+        initialColumns={{
+          name: { visible: true, order: 0, pinned: "right" },
+          quantity: { visible: true, order: 1 },
+        }}
+      />,
+    );
+
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers[0]).toHaveTextContent("In stock");
+    expect(headers[1]).toHaveTextContent("Product");
+  });
 });
