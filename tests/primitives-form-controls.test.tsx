@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { AdminField } from "../src/primitives/field";
 import {
@@ -147,6 +148,27 @@ describe("AdminRadioGroup", () => {
     await user.keyboard("{ArrowDown}");
     expect(onValueChange).toHaveBeenCalledWith("archived");
     expect(screen.getByRole("radio", { name: "Archived" })).toHaveFocus();
+  });
+
+  it("follows a controlled value that the parent updates", async () => {
+    const user = userEvent.setup();
+    function Controlled() {
+      const [value, setValue] = useState("published");
+      return (
+        <AdminRadioGroup
+          name="status"
+          value={value}
+          onValueChange={setValue}
+          options={options}
+        />
+      );
+    }
+    render(<Controlled />);
+
+    await user.tab();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("radio", { name: "Draft" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Draft" })).toHaveFocus();
   });
 
   it("names itself when it is not inside a field that names it", () => {
