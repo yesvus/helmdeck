@@ -34,6 +34,11 @@ export function AdminField({
   const fieldContext: AdminFieldContextValue = { id: fieldId, labelId, describedBy, invalid: Boolean(error) };
   // A group of controls cannot be named by a `for` attribute, so it gets a label element without
   // one and the group names itself from the label's id.
+  //
+  // The label names the control two ways, because the controls do not all read this field. The
+  // ones that do name themselves from the label's id, and the ones that do not are named by the
+  // label that wraps them, which is why the wrapper is a label when the field has no id of its
+  // own. A label with a `for` would leave those controls without a name.
   const Wrapper = group || id ? "div" : "label";
   return (
     <AdminFieldContext.Provider value={fieldContext}>
