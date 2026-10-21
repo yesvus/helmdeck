@@ -50,6 +50,14 @@ describe("AdminCalendar", () => {
     expect(screen.getAllByRole("gridcell").find((cell) => cell.textContent === "12")).toHaveAttribute("aria-selected", "true");
   });
 
+  it("puts a day in the month on screen in the tab order", () => {
+    render(<AdminCalendar label="Pick a day" defaultMonth="2026-10" locale="en-GB" />);
+
+    const focusable = screen.getAllByRole("button").filter((button) => button.getAttribute("tabindex") === "0");
+    expect(focusable).toHaveLength(1);
+    expect(focusable[0]).toHaveAccessibleName(/October 2026/);
+  });
+
   it("reports a range as the two days are chosen", async () => {
     const user = userEvent.setup();
     const onRangeChange = vi.fn();

@@ -88,7 +88,15 @@ export function AdminCalendar({
     onMonthChange?.(`${String(next.year).padStart(4, "0")}-${String(next.month).padStart(2, "0")}`);
   };
 
-  const [focusedIndex, setFocusedIndex] = useState<number>(selectedIndex ?? todayIndex);
+  // The focused day has to be a day the calendar draws. A calendar that opens on another month
+  // and keeps the focus on today's day, which it does not draw, leaves the reader with no day to
+  // land on, so the focus starts on the first day of the month on screen.
+  const [focusedIndex, setFocusedIndex] = useState<number>(() => {
+    const anchor = selectedIndex ?? todayIndex;
+    const day = adminDayFromIndex(anchor);
+    if (day.year === current.year && day.month === current.month) return anchor;
+    return adminDayIndex({ year: current.year, month: current.month, day: 1 });
+  });
   const dayRefs = useRef(new Map<number, HTMLButtonElement>());
 
   const firstDay = adminFirstDayOfWeek(resolvedLocale);
