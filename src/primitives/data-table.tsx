@@ -471,33 +471,63 @@ export function AdminDataTable<T>({
     return offsets;
   }, [controls.visibleColumns, controls.state.columns]);
 
+  const spanCount = controls.visibleColumns.length + (expandable ? 1 : 0);
+
   // The group a row belongs to, so that the group heading and the subtotal know which row is the
   // first of the group and which is the last.
-  const groupOf = (row: T) => {
+  const groupOf = useCallback((row: T) => {
     if (!controls.groups) return null;
     for (const [value, rows] of controls.groups) {
       if (rows.includes(row)) return { value, rows };
     }
     return null;
-  };
+  }, [controls.groups]);
 
-  const spanCount = controls.visibleColumns.length + (expandable ? 1 : 0);
+  // The height a row takes, in the units the window counts.
+  const unitsOfRow = useCallback((row: T) => {
+    let units = 1;
+    const group = groupOf(row);
+    if (group) {
+      if (group.rows[0] === row) units += 1;
+      if (group.rows[group.rows.length - 1] === row) units += 1;
+    }
+    if (expandable && controls.isExpanded(getKey(row))) units += 1;
+    return units;
+  }, [groupOf, expandable, controls, getKey]);
 
   // The rows that are drawn: the ones inside the window, and the space left above and below them
   // so that the scrollbar keeps the length of the whole set.
   const [scrollTop, setScrollTop] = useState(0);
-  const rowHeight = virtualize?.rowHeight ?? 0;
+  // The height of a row is never zero, because the window divides by it.
+  const rowHeight = Math.max(1, virtualize?.rowHeight ?? 0);
   const overscan = virtualize?.overscan ?? 2;
   const total = controls.rows.length;
   const windowSize = virtualize ? Math.ceil(virtualize.height / rowHeight) + overscan * 2 : total;
+
+  // A row takes more than one unit of height when the caller draws a group heading, a subtotal or
+  // an expanded detail beside it, and the window counts those units, so the scroll follows the
+  // content and not only the record rows.
+  const unitsBefore = useMemo(() => {
+    const units: number[] = [];
+    let total = 0;
+    for (const row of controls.rows) {
+      units.push(total);
+      total += unitsOfRow(row);
+    }
+    units.push(total);
+    return units;
+  }, [controls.rows, unitsOfRow]);
+
   const firstRow = virtualize && total > 0
     ? Math.max(0, Math.min(Math.floor(scrollTop / rowHeight) - overscan, total - 1))
     : 0;
   const drawnRows = virtualize
     ? controls.rows.slice(firstRow, Math.min(total, firstRow + windowSize))
     : controls.rows;
-  const spaceAbove = virtualize ? firstRow * rowHeight : 0;
-  const spaceBelow = virtualize ? Math.max(0, (total - firstRow - drawnRows.length) * rowHeight) : 0;
+  const spaceAbove = virtualize ? (unitsBefore[firstRow] ?? 0) * rowHeight : 0;
+  const spaceBelow = virtualize
+    ? Math.max(0, ((unitsBefore[total] ?? 0) - (unitsBefore[firstRow + drawnRows.length] ?? 0)) * rowHeight)
+    : 0;
 
   const tableColumns: AdminTableColumn<T>[] = controls.visibleColumns.map((column) => {
     const columnState = controls.state.columns?.[column.key];

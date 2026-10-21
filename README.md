@@ -273,8 +273,11 @@ The resource list keeps its own server-side behaviour and is not rewritten by th
 a row and the height of the scroll area, and the table draws the rows inside the window and the
 space above and below them, so the scrollbar still shows the length of the whole set. The row
 height is fixed, because a row whose height depends on its content would move the window as it is
-measured. The sorting, the filters, the search, the selection and the expansion all keep working,
-because the table still holds the whole set and only draws part of it.
+measured. The sorting, the filters, the search and the expansion all keep working, because
+the table still holds the whole set and only draws part of it. A row that the
+reader expanded, and a group heading or a subtotal beside it, take their own
+height in the scroll, so the window follows the content and not only the record
+rows.
 
 **A row can expand into a detail, and the rows can be grouped.** Pass `expandable` and the table
 grows a column with a toggle in it; the detail the caller writes is drawn across the whole width of
