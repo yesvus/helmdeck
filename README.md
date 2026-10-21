@@ -79,7 +79,7 @@ import { AdminTrashPage } from "@yesvus/helmdeck";
 ## Install
 
 ```bash
-pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.12.0/yesvus-helmdeck-0.12.0.tgz
+pnpm add https://github.com/yesvus/helmdeck/releases/download/v0.13.0/yesvus-helmdeck-0.13.0.tgz
 ```
 
 Release artifacts are distributed through GitHub releases. npm publication is postponed indefinitely.
