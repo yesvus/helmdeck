@@ -68,6 +68,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Disclosure | `AdminTabs`, `AdminAccordion` |
 | Overlays | `AdminDropdownMenu`, `AdminPopover`, `AdminContextMenu`, `AdminSheet` |
 | Search | `AdminCombobox` |
+| Dates | `AdminCalendar`, `AdminDatePicker`, `AdminDateRangePicker` |
 | Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
 | Drag and drop | `AdminSortableDndContext`, `AdminSortableRow`, `AdminSortableCard`, `AdminDragHandle`, `AdminSortableToast`, `useAdminSortableList` |
 | Form and URL state | `useAdminFormDirty`, `useAdminFormValueSignal`, `AdminUrlFeedback`, `useAdminSearchParams` |
@@ -222,6 +223,22 @@ import { AdminCombobox } from "@yesvus/helmdeck";
 The arrow keys move the active option, the enter key chooses it and the escape key closes the list. The loading, empty and error states are announced to assistive technology, and the error state offers a retry that loads the same term again. The option carries whatever the host needs through `value`, and `renderOption` replaces the default rendering of an option.
 
 `AdminRecordSearch` in the shell renders through this primitive, so the admin-wide record search and a host's own typeahead behave the same way.
+
+## Dates
+
+`AdminCalendar`, `AdminDatePicker` and `AdminDateRangePicker` are the date controls, in the admin theme and in the reader's locale.
+
+```tsx
+import { AdminDatePicker, AdminDateRangePicker } from "@yesvus/helmdeck";
+
+<AdminDatePicker label="Due date" value={dueDate} onChange={setDueDate} />
+
+<AdminDateRangePicker label="Due between" from={from} to={to} onChange={setRange} />
+```
+
+A day is a `YYYY-MM-DD` string, and a month is a `YYYY-MM` string, so a value goes into a form field and into a query string without a conversion. The calendar names the days in the reader's locale and starts the week on the day the locale starts it, and it uses the admin theme in both colour modes.
+
+The reader moves through the days with the arrow keys, through the weeks with the home and end keys, and through the months with the page keys. The field opens a calendar rather than a browser widget, so the theme reaches it and the reader gets the day's own name.
 
 ## Loading states
 
