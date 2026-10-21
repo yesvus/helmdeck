@@ -188,19 +188,25 @@ describe("admin breadcrumbs", () => {
     ]);
   });
 
-  it("leaves a configured home route out when the navigation holds an item above it", () => {
+  it("keeps the item that names the matched route for a descendant path", () => {
     expect(createAdminBreadcrumbTrail(groupedNav, "/products/42", "/products")?.crumbs).toEqual([
       { label: "Catalog" },
+      { label: "Products", href: "/products", current: false },
       { label: "42", current: true },
     ]);
   });
 
+  it("shows the route the host calls home alone on its own page", () => {
+    expect(createAdminBreadcrumbTrail(groupedNav, "/products", "/products")?.crumbs).toEqual([
+      { label: "Products", href: "/products", current: true },
+    ]);
+  });
+
   it("takes the home route the host states on the component", () => {
-    getPathname.mockReturnValue("/products/42");
+    getPathname.mockReturnValue("/products");
     render(<AdminBreadcrumbs groups={groupedNav} homeHref="/products" />);
-    expect(screen.getByText("Catalog")).toBeInTheDocument();
-    expect(screen.getByText("42")).toBeInTheDocument();
-    expect(screen.queryByText("Products")).toBeNull();
+    expect(screen.getByText("Products")).toBeInTheDocument();
+    expect(screen.queryByText("Catalog")).toBeNull();
   });
 
   it("keeps the root page of a navigation that states a custom root", () => {

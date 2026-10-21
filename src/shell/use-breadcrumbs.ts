@@ -75,9 +75,7 @@ function sectionCrumbs(
   const remaining = segments.slice(itemPath(item).split("/").filter(Boolean).length);
   // A section has no route of its own, so it names the place the way the sidebar section does.
   crumbs.push({ label: matched.group.label });
-  if (!isRedundantHomeItem(entries, findHomeEntry(entries, homeHref), item)) {
-    crumbs.push({ label: item.label, href: item.href, current: remaining.length === 0 });
-  }
+  crumbs.push({ label: item.label, href: item.href, current: remaining.length === 0 });
   for (const [index, segment] of remaining.entries()) {
     crumbs.push({ label: segment, current: index === remaining.length - 1 });
   }
@@ -133,14 +131,8 @@ function findRootEntry(entries: NavEntry[], homeHref?: string): NavEntry | undef
 }
 
 /**
- * A home route another navigation item sits above is a page of its section rather than the start of
- * the navigation, and the section already places the page, so the trail leaves it out.
+ * Whether one navigation route sits above another, which is what makes it a parent of it.
  */
-function isRedundantHomeItem(entries: NavEntry[], home: NavEntry | undefined, item: AdminNavItem): boolean {
-  if (!home || itemPath(home.item) !== itemPath(item)) return false;
-  return entries.some((other) => other !== home && isAncestorPath(itemPath(other.item), itemPath(home.item)));
-}
-
 function isAncestorPath(candidatePath: string, path: string) {
   return candidatePath !== path && path.startsWith(candidatePath === "/" ? "/" : `${candidatePath}/`);
 }
