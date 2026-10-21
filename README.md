@@ -67,7 +67,7 @@ import { AdminTable, AdminModal, AdminField } from "@yesvus/helmdeck";
 | Display | `AdminBadge`, `AdminAvatar`, `AdminProgress`, `AdminSeparator`, `AdminBreadcrumb` |
 | Disclosure | `AdminTabs`, `AdminAccordion` |
 | Overlays | `AdminDropdownMenu`, `AdminPopover`, `AdminContextMenu`, `AdminSheet` |
-| Search | `AdminCombobox` |
+| Search | `AdminCombobox`, `AdminCommandPalette` |
 | Dates | `AdminCalendar`, `AdminDatePicker`, `AdminDateRangePicker` |
 | Tables | `AdminDataTable`, `useAdminDataTable` |
 | Loading | `AdminLoadingState`, `AdminSkeleton`, `AdminContentSkeleton`, `AdminTableSkeleton`, `AdminFormSkeleton`, `AdminCardGridSkeleton`, `AdminDashboardSkeleton` |
@@ -288,6 +288,25 @@ pinned to the left or the right edge stays there while the table scrolls sideway
 reader drags wider keeps that width, and the columns are reordered by dragging them in the panel,
 which the keyboard can do as well. The column state is part of the table's state, so a host that
 wants to hold it across visits passes `state` and `onStateChange`.
+
+## Command palette
+
+`AdminCommandPalette` is a palette of commands over the combobox. It opens on a keyboard shortcut, filters the commands the host gives it as the reader types, and runs the chosen one.
+
+```tsx
+import { AdminCommandPalette } from "@yesvus/helmdeck";
+
+<AdminCommandPalette
+  commands={[
+    { id: "new", label: "New product", onRun: openNewProduct },
+    { id: "settings", label: "Settings", description: "The workspace settings", onRun: openSettings },
+  ]}
+/>
+```
+
+The palette adds nothing the host did not give it: the commands are the host's, and the host decides what running one does. A host that also wants records in the palette passes a loader, the same one the record search uses, and the records are shown beside the commands.
+
+The arrow keys move the active item and the enter key runs it, because the palette is a combobox and the combobox owns the keyboard.
 
 ## Loading states
 

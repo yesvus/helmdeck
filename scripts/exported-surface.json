@@ -46,6 +46,7 @@
     "AdminCheckbox",
     "AdminCollectionEditor",
     "AdminCombobox",
+    "AdminCommandPalette",
     "AdminContactForm",
     "AdminContentSkeleton",
     "AdminContextMenu",

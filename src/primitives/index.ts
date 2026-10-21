@@ -27,6 +27,12 @@ export type {
 } from "./data-table.js";
 export { AdminCalendar, AdminDatePicker, AdminDateRangePicker } from "./calendar.js";
 export type { AdminCalendarProps, AdminCalendarRange, AdminDatePickerProps, AdminDateRangePickerProps } from "./calendar.js";
+export { AdminCommandPalette } from "./command-palette.js";
+export type {
+  AdminCommandPaletteCommand,
+  AdminCommandPaletteProps,
+  AdminCommandPaletteRecord,
+} from "./command-palette.js";
 export { AdminCombobox } from "./combobox.js";
 export type { AdminComboboxOption, AdminComboboxProps } from "./combobox.js";
 export { AdminAvatar, AdminBadge, AdminBreadcrumb, AdminProgress, AdminSeparator } from "./display.js";

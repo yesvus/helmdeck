@@ -30,6 +30,7 @@ import {
   AdminChartTable,
   AdminCheckbox,
   AdminCombobox,
+  AdminCommandPalette,
   AdminDataTable,
   AdminCalendar,
   AdminDatePicker,
@@ -983,6 +984,14 @@ export const catalogPreviews: Record<string, ComponentType> = {
       caption="Catalogue sample"
       searchLabel="Search products"
       filters={[{ key: "quantity", label: "In stock at least" }]}
+    />
+  ),
+  AdminCommandPalette: () => (
+    <AdminCommandPalette
+      commands={[
+        { id: "new", label: "New product", onRun: () => {} },
+        { id: "settings", label: "Settings", description: "The workspace settings", onRun: () => {} },
+      ]}
     />
   ),
   AdminInput: () => <AdminInput placeholder="Search the catalogue" />,
