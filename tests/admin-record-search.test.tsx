@@ -71,7 +71,9 @@ describe("AdminRecordSearch", () => {
 
     fireEvent.change(input, { target: { value: "nothing" } });
     expect(screen.getByText("Searching records.")).toBeInTheDocument();
-    expect(input).toHaveAttribute("aria-expanded", "false");
+    // The panel is on screen while it searches, so the field says it is expanded even though
+    // the list of results is not there yet.
+    expect(input).toHaveAttribute("aria-expanded", "true");
     expect(input).not.toHaveAttribute("aria-controls");
     first.resolve([]);
     expect(await screen.findByText("No matching records.")).toBeInTheDocument();
