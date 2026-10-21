@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
+import { useAdminHref } from "../i18n.js";
 import { adminToneClasses, type AdminTone } from "./tone.js";
 
 const badgeToneClassName = adminToneClasses(
@@ -196,6 +197,7 @@ export function AdminBreadcrumb({
   className?: string;
 }) {
   const i18n = useAdminMessages();
+  const toHref = useAdminHref();
   const navLabel = label ?? i18n.shell.breadcrumbLabel;
   if (hideSingle && items.length === 1) {
     return (
@@ -222,7 +224,7 @@ export function AdminBreadcrumb({
               {current ? (
                 <span aria-current="page" className="truncate text-zinc-700">{item.label}</span>
               ) : item.href ? (
-                <a href={item.href} className="truncate hover:text-zinc-900">{item.label}</a>
+                <a href={toHref(item.href)} className="truncate hover:text-zinc-900">{item.label}</a>
               ) : (
                 <span className="truncate">{item.label}</span>
               )}
