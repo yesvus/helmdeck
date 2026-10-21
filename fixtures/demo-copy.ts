@@ -1,9 +1,9 @@
 export const demoCopy = {
   en: {
-    productDescription: "Admin infrastructure",
+    productDescription: "Admin engine",
     openDemo: "Open demo",
-    heroTitle: "The control deck for your admin product.",
-    heroBody: "Helmdeck is a reusable admin interface package for teams that want one polished operating system across multiple products, tenants, and teams.",
+    heroTitle: "The admin engine your product installs.",
+    heroBody: "Helmdeck is an installable admin engine for Next.js: the shell, the generated resource workflows, the dashboard, and the primitives they are built from. Your application keeps its data, its sessions, and its permissions, and connects them through documented adapters.",
     exploreShell: "Explore the shell",
     viewSource: "View source",
     technologies: ["MIT licensed", "React 19", "Tailwind CSS 4", "TypeScript"],
@@ -11,10 +11,10 @@ export const demoCopy = {
       ["Complete admin shell", "Collapsible navigation, command search, breadcrumbs, mobile navigation, profile actions, and tenant branding."],
       ["Production primitives", "Forms, tables, dialogs, feedback, status, pagination, destructive actions, and accessible drag-and-drop."],
       ["Media workflows", "Adapter-backed upload, search, selection, and reusable media fields without coupling the package to a storage provider."],
-      ["Host-owned boundaries", "Authentication, data access, routes, localization, and domain workflows remain explicit application responsibilities."],
+      ["Host-owned services", "Authentication, sessions, storage, data access, routes, and domain workflows remain explicit application responsibilities."],
     ],
     liveExamples: "Use the product, not a static screenshot.",
-    liveExamplesBody: "Every route below runs the public package API that application teams consume.",
+    liveExamplesBody: "Every route below runs the public package API that application teams consume. This demo is one such application: it brings its own database, its own accounts, and its own permission rules, and the package renders the interface on top.",
     demos: [
       ["/shell", "Admin shell", "Navigation, roles, responsive behavior, and branded workspace."],
       ["/forms", "Form workflows", "Managed forms, dirty state, autosave, validation layout, and feedback."],
