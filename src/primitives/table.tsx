@@ -38,6 +38,9 @@ export function AdminTable<T>({
   className,
   selection,
   renderExtraRows,
+  renderBeforeRows,
+  maxHeight,
+  onScroll,
 }: {
   columns: AdminTableColumn<T>[];
   rows: T[];
@@ -52,12 +55,25 @@ export function AdminTable<T>({
    * shows. The table draws them itself, so a caller does not write the table's own markup.
    */
   renderExtraRows?: (row: T) => ReactNode;
+  /** The row drawn before the rows, such as the space a virtualized table leaves above them. */
+  renderBeforeRows?: ReactNode;
+  /** The height of the scroll area, for a table whose rows are virtualized. */
+  maxHeight?: number;
+  onScroll?: (event: React.UIEvent<HTMLDivElement>) => void;
 }) {
   const i18n = useAdminMessages();
   const allSelected = rows.length > 0 && rows.every((row) => selection?.selectedKeys.has(getKey(row)));
   const someSelected = rows.some((row) => selection?.selectedKeys.has(getKey(row)));
   return (
-    <div className={cn("overflow-x-auto rounded-admin-card border border-zinc-200 bg-admin-surface", className)}>
+    <div
+      onScroll={onScroll}
+      className={cn(
+        "overflow-x-auto rounded-admin-card border border-zinc-200 bg-admin-surface",
+        maxHeight ? "overflow-y-auto" : null,
+        className,
+      )}
+      style={maxHeight ? { maxHeight } : undefined}
+    >
       <table className="w-full min-w-[36rem] border-collapse text-sm">
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
@@ -95,6 +111,7 @@ export function AdminTable<T>({
           </tr>
         </thead>
         <tbody>
+          {renderBeforeRows}
           {rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length + (selection ? 1 : 0)} className="px-5 py-10 text-center text-sm text-zinc-500">

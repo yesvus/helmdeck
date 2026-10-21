@@ -386,6 +386,18 @@ export type AdminDataTableProps<T> = {
   subtotal?: (rows: T[]) => ReactNode;
   expandLabel?: string;
   collapseLabel?: string;
+  /**
+   * Draws only the rows that are on screen. The row height is fixed, because a row whose height
+   * depends on its content would move the window as it is measured.
+   */
+  virtualize?: {
+    /** The height of one row, in pixels. */
+    rowHeight: number;
+    /** The height of the scroll area, in pixels. */
+    height: number;
+    /** How many rows are drawn above and below the window, so a scroll does not show a gap. */
+    overscan?: number;
+  };
 };
 
 /**
@@ -419,6 +431,7 @@ export function AdminDataTable<T>({
   subtotal,
   expandLabel,
   collapseLabel,
+  virtualize,
 }: AdminDataTableProps<T>) {
   const i18n = useAdminMessages();
   const controls = useAdminDataTable<T>({
@@ -460,17 +473,65 @@ export function AdminDataTable<T>({
     return offsets;
   }, [controls.visibleColumns, controls.state.columns]);
 
+  const spanCount = controls.visibleColumns.length + (expandable ? 1 : 0);
+
   // The group a row belongs to, so that the group heading and the subtotal know which row is the
   // first of the group and which is the last.
-  const groupOf = (row: T) => {
+  const groupOf = useCallback((row: T) => {
     if (!controls.groups) return null;
     for (const [value, rows] of controls.groups) {
       if (rows.includes(row)) return { value, rows };
     }
     return null;
-  };
+  }, [controls.groups]);
 
-  const spanCount = controls.visibleColumns.length + (expandable ? 1 : 0);
+  // The height a row takes, in the units the window counts.
+  const unitsOfRow = useCallback((row: T) => {
+    let units = 1;
+    const group = groupOf(row);
+    if (group) {
+      if (group.rows[0] === row) units += 1;
+      if (group.rows[group.rows.length - 1] === row) units += 1;
+    }
+    if (expandable && controls.isExpanded(getKey(row))) units += 1;
+    return units;
+  }, [groupOf, expandable, controls, getKey]);
+
+  // The rows that are drawn: the ones inside the window, and the space left above and below them
+  // so that the scrollbar keeps the length of the whole set.
+  const [scrollTop, setScrollTop] = useState(0);
+  // The height of a row is never zero, because the window divides by it, and the height of the
+  // scroll area is never zero, because the window would be empty.
+  const rowHeight = Math.max(1, virtualize?.rowHeight ?? 0);
+  const viewportHeight = Math.max(1, virtualize?.height ?? 0);
+  const overscan = virtualize?.overscan ?? 2;
+  const total = controls.rows.length;
+  const windowSize = virtualize ? Math.ceil(viewportHeight / rowHeight) + overscan * 2 : total;
+
+  // A row takes more than one unit of height when the caller draws a group heading, a subtotal or
+  // an expanded detail beside it, and the window counts those units, so the scroll follows the
+  // content and not only the record rows.
+  const unitsBefore = useMemo(() => {
+    const units: number[] = [];
+    let total = 0;
+    for (const row of controls.rows) {
+      units.push(total);
+      total += unitsOfRow(row);
+    }
+    units.push(total);
+    return units;
+  }, [controls.rows, unitsOfRow]);
+
+  const firstRow = virtualize && total > 0
+    ? Math.max(0, Math.min(Math.floor(scrollTop / rowHeight) - overscan, total - 1))
+    : 0;
+  const drawnRows = virtualize
+    ? controls.rows.slice(firstRow, Math.min(total, firstRow + windowSize))
+    : controls.rows;
+  const spaceAbove = virtualize ? (unitsBefore[firstRow] ?? 0) * rowHeight : 0;
+  const spaceBelow = virtualize
+    ? Math.max(0, ((unitsBefore[total] ?? 0) - (unitsBefore[firstRow + drawnRows.length] ?? 0)) * rowHeight)
+    : 0;
 
   const tableColumns: AdminTableColumn<T>[] = controls.visibleColumns.map((column) => {
     const columnState = controls.state.columns?.[column.key];
@@ -596,11 +657,16 @@ export function AdminDataTable<T>({
       ) : null}
       <AdminTable
         columns={withExpansion}
-        rows={controls.rows}
+        rows={drawnRows}
         getKey={getKey}
         caption={caption}
         empty={empty}
         rowClassName={rowClassName}
+        maxHeight={virtualize?.height}
+        onScroll={virtualize ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
+        renderBeforeRows={virtualize && spaceAbove > 0 ? (
+          <tr aria-hidden="true" style={{ height: spaceAbove }} className="border-0 p-0" />
+        ) : undefined}
         renderExtraRows={(row) => {
           const extra: ReactNode[] = [];
           const group = groupOf(row);
@@ -609,18 +675,26 @@ export function AdminDataTable<T>({
             const isLast = group.rows[group.rows.length - 1] === row;
             if (isFirst && groupHeader) {
               extra.push(
-                <tr key="group" className="border-b border-zinc-200 bg-zinc-50">
-                  <td colSpan={spanCount} className="px-5 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
-                    {groupHeader(group.value, group.rows)}
+                <tr
+                  key="group"
+                  className="border-b border-zinc-200 bg-zinc-50"
+                  style={virtualize ? { height: rowHeight } : undefined}
+                >
+                  <td colSpan={spanCount} className="px-5 text-xs font-semibold uppercase tracking-[0.08em] text-zinc-500">
+                    <span className="flex h-full items-center">{groupHeader(group.value, group.rows)}</span>
                   </td>
                 </tr>,
               );
             }
             if (isLast && subtotal) {
               extra.push(
-                <tr key="subtotal" className="border-b border-zinc-100 bg-admin-surface-subtle">
-                  <td colSpan={spanCount} className="px-5 py-2 text-sm font-semibold text-zinc-900">
-                    {subtotal(group.rows)}
+                <tr
+                  key="subtotal"
+                  className="border-b border-zinc-100 bg-admin-surface-subtle"
+                  style={virtualize ? { height: rowHeight } : undefined}
+                >
+                  <td colSpan={spanCount} className="px-5 text-sm font-semibold text-zinc-900">
+                    <span className="flex h-full items-center">{subtotal(group.rows)}</span>
                   </td>
                 </tr>,
               );
@@ -629,11 +703,21 @@ export function AdminDataTable<T>({
           const key = getKey(row);
           if (expandable && controls.isExpanded(key)) {
             extra.push(
-              <tr key="expanded" className="border-b border-zinc-100 bg-admin-surface-subtle">
-                <td colSpan={spanCount} className="px-5 py-4 text-sm text-zinc-700">
-                  {expandable(row)}
+              <tr
+                key="expanded"
+                className="border-b border-zinc-100 bg-admin-surface-subtle"
+                style={virtualize ? { height: rowHeight } : undefined}
+              >
+                <td colSpan={spanCount} className="px-5 text-sm text-zinc-700">
+                  <span className="flex h-full items-center">{expandable(row)}</span>
                 </td>
               </tr>,
+            );
+          }
+          // The space below the last drawn row keeps the scrollbar the length of the whole set.
+          if (virtualize && spaceBelow > 0 && row === drawnRows[drawnRows.length - 1]) {
+            extra.push(
+              <tr key="space-below" aria-hidden="true" style={{ height: spaceBelow }} className="border-0 p-0" />,
             );
           }
           return extra.length ? <>{extra}</> : null;
