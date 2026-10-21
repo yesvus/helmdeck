@@ -104,6 +104,8 @@ export type AdminDataTableControls<T> = {
   /** The column the rows are grouped by. */
   groupBy: string | null;
   setGroupBy: (key: string | null) => void;
+  /** The groups the rows fall into, and the rows of each one. */
+  groups: Map<AdminDataTableValue, T[]> | null;
   /** Whether a row is expanded. */
   isExpanded: (key: string | number) => boolean;
   toggleExpanded: (key: string | number) => void;
@@ -180,6 +182,7 @@ export function useAdminDataTable<T>({
   );
 
   const columnState = useMemo(() => state.columns ?? {}, [state.columns]);
+  const groupBy = state.groupBy ?? null;
 
   const visibleColumns = useMemo(() => {
     const ordered = [...columns].sort((left, right) => {
@@ -227,12 +230,34 @@ export function useAdminDataTable<T>({
 
   // The size is bounded once, so the page count and the slice agree: a page size of zero would
   // otherwise count a page and hold no rows.
+  // The rows are grouped before the page takes its share, so a group that spans two pages is
+  // headed and totalled over the rows it really holds and not over the part of it on this page.
+  const groups = useMemo(() => {
+    if (!groupBy) return null;
+    const column = columnByKey.get(groupBy);
+    if (!column?.value) return null;
+    const collected = new Map<AdminDataTableValue, T[]>();
+    for (const row of sortedRows) {
+      const value = column.value(row);
+      const list = collected.get(value);
+      if (list) list.push(row);
+      else collected.set(value, [row]);
+    }
+    // The rows of a group are drawn together: a value that appears twice with another value in
+    // between would otherwise have its heading at the first row and its subtotal at the last,
+    // with the other value between them.
+    const ordered: T[] = [];
+    for (const rows of collected.values()) ordered.push(...rows);
+    return { collected, ordered };
+  }, [sortedRows, groupBy, columnByKey]);
+
+  const groupedRows = groups?.ordered ?? sortedRows;
   const size = Math.max(1, Math.floor(pageSize) || 1);
-  const pageCount = Math.max(1, Math.ceil(sortedRows.length / size));
+  const pageCount = Math.max(1, Math.ceil(groupedRows.length / size));
   const page = Math.min(Math.max(1, state.page), pageCount);
   const pageRows = useMemo(
-    () => sortedRows.slice((page - 1) * size, page * size),
-    [sortedRows, page, size],
+    () => groupedRows.slice((page - 1) * size, page * size),
+    [groupedRows, page, size],
   );
 
   const toggleSort = (key: string) => {
@@ -289,8 +314,6 @@ export function useAdminDataTable<T>({
     setState({ ...state, columns: { ...columnState, ...columns2 } });
   };
 
-  const groupBy = state.groupBy ?? null;
-
   const setGroupBy = (key: string | null) => setState({ ...state, groupBy: key });
 
   const isExpanded = (key: string | number) => state.expandedKeys.includes(key);
@@ -322,6 +345,7 @@ export function useAdminDataTable<T>({
     moveColumn,
     groupBy,
     setGroupBy,
+    groups: groups?.collected ?? null,
     isExpanded,
     toggleExpanded,
   };
@@ -434,35 +458,11 @@ export function AdminDataTable<T>({
     return offsets;
   }, [controls.visibleColumns, controls.state.columns]);
 
-  // The rows of a group, in the order they are drawn, so that the group heading and the subtotal
-  // know which row is the first of the group and which is the last.
-  const groups = useMemo(() => {
-    if (!controls.groupBy) return null;
-    const column = controls.visibleColumns.find((candidate) => candidate.key === controls.groupBy);
-    if (!column?.value) return null;
-    const collected = new Map<AdminDataTableValue, T[]>();
-    // The rows of a group are drawn together, so the rows are grouped before they are drawn: a
-    // value that appears twice with another value in between would otherwise have its heading at
-    // the first row and its subtotal at the last, with the other value between them.
-    const ordered: T[] = [];
-    for (const row of controls.rows) {
-      const value = column.value!(row);
-      const list = collected.get(value);
-      if (list) {
-        list.push(row);
-      } else {
-        collected.set(value, [row]);
-      }
-      ordered.push(row);
-    }
-    return { groups: collected, ordered };
-  }, [controls.groupBy, controls.visibleColumns, controls.rows]);
-
-  const groupedRows = groups?.ordered ?? controls.rows;
-
+  // The group a row belongs to, so that the group heading and the subtotal know which row is the
+  // first of the group and which is the last.
   const groupOf = (row: T) => {
-    if (!groups) return null;
-    for (const [value, rows] of groups.groups) {
+    if (!controls.groups) return null;
+    for (const [value, rows] of controls.groups) {
       if (rows.includes(row)) return { value, rows };
     }
     return null;
@@ -594,7 +594,7 @@ export function AdminDataTable<T>({
       ) : null}
       <AdminTable
         columns={withExpansion}
-        rows={groupedRows}
+        rows={controls.rows}
         getKey={getKey}
         caption={caption}
         empty={empty}
