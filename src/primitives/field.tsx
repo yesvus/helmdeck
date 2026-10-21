@@ -37,19 +37,24 @@ export function AdminField({
   const Wrapper = group || id ? "div" : "label";
   return (
     <AdminFieldContext.Provider value={fieldContext}>
-      <Wrapper className={cn("grid gap-2", className)}>
-        <span className="flex min-w-0 flex-wrap items-center gap-x-1">
-          {id && !group ? (
-            <label id={labelId} htmlFor={id} className="text-sm font-semibold leading-5 text-zinc-900">{label}</label>
-          ) : (
-            <span id={labelId} className="text-sm font-semibold leading-5 text-zinc-900">{label}</span>
-          )}
-          {hint ? <AdminContextualHelp label={`Help: ${label}`}>{hint}</AdminContextualHelp> : null}
-        </span>
+      <div className={cn("flex flex-col gap-2", className)}>
+        <Wrapper className="grid gap-2">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1">
+            {id && !group ? (
+              <label id={labelId} htmlFor={id} className="text-sm font-semibold leading-5 text-zinc-900">{label}</label>
+            ) : (
+              <span id={labelId} className="text-sm font-semibold leading-5 text-zinc-900">{label}</span>
+            )}
+            {hint ? <AdminContextualHelp label={`Help: ${label}`}>{hint}</AdminContextualHelp> : null}
+          </span>
+          {children}
+        </Wrapper>
+        {/* The hint and the error sit outside the label, because a label that wraps its control
+            names the control with everything the label says, and a hint read as part of the name
+            is a hint the reader hears twice. */}
         {hint ? <span id={hintId} className="sr-only">{hint}</span> : null}
-        {children}
         {error ? <span id={errorId} role="alert" className="text-sm leading-5 text-red-700">{error}</span> : null}
-      </Wrapper>
+      </div>
     </AdminFieldContext.Provider>
   );
 }

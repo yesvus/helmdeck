@@ -35,6 +35,7 @@ export function AdminCheckbox({
   ref,
   "aria-describedby": describedBy,
   "aria-invalid": invalid,
+  "aria-labelledby": labelledBy,
   ...props
 }: AdminCheckboxProps) {
   const field = useAdminFieldContext();
@@ -45,6 +46,7 @@ export function AdminCheckbox({
       id={id ?? field?.id}
       aria-describedby={describedBy ?? field?.describedBy}
       aria-invalid={invalid ?? (field?.invalid ? true : undefined)}
+      aria-labelledby={labelledBy ?? field?.labelId}
       ref={composeRefs<HTMLInputElement>(ref, (element) => {
         if (element) element.indeterminate = indeterminate;
       })}
@@ -74,11 +76,12 @@ export function AdminSwitch({
   onChange,
   "aria-describedby": describedBy,
   "aria-invalid": invalid,
+  "aria-labelledby": labelledBy,
   ...props
 }: AdminSwitchProps) {
   const field = useAdminFieldContext();
   return (
-    <span className={cn("inline-flex items-center gap-3", className)}>
+    <span className={cn("relative inline-flex h-6 w-11 shrink-0 items-center", className)}>
       <input
         {...props}
         type="checkbox"
@@ -86,18 +89,24 @@ export function AdminSwitch({
         id={id ?? field?.id}
         aria-describedby={describedBy ?? field?.describedBy}
         aria-invalid={invalid ?? (field?.invalid ? true : undefined)}
+        aria-labelledby={labelledBy ?? field?.labelId}
         data-invalid={invalid ?? (field?.invalid ? true : undefined) ? "" : undefined}
         onChange={(event) => {
           onChange?.(event);
           onCheckedChange?.(event.target.checked);
         }}
         ref={ref}
-        className={cn("peer sr-only", adminControlFocusClassName)}
+        className={cn(
+          // The input lies over the track, so a click or a touch on the track reaches the input.
+          // A track that is only a picture of a control is a control a mouse cannot use.
+          "peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 focus-visible:outline-none",
+          "disabled:cursor-not-allowed",
+        )}
       />
       <span
         aria-hidden="true"
         className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full bg-zinc-300 transition-colors",
+          "pointer-events-none relative inline-flex h-6 w-11 shrink-0 rounded-full bg-zinc-300 transition-colors",
           "after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-admin-surface after:shadow after:transition-transform",
           "peer-checked:bg-brand-600 peer-checked:after:translate-x-5",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-2",
@@ -123,6 +132,8 @@ export type AdminRadioGroupProps = {
   defaultValue?: string;
   onValueChange?: (value: string) => void;
   id?: string;
+  /** The group's name, for a group that is not inside a field that names it. */
+  label?: string;
   className?: string;
   optionClassName?: string;
   disabled?: boolean;
@@ -141,6 +152,7 @@ export const AdminRadioGroup = adminFormGroup(function AdminRadioGroup({
   defaultValue,
   onValueChange,
   id,
+  label,
   className,
   optionClassName,
   disabled = false,
@@ -176,6 +188,7 @@ export const AdminRadioGroup = adminFormGroup(function AdminRadioGroup({
       role="radiogroup"
       id={groupId}
       aria-labelledby={field?.labelId}
+      aria-label={field?.labelId ? undefined : label}
       aria-describedby={field?.describedBy}
       aria-invalid={field?.invalid ? true : undefined}
       className={cn(
@@ -184,35 +197,41 @@ export const AdminRadioGroup = adminFormGroup(function AdminRadioGroup({
         className,
       )}
     >
-      {options.map((option) => (
-        <div key={option.value} className="grid gap-0.5">
-          <label className={cn("flex cursor-pointer items-start gap-2 text-sm text-zinc-900", optionClassName)}>
-            <input
-              type="radio"
-              name={name}
-              value={option.value}
-              checked={selected === option.value}
-              disabled={disabled || option.disabled}
-              onKeyDown={(event) => {
-                if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(event.key)) return;
-                event.preventDefault();
-                moveSelection(option.value, event.key);
-              }}
-              onChange={() => select(option.value)}
-              ref={(element) => {
-                if (element) radioRefs.current.set(option.value, element);
-                else radioRefs.current.delete(option.value);
-              }}
-              className={cn(
-                "mt-0.5 h-4 w-4 shrink-0 accent-brand-600 disabled:cursor-not-allowed disabled:opacity-50",
-                adminControlFocusClassName,
-              )}
-            />
-            <span>{option.label}</span>
-          </label>
-          {option.hint ? <span className="pl-6 text-xs text-zinc-500">{option.hint}</span> : null}
-        </div>
-      ))}
+      {options.map((option) => {
+        const hintId = option.hint ? `${groupId}-hint-${option.value}` : undefined;
+        return (
+          <div key={option.value} className="grid gap-0.5">
+            <label className={cn("flex cursor-pointer items-start gap-2 text-sm text-zinc-900", optionClassName)}>
+              <input
+                type="radio"
+                name={name}
+                value={option.value}
+                checked={selected === option.value}
+                disabled={disabled || option.disabled}
+                aria-describedby={hintId}
+                onKeyDown={(event) => {
+                  if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(event.key)) return;
+                  event.preventDefault();
+                  moveSelection(option.value, event.key);
+                }}
+                onChange={() => select(option.value)}
+                ref={(element) => {
+                  if (element) radioRefs.current.set(option.value, element);
+                  else radioRefs.current.delete(option.value);
+                }}
+                className={cn(
+                  "mt-0.5 h-4 w-4 shrink-0 accent-brand-600 disabled:cursor-not-allowed disabled:opacity-50",
+                  adminControlFocusClassName,
+                )}
+              />
+              <span>{option.label}</span>
+            </label>
+            {option.hint ? (
+              <span id={hintId} className="pl-6 text-xs text-zinc-500">{option.hint}</span>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 });
@@ -252,6 +271,7 @@ export function AdminToggle({
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy ?? field?.labelId}
       aria-describedby={ariaDescribedBy ?? field?.describedBy}
+      aria-invalid={field?.invalid ? true : undefined}
       disabled={disabled}
       onClick={() => onPressedChange?.(!pressed)}
       className={cn(

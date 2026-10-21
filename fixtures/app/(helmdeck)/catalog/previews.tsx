@@ -704,6 +704,15 @@ function MediaLightboxPreview() {
   );
 }
 
+function ToggleSample() {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <AdminToggle pressed={pressed} onPressedChange={setPressed}>
+      Compact
+    </AdminToggle>
+  );
+}
+
 export const catalogPreviews: Record<string, ComponentType> = {
   AdminSettingsFooter: () => <AdminSettingsFooter>Host build 42</AdminSettingsFooter>,
   AdminContactForm: () => <AdminContactForm onSubmit={async () => {}} />,
@@ -819,7 +828,7 @@ export const catalogPreviews: Record<string, ComponentType> = {
       />
     </AdminField>
   ),
-  AdminToggle: () => <AdminToggle pressed>Compact</AdminToggle>,
+  AdminToggle: ToggleSample,
   AdminRepeaterListField: () => (
     <SampleForm>
       <AdminRepeaterListField

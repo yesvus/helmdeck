@@ -71,6 +71,25 @@ describe("AdminSwitch", () => {
     expect(control).toHaveAttribute("aria-invalid", "true");
     expect(control.getAttribute("aria-describedby")).toContain("notifications-error");
   });
+
+  it("toggles when the visible track is clicked", async () => {
+    const user = userEvent.setup();
+    const onCheckedChange = vi.fn();
+    const { container } = render(
+      <AdminSwitch aria-label="Email notifications" onCheckedChange={onCheckedChange} />,
+    );
+
+    // The input lies over the track, so a click on the track reaches the input. jsdom does not
+    // hit-test, so the arrangement is what the test can see.
+    const input = screen.getByRole("switch", { name: "Email notifications" });
+    const track = container.querySelector<HTMLElement>("span[aria-hidden='true']")!;
+    expect(input).toHaveClass("absolute", "inset-0");
+    expect(track).toHaveClass("pointer-events-none");
+    expect(input.parentElement).toContainElement(track);
+
+    await user.click(input);
+    expect(onCheckedChange).toHaveBeenCalledWith(true);
+  });
 });
 
 describe("AdminRadioGroup", () => {
@@ -127,6 +146,19 @@ describe("AdminRadioGroup", () => {
     await user.tab();
     await user.keyboard("{ArrowDown}");
     expect(onValueChange).toHaveBeenCalledWith("archived");
+    expect(screen.getByRole("radio", { name: "Archived" })).toHaveFocus();
+  });
+
+  it("names itself when it is not inside a field that names it", () => {
+    render(<AdminRadioGroup name="status" label="Status" options={options} />);
+    expect(screen.getByRole("radiogroup", { name: "Status" })).toBeInTheDocument();
+  });
+
+  it("describes an option with its own hint", () => {
+    render(<AdminRadioGroup name="status" label="Status" options={options} />);
+    const draft = screen.getByRole("radio", { name: "Draft" });
+    expect(draft.getAttribute("aria-describedby")).toContain("hint");
+    expect(document.getElementById(draft.getAttribute("aria-describedby")!)).toHaveTextContent("Not visible to visitors");
   });
 });
 
@@ -156,6 +188,32 @@ describe("AdminToggle", () => {
 
     const toggle = screen.getByRole("button", { name: "Compact density" });
     expect(toggle).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("takes the field's error state", () => {
+    render(
+      <AdminField label="Compact density" error="The density is not available" id="density">
+        <AdminToggle pressed />
+      </AdminField>,
+    );
+
+    const toggle = screen.getByRole("button", { name: "Compact density" });
+    expect(toggle).toHaveAttribute("aria-invalid", "true");
+    expect(toggle.getAttribute("aria-describedby")).toContain("density-error");
+  });
+});
+
+describe("the field's hint", () => {
+  it("describes the control rather than becoming part of its name", () => {
+    render(
+      <AdminField label="Name" hint="Shown in listings.">
+        <AdminCheckbox />
+      </AdminField>,
+    );
+
+    const checkbox = screen.getByRole("checkbox", { name: "Name" });
+    expect(checkbox.getAttribute("aria-describedby")).toContain("hint");
+    expect(document.getElementById(checkbox.getAttribute("aria-describedby")!)).toHaveTextContent("Shown in listings.");
   });
 });
 

@@ -31,6 +31,7 @@ export function adminFormGroup<T>(component: T): T {
 export function isAdminFormGroup(children: ReactNode): boolean {
   if (Array.isArray(children)) return children.some((child) => isAdminFormGroup(child));
   if (!isValidElement(children)) return false;
-  const type = children.type as { adminFormGroup?: boolean } | string | null;
-  return typeof type === "object" && type !== null && type.adminFormGroup === true;
+  const type = children.type as unknown;
+  if (typeof type !== "function" && (typeof type !== "object" || type === null)) return false;
+  return (type as { adminFormGroup?: boolean }).adminFormGroup === true;
 }

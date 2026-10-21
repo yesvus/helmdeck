@@ -100,7 +100,7 @@ import { AdminCheckbox, AdminField, AdminRadioGroup, AdminSwitch, AdminToggle } 
 </AdminToggle>
 ```
 
-Inside an `AdminField` a control takes the field's id, its hint and its error state, so the label names it, the hint describes it and the error marks it as invalid. A field without an id still names the control, because its label wraps it.
+Inside an `AdminField` a control takes the field's id, its label, its hint and its error state: the label names it, the hint describes it and the error marks it as invalid. A radio group is named by the field's label rather than by a `for` attribute, because a `for` attribute reaches one control and a group holds several.
 
 `AdminRadioGroup` moves between its options with the arrow keys, and skips the options that are disabled. `AdminSwitch` reports its state as a switch rather than as a checked box. `AdminToggle` reports its state with `aria-pressed`, so it reads as pressed rather than as checked.
 
