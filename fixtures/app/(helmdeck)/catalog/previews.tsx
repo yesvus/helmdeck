@@ -45,6 +45,8 @@ import {
   AdminFormActions,
   AdminFormCard,
   AdminFormSection,
+  AdminTabs,
+  AdminAccordion,
   AdminI18nProvider,
   AdminInboxList,
   AdminInboxMessage,
@@ -792,6 +794,24 @@ export const catalogPreviews: Record<string, ComponentType> = {
     <AdminFormSection title="Details" description="What the product is and what it costs.">
       <p className="text-sm text-zinc-600">A section that folds away when it is not the part being edited.</p>
     </AdminFormSection>
+  ),
+  AdminTabs: () => (
+    <AdminTabs
+      label="Record sections"
+      items={[
+        { id: "details", label: "Details", children: <p className="text-sm text-zinc-600">What the product is.</p> },
+        { id: "delivery", label: "Delivery", children: <p className="text-sm text-zinc-600">When it arrives.</p> },
+      ]}
+    />
+  ),
+  AdminAccordion: () => (
+    <AdminAccordion
+      items={[
+        { id: "details", title: "Details", children: <p className="text-sm text-zinc-600">What the product is.</p> },
+        { id: "delivery", title: "Delivery", description: "When it arrives.", children: <p className="text-sm text-zinc-600">Two to four days.</p> },
+      ]}
+      defaultOpenIds={["details"]}
+    />
   ),
   AdminInput: () => <AdminInput placeholder="Search the catalogue" />,
   AdminTextarea: () => <AdminTextarea rows={3} defaultValue="A short description of the product." />,
