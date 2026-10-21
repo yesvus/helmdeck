@@ -125,6 +125,11 @@ export type AdminCommonLabels = {
   search: string;
   ascending: string;
   descending: string;
+  columns: string;
+  resize: string;
+  pin: string;
+  pinLeft: string;
+  pinRight: string;
   image: string;
   pdfDocument: string;
   mediaDescription: string;
@@ -222,6 +227,11 @@ export const englishAdminMessages: AdminMessages = {
     search: "Search",
     ascending: "ascending",
     descending: "descending",
+    columns: "Columns",
+    resize: "Resize",
+    pin: "Pin",
+    pinLeft: "Left",
+    pinRight: "Right",
     image: "Image",
     pdfDocument: "PDF document",
     mediaDescription: "Media description",
@@ -460,6 +470,11 @@ export const turkishAdminMessages: AdminMessages = {
     search: "Ara",
     ascending: "artan",
     descending: "azalan",
+    columns: "Sütunlar",
+    resize: "Boyutlandır",
+    pin: "Sabitle",
+    pinLeft: "Sola",
+    pinRight: "Sağa",
     image: "Görsel",
     pdfDocument: "PDF belgesi",
     mediaDescription: "Medya açıklaması",

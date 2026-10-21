@@ -269,6 +269,13 @@ The state can be held by the table or by the host: pass `state` and `onStateChan
 
 The resource list keeps its own server-side behaviour and is not rewritten by this: the list asks the store for a page of rows, and this table is for the rows a host already holds.
 
+**The column settings are opt-in.** Pass `columnSettings` and the toolbar grows a panel that
+holds them: which columns are shown, where they are pinned and in what order. A column that is
+pinned to the left or the right edge stays there while the table scrolls sideways, a column the
+reader drags wider keeps that width, and the columns are reordered by dragging them in the panel,
+which the keyboard can do as well. The column state is part of the table's state, so a host that
+wants to hold it across visits passes `state` and `onStateChange`.
+
 ## Loading states
 
 Use a localized announcement with a page-shaped skeleton. Skeletons are decorative, and animations stop for users who request reduced motion.

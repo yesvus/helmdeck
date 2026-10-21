@@ -1,12 +1,31 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowUp, Search } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ArrowDown, ArrowUp, GripVertical, Search, Settings2 } from "lucide-react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
+import { AdminCheckbox } from "./form-controls.js";
 import { AdminPagination } from "./pagination.js";
+import { AdminPopover, AdminPopoverContent, AdminPopoverTrigger } from "./overlays.js";
 import { AdminTable } from "./table.js";
 import type { AdminTableColumn } from "./table.js";
 
@@ -40,11 +59,22 @@ export type AdminDataTableFilter = {
   match?: (rowValue: AdminDataTableValue, filterValue: string) => boolean;
 };
 
+/** What the table knows about one column: whether it is shown, where it is pinned and how wide it is. */
+export type AdminDataTableColumnState = {
+  visible: boolean;
+  pinned?: "left" | "right";
+  /** The width the reader dragged the column to, in pixels. */
+  size?: number;
+  /** Where the column sits among the others. */
+  order: number;
+};
+
 export type AdminDataTableState = {
   sort: AdminDataTableSort | null;
   filters: AdminDataTableFilter[];
   search: string;
   page: number;
+  columns: Record<string, AdminDataTableColumnState>;
 };
 
 export type AdminDataTableControls<T> = {
@@ -62,6 +92,12 @@ export type AdminDataTableControls<T> = {
   clearFilters: () => void;
   setSearch: (term: string) => void;
   setPage: (page: number) => void;
+  /** The columns in the order they are drawn in, with the ones that are hidden left out. */
+  visibleColumns: AdminDataTableColumn<T>[];
+  toggleColumn: (key: string) => void;
+  pinColumn: (key: string, pinned: "left" | "right" | undefined) => void;
+  resizeColumn: (key: string, size: number) => void;
+  moveColumn: (from: string, to: string) => void;
 };
 
 function defaultMatch(rowValue: AdminDataTableValue, filterValue: string) {
@@ -79,9 +115,13 @@ function compareValues(left: AdminDataTableValue, right: AdminDataTableValue) {
   return String(left).localeCompare(String(right));
 }
 
+function defaultColumnState(columns: Array<{ key: string }>): Record<string, AdminDataTableColumnState> {
+  return Object.fromEntries(columns.map((column, index) => [column.key, { visible: true, order: index }]));
+}
+
 /**
- * The behaviour layer of the data table: the sorting, the filters, the search and the paging, over
- * a column definition list.
+ * The behaviour layer of the data table: the sorting, the filters, the search, the paging and the
+ * columns, over a column definition list.
  *
  * The sorting cycles ascending, descending and back to the rows' own order, one column at a time,
  * the same way the resource list's own control does it.
@@ -92,6 +132,7 @@ export function useAdminDataTable<T>({
   initialSort = null,
   initialFilters = [],
   initialSearch = "",
+  initialColumns,
   pageSize = 10,
   state: controlledState,
   onStateChange,
@@ -101,27 +142,46 @@ export function useAdminDataTable<T>({
   initialSort?: AdminDataTableSort | null;
   initialFilters?: AdminDataTableFilter[];
   initialSearch?: string;
+  initialColumns?: Record<string, AdminDataTableColumnState>;
   pageSize?: number;
   state?: AdminDataTableState;
   onStateChange?: (state: AdminDataTableState) => void;
 }): AdminDataTableControls<T> {
-  const [internalState, setInternalState] = useState<AdminDataTableState>({
+  const [internalState, setInternalState] = useState<AdminDataTableState>(() => ({
     sort: initialSort,
     filters: initialFilters,
     search: initialSearch,
     page: 1,
-  });
+    columns: initialColumns ?? defaultColumnState(columns),
+  }));
   const state = controlledState ?? internalState;
 
-  const setState = (next: AdminDataTableState) => {
+  const setState = useCallback((next: AdminDataTableState) => {
     if (controlledState === undefined) setInternalState(next);
     onStateChange?.(next);
-  };
+  }, [controlledState, onStateChange]);
 
   const columnByKey = useMemo(
     () => new Map(columns.map((column) => [column.key, column])),
     [columns],
   );
+
+  const columnState = useMemo(() => state.columns ?? {}, [state.columns]);
+
+  const visibleColumns = useMemo(() => {
+    const ordered = [...columns].sort((left, right) => {
+      const leftOrder = columnState[left.key]?.order ?? columns.indexOf(left);
+      const rightOrder = columnState[right.key]?.order ?? columns.indexOf(right);
+      return leftOrder - rightOrder;
+    });
+    const shown = ordered.filter((column) => (columnState[column.key]?.visible ?? true));
+    // A pinned column is drawn at the edge it is pinned to, whatever the order says.
+    return [
+      ...shown.filter((column) => columnState[column.key]?.pinned === "left"),
+      ...shown.filter((column) => columnState[column.key]?.pinned === undefined),
+      ...shown.filter((column) => columnState[column.key]?.pinned === "right"),
+    ];
+  }, [columns, columnState]);
 
   const matchedRows = useMemo(() => {
     const term = state.search.trim().toLocaleLowerCase();
@@ -152,11 +212,14 @@ export function useAdminDataTable<T>({
     return [...matchedRows].sort((left, right) => compareValues(column.value!(left), column.value!(right)) * direction);
   }, [matchedRows, columnByKey, state.sort]);
 
-  const pageCount = Math.max(1, Math.ceil(sortedRows.length / Math.max(1, pageSize)));
+  // The size is bounded once, so the page count and the slice agree: a page size of zero would
+  // otherwise count a page and hold no rows.
+  const size = Math.max(1, Math.floor(pageSize) || 1);
+  const pageCount = Math.max(1, Math.ceil(sortedRows.length / size));
   const page = Math.min(Math.max(1, state.page), pageCount);
   const pageRows = useMemo(
-    () => sortedRows.slice((page - 1) * pageSize, page * pageSize),
-    [sortedRows, page, pageSize],
+    () => sortedRows.slice((page - 1) * size, page * size),
+    [sortedRows, page, size],
   );
 
   const toggleSort = (key: string) => {
@@ -181,6 +244,38 @@ export function useAdminDataTable<T>({
 
   const setPage = (next: number) => setState({ ...state, page: next });
 
+  const writeColumn = useCallback((key: string, change: Partial<AdminDataTableColumnState>) => {
+    const current = columnState[key] ?? { visible: true, order: Object.keys(columnState).length };
+    setState({ ...state, columns: { ...columnState, [key]: { ...current, ...change } } });
+  }, [columnState, setState, state]);
+
+  const toggleColumn = (key: string) => {
+    const current = columnState[key];
+    writeColumn(key, { visible: !(current?.visible ?? true) });
+  };
+
+  const pinColumn = (key: string, pinned: "left" | "right" | undefined) => {
+    writeColumn(key, { pinned });
+  };
+
+  const resizeColumn = (key: string, size: number) => {
+    writeColumn(key, { size: Math.max(48, Math.round(size)) });
+  };
+
+  const moveColumn = (from: string, to: string) => {
+    const ordered = [...columns].sort((left, right) =>
+      (columnState[left.key]?.order ?? columns.indexOf(left)) - (columnState[right.key]?.order ?? columns.indexOf(right)));
+    const fromIndex = ordered.findIndex((column) => column.key === from);
+    const toIndex = ordered.findIndex((column) => column.key === to);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const moved = arrayMove(ordered, fromIndex, toIndex);
+    const columns2 = Object.fromEntries(moved.map((column, index) => [
+      column.key,
+      { ...(columnState[column.key] ?? { visible: true }), order: index },
+    ]));
+    setState({ ...state, columns: { ...columnState, ...columns2 } });
+  };
+
   return {
     rows: pageRows,
     matchedRows: sortedRows,
@@ -194,6 +289,11 @@ export function useAdminDataTable<T>({
     clearFilters,
     setSearch,
     setPage,
+    visibleColumns,
+    toggleColumn,
+    pinColumn,
+    resizeColumn,
+    moveColumn,
   };
 }
 
@@ -212,15 +312,20 @@ export type AdminDataTableProps<T> = {
   searchPlaceholder?: string;
   pageSize?: number;
   initialSort?: AdminDataTableSort | null;
+  initialColumns?: Record<string, AdminDataTableColumnState>;
   state?: AdminDataTableState;
   onStateChange?: (state: AdminDataTableState) => void;
   /** What the toolbar carries beside the search field and the filters. */
   toolbar?: ReactNode;
+  /** The panel that holds the column settings. It is off unless the host asks for it. */
+  columnSettings?: boolean;
+  columnSettingsLabel?: string;
 };
 
 /**
- * A table with the behaviour layer on top: a search field, the filters, sortable headers and a
- * pager. The cell rendering belongs to the caller's column definitions.
+ * A table with the behaviour layer on top: a search field, the filters, sortable headers, a pager
+ * and, when the host asks for it, the column settings. The cell rendering belongs to the caller's
+ * column definitions.
  */
 export function AdminDataTable<T>({
   columns,
@@ -236,49 +341,113 @@ export function AdminDataTable<T>({
   searchPlaceholder,
   pageSize = 10,
   initialSort = null,
+  initialColumns,
   state,
   onStateChange,
   toolbar,
+  columnSettings = false,
+  columnSettingsLabel,
 }: AdminDataTableProps<T>) {
   const i18n = useAdminMessages();
-  const controls = useAdminDataTable<T>({ rows, columns, initialSort, pageSize, state, onStateChange });
+  const controls = useAdminDataTable<T>({
+    rows,
+    columns,
+    initialSort,
+    initialColumns,
+    pageSize,
+    state,
+    onStateChange,
+  });
 
-  const tableColumns: AdminTableColumn<T>[] = columns.map((column) => ({
-    key: column.key,
-    align: column.align,
-    width: column.width,
-    className: column.className,
-    headerClassName: column.headerClassName,
-    header: column.sortable && column.value ? (
-      <button
-        type="button"
-        onClick={() => controls.toggleSort(column.key)}
-        aria-pressed={controls.state.sort?.key === column.key}
-        className="inline-flex items-center gap-1 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-      >
-        {column.header}
-        {controls.state.sort?.key === column.key ? (
-          <>
-            {controls.state.sort.direction === "asc" ? (
-              <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
-            ) : (
-              <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-            <span className="sr-only">
-              {controls.state.sort.direction === "asc" ? i18n.common.ascending : i18n.common.descending}
-            </span>
-          </>
-        ) : null}
-      </button>
-    ) : (
-      column.header
-    ),
-    cell: column.cell,
-  }));
+  // A pinned column sits at the edge, and the pinned column before it sits at the edge plus the
+  // width of that one, or the two would lie on top of each other. The width is the one the table
+  // knows: the width the reader dragged the column to, or the pixel width the host gave it.
+  const pinnedOffsets = useMemo(() => {
+    const offsets: Record<string, { left?: string; right?: string }> = {};
+    const widthOf = (column: AdminDataTableColumn<T>) => {
+      const size = controls.state.columns?.[column.key]?.size;
+      if (size) return size;
+      const width = column.width;
+      if (!width) return 0;
+      const pixels = /^(\d+(?:\.\d+)?)px$/.exec(width);
+      return pixels ? Number(pixels[1]) : 0;
+    };
+    let left = 0;
+    let right = 0;
+    for (const column of controls.visibleColumns) {
+      const pinned = controls.state.columns?.[column.key]?.pinned;
+      if (pinned === "left") {
+        offsets[column.key] = { left: `${left}px` };
+        left += widthOf(column);
+      } else if (pinned === "right") {
+        offsets[column.key] = { right: `${right}px` };
+        right += widthOf(column);
+      }
+    }
+    return offsets;
+  }, [controls.visibleColumns, controls.state.columns]);
+
+  const tableColumns: AdminTableColumn<T>[] = controls.visibleColumns.map((column) => {
+    const columnState = controls.state.columns?.[column.key];
+    const pinned = columnState?.pinned;
+    return {
+      key: column.key,
+      align: column.align,
+      width: columnState?.size ? `${columnState.size}px` : column.width,
+      style: pinnedOffsets[column.key],
+      // The sticky position is on the body cells as well as on the header, so a pinned column
+      // stays put for the whole height of the table and not only for its heading.
+      className: cn(
+        column.className,
+        pinned === "left" && "sticky left-0 z-10 bg-admin-surface",
+        pinned === "right" && "sticky right-0 z-10 bg-admin-surface",
+      ),
+      headerClassName: cn(
+        column.headerClassName,
+        pinned === "left" && "sticky left-0 z-20 bg-zinc-50",
+        pinned === "right" && "sticky right-0 z-20 bg-zinc-50",
+      ),
+      header: (
+        <span className="flex items-center gap-1">
+          {column.sortable && column.value ? (
+            <button
+              type="button"
+              onClick={() => controls.toggleSort(column.key)}
+              aria-pressed={controls.state.sort?.key === column.key}
+              className="inline-flex items-center gap-1 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              {column.header}
+              {controls.state.sort?.key === column.key ? (
+                <>
+                  {controls.state.sort.direction === "asc" ? (
+                    <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  <span className="sr-only">
+                    {controls.state.sort.direction === "asc" ? i18n.common.ascending : i18n.common.descending}
+                  </span>
+                </>
+              ) : null}
+            </button>
+          ) : (
+            column.header
+          )}
+          {columnSettings ? (
+            <AdminColumnResizeHandle
+              label={`${i18n.common.resize} ${typeof column.header === "string" ? column.header : column.key}`}
+              onResize={(size) => controls.resizeColumn(column.key, size)}
+            />
+          ) : null}
+        </span>
+      ),
+      cell: column.cell,
+    };
+  });
 
   return (
     <div className={cn("grid gap-3", className)}>
-      {search || filters.length > 0 || toolbar ? (
+      {search || filters.length > 0 || toolbar || columnSettings ? (
         <div className="flex flex-wrap items-center gap-2">
           {search ? (
             <label className="relative flex min-w-48 flex-1 items-center">
@@ -305,6 +474,13 @@ export function AdminDataTable<T>({
             />
           ))}
           {toolbar}
+          {columnSettings ? (
+            <AdminColumnSettings
+              columns={columns}
+              controls={controls}
+              label={columnSettingsLabel ?? i18n.common.columns}
+            />
+          ) : null}
         </div>
       ) : null}
       <AdminTable
@@ -317,5 +493,175 @@ export function AdminDataTable<T>({
       />
       <AdminPagination page={controls.page} pageCount={controls.pageCount} onPageChange={controls.setPage} />
     </div>
+  );
+}
+
+/** The handle the reader drags to make a column wider or narrower. */
+function AdminColumnResizeHandle({ label, onResize }: { label: string; onResize: (size: number) => void }) {
+  // The width the column had when the drag started, and where the pointer was then. The width
+  // is computed from those two, so a drag of ten pixels then twenty is thirty and not fifty.
+  const start = useRef<{ x: number; widthAtStart: number } | null>(null);
+  const cell = useRef<HTMLTableCellElement | null>(null);
+
+  return (
+    <span
+      role="separator"
+      aria-label={label}
+      aria-orientation="vertical"
+      tabIndex={0}
+      onPointerDown={(event) => {
+        const element = event.currentTarget.closest("th");
+        if (!element) return;
+        start.current = { x: event.clientX, widthAtStart: element.getBoundingClientRect().width };
+        cell.current = element;
+        // The capture is on the handle, because a captured move is delivered to the element that
+        // captured it and does not travel down to the element that listens for it.
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        if (!start.current) return;
+        onResize(start.current.widthAtStart + (event.clientX - start.current.x));
+      }}
+      onPointerUp={() => { start.current = null; }}
+      onKeyDown={(event) => {
+        const element = event.currentTarget.closest("th");
+        if (!element) return;
+        const width = element.getBoundingClientRect().width;
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          onResize(width - 16);
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          onResize(width + 16);
+        }
+      }}
+      className="ml-1 inline-block h-4 w-1 cursor-col-resize rounded bg-zinc-300 hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+    />
+  );
+}
+
+function SortableColumnRow({
+  id,
+  label,
+  visible,
+  pinned,
+  pinLabels,
+  onToggle,
+  onPin,
+}: {
+  id: string;
+  label: ReactNode;
+  visible: boolean;
+  pinned?: "left" | "right";
+  pinLabels: { left: string; right: string; none: string };
+  onToggle: () => void;
+  onPin: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn("flex items-center gap-2 rounded-md px-1 py-1", isDragging && "bg-zinc-100")}
+    >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Move ${typeof label === "string" ? label : id}`}
+        className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+      >
+        <GripVertical aria-hidden="true" className="h-4 w-4" />
+      </button>
+      <AdminCheckbox checked={visible} onChange={onToggle} aria-label={`Show ${typeof label === "string" ? label : id}`} />
+      <span className="min-w-0 flex-1 truncate text-sm text-zinc-900">{label}</span>
+      <button
+        type="button"
+        onClick={onPin}
+        aria-label={`${pinLabels.none} ${typeof label === "string" ? label : id}`}
+        aria-pressed={pinned !== undefined}
+        className={cn(
+          "rounded-md border px-2 py-0.5 text-xs font-semibold",
+          pinned === "left" && "border-brand-500 bg-brand-50 text-admin-brand-text",
+          pinned === "right" && "border-brand-500 bg-brand-50 text-admin-brand-text",
+          !pinned && "border-zinc-300 text-zinc-500 hover:bg-zinc-50",
+        )}
+      >
+        {pinned === "left" ? pinLabels.left : pinned === "right" ? pinLabels.right : pinLabels.none}
+      </button>
+    </li>
+  );
+}
+
+/** The panel that holds the column settings: which columns are shown, where they are pinned and in what order. */
+function AdminColumnSettings<T>({
+  columns,
+  controls,
+  label,
+}: {
+  columns: AdminDataTableColumn<T>[];
+  controls: AdminDataTableControls<T>;
+  label: string;
+}) {
+  const i18n = useAdminMessages();
+  const [open, setOpen] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const ordered = [...columns].sort((left, right) =>
+    (controls.state.columns?.[left.key]?.order ?? columns.indexOf(left))
+    - (controls.state.columns?.[right.key]?.order ?? columns.indexOf(right)));
+
+  return (
+    <AdminPopover open={open} onOpenChange={setOpen}>
+      <AdminPopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-admin-surface px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          <Settings2 aria-hidden="true" className="h-4 w-4" />
+          {label}
+        </button>
+      </AdminPopoverTrigger>
+      <AdminPopoverContent>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={(event: DragEndEvent) => {
+            if (!event.over || event.active.id === event.over.id) return;
+            controls.moveColumn(String(event.active.id), String(event.over.id));
+          }}
+        >
+          <SortableContext items={ordered.map((column) => column.key)} strategy={verticalListSortingStrategy}>
+            <ul className="grid gap-1">
+              {ordered.map((column) => {
+                const state = controls.state.columns?.[column.key];
+                return (
+                  <SortableColumnRow
+                    key={column.key}
+                    id={column.key}
+                    label={column.header}
+                    visible={state?.visible ?? true}
+                    pinned={state?.pinned}
+                    pinLabels={{
+                      left: i18n.common.pinLeft,
+                      right: i18n.common.pinRight,
+                      none: i18n.common.pin,
+                    }}
+                    onToggle={() => controls.toggleColumn(column.key)}
+                    onPin={() => {
+                      const current = state?.pinned;
+                      controls.pinColumn(column.key, current === "left" ? "right" : current === "right" ? undefined : "left");
+                    }}
+                  />
+                );
+              })}
+            </ul>
+          </SortableContext>
+        </DndContext>
+      </AdminPopoverContent>
+    </AdminPopover>
   );
 }
