@@ -10,6 +10,27 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## 0.13.0
 
+### Added
+
+- `AdminThemeProvider`, `useAdminTheme`, `AdminThemePreference`, `ADMIN_THEME_BOOT_SCRIPT` and `ADMIN_THEME_PREFERENCE_STORAGE_KEY`: a library-level colour mode with a documented storage key, a server-safe pre-paint script and a localized selector, so a host no longer writes its own preference, boot script and token mapping.
+- `AdminLoadingState`, `AdminTableSkeleton`, `AdminCardGridSkeleton`, `AdminFormSkeleton` and `AdminDashboardSkeleton`: accessible loading patterns for the shapes the package renders.
+- `AdminDashboardServerTiles`: server-rendered dashboard tiles that stream on their own, beside the client-rendered tiles that load and retry per tile.
+- `AdminTableActionButton`: one action button with consistent variants, labels and an accessible fallback in English and Turkish.
+- `AdminRecordSearch` and `createAdminSearchAdapter`: optional admin-wide record search over a cross-resource adapter, with bounded over-fetch and cancellable permission filtering.
+- `AdminContactForm`, `AdminInboxList` and `AdminInboxMessage`: a host-driven contact form and inbox, with validated persistence, administrator-only handling and English and Turkish labels.
+- `AdminTrashPage`: a host-mapped trash with selection, restore and a confirmed purge.
+- `adminResourceValuesFromRecord`: a reader that copies only the declared fields of a record and keeps a missing value apart from a cleared one.
+- `AdminVisitorTrendChart` and `AdminDeviceBreakdownChart`, with `defaultAdminAnalyticsChartMessages` and `turkishAdminAnalyticsChartMessages`: responsive, theme-aware charts with localized tooltips and table headers.
+- `adminAnalyticsRisingPaths`: the rising-popularity report the dashboard and the analytics page share.
+- `AdminUserManagementPage`, with `defaultAdminUserManagementMessages` and `turkishAdminUserManagementMessages`: account selection, status, host role changes, session review and revocation, password-reset delivery and per-account activity.
+
+### Changed
+
+- The scoped dark defaults for host content ship in `theme.css`: `[data-admin-theme="dark"]` makes a host's own components legible inside the shell, and the shell follows the host's colour mode rather than the operating system's.
+- Field-level resource visibility: a host can restrict a field, and a denied value stays out of lists, forms and submissions.
+- The collection editor keeps a stable identity per entry, with keyboard and pointer ordering, duplication, validation and serialization.
+- The package is positioned as an admin dashboard engine: the README maps the package-provided workflows against host-owned services and states the server-side authentication, authorization and input validation a host must provide.
+
 ## 0.12.0
 
 ### Added
