@@ -165,6 +165,24 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "combobox typeahead async search suggestions",
     renderable: true,
   },
+  AdminCalendar: {
+    category: "Forms and fields",
+    summary: "A month of days on the ARIA grid pattern, in the reader's locale and the admin theme.",
+    keywords: "calendar month days date",
+    renderable: true,
+  },
+  AdminDatePicker: {
+    category: "Forms and fields",
+    summary: "A field that picks a day, with the calendar's own keyboard.",
+    keywords: "date picker day field",
+    renderable: true,
+  },
+  AdminDateRangePicker: {
+    category: "Forms and fields",
+    summary: "A field that picks a range of days.",
+    keywords: "date range picker days field",
+    renderable: true,
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",

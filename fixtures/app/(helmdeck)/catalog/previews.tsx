@@ -30,6 +30,9 @@ import {
   AdminChartTable,
   AdminCheckbox,
   AdminCombobox,
+  AdminCalendar,
+  AdminDatePicker,
+  AdminDateRangePicker,
   AdminContextualHelp,
   AdminContextMenu,
   AdminContextMenuContent,
@@ -940,6 +943,18 @@ export const catalogPreviews: Record<string, ComponentType> = {
         { id: "order-4412", label: "Order 4412", description: "Orders · 4412" },
         { id: "customer-c-7", label: "Ada Lovelace", description: "Customers · c-7" },
       ]}
+    />
+  ),
+  AdminCalendar: () => <AdminCalendar label="Pick a day" defaultMonth="2026-10" locale="en-GB" />,
+  AdminDatePicker: () => (
+    <AdminDatePicker label="Due date" placeholder="Pick a day" value="2026-10-12" locale="en-GB" />
+  ),
+  AdminDateRangePicker: () => (
+    <AdminDateRangePicker
+      label="Due between"
+      from="2026-10-08"
+      to="2026-10-12"
+      locale="en-GB"
     />
   ),
   AdminInput: () => <AdminInput placeholder="Search the catalogue" />,

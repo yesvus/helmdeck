@@ -15,6 +15,8 @@ export { AdminDestructiveAction } from "./destructive-action.js";
 export { AdminContextualHelp } from "./contextual-help.js";
 export { AdminContactForm } from "./contact-form.js";
 export type { AdminContactFormLabels, AdminContactSubmission } from "./contact-form.js";
+export { AdminCalendar, AdminDatePicker, AdminDateRangePicker } from "./calendar.js";
+export type { AdminCalendarProps, AdminCalendarRange, AdminDatePickerProps, AdminDateRangePickerProps } from "./calendar.js";
 export { AdminCombobox } from "./combobox.js";
 export type { AdminComboboxOption, AdminComboboxProps } from "./combobox.js";
 export { AdminAvatar, AdminBadge, AdminBreadcrumb, AdminProgress, AdminSeparator } from "./display.js";
