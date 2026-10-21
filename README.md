@@ -269,6 +269,12 @@ The state can be held by the table or by the host: pass `state` and `onStateChan
 
 The resource list keeps its own server-side behaviour and is not rewritten by this: the list asks the store for a page of rows, and this table is for the rows a host already holds.
 
+**A row can expand into a detail, and the rows can be grouped.** Pass `expandable` and the table
+grows a column with a toggle in it; the detail the caller writes is drawn across the whole width of
+the table under the row. Pass `groupBy` and the rows are grouped by that column's value, with a
+group heading the caller writes and, when the host wants one, a subtotal the caller computes for
+the group's rows.
+
 **The column settings are opt-in.** Pass `columnSettings` and the toolbar grows a panel that
 holds them: which columns are shown, where they are pinned and in what order. A column that is
 pinned to the left or the right edge stays there while the table scrolls sideways, a column the

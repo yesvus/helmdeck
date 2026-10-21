@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
+import { Fragment } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
@@ -36,6 +37,7 @@ export function AdminTable<T>({
   rowClassName,
   className,
   selection,
+  renderExtraRows,
 }: {
   columns: AdminTableColumn<T>[];
   rows: T[];
@@ -45,6 +47,11 @@ export function AdminTable<T>({
   rowClassName?: (row: T) => string;
   className?: string;
   selection?: AdminTableSelection;
+  /**
+   * The rows drawn beside a record row, such as a group heading or the detail an expanded row
+   * shows. The table draws them itself, so a caller does not write the table's own markup.
+   */
+  renderExtraRows?: (row: T) => ReactNode;
 }) {
   const i18n = useAdminMessages();
   const allSelected = rows.length > 0 && rows.every((row) => selection?.selectedKeys.has(getKey(row)));
@@ -96,13 +103,13 @@ export function AdminTable<T>({
             </tr>
           ) : (
             rows.map((row) => (
-              <tr
-                key={getKey(row)}
-                className={cn(
-                  "border-b border-zinc-100 transition-colors last:border-0 hover:bg-zinc-50",
-                  rowClassName?.(row),
-                )}
-              >
+              <Fragment key={getKey(row)}>
+                <tr
+                  className={cn(
+                    "border-b border-zinc-100 transition-colors last:border-0 hover:bg-zinc-50",
+                    rowClassName?.(row),
+                  )}
+                >
                 {selection ? (
                   <td className="w-12 px-3 py-4 align-middle">
                     <AdminCheckbox
@@ -117,19 +124,21 @@ export function AdminTable<T>({
                     />
                   </td>
                 ) : null}
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={cn(
-                      "px-5 py-4 align-middle",
-                      column.align === "right" && "text-right",
-                      column.className,
-                    )}
-                  >
-                    {column.cell(row)}
-                  </td>
-                ))}
-              </tr>
+                  {columns.map((column) => (
+                    <td
+                      key={column.key}
+                      className={cn(
+                        "px-5 py-4 align-middle",
+                        column.align === "right" && "text-right",
+                        column.className,
+                      )}
+                    >
+                      {column.cell(row)}
+                    </td>
+                  ))}
+                </tr>
+                {renderExtraRows?.(row)}
+              </Fragment>
             ))
           )}
         </tbody>
