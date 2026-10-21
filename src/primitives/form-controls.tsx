@@ -4,6 +4,7 @@
 import { useId, useRef, useState } from "react";
 import type { InputHTMLAttributes, ReactNode, Ref } from "react";
 import { cn } from "../cn.js";
+import { useAdminMessages } from "../i18n.js";
 import { adminFormGroup, useAdminFieldContext } from "./field-context.js";
 
 const adminControlFocusClassName =
@@ -163,6 +164,7 @@ export const AdminRadioGroup = adminFormGroup(function AdminRadioGroup({
   orientation = "vertical",
 }: AdminRadioGroupProps) {
   const field = useAdminFieldContext();
+  const i18n = useAdminMessages();
   const generatedId = useId();
   const [uncontrolled, setUncontrolled] = useState(defaultValue ?? "");
   const selected = value ?? uncontrolled;
@@ -192,7 +194,7 @@ export const AdminRadioGroup = adminFormGroup(function AdminRadioGroup({
       role="radiogroup"
       id={groupId}
       aria-labelledby={field?.labelId}
-      aria-label={field?.labelId ? undefined : label}
+      aria-label={field?.labelId ? undefined : (label ?? i18n.common.options)}
       aria-describedby={field?.describedBy}
       aria-invalid={field?.invalid ? true : undefined}
       className={cn(
