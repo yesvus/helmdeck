@@ -4,3 +4,5 @@
 # than skipping them, so the allowlist has to name it.
 allowBuilds:
   esbuild: true
+minimumReleaseAgeExclude:
+  - lucide-react@1.61.0
