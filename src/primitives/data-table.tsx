@@ -441,18 +441,28 @@ export function AdminDataTable<T>({
     const column = controls.visibleColumns.find((candidate) => candidate.key === controls.groupBy);
     if (!column?.value) return null;
     const collected = new Map<AdminDataTableValue, T[]>();
+    // The rows of a group are drawn together, so the rows are grouped before they are drawn: a
+    // value that appears twice with another value in between would otherwise have its heading at
+    // the first row and its subtotal at the last, with the other value between them.
+    const ordered: T[] = [];
     for (const row of controls.rows) {
       const value = column.value!(row);
-      const list = collected.get(value) ?? [];
-      list.push(row);
-      collected.set(value, list);
+      const list = collected.get(value);
+      if (list) {
+        list.push(row);
+      } else {
+        collected.set(value, [row]);
+      }
+      ordered.push(row);
     }
-    return collected;
+    return { groups: collected, ordered };
   }, [controls.groupBy, controls.visibleColumns, controls.rows]);
+
+  const groupedRows = groups?.ordered ?? controls.rows;
 
   const groupOf = (row: T) => {
     if (!groups) return null;
-    for (const [value, rows] of groups) {
+    for (const [value, rows] of groups.groups) {
       if (rows.includes(row)) return { value, rows };
     }
     return null;
@@ -584,7 +594,7 @@ export function AdminDataTable<T>({
       ) : null}
       <AdminTable
         columns={withExpansion}
-        rows={controls.rows}
+        rows={groupedRows}
         getKey={getKey}
         caption={caption}
         empty={empty}
