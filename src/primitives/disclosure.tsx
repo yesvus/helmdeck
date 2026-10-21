@@ -150,14 +150,12 @@ export function AdminAccordion({
 }: AdminAccordionProps) {
   const [uncontrolled, setUncontrolled] = useState<string[]>(defaultOpenIds);
   const open = openIds ?? uncontrolled;
-  // The panels are told which of them are open, and the browser answers with a toggle event for
-  // every one of them that changes. Closing one panel to open another is such a change, and this
-  // keeps that answer from being read as the reader's own.
-  const intended = useRef(new Set(open));
-  intended.current = new Set(open);
 
   const toggle = (id: string, isOpen: boolean) => {
-    if (intended.current.has(id) === isOpen) return;
+    // The browser answers every panel that changes with a toggle event, and closing one panel to
+    // open another is such a change. A panel that is already in the state the event describes was
+    // not touched by the reader, so the answer is not read as the reader's own.
+    if (open.includes(id) === isOpen) return;
     const next = type === "single"
       ? (isOpen ? [id] : [])
       : isOpen
