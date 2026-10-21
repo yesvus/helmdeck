@@ -1,20 +1,46 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AdminI18nProvider, AdminShell, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
+import { Suspense, useMemo } from "react";
+import {
+  AdminPermissionsProvider,
+  AdminShell,
+  AdminThemePreference,
+  AdminRequireSession,
+  useAdminSession,
+  type AdminNavGroup,
+  type AdminPermissionsAdapter,
+} from "@yesvus/helmdeck";
 
 export function AdminWorkspace({
   nav,
-  session,
   children,
 }: {
   nav: AdminNavGroup[];
-  session: AdminSession;
   children: ReactNode;
 }) {
-  return <AdminI18nProvider locale="en">
-    <AdminShell nav={nav} session={session} homeHref="/admin" brand={{ label: "Sample workspace", href: "/admin" }}>
+  const { session, logout } = useAdminSession();
+  const permissions = useMemo<AdminPermissionsAdapter>(() => ({
+    can: async () => session?.role === "editor",
+  }), [session?.role]);
+  if (!session) {
+    return (
+      <Suspense fallback={<p className="p-8" role="status">Checking your session…</p>}>
+        <AdminRequireSession loginHref="/login">{children}</AdminRequireSession>
+      </Suspense>
+    );
+  }
+
+  return <AdminPermissionsProvider adapter={permissions}>
+    <AdminShell
+      nav={nav}
+      session={session}
+      homeHref="/admin"
+      onLogout={logout}
+      brand={{ label: "Sample workspace", href: "/admin" }}
+      topbarExtra={<AdminThemePreference />}
+    >
       {children}
     </AdminShell>
-  </AdminI18nProvider>;
+  </AdminPermissionsProvider>;
 }

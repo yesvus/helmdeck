@@ -41,7 +41,7 @@ function Editor({
           onChange?.(next);
         }}
         title="Blocks"
-        renderSummary={(entry) => entry.title || "Untitled"}
+        renderSummary={(entry) => entry.title.trim() || "Untitled"}
         renderFields={(entry) => <p>fields for {entry.title || "Untitled"}</p>}
       />
     </AdminI18nProvider>
@@ -97,7 +97,54 @@ describe("AdminCollectionEditor", () => {
     render(<Editor initial={[{ id: "bad", title: "  " }]} onChange={vi.fn()} />);
 
     const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("A block needs a title");
+    expect(alert).toHaveTextContent("Untitled: A block needs a title");
+  });
+
+  it("uses a fallback entry name when its summary is empty", () => {
+    render(<Editor initial={[{ id: "bad", title: "" }]} onChange={vi.fn()} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Untitled: A block needs a title");
+  });
+
+  it("uses a positional label when a summary renders no text", () => {
+    render(
+      <AdminI18nProvider locale="en">
+        <AdminCollectionEditor
+          definition={definition}
+          entries={twoEntries()}
+          onChange={vi.fn()}
+          renderSummary={() => true}
+          title="Blocks"
+        />
+      </AdminI18nProvider>,
+    );
+
+    expect(screen.getAllByRole("button", { name: "Edit 1" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Edit 2" })).toHaveLength(2);
+  });
+
+  it("surfaces the field associated with a validation problem", () => {
+    const fieldDefinition: AdminCollectionDefinition<Block> = {
+      ...definition,
+      fields: [{ name: "title", label: "Block title" }],
+      validate: (entry) => entry.title.trim() ? [] : [{ field: "title", message: "A block needs a title" }],
+    };
+
+    render(<Editor definition={fieldDefinition} initial={[{ id: "bad", title: "" }]} onChange={vi.fn()} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Untitled: Block title: A block needs a title");
+  });
+
+  it("does not display undeclared validation fields", () => {
+    const fieldDefinition: AdminCollectionDefinition<Block> = {
+      ...definition,
+      validate: () => [{ field: "internalTitleKey", message: "A block needs a title" }],
+    };
+
+    render(<Editor definition={fieldDefinition} initial={twoEntries()} onChange={vi.fn()} />);
+
+    expect(screen.getAllByRole("alert")[0]).toHaveTextContent("first: A block needs a title");
+    expect(screen.getAllByRole("alert")[0]).not.toHaveTextContent("internalTitleKey");
   });
 
   it("reports no alert for a valid entry", () => {
@@ -174,11 +221,15 @@ describe("AdminCollectionEditor", () => {
    */
   it("names its screen reader instructions the same way on the server and in the browser", () => {
     const first = render(<Editor initial={twoEntries()} onChange={vi.fn()} />);
-    const firstId = screen.getByRole("button", { name: "Edit 1" }).getAttribute("aria-describedby");
+    const firstId = screen.getAllByRole("button", { name: "Edit 1" })
+      .find((button) => button.getAttribute("aria-roledescription") === "sortable")
+      ?.getAttribute("aria-describedby");
     first.unmount();
 
     render(<Editor initial={twoEntries()} onChange={vi.fn()} />);
-    const secondId = screen.getByRole("button", { name: "Edit 1" }).getAttribute("aria-describedby");
+    const secondId = screen.getAllByRole("button", { name: "Edit 1" })
+      .find((button) => button.getAttribute("aria-roledescription") === "sortable")
+      ?.getAttribute("aria-describedby");
 
     expect(firstId).toBeTruthy();
     expect(secondId).toBe(firstId);
@@ -191,6 +242,6 @@ describe("AdminCollectionEditor", () => {
       </AdminI18nProvider>,
     );
 
-    expect(screen.getByRole("button", { name: "Edit 1" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Edit 1" })).toHaveLength(2);
   });
 });

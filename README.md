@@ -1,25 +1,80 @@
 # Helmdeck
 
-Helmdeck is a reusable, MIT-licensed admin interface package for Next.js App Router applications. It provides a responsive shell, accessible UI primitives, typed localization dictionaries, and adapter-backed media workflows while leaving authentication, data access, routes, and domain operations to the host application.
+Helmdeck is a reusable, MIT-licensed admin dashboard engine for Next.js App Router applications. Install it to get a working admin shell, generated resource lists and forms, dashboard tiles, analytics, media and content-lifecycle workflows, and the shared interaction patterns around them. You configure resources and connect host-owned services through typed adapters and callbacks instead of building each admin surface from scratch.
 
-## Included
+Helmdeck takes care of the admin interface and its reusable workflows. It does not own your application backend:
 
-- Responsive shell with navigation, command search, breadcrumbs, profile actions, mobile navigation, and login presentation.
-- Form workflows with dirty-state tracking, autosave support, pending buttons, repeaters, URL feedback, and status primitives.
-- Data-heavy primitives including tables, pagination, modals, toasts, skeletons, sortable lists, and destructive confirmations.
-- Charts drawn by the package with no charting dependency: a time series over days, a ranked bar chart, and the card they live in with its loading, empty and failed states.
-- Six ready dashboard tiles (stat, table, list, time-series chart, ranked chart, activity feed) that render the engine's four states themselves, so a host registers a tile rather than writing one.
-- Media upload, picker, single-value fields, gallery fields, placeholders, sorting, and adapter contracts.
-- A ready-made media library page over the same adapter: searchable and filterable grid, upload, lightbox preview, and a delete offered only for assets this installation stores. See [The media library page](#the-media-library-page).
-- CSV export and import over the resource seam: the list a query names as a downloadable file, and a file read into the store a row at a time.
-- Visitor analytics over the same persistence seam: record a page view or a named event, and read back views, unique visitors, top paths and sources per day. The visitor key and the retention window are the host's, and nothing here derives or defaults either.
-- An analytics report as a file: the period, the policy behind it, and the figures per day, per path and per source, with the totals stated in the file where a spreadsheet can check them against the rows above them.
-- A content lifecycle over the host's own rows: revision history a person can read and restore from, a soft delete with a trash, and a way back from both. See [Content lifecycle](#content-lifecycle).
-- An activity page over the host's audit events: filters for action, actor and date, expandable event details, and the tones that make a trail scannable. See [Reading the trail in a page](#reading-the-trail-in-a-page).
-- English and Turkish dictionaries with formal Turkish UI copy. Register additional dictionaries with `defineAdminMessages`.
-- A language preference in the settings page, persisted for the current browser tab and replaceable with a host-owned per-reader adapter.
-- A static bilingual fixture app for the hosted demo.
-- A starter template in [`template/`](./template) that runs before you have written any of it: a sign-in, a generated list and form, a layout, one authorization rule, and a SQLite file it creates itself.
+| Helmdeck provides | Your host provides |
+| --- | --- |
+| Responsive admin shell, navigation, profile and sign-in presentation | User identity, credentials, and session policy |
+| Resource registry, generated lists and forms, search, filters, sorting, paging, import and export | Resource definitions, validation and domain rules |
+| Dashboard tiles, charts, analytics views, media workflows, inbox and content lifecycle views | Data storage, media storage, authorization rules, and server-side enforcement |
+| Theme, localization, accessible states, and reusable interaction patterns | Application routes, deployment, and public-facing rendering |
+
+The adapters define where the host connects its services. UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](#starter-template) shows a working host with a local SQLite store and generated resource pages. The [independent host](https://github.com/yesvus/helmdeck/tree/main/examples/independent-host) demonstrates integrating the package into a separate Next.js application.
+
+The detailed [primitive and adapter reference](#host-integration-contracts) remains below. It describes the building blocks behind the engine for hosts that need custom workflows.
+
+## Loading states
+
+Use a localized announcement with a page-shaped skeleton. Skeletons are decorative, and animations stop for users who request reduced motion.
+
+```tsx
+import { AdminLoadingState, AdminTableSkeleton } from "@yesvus/helmdeck";
+
+<AdminLoadingState label="Loading products">
+  <AdminTableSkeleton rowCount={6} columnCount={4} />
+</AdminLoadingState>
+```
+
+`AdminFormSkeleton`, `AdminCardGridSkeleton`, and `AdminDashboardSkeleton` cover other common admin layouts. Pass `className` to customize the shared layout classes.
+
+## Contact form
+
+`AdminContactForm` collects bounded name, email, subject, and message fields, then hands them to a host callback. The host owns server-side validation, abuse controls, persistence, and any email delivery. The fixture applies a per-process submission cap; deployments with multiple server instances should use a shared rate-limit store.
+
+```tsx
+import { AdminContactForm } from "@yesvus/helmdeck";
+import { submitContact } from "./actions";
+
+<AdminContactForm onSubmit={submitContact} />;
+```
+
+## Message inbox
+
+`AdminInboxList` and `AdminInboxMessage` present a host-mapped message shape and call host-owned callbacks for opening, marking read, or archiving. Hosts provide the data, paging, routes, authorization, and persistence. English and Turkish interface messages are included, with `labels` available for local overrides.
+
+List items follow `AdminInboxItem`: `id`, `sender`, `subject`, `preview`, `receivedAt`, and a `status` of `unread`, `read`, or `archived`. The detail component takes `AdminInboxMessageData`, which adds `body`.
+
+```tsx
+import { AdminInboxList } from "@yesvus/helmdeck";
+
+<AdminInboxList
+  messages={messages}
+  page={page}
+  pageCount={pageCount}
+  onPageChange={setPage}
+  onOpen={(message) => router.push(`/admin/messages/${message.id}`)}
+  onMarkRead={(message) => markRead(message.id)}
+  onArchive={(message) => archive(message.id)}
+/>;
+```
+
+## Trash management
+
+`AdminTrashPage` presents host-mapped removed records and calls host callbacks for restore and permanent purge. It includes selection, bulk actions, destructive confirmation, optimistic row removal, and English/Turkish labels. Hosts own the trash schema, lifecycle operations, authorization, and data loading. Map either a separate trash table or rows selected by a soft-delete timestamp into `AdminTrashItem`.
+
+```tsx
+import { AdminTrashPage } from "@yesvus/helmdeck";
+
+<AdminTrashPage
+  items={trashedRecords}
+  onRestore={(item) => lifecycle.restoreFromTrash(item.resource, item.id)}
+  onPurge={(item) => lifecycle.purge(item.resource, item.id)}
+  onRestoreMany={(items) => restoreSelected(items)}
+  onPurgeMany={(items) => purgeSelected(items)}
+/>;
+```
 
 ## Install
 
@@ -51,6 +106,8 @@ Import the theme tokens once in the host stylesheet, and point Tailwind at the i
 @import "@yesvus/helmdeck/theme.css";
 ```
 
+Keep these directives in the host's CSS entry point, with the theme import after `@import "tailwindcss";`. Tailwind v4 evaluates the theme tokens while processing that stylesheet, so importing `theme.css` from a React component does not register them.
+
 The `@source` line is what makes the components lay out. Helmdeck's own components are written with
 Tailwind utilities, and Tailwind only generates a utility it finds in scanned source, so without this
 line a host gets the design tokens and none of the layout: cards with no padding, grids that do not
@@ -76,7 +133,7 @@ The example pins `--package-manager npm` so the block above is the same on every
 
 Beyond the account, the list of what the template leaves out is in [`template/README.md`](./template/README.md), which the generated project carries with it: no registration route, no password reset, no settings page, no media adapter, no audit trail, no per-record rule, and one interface language. Each is absent on purpose and each is a decision you make rather than one you find later, so read that list before building on the project. You also need a repository of your own (`git init` and a first commit) and a deployment story for the SQLite file, which is a file on the machine that ran `dev`.
 
-**It exists because an example cannot do this job.** [`examples/independent-host/`](./examples/independent-host) is the working reference: 18 files that show the package's public exports and nothing else. What it cannot show is which parts are load-bearing, because an example is allowed to inline a rule to keep itself short, and a host that copies the inline rule has copied the shortcut rather than the seam. The template's one deliberate difference is that it has exactly one authorization rule, in `lib/rules.ts`, with no inlined shortcut anywhere else, and `tests/starter-template.test.ts` fails if a second one appears.
+**It exists because an example cannot do this job.** [`examples/independent-host/`](./examples/independent-host) is the working reference for using the package's public exports. What it cannot show is which parts are load-bearing, because an example is allowed to inline a rule to keep itself short, and a host that copies the inline rule has copied the shortcut rather than the seam. The template's one deliberate difference is that it has exactly one authorization rule, in `lib/rules.ts`, with no inlined shortcut anywhere else, and `tests/starter-template.test.ts` fails if a second one appears.
 
 Three things in it are arranged so that the shortcuts are hard to write by accident, and each is worth knowing about on its own:
 
@@ -90,11 +147,26 @@ The template ships no records, no fixture account and no password. The first row
 
 ## Themes and design tokens
 
-Helmdeck defaults to the light theme and an accessible amber primary (`#b45309`). The host selects color mode by setting `data-admin-theme="light"` or `data-admin-theme="dark"` on the document root or an ancestor. The attribute can be rendered server-side to avoid a mode flash. Helmdeck does not persist theme choices; the host owns persistence and synchronization. Omit the attribute for the default light theme.
+The theme CSS uses light mode when no `data-admin-theme` attribute is set and an accessible amber primary (`#b45309`). A host can select color mode manually by setting `data-admin-theme="light"` or `data-admin-theme="dark"` on the document root or an ancestor; that path leaves persistence and synchronization with the host. The library preference path below follows the system color scheme until a preference is chosen, then provides browser storage and cross-tab synchronization. The attribute can be rendered server-side to avoid a mode flash. Omit it for the CSS light-mode default when managing the attribute manually.
 
 Theme CSS exposes `--admin-surface`, `--admin-surface-muted`, `--admin-surface-subtle`, `--admin-overlay`, `--admin-media-backdrop`, `--admin-border`, `--admin-border-strong`, `--admin-text-primary`, `--admin-text-secondary`, `--admin-text-muted`, `--admin-text-disabled`, `--admin-skeleton`, `--admin-brand-100`, `--admin-brand-500`, `--admin-brand-600`, `--admin-brand-text`, and `--admin-on-brand`. Feedback tokens are grouped by role: warning, danger, and success each define surface, text, and border tokens; danger and success also define action, action-hover, and action-foreground tokens. Typography, spacing, radius, and density are represented by `--admin-font-family`, `--admin-spacing`, `--admin-radius`, and `--admin-density`. `--admin-skeleton` is the loading-placeholder fill; it was previously sourced from `--admin-border-strong` via `bg-zinc-300`, so a host that retuned that token to change control borders was also changing its skeletons. Tailwind semantic utilities used by shared components resolve these values inline, so wrapper-level and tenant overrides flow through to the components. Override the variables on a host wrapper or `:root` to customize tenant branding. `useAdminBranding(accent)` returns the brand custom properties for a hex accent, or nothing at all when the accent is refused as described below.
 
-Keep normal text/background combinations at WCAG AA contrast (4.5:1), and large text and the boundaries of interactive controls at 3:1. Control boundaries resolve to `--admin-border-strong`, which is held to 3:1 against `--admin-surface` in both themes. `--admin-border` draws card edges and section rules, which identify no control, so WCAG 1.4.11 does not apply to it and it is deliberately left lighter. `tests/theme-contrast.test.ts` asserts the 3:1 pair, records the ratio for `--admin-border`, and fails if any interactive element draws its boundary from that token. The default amber action color is `#b45309`, which exceeds 4.5:1 against white. All theme controls should remain native keyboard-operable inputs, selects, and buttons. The fixture at `/theme` demonstrates light, dark, and system mode, OS preference updates, live token editing, reset, and JSON preset import/export.
+Keep normal text/background combinations at WCAG AA contrast (4.5:1), and large text and the boundaries of interactive controls at 3:1. Control boundaries resolve to `--admin-border-strong`, which is held to 3:1 against `--admin-surface` in both themes. `--admin-border` draws card edges and section rules, which identify no control, so WCAG 1.4.11 does not apply to it and it is deliberately left lighter. `tests/theme-contrast.test.ts` asserts the 3:1 pair, records the ratio for `--admin-border`, and fails if any interactive element draws its boundary from that token. The default amber action color is `#b45309`, which exceeds 4.5:1 against white. All theme controls should remain native keyboard-operable inputs, selects, and buttons. The shell fixture's `/shell/settings/site` combines a browser color-mode preference with stored site accent and density controls; `AdminSettingsPage` accepts host-owned sections. `/theme` demonstrates live token editing, reset, and JSON preset import/export.
+
+`AdminThemeProvider` exposes the browser preference through `useAdminTheme()`, which returns `theme`, `resolvedTheme`, `setTheme`, and `ready`. It stores the preference in `localStorage` under `ADMIN_THEME_PREFERENCE_STORAGE_KEY` (`helmdeck-admin-theme`) and syncs changes across tabs and system color-scheme updates. Existing fixture preferences under `helmdeck-demo-theme` migrate to the library key. Add `ADMIN_THEME_BOOT_SCRIPT` before hydration to apply the stored or system-resolved mode before first paint. The script only updates `document.documentElement.dataset.adminTheme`; import `@yesvus/helmdeck/theme.css` separately. `AdminThemePreference` provides a localized Light, Dark, and System selector. It requires `AdminThemeProvider`; without `AdminI18nProvider`, it uses the default English labels, while that provider enables locale and custom-message overrides.
+
+```tsx
+import { ADMIN_THEME_BOOT_SCRIPT, AdminThemeProvider } from "@yesvus/helmdeck";
+
+export function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: ADMIN_THEME_BOOT_SCRIPT }} /></head>
+      <body><AdminThemeProvider>{children}</AdminThemeProvider></body>
+    </html>
+  );
+}
+```
 
 ### Host settings
 
@@ -459,6 +531,10 @@ export const accounts = createAccountAdmin(store, {
 
 `list`, `create`, `setRole`, `setDisabled`, `listSessions` and `endSession` each take the caller's session and return `{ ok: true, ... }` or `{ ok: false, message }`. The two predicates that need to decide about one record are handed its id rather than the row, so the question is asked before the store is reached; a host that wants to decide on the record looks it up in its own rule, which is where a store read belongs. **Every predicate is a host policy and absent means refused**, for the same reason as `mayEndAllSessions`. The package has no vocabulary for roles, so `may` is the only thing that knows what one is.
 
+#### User management page
+
+`AdminUserManagementPage` accepts `users`, `roles`, and optional `onSetRole`, `onSetDisabled`, `onResetPassword`, `onEndSession`, and `onUpdated` props. Each user can include `lastActivityAt`, `recentActivity` audit events, and active `sessions`. Operation callbacks are supplied by the host, so password-reset delivery and account/session writes remain in host server actions. Omit a callback to hide its control, and authorize every server action on the server because presentation does not enforce permission.
+
 Three decisions are worth stating, because each is the other answer too.
 
 **A role the host's rule does not define still signs in, and the rule is what refuses it.** The package stores a role as a string and never interprets one, so there is nothing here to refuse a sign-in with, and a rule that does not define a role grants it nothing anyway. The `roles` list is a typo-catcher consulted on the two writes that name a role, refused with the name and the list; it is not a gate on signing in. The alternative costs the person at the keyboard a login failure with a reason they cannot see, where a login that succeeds into an admin showing nothing is a rule the host can be asked about. A host that has declared no `roles` at all has said what none of its roles are, so any string is written and its own rule decides.
@@ -626,7 +702,9 @@ const posts = defineAdminResource({
 });
 ```
 
-`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` shapes the generated form's submission from its declared fields; it runs in the browser and does not protect a server action called directly. The server write boundary must receive the resource definitions, as shown in [Enforcing a permission on the server](#enforcing-a-permission-on-the-server). The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
+`AdminResourceList` and `AdminResourceForm` generate the list and detail views from that, with each control wrapped in the resource's own permissions. `adminResourceValues` shapes a form submission; `adminResourceValuesFromRecord` filters a structured value to declared own fields while preserving omitted keys and explicit clears. This does not protect a server action called directly: the server write boundary must receive the resource definitions, as shown in [Enforcing a permission on the server](#enforcing-a-permission-on-the-server). The definition is a plain description: nothing in it reads or writes, so it can also be used as route-generation input. It is also a value a server component can hand to a client view, with the exceptions named where a column's formatting is described.
+
+Set `readPermission` on a field to hide its generated list column, form control, and history values from sessions without that permission. This is presentation filtering, not field-level read authorization: the persistence read still supplies the full record to the client component. Do not use it to protect confidential values; shape records and revision snapshots at the server read boundary. On existing records, the form carries forward the current values of hidden fields when calling replacement-style updates, preventing those values from being erased. This does not authorize writes: validate submitted fields at the server action boundary, as described in [Enforcing a permission on the server](#enforcing-a-permission-on-the-server).
 
 An existing record form can show revision history and restore a prior version by passing the host's lifecycle actions:
 
@@ -1143,6 +1221,54 @@ A comparison ranks before it compares, and so does an ordering, and both rank by
 
 This is the adapter to start on. A filter runs through `json_extract`, which SQLite cannot index the way it can a column, so once a resource is large enough that the scan shows, put it behind a mapped schema and the same `AdminPersistenceAdapter`.
 
+## Editing a typed collection
+
+`AdminCollectionEditor` works with a controlled list described by `AdminCollectionDefinition`: the host defines entry fields, creates entries, validates them, and supplies the fields to render. It provides selection, add, duplicate, remove, pointer and keyboard reordering, and a deliberate empty state. The host keeps the current list, so the same value can drive an unsaved preview and a save action.
+
+Validation can return strings for entry-level problems or `{ field, message }` values, where `field` is the declared field name. Give the field a `label` to show friendly error copy:
+
+```tsx
+"use client";
+
+import { useState } from "react";
+import {
+  AdminCollectionEditor,
+  AdminInput,
+  type AdminCollectionDefinition,
+  type AdminCollectionEntry,
+} from "@yesvus/helmdeck";
+
+type Block = { title: string };
+
+const definition: AdminCollectionDefinition<Block> = {
+  name: "blocks",
+  fields: [{ name: "title", label: "Block title" }],
+  create: () => ({ title: "" }),
+  validate: (entry) => entry.title.trim() ? [] : [{ field: "title", message: "A title is required" }],
+};
+
+export function BlockEditor() {
+  const [entries, setEntries] = useState<AdminCollectionEntry<Block>[]>([]);
+  const update = (id: string, title: string) => {
+    setEntries((current) => current.map((entry) => entry.id === id ? { ...entry, title } : entry));
+  };
+
+  return (
+    <AdminCollectionEditor
+      definition={definition}
+      entries={entries}
+      onChange={setEntries}
+      renderSummary={(entry) => entry.title || "Untitled"}
+      renderFields={(entry) => (
+        <AdminInput value={entry.title} onChange={(event) => update(entry.id, event.target.value)} />
+      )}
+    />
+  );
+}
+```
+
+`renderFields` can compose existing form primitives, including `AdminMediaField`, and host-defined localized values. The editor owns collection mechanics and stable entry identity; the host renders and updates fields and owns the public renderer, persistence and preview.
+
 ## Content lifecycle
 
 A CMS needs three things a resource engine does not have: what a record said before, a delete that can be undone, and a way back from both. This package supplies them as primitives over the host's own rows, and deliberately has no opinion about what content is or when it is published.
@@ -1292,6 +1418,48 @@ Two narrower limits, stated rather than left to be discovered. A record is recor
 
 `AdminScopeAdapter` supplies the URL and resource-filter mapping consumed by `AdminScopeProvider`; the authorized request scope is passed separately. See [Request-scoped resources and links](#request-scoped-resources-and-links).
 
+`AdminSearchAdapter` powers the optional record-search affordance beside the page finder. Its `search` method returns `AdminRecordSearchResult` objects with `resource`, `resourceId`, `resourceLabel`, `label`, and `href`. The adapter must only return records the current session may read. Search endpoints and every destination route must independently authenticate and authorize requests; filtering results in the interface is not authorization. `createAdminSearchAdapter` is a reference composer for resource search functions and `AdminPermissionsAdapter`: it checks resource-level read access before querying and record-level access before returning each match. The permission adapter must inspect `resourceId` in its context to apply record-level rules. Each source receives a candidate limit five times the requested result count, capped at 250, so authorized matches can fill the result list after filtering. Returned results default to 10 per resource and `maxResults` can set that from 1 to 50; record permission checks run in batches of eight. Partial results remain available when one configured resource search fails, while all resources failing produces the shared error state. Result-count overrides are strings, and the `{count}` placeholder in the plural label is replaced with the result total.
+
+```tsx
+import { AdminShell, createAdminSearchAdapter } from "@yesvus/helmdeck";
+
+async function searchOrders(query: string, signal: AbortSignal, limit: number) {
+  const response = await fetch(`/api/admin/orders/search?q=${encodeURIComponent(query)}&limit=${limit}`, { signal });
+  if (!response.ok) throw new Error("Order search failed");
+  return response.json() as Promise<Array<{ id: string; label: string; href: string }>>;
+}
+
+async function searchCustomers(query: string, signal: AbortSignal, limit: number) {
+  const response = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(query)}&limit=${limit}`, { signal });
+  if (!response.ok) throw new Error("Customer search failed");
+  return response.json() as Promise<Array<{ id: string; label: string; href: string }>>;
+}
+
+const recordSearch = createAdminSearchAdapter({
+  permissions,
+  resources: [
+    {
+      resource: "orders",
+      label: "Orders",
+      permission: "orders.read",
+      maxResults: 10,
+      search: (query, signal, limit) => searchOrders(query, signal, limit),
+    },
+    {
+      resource: "customers",
+      label: "Customers",
+      search: (query, signal, limit) => searchCustomers(query, signal, limit),
+    },
+  ],
+});
+
+<AdminShell nav={nav} recordSearchAdapter={recordSearch}>
+  {children}
+</AdminShell>;
+```
+
+The record search opens with `Ctrl/⌘ Shift K`, supports arrow-key selection, Enter navigation, Escape dismissal, and announces result counts. Its loading, empty, error, and retry behavior uses the shared widget state and data loader. Leave `recordSearchAdapter` unset to keep the shell's page finder without showing record search.
+
 `AdminAuditAdapter` accepts the events a resource write leaves behind, and `AdminCacheInvalidationAdapter` receives the same writes so the host can invalidate its own caches. These two are not free-standing: `createAdminResourceActions` calls them, after the store has answered, and only for the calls that were allowed to reach it. [Recording the writes and dropping the caches](#recording-the-writes-and-dropping-the-caches) is the whole of what they are told and when. `AdminPreviewAdapter` generates preview URLs for host routes. Route paths, schemas, content, and cache tags remain in the host; these contracts intentionally do not define or expose them.
 
 Compose the optional host services independently and pass the existing auth and media adapters to components that consume them:
@@ -1309,6 +1477,7 @@ export const hostAdapters: AdminHostAdapters = {
   audit,
   preview,
   cache,
+  search: recordSearch,
 };
 ```
 
@@ -1399,6 +1568,35 @@ Charts are drawn by this package, with no charting dependency. `AdminTimeSeriesC
 more series over an ordered set of categories, as bars or as lines, and `AdminRankChart` ranks named
 things against a labelled axis. `AdminChartFrame` is the card they live in, and it carries the four
 states a load can be in.
+
+For visitor analytics, `AdminVisitorTrendChart` maps daily page-view and unique-visitor points to the
+responsive time-series chart. `AdminDeviceBreakdownChart` maps host-classified device counts to the
+accessible ranked chart. Both use the same theme tokens, axis formatting, and screen-reader tables as
+the general chart primitives. The visitor-series labels and device-count suffix have English and
+Turkish defaults through `AdminI18nProvider`, and `ariaLabel` remains host-provided. Hosts supply the
+device classifications and counts, keeping device detection and event collection in their own policy.
+
+```tsx
+"use client";
+
+import {
+  AdminDeviceBreakdownChart,
+  AdminVisitorTrendChart,
+  adminChartFormatters,
+} from "@yesvus/helmdeck";
+
+<AdminVisitorTrendChart
+  ariaLabel="Page views and unique visitors by day"
+  points={series.points}
+  formatters={adminChartFormatters("count")}
+/>
+
+<AdminDeviceBreakdownChart
+  ariaLabel="Visits by device"
+  items={deviceCounts}
+  formatters={adminChartFormatters("count")}
+/>;
+```
 
 Bring your own data. These components take points and draw them, so what appears on screen is
 whatever the host's own query returned, and the only thing the package decides is how to draw it.

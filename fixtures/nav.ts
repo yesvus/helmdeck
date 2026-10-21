@@ -43,6 +43,7 @@ export const sampleNav: AdminNavGroup[] = [
         keywords: ["delivery", "dispatch", "tracking", "orders in transit"],
       },
       { href: "/shell/media", label: "Media library", shortLabel: "Media", icon: "media", mobilePrimary: true },
+      { href: "/shell/messages", label: "Contact messages", shortLabel: "Messages", icon: "mail", roles: ["admin"] },
       { href: "/shell/orders", label: "Orders", shortLabel: "Orders", icon: "file", roles: ["admin"] },
       {
         // The collection engine and its editor, driving rows that are really stored. Without an entry
@@ -85,6 +86,14 @@ export const sampleNav: AdminNavGroup[] = [
         shortLabel: "History",
         icon: "clock",
         keywords: ["revisions", "restore", "versions", "undo", "what did it say"],
+      },
+      {
+        href: "/shell/trash",
+        label: "Trash",
+        shortLabel: "Trash",
+        icon: "trash",
+        roles: ["admin"],
+        keywords: ["deleted", "restore", "purge", "recycle bin"],
       },
       {
         // Administrators only, and that is the rule's answer rather than a decoration: the trail holds
@@ -155,4 +164,3 @@ export const sampleSearchEntries = [
     terms: "payment chargeback invoice",
   },
 ];
-

@@ -59,6 +59,23 @@ The database is `./helmdeck.db`, created on the first query, and nothing has to 
 that. `HELMDECK_DATABASE_URL` overrides it, and a `libsql://` URL with `HELMDECK_DATABASE_TOKEN` beside
 it is a hosted database, so growing into one is two environment variables rather than a rewrite.
 
+## Tailwind CSS v4 setup
+
+Tailwind v4 does not scan dependencies in `node_modules` automatically. The template's
+`app/globals.css` explicitly scans Helmdeck's compiled package and imports its theme tokens inside
+the Tailwind entry stylesheet, in this order:
+
+```css
+@import "tailwindcss";
+@source "../node_modules/@yesvus/helmdeck/dist";
+@import "@yesvus/helmdeck/theme.css";
+```
+
+Keep the theme import in the CSS entry file, after `@import "tailwindcss"`. Do not import it from a
+React component stylesheet or layout: Tailwind must process its `@theme` directives to generate
+utilities such as `bg-admin-surface` and `border-admin-border`. If the package is installed at a
+different location, update the `@source` path to the package's `dist` directory.
+
 ## What is where
 
 | File | What it is |
@@ -129,6 +146,19 @@ each is one you have to make rather than one you have to find later.
 7. **A second interface language.** `app/layout.tsx` says `locale="en"` and nothing else. The package
    ships English and Turkish dictionaries; registering your own is `defineAdminMessages`, and content
    language is a separate concern the package keeps out of its URLs unless you map it.
+8. **A contact form endpoint.** `AdminContactForm` renders and submits the common contact fields, but
+   the Server Action that validates, rate-limits, stores, or emails a message belongs to your app.
+   Treat its input as untrusted and write through your own persistence adapter or data-access layer.
+   Use a shared rate-limit store when the app runs across multiple server instances.
+
+```tsx
+import { AdminContactForm } from "@yesvus/helmdeck";
+import { submitContact } from "./actions";
+
+export default function ContactPage() {
+  return <AdminContactForm onSubmit={submitContact} />;
+}
+```
 
 Also absent, and deliberately so: any records. The store arrives empty, which is what makes the
 first row you create through the form the way you find out the form works.
@@ -154,6 +184,26 @@ first row you create through the form the way you find out the form works.
 ```sh
 npm run typecheck
 ```
+
+## Rising popularity
+
+The analytics query can compare a recent window of page views with the equally long window before it. Call it on the server with the persistence adapter that stores the analytics events:
+
+```ts
+import { ADMIN_ANALYTICS_PAGE_VIEW, adminAnalyticsRisingPaths, adminChartDayRange } from "@yesvus/helmdeck";
+import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
+
+export function loadRisingPaths(store: AdminPersistenceAdapter) {
+  return adminAnalyticsRisingPaths(store, {
+    range: adminChartDayRange(7, new Date()),
+    kind: ADMIN_ANALYTICS_PAGE_VIEW,
+    minViews: 5,
+    limit: 10,
+  });
+}
+```
+
+The result has `paths` and `total`; each path includes `recentViews` and `previousViews`. `minViews` excludes paths with too little recent traffic. `growthRate` is the relative increase (`1` means 100%) and is `null` when the previous window had no views. Paths with no baseline sort first, followed by growth rate and stable path order.
 
 In this repository, `pnpm typecheck:template` runs the same compiler over this directory after
 linking the package into `template/node_modules`, which is what keeps a template nobody compiles from

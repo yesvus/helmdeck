@@ -86,12 +86,18 @@ export function AdminCollectionEditor<T>({
 
   const problems = useMemo(() => adminCollectionValidate(definition, entries), [definition, entries]);
   const problemsById = useMemo(() => {
-    const grouped = new Map<string, string[]>();
-    for (const problem of problems) {
-      grouped.set(problem.id, [...(grouped.get(problem.id) ?? []), problem.message]);
+      const grouped = new Map<string, { field?: string; message: string }[]>();
+      for (const problem of problems) {
+        const field = problem.field
+          ? definition.fields.find((candidate) => candidate.name === problem.field)
+          : undefined;
+        grouped.set(problem.id, [...(grouped.get(problem.id) ?? []), {
+          field: field ? field.label ?? field.name : undefined,
+          message: problem.message,
+        }]);
     }
     return grouped;
-  }, [problems]);
+  }, [definition.fields, problems]);
 
   const handleAdd = useCallback(() => {
     const next = adminCollectionAdd(entries, definition.create());
@@ -165,6 +171,13 @@ export function AdminCollectionEditor<T>({
           {sortable.orderedItems.map((entry, index) => {
             const entryProblems = problemsById.get(entry.id) ?? [];
             const isSelected = selectedId === entry.id;
+            const summary = renderSummary?.(entry, index);
+            const fallbackLabel = `${labels.edit} ${index + 1}`;
+            const entryLabel = typeof summary === "string"
+              ? summary.trim() || fallbackLabel
+              : typeof summary === "boolean"
+                ? fallbackLabel
+                : summary ?? fallbackLabel;
             const selected = isSelected ? "border-admin-brand-500" : "border-admin-border";
             return (
               <li key={entry.id} className="border-b border-admin-border last:border-b-0">
@@ -178,7 +191,7 @@ export function AdminCollectionEditor<T>({
                       onClick={() => setSelectedId(isSelected ? null : entry.id)}
                       className="min-w-0 flex-1 text-left text-sm font-semibold text-zinc-900"
                     >
-                      {renderSummary?.(entry, index) ?? title ?? `${labels.edit} ${index + 1}`}
+                      {entryLabel}
                     </button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => handleDuplicate(entry.id)} aria-label={`${labels.duplicate} ${index + 1}`}>
                       <Copy className="h-4 w-4" />
@@ -190,9 +203,10 @@ export function AdminCollectionEditor<T>({
 
                   {entryProblems.length > 0 ? (
                     <ul role="alert" className="flex flex-col gap-1">
-                      {entryProblems.map((message) => (
-                        <li key={message} className="text-xs font-medium text-admin-danger-text">
-                          {message}
+                      {entryProblems.map(({ field, message }, problemIndex) => (
+                        <li key={`${field ?? "entry"}-${problemIndex}`} className="text-xs font-medium text-admin-danger-text">
+                          <span className="font-semibold">{entryLabel}: </span>
+                          {field ? <><span className="font-semibold">{field}: </span>{message}</> : message}
                         </li>
                       ))}
                     </ul>

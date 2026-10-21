@@ -3,6 +3,55 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "../cn.js";
+import { useAdminMessages } from "../i18n.js";
+import { Button, type ButtonProps } from "./button.js";
+
+export type AdminTableActionVariant = "primary" | "secondary" | "destructive";
+export type AdminTableActionSize = "compact" | "comfortable";
+
+export type AdminTableActionButtonProps = Omit<ButtonProps, "asChild" | "children" | "size" | "variant" | "aria-label"> & {
+  label: string;
+  icon: ReactNode;
+  variant?: AdminTableActionVariant;
+  actionSize?: AdminTableActionSize;
+  iconOnly?: boolean;
+};
+
+const actionVariants = {
+  primary: "default",
+  secondary: "outline",
+  destructive: "destructive",
+} as const;
+
+export function AdminTableActionButton({
+  label,
+  icon,
+  variant = "secondary",
+  actionSize = "compact",
+  iconOnly = false,
+  className,
+  ...props
+}: AdminTableActionButtonProps) {
+  const i18n = useAdminMessages();
+  const accessibleLabel = label.trim() || (typeof props.title === "string" ? props.title.trim() : "") || i18n.common.tableAction;
+  return (
+    <Button
+      {...props}
+      aria-label={iconOnly ? accessibleLabel : undefined}
+      title={iconOnly ? accessibleLabel : props.title}
+      size={actionSize === "compact" ? "sm" : "default"}
+      variant={actionVariants[variant]}
+      className={cn(
+        iconOnly && actionSize === "compact" && "w-8 px-0",
+        iconOnly && actionSize === "comfortable" && "w-9 px-0",
+        className,
+      )}
+    >
+      <span aria-hidden="true" className="inline-flex shrink-0">{icon}</span>
+      {iconOnly ? null : <span>{label}</span>}
+    </Button>
+  );
+}
 
 export function useAdminTableSelection<Key extends string | number>(initialKeys: Key[] = []) {
   const [selectedKeys, setSelectedKeys] = useState<Set<Key>>(() => new Set(initialKeys));

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { contrastingTextHex } from "@yesvus/helmdeck";
-import { useShellTheme } from "./shell-theme-provider";
+import { AdminThemePreference, contrastingTextHex, useAdminTheme } from "@yesvus/helmdeck";
 
 type Preset = {
   brand: string;
@@ -32,8 +31,7 @@ const defaultSurfaces: Record<Preset["mode"], string> = {
 };
 
 export function ThemeControls() {
-  const shellTheme = useShellTheme();
-  const { theme, resolvedTheme, setTheme, ready } = shellTheme;
+  const { theme, resolvedTheme, ready, setTheme } = useAdminTheme();
   const [preset, setPreset] = useState(() => ({ ...initial, mode: resolvedTheme, theme }));
   const [importValue, setImportValue] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -61,7 +59,6 @@ export function ThemeControls() {
   useEffect(() => {
     if (!ready || preset.mode !== resolvedTheme) return;
     const root = document.documentElement;
-    root.dataset.adminTheme = resolvedTheme;
     root.style.setProperty("--admin-brand-500", preset.brand);
     root.style.setProperty("--admin-brand-600", preset.brand);
     root.style.setProperty("--admin-brand-100", `${preset.brand}26`);
@@ -87,12 +84,10 @@ export function ThemeControls() {
         ? defaultSurfaces[mode]
         : current.surface,
     }));
-    setTheme(mode);
   }
 
   function selectTheme(value: "light" | "dark" | "system") {
     if (value === "system") {
-      setTheme(value);
       setPreset((current) => ({ ...current, theme: value }));
       return;
     }
@@ -163,11 +158,7 @@ export function ThemeControls() {
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div><h1 className="text-2xl font-bold">Theme editor</h1><p className="text-sm text-zinc-600">Customize design tokens and preview changes live.</p></div>
-        <label className="flex items-center gap-2 text-sm font-medium">Color mode
-            <select aria-label="Color mode" className="rounded-md border border-zinc-300 bg-admin-surface px-3 py-2" value={theme} onChange={(event) => selectTheme(event.target.value as "light" | "dark" | "system")}>
-            <option value="light">Light</option><option value="dark">Dark</option><option value="system">System</option>
-          </select>
-        </label>
+        <AdminThemePreference onThemeChange={selectTheme} />
       </header>
       <section aria-label="Theme settings" className="grid gap-4 rounded-xl border border-zinc-200 bg-admin-surface p-5 sm:grid-cols-2">
         {fields.map(([key, label, options]) => <label key={key} className="grid gap-2 text-sm font-semibold">{label}
@@ -177,6 +168,26 @@ export function ThemeControls() {
       <section aria-label="Live theme preview" className="space-y-3 rounded-xl border border-zinc-200 bg-admin-surface p-6" style={{ padding: `${Number.parseFloat(preset.spacing) * Number(preset.density)}rem`, borderRadius: "var(--admin-radius)", backgroundColor: "var(--admin-surface)", color: "var(--admin-text-primary)" }}>
         <h2 className="text-lg font-bold">Preview</h2><p className="text-zinc-600">Semantic text and surfaces adapt to the selected theme.</p>
         <button type="button" className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-admin-on-brand">Primary action</button>
+      </section>
+      <section aria-label="Host content dark-mode preview" data-theme-preview="admin-theme-dark-preview" className="space-y-4 rounded-xl border border-neutral-200 bg-white p-6 text-neutral-950">
+        <div>
+          <h2 className="text-lg font-bold">Host content</h2>
+          <p className="text-sm">Standard host utility classes and elements follow the selected dark theme.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm font-medium">Name
+            <input aria-label="Host name" data-theme-preview="admin-theme-dark-preview" className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-950" defaultValue="Northstar" />
+          </label>
+          <label className="grid gap-1 text-sm font-medium">Status
+            <select aria-label="Host status" data-theme-preview="admin-theme-dark-preview" className="rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-950" defaultValue="active">
+              <option value="active">Active</option><option value="draft">Draft</option>
+            </select>
+          </label>
+        </div>
+        <table className="w-full border border-neutral-200 text-sm">
+          <thead><tr className="bg-neutral-50"><th className="p-2 text-left">Record</th><th className="p-2 text-left">Status</th></tr></thead>
+          <tbody><tr className="border-t border-neutral-200"><td className="p-2">Northstar</td><td className="p-2">Active</td></tr></tbody>
+        </table>
       </section>
       <div className="flex flex-wrap gap-3">
         <button type="button" className="rounded-md border border-zinc-300 px-4 py-2" onClick={() => { setPreset(initial); setTheme("light"); setFeedback("Theme settings reset."); }}>Reset</button>

@@ -12,7 +12,6 @@ import {
   type AdminNavGroup,
   type AdminSession,
 } from "@yesvus/helmdeck";
-import { useShellTheme } from "../../../components/shell-theme-provider";
 import { signOutAction } from "./sign-out-action";
 import { demoPermissionsAdapter } from "../../../lib/demo-permissions";
 
@@ -33,24 +32,6 @@ export function useShellSettings() {
   const settings = useContext(SettingsContext);
   if (!settings) throw new Error("Shell settings are unavailable");
   return settings;
-}
-
-function ThemeSelector() {
-  const { theme, setTheme } = useShellTheme();
-  return (
-    <label className="flex items-center gap-2 text-xs font-medium text-zinc-600">
-      Theme
-      <select
-        value={theme}
-        onChange={(event) => setTheme(event.target.value as typeof theme)}
-        className="rounded-md border border-zinc-300 bg-admin-surface px-2 py-1 text-xs text-zinc-700"
-      >
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-        <option value="system">System</option>
-      </select>
-    </label>
-  );
 }
 
 /**
@@ -101,7 +82,6 @@ export function ShellClient({
             viewSiteHref="/"
             profileHref="/shell/profile"
             onLogout={signOutAction}
-            topbarExtra={<ThemeSelector />}
             profileMenuExtra={
               <Link
                 className="block rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"

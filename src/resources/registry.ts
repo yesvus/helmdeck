@@ -43,6 +43,8 @@ export type AdminResourceField = {
    * rather than a box, and makes the write checked against that store on the server.
    */
   reference?: AdminResourceReference;
+  /** The permission required to show this field in generated resource views. */
+  readPermission?: AdminPermission;
   /**
    * Rendered instead of the default control, for a field the primitives do not cover. Code, and
    * irreducibly so: a control is a component, so a definition declaring one has to be built on the
@@ -407,9 +409,10 @@ export function adminResourceRecordId(value: unknown): string {
 export function adminResourceValues(
   definition: AdminResourceDefinition,
   form: FormData,
+  fields: readonly AdminResourceField[] = definition.fields,
 ): Record<string, unknown> {
   const values: Record<string, unknown> = {};
-  for (const field of definition.fields) {
+  for (const field of fields) {
     const raw = form.get(field.name);
     if (field.parse) {
       values[field.name] = field.parse(raw);
@@ -431,6 +434,36 @@ export function adminResourceValues(
       continue;
     }
     values[field.name] = raw === null ? null : String(raw);
+  }
+  return values;
+}
+
+/**
+ * Reads a structured value into declared resource fields without converting or filling missing keys.
+ *
+ * Form submissions have a value for every rendered control, but a JSON write may omit fields the
+ * caller did not render. Omissions stay absent so a partial update can distinguish them from an
+ * explicit `null`, empty string, or `false` supplied to clear a field.
+ */
+export function adminResourceValuesFromRecord(
+  definition: AdminResourceDefinition,
+  value: unknown,
+): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("A resource value must be an object");
+  }
+
+  const incoming = value as Record<string, unknown>;
+  const values: Record<string, unknown> = {};
+  for (const field of definition.fields) {
+    if (Object.prototype.hasOwnProperty.call(incoming, field.name)) {
+      Object.defineProperty(values, field.name, {
+        configurable: true,
+        enumerable: true,
+        value: incoming[field.name],
+        writable: true,
+      });
+    }
   }
   return values;
 }

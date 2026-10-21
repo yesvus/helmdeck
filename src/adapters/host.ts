@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 import type { AdminSession } from "./session.js";
 import type { AdminResourcePage, AdminResourceQuery } from "./query.js";
+import type { AdminSearchAdapter } from "./search.js";
 
 export type AdminPermission = string;
+export type AdminPermissionCheckContext = { resourceId?: string; field?: string };
 
 export type AdminPermissionsAdapter = {
-  can: (permission: AdminPermission, context?: { resourceId?: string }) => Promise<boolean>;
+  can: (permission: AdminPermission, context?: AdminPermissionCheckContext) => Promise<boolean>;
 };
 
 export type AdminPersistenceAdapter = {
@@ -124,4 +126,5 @@ export type AdminHostAdapters = {
   audit?: AdminAuditAdapter;
   preview?: AdminPreviewAdapter;
   cache?: AdminCacheInvalidationAdapter;
+  search?: AdminSearchAdapter;
 };

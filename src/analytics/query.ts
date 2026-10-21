@@ -437,6 +437,106 @@ export async function adminAnalyticsTopPaths(
   return { paths, total: byPath.buckets.length, unkeyed: byPath.unkeyed };
 }
 
+export type AdminAnalyticsRisingPath = {
+  path: string;
+  recentViews: number;
+  previousViews: number;
+  /** Relative increase, where 1 is 100%; null when no previous views provide a baseline. */
+  growthRate: number | null;
+};
+
+export type AdminAnalyticsRisingPaths = {
+  paths: AdminAnalyticsRisingPath[];
+  total: number;
+};
+
+export type AdminAnalyticsRisingPathsOptions = AdminAnalyticsReadOptions & {
+  /** Recent day keys, compared with the equally long period immediately before them. */
+  range: readonly string[];
+  /** Paths below this many recent views are omitted. */
+  minViews: number;
+  /** Maximum number of rising paths returned. */
+  limit: number;
+};
+
+function risingPathRanges(range: readonly string[]): { recent: string[]; previous: string[] } {
+  if (range.length === 0 || !range.every((key) => DAY.test(key))) refuseRange([...range]);
+
+  const days = range.map((key) => {
+    const date = new Date(`${key}T00:00:00.000Z`);
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== key) refuseRange([...range]);
+    return date;
+  });
+  for (let index = 1; index < days.length; index += 1) {
+    if (days[index]!.getTime() - days[index - 1]!.getTime() !== 86_400_000) refuseRange([...range]);
+  }
+
+  const first = new Date(days[0]!);
+  const previous = Array.from({ length: range.length }, (_, index) => {
+    const day = new Date(first);
+    day.setUTCDate(day.getUTCDate() - range.length + index);
+    return day.toISOString().slice(0, 10);
+  });
+  return { recent: [...range], previous };
+}
+
+function analyticsPathCounts(rows: readonly AdminAnalyticsEventRow[]) {
+  return adminAggregate({ rows, key: (row) => row.path, measures: { views: () => 1 } });
+}
+
+/**
+ * Ranks paths whose recent view count exceeds the immediately preceding equal-length period.
+ * A zero previous count has no finite growth rate, so the path is returned with a null rate.
+ */
+export async function adminAnalyticsRisingPaths(
+  store: AdminPersistenceAdapter,
+  options: AdminAnalyticsRisingPathsOptions,
+): Promise<AdminAnalyticsRisingPaths> {
+  if (!Number.isSafeInteger(options.minViews) || options.minViews < 1) {
+    throw new AdminAnalyticsError("a minimum view count must be a whole number from one up.");
+  }
+  if (!Number.isSafeInteger(options.limit) || options.limit < 0) {
+    throw new AdminAnalyticsError("a path limit must be a non-negative whole number.");
+  }
+  const ranges = risingPathRanges(options.range);
+  const fullRange = [...ranges.previous, ...ranges.recent];
+  const rows = await adminAnalyticsRead(store, { ...options, range: fullRange });
+  const recentDays = new Set(ranges.recent);
+  const previousDays = new Set(ranges.previous);
+  const recent = analyticsPathCounts(
+    rows.filter((row) => recentDays.has(adminChartDayKey(row.occurred_at) ?? "")),
+  );
+  const previous = analyticsPathCounts(
+    rows.filter((row) => previousDays.has(adminChartDayKey(row.occurred_at) ?? "")),
+  );
+  const candidates = recent.buckets
+    .map((bucket) => {
+      const recentViews = bucket.values.views;
+      const previousViews = previous.buckets.find((candidate) => candidate.key === bucket.key)?.values.views ?? 0;
+      return { path: bucket.key, recentViews, previousViews };
+    })
+    .filter(({ recentViews, previousViews }) =>
+      recentViews >= options.minViews && recentViews > previousViews,
+    )
+    .map(({ path, recentViews, previousViews }) => {
+      return {
+        path,
+        recentViews,
+        previousViews,
+        growthRate: previousViews === 0 ? null : (recentViews - previousViews) / previousViews,
+      };
+    })
+    .sort((left, right) => {
+      if (left.growthRate === null && right.growthRate !== null) return -1;
+      if (left.growthRate !== null && right.growthRate === null) return 1;
+      return (right.growthRate ?? 0) - (left.growthRate ?? 0) ||
+        right.recentViews - left.recentViews ||
+        left.path.localeCompare(right.path);
+    });
+
+  return { paths: candidates.slice(0, options.limit), total: candidates.length };
+}
+
 export type AdminAnalyticsSource = {
   /** The label the host recorded with the event, which is the host's own vocabulary. */
   source: string;

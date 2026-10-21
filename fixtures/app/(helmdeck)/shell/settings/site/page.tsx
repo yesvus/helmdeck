@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import { FixtureCard } from "../../../../../components/fixture-card";
-import { AdminLanguagePreference, AdminSettingsFooter } from "@yesvus/helmdeck";
+import { AdminSettingsPage, AdminThemePreference } from "@yesvus/helmdeck";
 import { currentDemoSession } from "../../../../../lib/demo-session";
 import {
   SETTINGS_FIELDS,
@@ -60,77 +59,84 @@ export default async function SiteSettingsPage({
   const siteFields = SETTINGS_FIELDS.filter((field) => !THEME_COLUMNS.includes(field.column as Column));
 
   return (
-    <FixtureCard title="Site settings">
-      <div className="space-y-6">
-        <p className="text-sm text-zinc-600">
-          These values are stored. The shell reads the same row, so a change here is a change
-          everywhere the site is named or padded.
-        </p>
+    <AdminSettingsPage
+      sections={[
+        {
+          id: "appearance",
+          title: "Appearance",
+          description: "Choose the colour mode for this browser.",
+          content: <AdminThemePreference />,
+        },
+        {
+          id: "site",
+          title: "Site settings",
+          description: "These values are stored. The shell reads the same row, so changes apply across the site.",
+          content: (
+            <form action={writeSiteSettingsAction} className="space-y-6">
+              <fieldset className="space-y-4">
+                <legend className="text-sm font-semibold text-zinc-900">Site</legend>
+                {siteFields.map((field) => (
+                  <Field key={field.column} field={field} value={settings[field.column]} invalid={refused?.column === field.column} />
+                ))}
+              </fieldset>
 
-        <section className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <h2 className="font-semibold text-zinc-900">Account</h2>
-          <p className="mt-1 text-sm text-zinc-600">{session?.email ?? "Nobody is signed in"}</p>
-          <p className="mt-2 text-xs text-zinc-500">
-            Role: {session?.role ?? "none"}. It comes from the stored account and is not a setting.
-          </p>
-        </section>
+              <fieldset className="space-y-4">
+                <legend className="text-sm font-semibold text-zinc-900">Theme</legend>
+                <p className="text-xs text-zinc-500">
+                  Accent and density are stored with the site and applied by the shell.
+                </p>
+                {themeFields.map((field) => (
+                  <Field key={field.column} field={field} value={settings[field.column]} invalid={refused?.column === field.column} />
+                ))}
+              </fieldset>
 
-        <AdminLanguagePreference />
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2"
+                >
+                  Save settings
+                </button>
+                {saved && !refused && (
+                  <p role="status" className="text-sm text-emerald-700">
+                    Saved. The page you are reading was rendered from the stored row.
+                  </p>
+                )}
+              </div>
 
-        <form action={writeSiteSettingsAction} className="space-y-6">
-          <fieldset className="space-y-4">
-            <legend className="text-sm font-semibold text-zinc-900">Site</legend>
-            {siteFields.map((field) => (
-              <Field key={field.column} field={field} value={settings[field.column]} invalid={refused?.column === field.column} />
-            ))}
-          </fieldset>
-
-          <fieldset className="space-y-4">
-            <legend className="text-sm font-semibold text-zinc-900">Theme</legend>
-            <p className="text-xs text-zinc-500">
-              The theme settings the package declares. Colour mode, the individual brand values and
-              the type scale stay with the shell, because the package decides them and a second place
-              to set them would be a second answer.
-            </p>
-            {themeFields.map((field) => (
-              <Field key={field.column} field={field} value={settings[field.column]} invalid={refused?.column === field.column} />
-            ))}
-          </fieldset>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2"
-            >
-              Save settings
-            </button>
-            {saved && !refused && (
-              <p role="status" className="text-sm text-emerald-700">
-                Saved. The page you are reading was rendered from the stored row.
+              {refused && (
+                <p role="alert" className="text-sm text-red-600">
+                  {refused.label} was not saved. {reason ?? refused.hint} Nothing was written.
+                </p>
+              )}
+            </form>
+          ),
+        },
+        {
+          id: "account",
+          title: "Account",
+          content: (
+            <>
+              <p className="text-sm text-zinc-600">{session?.email ?? "Nobody is signed in"}</p>
+              <p className="mt-2 text-xs text-zinc-500">
+                Role: {session?.role ?? "none"}. It comes from the stored account and is not a setting.
               </p>
-            )}
-          </div>
-
-          {refused && (
-            <p role="alert" className="text-sm text-red-600">
-              {refused.label} was not saved. {reason ?? refused.hint} Nothing was written.
-            </p>
-          )}
-        </form>
-
-        {settings.updated_at && (
-          <p className="text-xs text-zinc-500">
-            Last changed {settings.updated_at}
-            {settings.updated_by ? ` by ${settings.updated_by}` : ""}.{" "}
-            <a href={SETTINGS_PATH} className="font-semibold text-brand-700 hover:underline">
-              Reload
-            </a>{" "}
-            to read the row again.
-          </p>
-        )}
-      </div>
-      <AdminSettingsFooter />
-    </FixtureCard>
+            </>
+          ),
+        },
+      ]}
+    >
+      {settings.updated_at ? (
+        <p className="text-xs text-zinc-500">
+          Last changed {settings.updated_at}
+          {settings.updated_by ? ` by ${settings.updated_by}` : ""}.{" "}
+          <a href={SETTINGS_PATH} className="font-semibold text-brand-700 hover:underline">
+            Reload
+          </a>{" "}
+          to read the row again.
+        </p>
+      ) : null}
+    </AdminSettingsPage>
   );
 }
 

@@ -125,6 +125,40 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "actions footer submit cancel",
     renderable: true,
   },
+  AdminContactForm: {
+    category: "Forms and fields",
+    summary: "Collects a bounded contact message and submits it through a host callback.",
+    keywords: "contact email subject message inquiry public form",
+    renderable: true,
+  },
+  AdminInboxList: {
+    category: "Data display",
+    summary: "Presents host-provided messages with status, paging, and optional host callbacks.",
+    keywords: "inbox contact support unread archive messages list",
+    renderable: true,
+  },
+  AdminInboxMessage: {
+    category: "Data display",
+    summary: "Presents one host-provided message with read and archive callbacks.",
+    keywords: "inbox contact support detail unread archive message",
+    renderable: true,
+  },
+  AdminTrashPage: {
+    category: "Resources",
+    summary: "Lists host-provided removed records with restore and confirmed permanent-purge actions.",
+    keywords: "trash deleted recycle bin restore purge bulk selection",
+    renderable: true,
+  },
+  defaultAdminTrashMessages: {
+    category: "Internationalisation",
+    summary: "The English wording the trash page uses for actions and empty states.",
+    keywords: "labels copy trash wording deleted restore purge",
+  },
+  turkishAdminTrashMessages: {
+    category: "Internationalisation",
+    summary: "The Turkish wording the trash page uses for actions and empty states.",
+    keywords: "labels copy trash turkish restore purge",
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",
@@ -206,6 +240,13 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "bulk actions selected bar",
     renderable: true,
   },
+  AdminTableActionButton: {
+    category: "Actions and buttons",
+    summary:
+      "A standardized compact or comfortable table action with primary, secondary, or destructive styling and accessible icon-only tooltips.",
+    keywords: "table row action icon tooltip accessible compact destructive",
+    renderable: true,
+  },
   AdminTableRowActions: {
     category: "Data display",
     summary: "A row's actions, shown in place on a wide screen and behind a control on a narrow one.",
@@ -233,6 +274,36 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Data display",
     summary: "The package's standard skeleton for a page whose content is on its way.",
     keywords: "placeholder loading page",
+    renderable: true,
+  },
+  AdminLoadingState: {
+    category: "Data display",
+    summary: "An accessible loading status that announces localized text and groups decorative placeholders.",
+    keywords: "loading live region status accessible announcement",
+    renderable: true,
+  },
+  AdminTableSkeleton: {
+    category: "Data display",
+    summary: "A table-shaped placeholder with configurable row and column counts.",
+    keywords: "loading table rows columns placeholder",
+    renderable: true,
+  },
+  AdminFormSkeleton: {
+    category: "Data display",
+    summary: "A form-shaped placeholder with configurable field count.",
+    keywords: "loading form fields placeholder",
+    renderable: true,
+  },
+  AdminCardGridSkeleton: {
+    category: "Data display",
+    summary: "A responsive grid of placeholder cards with a configurable count.",
+    keywords: "loading card grid dashboard placeholder",
+    renderable: true,
+  },
+  AdminDashboardSkeleton: {
+    category: "Data display",
+    summary: "A dashboard-shaped placeholder with summary cards, chart and activity rows.",
+    keywords: "loading dashboard chart activity placeholder",
     renderable: true,
   },
   AdminEmptyState: {
@@ -272,6 +343,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "frame card states loading empty error ready",
     renderable: true,
   },
+  defaultAdminChartTableLabels: {
+    category: "Charts",
+    summary: "English default headings for the accessible chart data table.",
+    keywords: "chart table labels accessible period item value",
+  },
   AdminTimeSeriesChart: {
     category: "Charts",
     summary:
@@ -284,6 +360,28 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary:
       "One row per thing with its bar against a labelled axis, built from elements rather than SVG so a long name truncates instead of overlapping.",
     keywords: "rank bar horizontal rows axis",
+    renderable: true,
+  },
+  defaultAdminAnalyticsChartMessages: {
+    category: "Internationalisation",
+    summary: "English series labels for page views, unique visitors, and device visit counts.",
+    keywords: "analytics chart labels pageviews visitors devices",
+  },
+  turkishAdminAnalyticsChartMessages: {
+    category: "Internationalisation",
+    summary: "Turkish series labels for page views, unique visitors, and device visit counts.",
+    keywords: "analytics chart labels turkish pageviews visitors devices",
+  },
+  AdminVisitorTrendChart: {
+    category: "Charts",
+    summary: "Plots host-provided page views and unique visitors by day using the responsive time-series chart.",
+    keywords: "analytics visitors pageviews trend chart days",
+    renderable: true,
+  },
+  AdminDeviceBreakdownChart: {
+    category: "Charts",
+    summary: "Ranks host-classified device visit counts with the accessible horizontal bar chart.",
+    keywords: "analytics devices desktop mobile tablet breakdown visits",
     renderable: true,
   },
   AdminChartTable: {
@@ -493,6 +591,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary:
       "The paths with the most events on them, each with when it was last looked at, ranked so equal counts hold still between loads.",
     keywords: "top paths ranking last viewed popular",
+  },
+  adminAnalyticsRisingPaths: {
+    category: "Analytics",
+    summary:
+      "Paths with a rise in recent views over the equally long preceding period, with a minimum-volume guard and growth rate.",
+    keywords: "rising trending popularity paths growth compare periods",
   },
   adminAnalyticsSources: {
     category: "Analytics",
@@ -772,6 +876,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Shell and navigation",
     summary: "Search across the navigation and any extra entries the host adds.",
     keywords: "search find command palette",
+    renderable: true,
+  },
+  AdminRecordSearch: {
+    category: "Shell and navigation",
+    summary: "Searches host-authorized records across the resources the host selects.",
+    keywords: "records global search orders customers async permissions keyboard",
     renderable: true,
   },
   AdminProfileMenu: {
@@ -1106,6 +1216,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The loading half of the grid: it runs each tile's loader and shows the pending state.",
     keywords: "tiles loaders suspense dashboard",
     renderable: true,
+  },
+  AdminDashboardServerTiles: {
+    category: "Dashboard and widgets",
+    summary: "Streams each widget from a server loader inside its own Suspense boundary.",
+    keywords: "tiles server loaders suspense streamed dashboard",
+    hostNote: "Requires a host widget registry and server loaders; see the server-rendered dashboard fixture.",
   },
   AdminDashboardMissingTile: {
     category: "Dashboard and widgets",
@@ -1495,6 +1611,22 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "activity audit page route log trail",
     renderable: true,
   },
+  AdminUserManagementPage: {
+    category: "Auth and permissions",
+    summary: "A full account-management page for host-provided role, status, session, and activity operations.",
+    keywords: "users accounts roles sessions disable activity management password reset",
+    renderable: true,
+  },
+  defaultAdminUserManagementMessages: {
+    category: "Internationalisation",
+    summary: "English labels for the reusable account-management page.",
+    keywords: "users accounts roles sessions activity labels",
+  },
+  turkishAdminUserManagementMessages: {
+    category: "Internationalisation",
+    summary: "Turkish labels for the reusable account-management page.",
+    keywords: "users accounts roles sessions activity turkish labels",
+  },
   adminActivityTone: {
     category: "Activity",
     summary: "The tone an action reads as in a trail, so a feed is scanned rather than read.",
@@ -1509,6 +1641,16 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Activity",
     summary: "The Turkish wording of the same strings, for a host whose shell is in Turkish.",
     keywords: "labels copy activity turkish wording",
+  },
+  defaultAdminInboxMessages: {
+    category: "Internationalisation",
+    summary: "The English wording inbox views use for statuses and loading or empty states.",
+    keywords: "labels copy inbox wording messages",
+  },
+  turkishAdminInboxMessages: {
+    category: "Internationalisation",
+    summary: "The Turkish wording inbox views use for statuses and loading or empty states.",
+    keywords: "labels copy inbox turkish messages",
   },
   AdminScopeProvider: {
     category: "Resources",
@@ -1525,6 +1667,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Resources",
     summary: "Reads a submitted resource form back into a record, coercing each field's type.",
     keywords: "formdata values record parse",
+  },
+  adminResourceValuesFromRecord: {
+    category: "Resources",
+    summary: "Copies declared own fields from a structured value while preserving omitted fields.",
+    keywords: "json record values fields whitelist structured partial",
   },
   adminResourcePath: {
     category: "Resources",
@@ -2010,11 +2157,43 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "provider settings density accent document apply",
     renderable: true,
   },
+  ADMIN_THEME_BOOT_SCRIPT: {
+    category: "Theme and colour",
+    summary: "The pre-paint script that applies a stored or system-resolved color mode before the page hydrates.",
+    keywords: "theme dark light system boot script first paint storage",
+  },
+  ADMIN_THEME_PREFERENCE_STORAGE_KEY: {
+    category: "Theme and colour",
+    summary: "The localStorage key used to persist the light, dark, or system theme preference.",
+    keywords: "theme preference storage key localStorage dark light system",
+  },
+  AdminThemePreference: {
+    category: "Theme and colour",
+    summary: "A localized Light, Dark, and System selector connected to the theme preference provider.",
+    keywords: "theme preference selector color mode light dark system",
+    hostNote: "Place it inside AdminThemeProvider and AdminI18nProvider where people can choose their display mode.",
+  },
+  AdminThemeProvider: {
+    category: "Theme and colour",
+    summary: "Applies and synchronizes the stored light, dark, or system preference across the document and browser tabs.",
+    keywords: "theme provider preference color mode storage system",
+    hostNote: "Wrap the app in this provider and include ADMIN_THEME_BOOT_SCRIPT in the document head to avoid a first-paint flash.",
+  },
+  useAdminTheme: {
+    category: "Theme and colour",
+    summary: "Reads the selected and resolved theme and provides the setter and readiness state.",
+    keywords: "theme preference hook resolved mode system ready set",
+  },
 
   createSessionAuthAdapter: {
     category: "Adapters",
     summary: "The session adapter over a store the host owns. Reached at `@yesvus/helmdeck/baseline`.",
     keywords: "session auth adapter baseline",
+  },
+  createAdminSearchAdapter: {
+    category: "Adapters",
+    summary: "Composes resource searches with resource- and record-level permission checks.",
+    keywords: "search adapter records permission authorized resource",
   },
   createMemoryPersistenceAdapter: {
     category: "Adapters",

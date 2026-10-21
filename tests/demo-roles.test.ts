@@ -144,6 +144,8 @@ describe("what the rule hands each account", () => {
     expect(await decided(admin, "products.delete")).toBe(true);
     expect(await decided(admin, "orders.read")).toBe(true);
     expect(await decided(admin, "orders.delete")).toBe(true);
+    expect(await decided(admin, "contact_messages.read")).toBe(true);
+    expect(await decided(admin, "contact_messages.update")).toBe(true);
 
     expect(await decided(asEditor, "products.read")).toBe(true);
     expect(await decided(asEditor, "products.create")).toBe(true);
@@ -152,6 +154,8 @@ describe("what the rule hands each account", () => {
     expect(await decided(asEditor, "products.delete")).toBe(false);
     expect(await decided(asEditor, "orders.read")).toBe(false);
     expect(await decided(asEditor, "orders.update")).toBe(false);
+    expect(await decided(asEditor, "contact_messages.read")).toBe(false);
+    expect(await decided(asEditor, "contact_messages.update")).toBe(false);
   });
 
   it("refuses every permission to a session with no role, or a role it has never heard of", async () => {

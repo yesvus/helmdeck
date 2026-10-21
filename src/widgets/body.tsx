@@ -26,12 +26,14 @@ export function adminWidgetBody<TData>({
   state,
   messages,
   onRetry,
+  retryAction,
   retryIsWorthwhile,
 }: {
   definition: AdminWidgetDefinition<TData>;
   state: AdminWidgetState<TData>;
   messages: Pick<AdminMessages, "widget">;
   onRetry?: () => void;
+  retryAction?: (formData: FormData) => void | Promise<void>;
   /**
    * Overrides whether this failure is worth retrying. The default reads the error, and a host with a
    * failure the package cannot classify passes its own answer rather than editing the classifier.
@@ -52,9 +54,9 @@ export function adminWidgetBody<TData>({
         // could plausibly help. A refusal that cannot be retried away renders no control, because a
         // button that can only fail costs the operator a click and teaches them it does nothing.
         const worthRetrying = (retryIsWorthwhile ?? adminWidgetRetryIsWorthwhile)(state.error);
-        const canRetry = onRetry !== undefined && worthRetrying;
+        const canRetry = (onRetry !== undefined || retryAction !== undefined) && worthRetrying;
         return (
-          definition.renderError?.(state.error, canRetry ? onRetry! : () => undefined) ?? (
+          definition.renderError?.(state.error, canRetry && onRetry ? onRetry : () => undefined, canRetry ? retryAction : undefined) ?? (
             <AdminEmptyState
               title={messages.widget.errorTitle}
               // A permanent refusal says what to do instead, because "this failed" with no retry and
@@ -66,9 +68,17 @@ export function adminWidgetBody<TData>({
               }
               action={
                 canRetry ? (
-                  <Button type="button" size="sm" variant="ghost" onClick={onRetry}>
-                    {messages.widget.retry}
-                  </Button>
+                  retryAction ? (
+                    <form action={retryAction}>
+                      <Button type="submit" size="sm" variant="ghost">
+                        {messages.widget.retry}
+                      </Button>
+                    </form>
+                  ) : (
+                    <Button type="button" size="sm" variant="ghost" onClick={onRetry}>
+                      {messages.widget.retry}
+                    </Button>
+                  )
                 ) : undefined
               }
             />

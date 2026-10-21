@@ -69,4 +69,23 @@ describe("theme tokens", () => {
       "--admin-spacing",
     ]);
   });
+
+  it("scopes dark host-element defaults to the dark theme", () => {
+    const css = readFileSync(resolve("src/theme/tokens.css"), "utf8");
+    const baseline = css.match(/@layer utilities\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+    const selectors = [...baseline.matchAll(/(?:^|\n)\s*([^{}]+)\s*\{/g)].map((match) => match[1].trim());
+
+    expect(selectors.length).toBeGreaterThan(5);
+    expect(selectors.every((selector) => selector.startsWith(':where([data-admin-theme="dark"])'))).toBe(true);
+    expect(baseline).toContain(".bg-white");
+    expect(baseline).toContain(".text-neutral-950");
+    expect(baseline).toContain(".border-neutral-200");
+    expect(baseline).toContain("input:not([type=\"checkbox\"])");
+    expect(baseline).toContain(":where(input:not([type=\"checkbox\"])");
+    expect(baseline).toContain("select, textarea");
+    expect(baseline).toContain("table");
+    expect(baseline).toContain("color: var(--admin-text-primary)");
+    expect(baseline).not.toMatch(/(?:^|\n)\s*(?:input|select|textarea|table|th|td)\s*\{/);
+    expect(css).toContain("@layer utilities {");
+  });
 });

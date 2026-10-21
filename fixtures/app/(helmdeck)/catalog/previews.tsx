@@ -16,11 +16,12 @@
 
 import { useState, type ComponentType, type ReactNode } from "react";
 import type { AdminAuditEvent, AdminMediaAdapter, AdminMediaItem } from "@yesvus/helmdeck";
-import { AlertTriangle, BarChart3, CheckCircle2, Info, LineChart, Package, Palette, Rows3, type LucideIcon } from "lucide-react";
+import { AlertTriangle, BarChart3, CheckCircle2, Eye, Info, LineChart, Package, Palette, Pencil, Rows3, Trash2, type LucideIcon } from "lucide-react";
 import {
   ADMIN_DENSITIES,
   AdminActivityPage,
   AdminActivityTimeline,
+  AdminUserManagementPage,
   AdminMediaLibrary,
   AdminMediaLibraryPage,
   AdminBanner,
@@ -28,6 +29,8 @@ import {
   AdminChartFrame,
   AdminChartTable,
   AdminContextualHelp,
+  AdminContactForm,
+  AdminDeviceBreakdownChart,
   AdminContentSkeleton,
   AdminDashboardLayout,
   AdminDashboardMissingTile,
@@ -42,7 +45,11 @@ import {
   AdminFormCard,
   AdminFormSection,
   AdminI18nProvider,
+  AdminInboxList,
+  AdminInboxMessage,
+  AdminTrashPage,
   AdminInput,
+  AdminLoadingState,
   AdminListItemCard,
   AdminLoginScreen,
   AdminMediaAspectRatioHint,
@@ -64,6 +71,7 @@ import {
   AdminPagination,
   AdminPendingButton,
   AdminProfileMenu,
+  AdminRecordSearch,
   AdminRankChart,
   AdminRepeaterListField,
   AdminSaveButton,
@@ -73,6 +81,10 @@ import {
   AdminSettingsFooter,
   AdminSelect,
   AdminSkeleton,
+  AdminTableSkeleton,
+  AdminFormSkeleton,
+  AdminCardGridSkeleton,
+  AdminDashboardSkeleton,
   AdminSortableCard,
   AdminSortableDndContext,
   AdminSortableRow,
@@ -83,11 +95,13 @@ import {
   AdminSubmitButton,
   AdminSurfaceCard,
   AdminTable,
+  AdminTableActionButton,
   AdminTableBulkActions,
   AdminTableRowActions,
   AdminTextarea,
   AdminThemeSettingsProvider,
   AdminTimeSeriesChart,
+  AdminVisitorTrendChart,
   AdminToastCard,
   AdminToastViewport,
   AdminUrlFeedback,
@@ -688,6 +702,40 @@ function MediaLightboxPreview() {
 
 export const catalogPreviews: Record<string, ComponentType> = {
   AdminSettingsFooter: () => <AdminSettingsFooter>Host build 42</AdminSettingsFooter>,
+  AdminContactForm: () => <AdminContactForm onSubmit={async () => {}} />,
+  AdminInboxList: () => (
+    <AdminInboxList
+      messages={[
+        { id: "inbox-1", sender: "Ada Lovelace", subject: "Product question", preview: "Could you tell me more?", receivedAt: "2026-10-20T10:00:00.000Z", status: "unread" },
+        { id: "inbox-2", sender: "Grace Hopper", subject: "Order follow-up", preview: "Thank you for the quick reply.", receivedAt: "2026-10-19T09:30:00.000Z", status: "read" },
+      ]}
+      onOpen={() => {}}
+      onMarkRead={() => {}}
+      onArchive={() => {}}
+      page={1}
+      pageCount={3}
+      onPageChange={() => {}}
+    />
+  ),
+  AdminInboxMessage: () => (
+    <AdminInboxMessage
+      message={{ id: "inbox-1", sender: "Ada Lovelace", subject: "Product question", preview: "Could you tell me more?", body: "Could you tell me more about the product?", receivedAt: "2026-10-20T10:00:00.000Z", status: "unread" }}
+      onMarkRead={() => {}}
+      onArchive={() => {}}
+    />
+  ),
+  AdminTrashPage: () => (
+    <AdminTrashPage
+      items={[
+        { id: "trash-post-1", resource: "Posts", label: "Spring collection", deletedAt: "2026-10-19T12:00:00.000Z", deletedBy: "Ada Lovelace" },
+        { id: "trash-product-1", resource: "Products", label: "Retired table lamp", deletedAt: "2026-10-18T09:15:00.000Z", deletedBy: "Grace Hopper" },
+      ]}
+      onRestore={() => {}}
+      onPurge={() => {}}
+      onRestoreMany={() => {}}
+      onPurgeMany={() => {}}
+    />
+  ),
 
   Button: () => (
     <div className="flex flex-wrap items-center gap-2">
@@ -761,6 +809,14 @@ export const catalogPreviews: Record<string, ComponentType> = {
   AdminTable: () => (
     <AdminTable caption="Catalogue sample" columns={COLUMNS} rows={ROWS} getKey={(row) => row.id} />
   ),
+  AdminTableActionButton: () => (
+    <div className="flex flex-wrap items-center gap-2">
+      <AdminTableActionButton label="Edit" icon={<Pencil className="size-4" />} />
+      <AdminTableActionButton label="Open" icon={<Eye className="size-4" />} variant="primary" actionSize="comfortable" />
+      <AdminTableActionButton label="Delete" icon={<Trash2 className="size-4" />} variant="destructive" />
+      <AdminTableActionButton label="Quick edit" icon={<Pencil className="size-4" />} iconOnly />
+    </div>
+  ),
   AdminTableBulkActions: BulkActionsSample,
   AdminTableRowActions: () => (
     <AdminTable
@@ -799,6 +855,15 @@ export const catalogPreviews: Record<string, ComponentType> = {
     </div>
   ),
   AdminContentSkeleton: () => <AdminContentSkeleton />,
+  AdminLoadingState: () => (
+    <AdminLoadingState label="Loading products">
+      <AdminTableSkeleton rowCount={3} columnCount={3} />
+    </AdminLoadingState>
+  ),
+  AdminTableSkeleton: () => <AdminTableSkeleton rowCount={3} columnCount={4} />,
+  AdminFormSkeleton: () => <AdminFormSkeleton fieldCount={3} />,
+  AdminCardGridSkeleton: () => <AdminCardGridSkeleton cardCount={3} />,
+  AdminDashboardSkeleton: () => <AdminDashboardSkeleton />,
   AdminEmptyState: () => (
     <AdminEmptyState
       title="No products yet"
@@ -1059,6 +1124,9 @@ export const catalogPreviews: Record<string, ComponentType> = {
     </Contained>
   ),
   AdminSearch: () => <AdminSearch groups={NAV} entries={SEARCH_ENTRIES} />,
+  AdminRecordSearch: () => (
+    <AdminRecordSearch adapter={{ search: async () => [] }} />
+  ),
   AdminProfileMenu: () => (
     <div className="flex justify-end">
       <AdminProfileMenu
@@ -1166,6 +1234,43 @@ export const catalogPreviews: Record<string, ComponentType> = {
       </ActivityWindow>
     </AdminI18nProvider>
   ),
+  AdminUserManagementPage: () => (
+    <AdminUserManagementPage
+      users={[
+        {
+          id: "preview-editor",
+          email: "editor@example.test",
+          name: "Aylin Editor",
+          role: "editor",
+          disabled: false,
+          createdAt: "2026-09-01T12:00:00.000Z",
+          lastActivityAt: "2026-09-20T12:00:00.000Z",
+          recentActivity: [
+            {
+              action: "update",
+              resource: "posts",
+              resourceId: "post-1",
+              occurredAt: "2026-09-20T12:00:00.000Z",
+              actor: { email: "editor@example.test", name: "Aylin Editor", role: "editor" },
+              metadata: { fields: ["title"] },
+            },
+          ],
+          sessions: [
+            {
+              id: "preview-session",
+              accountId: "preview-editor",
+              email: "editor@example.test",
+              role: "editor",
+              disabled: false,
+              expiresAt: Math.floor(PREVIEW_NOW.getTime() / 1000) + 3600,
+              current: false,
+            },
+          ],
+        },
+      ]}
+      roles={["admin", "editor"]}
+    />
+  ),
 
   AdminThemeSettingsProvider: () => (
     <div className="space-y-3">
@@ -1218,6 +1323,31 @@ export const catalogPreviews: Record<string, ComponentType> = {
         </p>
       </div>
     </div>
+  ),
+
+  AdminVisitorTrendChart: () => (
+    <AdminVisitorTrendChart
+      ariaLabel="Page views and visitors by day"
+      points={[
+        { key: "2026-10-17", label: "Oct 17", views: 27, visitors: 18 },
+        { key: "2026-10-18", label: "Oct 18", views: 34, visitors: 23 },
+        { key: "2026-10-19", label: "Oct 19", views: 0, visitors: 0 },
+        { key: "2026-10-20", label: "Oct 20", views: 42, visitors: 31 },
+      ]}
+      formatters={counts}
+    />
+  ),
+
+  AdminDeviceBreakdownChart: () => (
+    <AdminDeviceBreakdownChart
+      ariaLabel="Visits by device"
+      items={[
+        { key: "desktop", label: "Desktop", visits: 124 },
+        { key: "mobile", label: "Mobile", visits: 87 },
+        { key: "tablet", label: "Tablet", visits: 19 },
+      ]}
+      formatters={counts}
+    />
   ),
 
   AdminRankChart: () => (

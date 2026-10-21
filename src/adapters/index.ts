@@ -31,6 +31,13 @@ export type {
   AdminMediaUsage,
 } from "./media.js";
 export type { AdminSession } from "./session.js";
+export { createAdminSearchAdapter } from "./search.js";
+export type {
+  AdminRecordSearchResult,
+  AdminSearchAdapter,
+  AdminSearchCandidate,
+  AdminSearchResource,
+} from "./search.js";
 // The builder and the parser are exported because a host implements the query, and implementing it by
 // hand is where the guessing this contract exists to close comes back: a hand-built object typed as
 // `AdminResourceQuery` compiles whether or not its operator is real. `parseAdminResourceQuery` is the
@@ -53,6 +60,7 @@ export type {
   AdminHostAdapters,
   AdminLocaleAdapter,
   AdminPermission,
+  AdminPermissionCheckContext,
   AdminPermissionsAdapter,
   AdminPersistenceAdapter,
   AdminPreviewAdapter,

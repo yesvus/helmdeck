@@ -63,12 +63,31 @@ let demoItems: AdminMediaItem[] = [
   },
 ];
 
+const catalogListeners = new Set<(items: AdminMediaItem[]) => void>();
+
+function notifyCatalogListeners() {
+  const items = getDemoMediaCatalogItems();
+  for (const listener of catalogListeners) listener(items);
+}
+
 function wait(milliseconds: number) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 export async function getDemoMediaItems() {
   return (await demoMediaAdapter.list()).items;
+}
+
+export function getDemoMediaCatalogItems() {
+  return demoItems.filter((item) => item.kind === "image" && item.source === "external" && /^https?:\/\//i.test(item.publicUrl));
+}
+
+export function subscribeDemoMediaCatalog(listener: (items: AdminMediaItem[]) => void) {
+  catalogListeners.add(listener);
+  listener(getDemoMediaCatalogItems());
+  return () => {
+    catalogListeners.delete(listener);
+  };
 }
 
 export const demoMediaAdapter: AdminMediaAdapter = {
@@ -109,6 +128,7 @@ export const demoMediaAdapter: AdminMediaAdapter = {
       updatedAt: new Date().toISOString(),
     };
     demoItems = [item, ...demoItems];
+    notifyCatalogListeners();
     return item;
   },
   async addExternal(input: AdminMediaExternalInput) {
@@ -121,14 +141,17 @@ export const demoMediaAdapter: AdminMediaAdapter = {
       updatedAt: new Date().toISOString(),
     };
     demoItems = [item, ...demoItems];
+    notifyCatalogListeners();
     return item;
   },
   async rename(item, name) {
     const next = { ...item, name };
     demoItems = demoItems.map((current) => (current.path === item.path ? next : current));
+    notifyCatalogListeners();
     return next;
   },
   async delete(item) {
     demoItems = demoItems.filter((current) => current.path !== item.path);
+    notifyCatalogListeners();
   },
 };

@@ -28,6 +28,13 @@ const DOCUMENTED_COMPONENTS = [
   "AdminSettingsPage",
   "AdminResourceList",
   "AdminResourceForm",
+  "AdminContactForm",
+  "AdminInboxList",
+  "AdminInboxMessage",
+  "AdminTrashPage",
+  "AdminVisitorTrendChart",
+  "AdminDeviceBreakdownChart",
+  "AdminUserManagementPage",
   "AdminShell",
 ];
 
@@ -66,6 +73,7 @@ const DOCUMENTED_FUNCTIONS = [
   "adminReturnTo",
   "defineAdminResource",
   "adminResourceValues",
+  "adminResourceValuesFromRecord",
   "createAdminPermissionCheck",
   "createAdminPermissionGuard",
   "createAdminResourceActions",

@@ -104,6 +104,32 @@ function documentOf(value: unknown): Record<string, unknown> {
   return {};
 }
 
+function localizedTitlesOf(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { en: "", tr: "" };
+  const titles = value as Record<string, unknown>;
+  return {
+    en: typeof titles.en === "string" ? titles.en : "",
+    tr: typeof titles.tr === "string" ? titles.tr : "",
+  };
+}
+
+function mediaUrlOf(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const rootRelative = trimmed.startsWith("/") && !trimmed.startsWith("//");
+  if (!rootRelative && !/^https?:\/\//i.test(trimmed)) return null;
+  try {
+    const parsed = new URL(trimmed, "https://helmdeck.invalid");
+    if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") || (rootRelative && parsed.origin !== "https://helmdeck.invalid")) {
+      return null;
+    }
+    return rootRelative ? `${parsed.pathname}${parsed.search}${parsed.hash}` : parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function byPosition(left: LandingRow, right: LandingRow): number {
   return left.position - right.position;
 }
@@ -118,12 +144,16 @@ async function landingRows(): Promise<LandingRow[]> {
 }
 
 function toEntry(row: LandingRow): LandingSection {
-  const width = documentOf(row.content).size;
+  const content = documentOf(row.content);
+  const width = content.size;
   return {
     id: textOf(row.id),
     widget: textOf(row.kind),
     size: adminWidgetSizes.includes(width as AdminWidgetSize) ? (width as AdminWidgetSize) : "sm",
     title: textOf(row.title),
+    titleByLocale: localizedTitlesOf(content.titleByLocale),
+    mediaUrl: mediaUrlOf(content.mediaUrl) ?? "",
+    mediaAlt: textOf(content.mediaAlt),
   };
 }
 
@@ -134,10 +164,13 @@ function toRow(section: LandingSection, position: number): LandingRow {
     kind: section.widget,
     title: section.title,
     position,
-    // Only the width lives in the document. A key the browser attached to an entry cannot reach a
-    // column the table does not have, and cannot reach this one either, because the document is
-    // rebuilt here rather than taken from what arrived.
-    content: JSON.stringify({ size: section.size }),
+    // Rebuild the document from declared fields, so a request cannot attach storage-only data to it.
+    content: JSON.stringify({
+      size: section.size,
+      titleByLocale: section.titleByLocale ?? { en: "", tr: "" },
+      mediaUrl: section.mediaUrl ?? "",
+      mediaAlt: section.mediaAlt ?? "",
+    }),
   };
 }
 
@@ -204,7 +237,21 @@ export async function saveLandingSections(sections: LandingSection[]): Promise<v
     if (!adminWidgetSizes.includes(size as AdminWidgetSize)) {
       throw new Error(`"${size}" is not a section width`);
     }
-    return { section: { ...section, widget: kind, title: textOf(section.title) }, position };
+    const mediaUrl = mediaUrlOf(section.mediaUrl === undefined ? "" : section.mediaUrl);
+    if (mediaUrl === null) {
+      throw new Error(`Section "${id}" image URL must use http(s) or a root-relative path`);
+    }
+    return {
+      section: {
+        ...section,
+        widget: kind,
+        title: textOf(section.title),
+        titleByLocale: localizedTitlesOf(section.titleByLocale),
+        mediaUrl,
+        mediaAlt: textOf(section.mediaAlt),
+      },
+      position,
+    };
   });
 
   const keptIds = new Set(wanted.map(({ section }) => section.id));

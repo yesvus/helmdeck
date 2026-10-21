@@ -7,11 +7,12 @@ import { describe, expect, it, vi } from "vitest";
  * The shell pieces read the pathname, the same way the breadcrumbs test does, because the catalogue
  * is a page inside the app router and a test of it is not.
  */
-const { pathname, searchParams } = vi.hoisted(() => ({
+const { pathname, searchParams, router } = vi.hoisted(() => ({
   pathname: vi.fn<() => string>(() => "/catalog"),
   searchParams: vi.fn<() => URLSearchParams>(() => new URLSearchParams()),
+  router: { push: vi.fn() },
 }));
-vi.mock("next/navigation.js", () => ({ usePathname: pathname, useSearchParams: searchParams }));
+vi.mock("next/navigation.js", () => ({ usePathname: pathname, useSearchParams: searchParams, useRouter: () => router }));
 
 import CatalogPage from "../fixtures/app/(helmdeck)/catalog/page";
 import { catalogPreviews } from "../fixtures/app/(helmdeck)/catalog/previews";

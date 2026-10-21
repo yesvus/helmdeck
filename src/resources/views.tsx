@@ -14,7 +14,7 @@ import { AdminField, AdminFieldGrid, AdminFormActions } from "../primitives/fiel
 import { AdminInput, AdminTextarea } from "../primitives/input.js";
 import { AdminPageHeader } from "../shell/admin-page-header.js";
 import { adminFormatCents, adminFormatCount } from "../charts/money.js";
-import { AdminCan, useAdminPermission } from "../shell/permissions.js";
+import { AdminCan, useAdminPermission, useAdminPermissionMap } from "../shell/permissions.js";
 import { useAdminHref, useAdminMessages } from "../i18n.js";
 import { useAdminScopeToken, useAdminScopedPersistence } from "../scope.js";
 import { cn } from "../cn.js";
@@ -52,6 +52,8 @@ import {
   type AdminResourceReferenceRequest,
   type AdminResourceReferenceResolution,
 } from "./references.js";
+
+const NO_RESOURCE_FIELDS: AdminResourceField[] = [];
 
 /** Rows a list asks for per page. Enough to read, few enough that a wide table still fits. */
 const PAGE_SIZE = 40;
@@ -412,6 +414,30 @@ export function AdminResourceList({
   const [message, setMessage] = useState("");
   const base = detailBaseHref ?? adminResourcePath(definition);
   const permissions = definition.permissions ?? {};
+  const fields = definition.fields ?? NO_RESOURCE_FIELDS;
+  const fieldPermissionRequests = useMemo(
+    () => fields.flatMap((field) => field.readPermission !== undefined ? [{
+      key: field.name,
+      permission: field.readPermission,
+      context: { field: field.name },
+    }] : []),
+    [fields],
+  );
+  const fieldPermissionStates = useAdminPermissionMap(fieldPermissionRequests);
+  const visibleFields = useMemo(
+    () => fields.filter((field) =>
+      field.readPermission === undefined || fieldPermissionStates[field.name] === "allowed",
+    ),
+    [fields, fieldPermissionStates],
+  );
+  const visibleFieldNames = useMemo(() => new Set(visibleFields.map((field) => field.name)), [visibleFields]);
+  const visibleColumns = useMemo(
+    () => definition.columns.filter((column) => {
+      const field = fields.find((candidate) => candidate.name === column.key);
+      return field?.readPermission === undefined || visibleFieldNames.has(field.name);
+    }),
+    [definition.columns, fields, visibleFieldNames],
+  );
   // Checked before anything is read. Gating the rendered rows would still have queried, and
   // a denied visitor would have had the records in the response. No record is named, because a
   // list is a collection: this is the question the server's `query` asks, and the form asks the
@@ -422,8 +448,11 @@ export function AdminResourceList({
   // the same declarations, and keeps a host that writes its own filter for a reference field in
   // charge of that control.
   const filterDefinitions = useMemo(
-    () => adminResourceFilters(definition),
-    [definition],
+    () => adminResourceFilters(definition).filter((filter) => {
+      const field = fields.find((candidate) => candidate.name === filter.field);
+      return field?.readPermission === undefined || visibleFieldNames.has(field.name);
+    }),
+    [definition, fields, visibleFieldNames],
   );
 
   /**
@@ -442,10 +471,15 @@ export function AdminResourceList({
       if (compared === undefined) continue;
       builder.where(filter.field, filter.operator ?? (filter.options ? "eq" : "contains"), compared);
     }
-    for (const ordering of active.sort) builder.sort(ordering.field, ordering.direction);
+    for (const ordering of active.sort) {
+      const field = fields.find((candidate) => candidate.name === ordering.field);
+      if (field?.readPermission === undefined || visibleFieldNames.has(field.name)) {
+        builder.sort(ordering.field, ordering.direction);
+      }
+    }
     builder.window((active.page - 1) * size, size);
     return builder.build();
-  }, [active.page, active.sort, chosen, filterDefinitions, paged, search, size]);
+  }, [active.page, active.sort, chosen, fields, filterDefinitions, paged, search, size, visibleFieldNames]);
 
   // Resolved in a callback rather than by awaiting inside the effect body, because a setState
   // in that body is a cascading render.
@@ -568,7 +602,7 @@ export function AdminResourceList({
   const requests = useMemo<AdminResourceReferenceRequest[]>(() => {
     if (rows === null) return [];
     const asked: AdminResourceReferenceRequest[] = [];
-    for (const column of definition.columns) {
+    for (const column of visibleColumns) {
       if (column.reference === undefined) continue;
       for (const row of rows) {
         const value = adminResourceReferenceValue(row[column.key]);
@@ -576,12 +610,12 @@ export function AdminResourceList({
       }
     }
     return asked;
-  }, [definition.columns, rows]);
+  }, [visibleColumns, rows]);
   const resolutions = useReferenceResolutions(persistence, requests, onError);
   const columns: AdminTableColumn<AdminResourceRecord>[] = [
     // Resolved once per column rather than once per cell, so a name nothing answers is refused
     // while the table is being built rather than on whichever row happens to be drawn.
-    ...definition.columns.map((column) => {
+    ...visibleColumns.map((column) => {
       const format = columnFormatter(column, formatters);
       return {
         key: column.key,
@@ -965,6 +999,27 @@ export function AdminResourceForm({
   const toHref = useAdminHref();
   const permissions = definition.permissions ?? {};
   const isNew = id === undefined;
+  const fields = definition.fields ?? NO_RESOURCE_FIELDS;
+  const fieldPermissionRequests = useMemo(
+    () => fields.flatMap((field) => field.readPermission !== undefined ? [{
+      key: field.name,
+      permission: field.readPermission,
+      context: { ...(id === undefined ? {} : { resourceId: id }), field: field.name },
+    }] : []),
+    [fields, id],
+  );
+  const fieldPermissionStates = useAdminPermissionMap(fieldPermissionRequests);
+  const visibleFields = useMemo(
+    () => fields.filter((field) =>
+      field.readPermission === undefined || fieldPermissionStates[field.name] === "allowed",
+    ),
+    [fields, fieldPermissionStates],
+  );
+  const hiddenFieldNames = useMemo(
+    () => fields.filter((field) => field.readPermission !== undefined && fieldPermissionStates[field.name] !== "allowed").map((field) => field.name),
+    [fields, fieldPermissionStates],
+  );
+  const fieldPermissionsChecking = fieldPermissionRequests.some(({ key }) => fieldPermissionStates[key] === "checking");
   // Keyed by the id it was read for, so a different record is loading again rather than
   // showing the previous one, and so a resolved miss is distinguishable from no answer yet.
   const [read, setRead] = useState<{
@@ -1073,11 +1128,12 @@ export function AdminResourceForm({
       return;
     }
     if (held === "checking") return;
+    if (fieldPermissionsChecking) return;
     const form = event.currentTarget;
-    const parsed = adminResourceValues(definition, new FormData(form));
+    const parsed = adminResourceValues(definition, new FormData(form), visibleFields);
 
     // Enforced here rather than left to the server, so a definition is the whole contract.
-    const absent = absentRequired(definition, parsed);
+    const absent = absentRequired({ ...definition, fields: visibleFields }, parsed);
     setMissing(absent);
     if (absent.length > 0) {
       return;
@@ -1086,11 +1142,17 @@ export function AdminResourceForm({
     setPending(true);
     setMessage("");
     try {
+      const retainedFields = Object.fromEntries(
+        hiddenFieldNames
+          .filter((field) => values !== null && Object.hasOwn(values, field))
+          .map((field) => [field, values?.[field]]),
+      );
+      const updateValues = { ...parsed, ...retainedFields };
       const saved = isNew
         ? await persistence.create<AdminResourceRecord>(definition.resource, parsed)
         : history?.update
-          ? await history.update(definition.resource, id, parsed)
-          : await persistence.update<AdminResourceRecord>(definition.resource, id, parsed);
+          ? await history.update(definition.resource, id, updateValues)
+          : await persistence.update<AdminResourceRecord>(definition.resource, id, updateValues);
       const normalized = { ...saved, id: adminResourceRecordId(saved) };
       if (!isNew) {
         setRead({ resource: definition.resource, id, scopeToken, value: normalized });
@@ -1150,7 +1212,10 @@ export function AdminResourceForm({
         // Re-checked against the form as it now stands, so fixing a field clears its error
         // instead of leaving it marked until the next submit.
         const form = event.currentTarget;
-        setMissing(absentRequired(definition, adminResourceValues(definition, new FormData(form))));
+        setMissing(absentRequired(
+          { ...definition, fields: visibleFields },
+          adminResourceValues(definition, new FormData(form), visibleFields),
+        ));
       }}
     >
       <AdminPageHeader
@@ -1171,7 +1236,7 @@ export function AdminResourceForm({
       ) : null}
 
       <AdminFieldGrid>
-        {definition.fields.map((field) => {
+        {visibleFields.map((field) => {
           const controlId = `${definition.resource}-${field.name}`;
           const current = values?.[field.name];
           const invalid = missing.includes(field.name);
@@ -1235,6 +1300,7 @@ export function AdminResourceForm({
           definition={definition}
           id={id}
           record={values as AdminResourceRecord}
+          hiddenFieldNames={hiddenFieldNames}
           version={historyVersion}
           actions={history}
           busy={pending}
@@ -1259,7 +1325,7 @@ export function AdminResourceForm({
 
       {granted ? (
         <AdminFormActions>
-          <Button type="submit" disabled={pending} aria-busy={pending || undefined}>
+          <Button type="submit" disabled={pending || fieldPermissionsChecking} aria-busy={pending || undefined}>
             {pending ? (labels?.saving ?? i18n.shell.resourceSaving) : (labels?.save ?? i18n.shell.resourceSave)}
           </Button>
         </AdminFormActions>

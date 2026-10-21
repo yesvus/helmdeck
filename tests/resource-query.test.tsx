@@ -146,7 +146,7 @@ const posts = defineAdminResource({
   label: "Posts",
   columns: [
     { key: "title", header: "Title", sortable: true },
-    { key: "status", header: "Status" },
+    { key: "status", header: "Status", sortable: true },
   ],
   fields: [{ name: "title", label: "Title", required: true }],
   filters: [
@@ -359,6 +359,23 @@ describe("sorting", () => {
     fireEvent.click(header);
     await waitFor(() => expect(asked[asked.length - 1]?.sort).toBeUndefined());
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Zebra");
+  });
+
+  it("keeps sortable columns that have no matching form field", async () => {
+    const store = unthinkingStore([{ id: "1", title: "Mango", status: "live" }]);
+    const asked: Array<AdminResourceQuery | undefined> = [];
+    const adapter: AdminPersistenceAdapter = {
+      ...store.adapter,
+      async queryPage<T>(resource: string, query?: AdminResourceQuery) {
+        asked.push(query);
+        return store.adapter.queryPage?.<T>(resource, query) ?? { rows: [], total: 0 };
+      },
+    };
+
+    wrap(<AdminResourceList definition={posts} persistence={adapter} />);
+    await screen.findByText("Mango");
+    fireEvent.click(screen.getByRole("button", { name: "Status" }));
+    await waitFor(() => expect(asked[asked.length - 1]?.sort).toEqual([{ field: "status", direction: "asc" }]));
   });
 
   it("draws no sort control for a column that does not declare itself sortable", async () => {

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AdminTable, AdminTableBulkActions, AdminTableRowActions, Button, useAdminTableSelection } from "../src/primitives/index.js";
+import { AdminTable, AdminTableActionButton, AdminTableBulkActions, AdminTableRowActions, Button, useAdminTableSelection } from "../src/primitives/index.js";
 
 type Row = { id: number; name: string };
 
@@ -53,6 +53,43 @@ describe("table action primitives", () => {
   it("keeps destructive actions in a separately spaced group", () => {
     render(<AdminTableRowActions label="Record actions" destructive={<Button>Delete</Button>}><Button>Edit</Button></AdminTableRowActions>);
     expect(screen.getByRole("group", { name: "Record actions" })).toHaveTextContent("EditDelete");
+  });
+
+  it("renders consistently sized labeled actions for each variant", () => {
+    render(
+      <div>
+        <AdminTableActionButton label="Edit" icon={<svg />} variant="primary" />
+        <AdminTableActionButton label="Open" icon={<svg />} variant="secondary" actionSize="comfortable" />
+        <AdminTableActionButton label="Delete" icon={<svg />} variant="destructive" />
+      </div>,
+    );
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveClass("h-8", "px-3");
+    expect(screen.getByRole("button", { name: "Open" })).toHaveClass("h-9", "px-4", "border-zinc-300");
+    expect(screen.getByRole("button", { name: "Delete" })).toHaveClass("bg-admin-danger-action");
+  });
+
+  it("provides an accessible name and native tooltip without disclosure semantics", () => {
+    render(<AdminTableActionButton label="Open record" icon={<svg />} iconOnly />);
+    const button = screen.getByRole("button", { name: "Open record" });
+    expect(button).toHaveAttribute("title", "Open record");
+    expect(button).not.toHaveAttribute("aria-expanded");
+    expect(button).toHaveClass("h-8", "w-8", "px-0");
+  });
+
+  it("preserves consumer titles for labeled buttons and names empty icon-only labels", () => {
+    render(
+      <div>
+        <AdminTableActionButton label="Open record" title="Open this item" icon={<svg />} />
+        <AdminTableActionButton label="" icon={<svg />} iconOnly />
+      </div>,
+    );
+    expect(screen.getByRole("button", { name: "Open record" })).toHaveAttribute("title", "Open this item");
+    expect(screen.getByRole("button", { name: "Table action" })).toHaveAttribute("title", "Table action");
+  });
+
+  it("uses comfortable dimensions for icon-only actions", () => {
+    render(<AdminTableActionButton label="Open record" icon={<svg />} iconOnly actionSize="comfortable" />);
+    expect(screen.getByRole("button", { name: "Open record" })).toHaveClass("h-9", "w-9", "px-0");
   });
 
   it("provides a controlled selection hook", () => {

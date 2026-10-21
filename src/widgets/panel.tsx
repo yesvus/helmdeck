@@ -16,12 +16,14 @@ export function AdminWidgetPanel<TData>({
   state,
   messages,
   onRetry,
+  retryAction,
   className,
 }: {
   definition: AdminWidgetDefinition<TData>;
   state: AdminWidgetState<TData>;
   messages: Pick<AdminMessages, "widget">;
   onRetry?: () => void;
+  retryAction?: (formData: FormData) => void | Promise<void>;
   className?: string;
 }) {
   return (
@@ -34,7 +36,7 @@ export function AdminWidgetPanel<TData>({
       className={className}
     >
       <h2 className="mb-3 text-sm font-semibold text-zinc-900">{definition.title}</h2>
-      {adminWidgetBody({ definition, state, messages, onRetry })}
+      {adminWidgetBody({ definition, state, messages, onRetry, retryAction })}
     </section>
   );
 }

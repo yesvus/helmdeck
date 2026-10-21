@@ -31,6 +31,26 @@ import {
   turkishAdminActivityMessages,
   type AdminActivityMessages,
 } from "../activity/messages.js";
+import {
+  defaultAdminInboxMessages,
+  turkishAdminInboxMessages,
+  type AdminInboxMessages,
+} from "../inbox/messages.js";
+import {
+  defaultAdminTrashMessages,
+  turkishAdminTrashMessages,
+  type AdminTrashMessages,
+} from "../trash/messages.js";
+import {
+  defaultAdminAnalyticsChartMessages,
+  turkishAdminAnalyticsChartMessages,
+  type AdminAnalyticsChartMessages,
+} from "../charts/analytics-messages.js";
+import {
+  defaultAdminUserManagementMessages,
+  turkishAdminUserManagementMessages,
+  type AdminUserManagementMessages,
+} from "../users/messages.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -100,6 +120,7 @@ export type AdminCommonLabels = {
   close: string;
   dismiss: string;
   tableEmpty: string;
+  tableAction: string;
   image: string;
   pdfDocument: string;
   mediaDescription: string;
@@ -114,6 +135,12 @@ export type AdminMessages = {
     description: string;
     saveFailed: string;
   };
+  themePreference: {
+    label: string;
+    light: string;
+    dark: string;
+    system: string;
+  };
   shell: AdminShellLabels;
   media: AdminMediaLabels;
   form: AdminManagedFormFeedbackLabels & { assetTitle: string; pendingLabel: string };
@@ -127,6 +154,10 @@ export type AdminMessages = {
   resourceHistory?: AdminResourceHistoryMessages;
   /** The words the activity trail prints itself, which a trail cannot read from a context. */
   activity?: AdminActivityMessages;
+  inbox?: AdminInboxMessages;
+  trash?: AdminTrashMessages;
+  analyticsCharts?: AdminAnalyticsChartMessages;
+  users?: AdminUserManagementMessages;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -141,6 +172,12 @@ export const englishAdminMessages: AdminMessages = {
     label: "Interface language",
     description: "Choose the language used throughout the admin.",
     saveFailed: "The language preference could not be saved.",
+  },
+  themePreference: {
+    label: "Color mode",
+    light: "Light",
+    dark: "Dark",
+    system: "System",
   },
   shell: defaultAdminLabels,
   media: defaultAdminMediaLabels,
@@ -157,6 +194,10 @@ export const englishAdminMessages: AdminMessages = {
   resourceList: defaultAdminResourceListQueryLabels,
   resourceHistory: defaultAdminResourceHistoryMessages,
   activity: defaultAdminActivityMessages,
+  inbox: defaultAdminInboxMessages,
+  trash: defaultAdminTrashMessages,
+  analyticsCharts: defaultAdminAnalyticsChartMessages,
+  users: defaultAdminUserManagementMessages,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -172,6 +213,7 @@ export const englishAdminMessages: AdminMessages = {
     close: "Close",
     dismiss: "Dismiss notification",
     tableEmpty: "No results.",
+    tableAction: "Table action",
     image: "Image",
     pdfDocument: "PDF document",
     mediaDescription: "Media description",
@@ -197,6 +239,12 @@ export const turkishAdminMessages: AdminMessages = {
     description: "Yönetim arayüzünde kullanılacak dili seçin.",
     saveFailed: "Dil tercihi kaydedilemedi.",
   },
+  themePreference: {
+    label: "Renk modu",
+    light: "Açık",
+    dark: "Koyu",
+    system: "Sistem",
+  },
   shell: {
     sidebarExpand: "Menüyü genişletiniz",
     sidebarCollapse: "Menüyü daraltınız",
@@ -205,6 +253,16 @@ export const turkishAdminMessages: AdminMessages = {
     searchPlaceholder: "Sayfa ve ayarlarda arayın",
     searchHint: "Arayın (Ctrl/⌘ K)",
     searchNoResults: "Eşleşen sayfa veya ayar bulunamadı.",
+    recordSearchOpen: "Kayıtları arayın",
+    recordSearchLabel: "Kayıtları arayın",
+    recordSearchPlaceholder: "Kaynaklar arasında kayıt arayın",
+    recordSearchHint: "Kayıtları arayın (Ctrl/⌘ Shift K)",
+    recordSearchResultsLabel: "Kayıt arama sonuçları",
+    recordSearchNoResults: "Eşleşen kayıt bulunamadı.",
+    recordSearchLoading: "Kayıtlar aranıyor.",
+    recordSearchOneResult: "1 sonuç",
+    recordSearchManyResults: "{count} sonuç",
+    recordSearchClose: "Kayıt aramasını kapatın",
     mobileMore: "Daha fazla",
     breadcrumbLabel: "Site yolu",
     segmentNew: "Yeni",
@@ -344,6 +402,10 @@ export const turkishAdminMessages: AdminMessages = {
   },
   resourceHistory: turkishAdminResourceHistoryMessages,
   activity: turkishAdminActivityMessages,
+  inbox: turkishAdminInboxMessages,
+  trash: turkishAdminTrashMessages,
+  analyticsCharts: turkishAdminAnalyticsChartMessages,
+  users: turkishAdminUserManagementMessages,
   widget: {
     emptyTitle: "Gösterilecek veri yok",
     emptyBody: "Bu bileşen için henüz veri yok.",
@@ -385,6 +447,7 @@ export const turkishAdminMessages: AdminMessages = {
     close: "Kapatın",
     dismiss: "Bildirimi kapatın",
     tableEmpty: "Sonuç bulunamadı.",
+    tableAction: "Tablo işlemi",
     image: "Görsel",
     pdfDocument: "PDF belgesi",
     mediaDescription: "Medya açıklaması",

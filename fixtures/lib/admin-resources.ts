@@ -176,4 +176,23 @@ export const shipmentsResource = defineAdminResource({
   ],
 });
 
-export const adminResources = [productsResource, ordersResource, customersResource, shipmentsResource];
+export const messagesResource = defineAdminResource({
+  resource: "contact_messages",
+  label: "Contact messages",
+  singularLabel: "Message",
+  path: "messages",
+  permissions: {
+    read: "contact_messages.read",
+    update: "contact_messages.update",
+  },
+  columns: [
+    { key: "subject", header: "Subject", sortable: true },
+    { key: "name", header: "From", sortable: true },
+    { key: "status", header: "Status", sortable: true },
+    { key: "created_at", header: "Received", sortable: true },
+  ],
+  fields: [],
+  writable: ["name", "email", "subject", "message", "status", "created_at"],
+});
+
+export const adminResources = [productsResource, ordersResource, customersResource, shipmentsResource, messagesResource];

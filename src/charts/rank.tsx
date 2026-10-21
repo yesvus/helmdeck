@@ -27,6 +27,7 @@ export function AdminRankChart({
   trackClassName = "bg-zinc-100",
   valueLabel,
   className,
+  tableLabels,
 }: {
   items: ReadonlyArray<AdminRankItem>;
   formatters: AdminChartFormatters;
@@ -37,6 +38,7 @@ export function AdminRankChart({
   /** The unit printed after each value, so a bare number is never left to be interpreted. */
   valueLabel?: string;
   className?: string;
+  tableLabels?: { item: string; value: string };
 }) {
   const peak = items.reduce((highest, item) => Math.max(highest, item.value), 0);
   const axis = adminChartAxis(peak, { ticks: 4, integer: integerTicks });
@@ -89,15 +91,15 @@ export function AdminRankChart({
           <caption>{ariaLabel}</caption>
           <thead>
             <tr>
-              <th scope="col">Item</th>
-              <th scope="col">Value</th>
+              <th scope="col">{tableLabels?.item ?? "Item"}</th>
+              <th scope="col">{tableLabels?.value ?? "Value"}</th>
             </tr>
           </thead>
           <tbody>
             {items.map((item) => (
               <tr key={item.key}>
                 <th scope="row">{item.label}</th>
-                <td>{formatters.value(item.value)}</td>
+                <td>{formatters.value(item.value)}{valueLabel ? ` ${valueLabel}` : ""}</td>
               </tr>
             ))}
           </tbody>

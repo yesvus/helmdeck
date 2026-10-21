@@ -40,6 +40,9 @@ export default function DashboardView({ dashboard }: { dashboard: AdminDashboard
         >
           Arrange this dashboard
         </Link>
+        <Link href="/dashboard/server" className="text-sm font-semibold text-admin-brand-text hover:underline">
+          Server-rendered tiles
+        </Link>
       </header>
 
       <AdminDashboardTiles
