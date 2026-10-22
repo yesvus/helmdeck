@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-export type AdminMediaKind = "image" | "video" | "pdf" | "youtube";
+export type AdminMediaKind = "image" | "video" | "pdf" | "youtube" | "other";
 
 export type AdminMediaSource = "local" | "uploaded" | "youtube" | "external";
 
