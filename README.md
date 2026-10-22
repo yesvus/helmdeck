@@ -386,6 +386,51 @@ import { AdminRecordDetail } from "@yesvus/helmdeck";
 The parts are the package's own, so a host that wants a different shape uses `AdminModalContent`,
 `AdminModalHeader`, `AdminModalBody` and `AdminModalFooter` on their own.
 
+## The surfaces read Payload
+
+The dashboard tiles, the activity trail, the analytics recorder and report, and
+the media library all read through the one call site, so every one of them is
+under the same rule as the rest of the server's reads.
+
+```tsx
+import {
+  createAdminPayloadActivityLoader,
+  createAdminPayloadCountLoader,
+  createAdminPayloadMediaAdapter,
+  createAdminPayloadPersistenceAdapter,
+} from "@yesvus/helmdeck";
+
+const content = createAdminPayloadContent({ payload, resolveUser });
+
+// The resource store the generated lists, the analytics and the exports read through.
+const store = createAdminPayloadPersistenceAdapter({ content, collection: (resource) => `payload-${resource}` });
+
+// A dashboard tile that counts.
+const signups = createAdminPayloadCountLoader({ content, collection: "orders" });
+
+// The activity trail, with the filter as a condition and not as a browser-side narrowing.
+const activity = createAdminPayloadActivityLoader({ content, collection: "admin-activity" });
+
+// The media library, over Payload's upload collection.
+const media = createAdminPayloadMediaAdapter({ content, collection: "media" });
+```
+
+**Every call carries `overrideAccess: false` and the session's user**, because
+the content module is the only place the records are read from. A surface that
+made its own calls would be a place where the access check could be forgotten,
+and a forgotten access check is not a failure anybody sees: it reads and writes
+as though it were correct.
+
+**A window that does not start on a page boundary is refused.** Payload pages
+by number and the store's window is an offset, so the two are the same question
+only when the offset is a whole number of pages. The store answers the
+question it was asked rather than the rows of a different window.
+
+**A collection's field names are the host's**, except where the package fixes
+them: the activity collection holds `action`, `resource`, `resourceId`,
+`actorId` and `occurredAt`, and the media adapter reads `filename`, `mimeType`,
+`filesize`, `width`, `height`, `alt` and `url` from the upload collection.
+
 ## Loading states
 
 Use a localized announcement with a page-shaped skeleton. Skeletons are decorative, and animations stop for users who request reduced motion.

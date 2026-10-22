@@ -29,6 +29,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - The six steps that put Payload under Helmdeck are written down: one database, one session, one rule, one call site, one look, and Helmdeck's own surfaces reading Payload. Each step names the file in the demo that implements it and says what goes wrong when it is skipped.
 
+- The surfaces read Payload: `createAdminPayloadPersistenceAdapter` for the resource store, `createAdminPayloadMediaAdapter` for the media library, and `createAdminPayloadCountLoader`, `createAdminPayloadRecordLoader` and `createAdminPayloadActivityLoader` for the dashboard tiles and the activity trail. Every call goes through the content module, so every call carries the access check and the session.
+
 ### Changed
 
 - The README states the batteries-included commitment and gains a Component primitives reference listing every primitive the package exports from its root, so a host can see what ships before deciding what to write.
