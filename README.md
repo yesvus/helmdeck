@@ -386,6 +386,12 @@ import { AdminRecordDetail } from "@yesvus/helmdeck";
 The parts are the package's own, so a host that wants a different shape uses `AdminModalContent`,
 `AdminModalHeader`, `AdminModalBody` and `AdminModalFooter` on their own.
 
+## Migrating to Payload
+
+The next major version retires the resource engine, and
+[MIGRATION.md](MIGRATION.md) says what a host replaces each retired export
+with, and what a host keeps.
+
 ## The surfaces read Payload
 
 The dashboard tiles, the activity trail, the analytics recorder and report, and

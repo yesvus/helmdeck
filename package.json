@@ -44,6 +44,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
+    "MIGRATION.md",
     "dist",
     "src",
     "CHANGELOG.md",
