@@ -245,6 +245,57 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "How Payload's admin panel is made to read as Helmdeck's, with the host's own logo and way back.",
     keywords: "payload theme components logo dashboard",
   },
+  AdminPayloadWindowError: {
+    hostNote: "It is thrown when a window cannot be answered as it was asked, and there is nothing to draw.",
+    category: "Adapters",
+    summary: "The refusal the payload store throws when a window does not start on a page boundary.",
+    keywords: "payload window offset page error",
+  },
+  createAdminPayloadPersistenceAdapter: {
+    hostNote: "It is a factory: the host builds the store and hands it to the surfaces that read through it.",
+    category: "Adapters",
+    summary: "The resource store, over Payload, so the package's own surfaces read Payload through the one call site.",
+    keywords: "payload store persistence adapter resource",
+  },
+  createAdminPayloadMediaAdapter: {
+    hostNote: "It is a factory: the host builds the adapter and hands it to the media library.",
+    category: "Adapters",
+    summary: "The media library's adapter, over Payload's upload collection.",
+    keywords: "payload media upload adapter library",
+  },
+  createAdminPayloadCountLoader: {
+    hostNote: "It is a factory: the host builds the loader and hands it to the dashboard.",
+    category: "Dashboard and widgets",
+    summary: "A loader that counts the records in a Payload collection, which is what a dashboard tile shows.",
+    keywords: "payload dashboard tile count loader",
+  },
+  createAdminPayloadRecordLoader: {
+    hostNote: "It is a factory: the host builds the loader and hands it to the dashboard.",
+    category: "Dashboard and widgets",
+    summary: "A loader that reads the records in a Payload collection for a dashboard tile.",
+    keywords: "payload dashboard tile records loader",
+  },
+  createAdminPayloadActivityLoader: {
+    hostNote: "It is a factory: the host builds the loader and hands it to the activity trail.",
+    category: "Activity",
+    summary: "The activity trail's loader, over an activity collection, with the filter as a condition.",
+    keywords: "payload activity trail loader audit",
+  },
+  adminPayloadMediaKind: {
+    category: "Media",
+    summary: "The kind a file's type makes it, which is what the media library presents.",
+    keywords: "payload media kind mime type",
+  },
+  defaultAdminPayloadMediaItem: {
+    category: "Media",
+    summary: "The package's media item, from a Payload upload row.",
+    keywords: "payload media item row mapping",
+  },
+  defaultAdminPayloadActivityEvent: {
+    category: "Activity",
+    summary: "The package's audit event, from a row in the activity collection.",
+    keywords: "payload activity event row mapping",
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",
