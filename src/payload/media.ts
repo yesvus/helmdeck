@@ -109,7 +109,9 @@ export function createAdminPayloadMediaAdapter({
       const condition = where
         ? where(query)
         : query.search
-          ? { filename: { like: `%${query.search}%` } }
+          // The fixture media store's own search is a literal substring, so the term's % and _
+          // stay literals here too.
+          ? { filename: { contains: query.search } }
           : undefined;
       const result = (await content.find(collection, {
         where: condition,

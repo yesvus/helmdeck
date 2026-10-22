@@ -125,9 +125,10 @@ export type AdminPayloadPersistenceOptions = {
   /**
    * The fields a resource's search box reads. A generated list asks the store for a search term,
    * and a structured store can only search fields it is told about, so a host names them here,
-   * per resource. The term goes to Payload's `like`, which folds case the way the host's own
-   * database folds it. A search asked with no fields to read is refused rather than answered
-   * with unsearched rows under a search box that looks like it worked.
+   * per resource. The term goes to Payload's `contains`, whose answer is the literal substring,
+   * the answer the memory and sqlite stores give too. A search asked with no fields to read is
+   * refused rather than answered with unsearched rows under a search box that looks like it
+   * worked.
    */
   searchFields?: string[] | ((resource: string) => string[] | undefined);
 };
