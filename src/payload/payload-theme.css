@@ -52,7 +52,7 @@
   --theme-border-color: var(--admin-border);
   --theme-input-bg: var(--admin-surface);
   --theme-overlay: var(--admin-overlay);
-  --theme-success-500: var(--admin-success-action, #15803d);
+  --theme-success-500: var(--admin-success-action);
   --theme-error-500: var(--admin-danger-action);
   --theme-warning-500: var(--admin-warning-border);
   --theme-success-100: var(--admin-success-surface);
