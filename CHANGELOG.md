@@ -27,6 +27,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - `AdminRecordDetail`: a record's detail in a dialog, with the title, the body, the footer and the pending state for the save, built from the parts the package already ships.
 
+- The six steps that put Payload under Helmdeck are written down: one database, one session, one rule, one call site, one look, and Helmdeck's own surfaces reading Payload. Each step names the file in the demo that implements it and says what goes wrong when it is skipped.
+
 ### Changed
 
 - The README states the batteries-included commitment and gains a Component primitives reference listing every primitive the package exports from its root, so a host can see what ships before deciding what to write.

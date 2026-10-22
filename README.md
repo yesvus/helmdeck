@@ -48,6 +48,58 @@ Step four is the one to not skip. Payload's `overrideAccess` defaults to `true`,
 
 The [bridge, the theme, the reference host, the migration and the procedure](https://github.com/yesvus/helmdeck/issues/299) are filed as issues, and the [primitive roadmap](https://github.com/yesvus/helmdeck/issues/294) is what the shell is still missing.
 
+## The six steps that put Payload under Helmdeck
+
+The procedure a host follows, in the order it follows it. Each step names the file in the demo that implements it, and says what goes wrong when the step is skipped.
+
+### One database
+
+Payload's adapter and Helmdeck's reads point at the same libsql or Postgres URL, so there is one store rather than two. A demo that seeded a workspace into Turso and its content into a SQLite file would show a person two databases with different fates.
+
+The demo implements it at `fixtures/lib/payload-db.ts`. The token is read there and nowhere else, and never written down: it is the environment's, and that module's job is to hand it to the driver.
+
+**Skipped**, Payload's content lives in one database and Helmdeck's records in another, and a page that joins the two asks each of them separately and joins the answers in the browser, where a row that one of them refused to give is missing rather than refused.
+
+### One session
+
+Payload's auth strategy resolves Helmdeck's session cookie, so there is one sign-in and one sign-out. There is no second sign-in form, no second password check, and no bridge that copies an identity between two stores: one store, one cookie, one session row, and Payload is a reader of it.
+
+The demo implements it at `fixtures/lib/payload-auth-strategy.ts`, and the package ships the shape of it as `createAdminPayloadAuthStrategy`. Resolution is delegated to the host's own credential adapter, so the signature, the session row, the expiry and the revocation are all decided in one code path. A check written beside it would be a second answer about whether a session is valid, and the two would drift the first time a session was ended early.
+
+**Skipped**, a person signs in twice, and the two sessions disagree about what they may do.
+
+### One rule
+
+Payload's access functions are the rule, and Helmdeck's permission adapter delegates to them. The rule is asked rather than restated, so the shell's buttons and Payload's own panels answer the same question about the same editor.
+
+The demo implements it at `fixtures/lib/payload-access.ts`, and the package ships the delegation as `createAdminPayloadPermissionsAdapter`. An access function that answers with a filter is not a yes to the whole operation, so only an explicit `true` grants it, and a permission that names no operation is refused rather than answered with the read rule.
+
+**Skipped**, the panel shows a control the server refuses, and the refusal looks like a bug in the panel.
+
+### One call site
+
+Every server read and write into Payload's data goes through one module that always passes `overrideAccess: false` and a user.
+
+This is the step to not skip. Payload's `overrideAccess` **defaults to `true`**, so a call that forgets it reads and writes with no access control at all and behaves exactly as though it were correct. There is no error, no warning and no log line for the omission. Passing a user alone does nothing either, because with access control switched off there is nothing to check it against. So both are passed together, in one module, rather than at each call site: a call site that remembered one of them is a call site that silently has no permission check, and the only defence against that is there being nowhere else to make the call from.
+
+The demo implements it at `fixtures/lib/payload-content.ts`, and the package ships it as `createAdminPayloadContent`. A request with no session is refused before it reaches Payload, because a session that cannot be read as a principal is not an anonymous principal, it is a request that must not be answered.
+
+**Skipped**, the omission looks like it works. The write succeeds, the read returns the row, and the permission check that was supposed to refuse it never ran.
+
+### One look
+
+Payload's admin panel is themed with Helmdeck's tokens, in its own route group beside Helmdeck's shell, so the two surfaces change together when one of them is retuned.
+
+The demo implements it at `fixtures/lib/payload-theme.ts` and `fixtures/app/(payload)/custom.scss`, and the package ships the mapping and the stylesheet as `createAdminPayloadTheme` and `@yesvus/helmdeck/payload.css`. The mapping is three overrides: the logo on the login screen, the line that says what the panel is, and the way back into the shell. What remains after that is Payload's own component styling, which is not reachable without replacing Payload's components wholesale.
+
+**Skipped**, the panel works and looks like a different product, which is the one thing a person notices first.
+
+### Helmdeck's own surfaces read Payload
+
+The dashboard tiles, the activity trail, the analytics and the media library read the same records Payload holds, so a number on one surface is the number on the other.
+
+**Skipped**, the dashboard counts one store and the panel edits another, and the two disagree in the way that is hardest to notice: the count is right and the row behind it is not.
+
 ## Component primitives
 
 Every primitive is exported from the package root, and they share the theme tokens, the focus ring, the tone vocabulary and the accessible states.
