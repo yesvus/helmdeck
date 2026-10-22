@@ -57,8 +57,10 @@ The collection, the field and the form are Payload’s. A host that keeps a tabl
 - `adminResourcePath`
 - `adminResourceRecordId`
 - `adminResourceReference`
+- `adminResourceReferenceChoices`
 - `adminResourceReferenceKey`
 - `adminResourceReferenceLabel`
+- `adminResourceReferenceResolution`
 - `adminResourceReferenceValue`
 - `adminResourceValues`
 - `adminResourceValuesFromRecord`
@@ -66,12 +68,6 @@ The collection, the field and the form are Payload’s. A host that keeps a tabl
 - `createAdminResourceActions`
 - `defaultAdminResourceReferenceLabels`
 - `defineAdminResource`
-
-### The baseline stores and the credential store
-
-The session is one row in Payload’s users collection, and the rule is Payload’s access function.
-
-
 
 ### The lifecycle
 
@@ -133,6 +129,9 @@ A host that imports rows writes them through the content module.
 - `ADMIN_RESOURCE_IMPORT_MAX_FAILURES`
 - `AdminResourceImportError`
 - `adminCsvCellValue`
+- `adminCsvRecords`
+- `adminResourceImport`
+- `adminResourceImportResult`
 
 ### The export
 
@@ -142,6 +141,8 @@ A host that exports rows reads them through the content module.
 - `AdminResourceExportError`
 - `adminCsvCell`
 - `adminCsvText`
+- `adminResourceExport`
+- `adminResourceExportResponse`
 
 ### The aggregate
 
@@ -158,48 +159,22 @@ The report is read through the content module and exported by the host.
 - `ADMIN_ANALYTICS_REPORT_DEFAULT_SECTIONS`
 - `ADMIN_ANALYTICS_REPORT_MAX_ROWS`
 - `ADMIN_ANALYTICS_REPORT_SECTIONS`
+- `adminAnalyticsReport`
+- `adminAnalyticsReportFigures`
+- `adminAnalyticsReportResponse`
 
-### The query and the adapter contracts
+### The pages and the query contract
 
-These are the contracts the engine read through. A host reads through `createAdminPayloadPersistenceAdapter` and `createAdminPayloadMediaAdapter` instead, which answer the same questions over Payload.
+The pages over the two stores, and the contract the engine's reads were built
+on. The pages are Payload's admin panel and the activity trail; the contract is
+answered by `createAdminPayloadPersistenceAdapter` over Payload.
 
-- `ADMIN_ANALYTICS_RESOURCE`
+- `AdminActivityPage`
+- `AdminActivityTimeline`
+- `AdminTrashPage`
 - `ADMIN_RESOURCE_MAX_LIMIT`
-- `AdminMediaAspectRatioHint`
-- `AdminMediaField`
-- `AdminMediaGalleryField`
-- `AdminMediaLibrary`
-- `AdminMediaLibraryPage`
-- `AdminMediaLightbox`
-- `AdminMediaPicker`
-- `AdminMediaPlaceholder`
-- `AdminMediaUpload`
-- `adminDashboardCollection`
-- `adminMediaDeletableItem`
-- `adminMediaSortValues`
-- `adminPayloadMediaKind`
-- `adminResourceExport`
-- `adminResourceExportResponse`
-- `adminResourceImport`
-- `adminResourceImportResult`
 - `adminResourceQuery`
-- `adminResourceReferenceChoices`
-- `adminResourceReferenceResolution`
-- `createAdminPayloadMediaAdapter`
-- `createAdminPayloadPersistenceAdapter`
-- `defaultAdminMediaLabels`
-- `defaultAdminPayloadMediaItem`
-- `formatMediaSize`
-- `getAdminMediaThumbnailUrl`
-- `getAdminMediaTimestamp`
-- `getMediaAspectRatioClassName`
-- `isImageMediaItem`
-- `isPdfMediaItem`
-- `isVideoMediaItem`
-- `isVisualMediaItem`
-- `isYouTubeMediaItem`
 - `parseAdminResourceQuery`
-- `sortAdminMediaItems`
 
 ## When
 
