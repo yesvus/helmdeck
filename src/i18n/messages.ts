@@ -132,6 +132,7 @@ export type AdminCommonLabels = {
   pinRight: string;
   image: string;
   pdfDocument: string;
+  document: string;
   mediaDescription: string;
   removeItem: (label: string, index: number) => string;
 };
@@ -234,6 +235,7 @@ export const englishAdminMessages: AdminMessages = {
     pinRight: "Right",
     image: "Image",
     pdfDocument: "PDF document",
+    document: "Document",
     mediaDescription: "Media description",
     removeItem: (label, index) => `Remove ${label.toLocaleLowerCase()} ${index}`,
   },
@@ -376,6 +378,7 @@ export const turkishAdminMessages: AdminMessages = {
       video: "Video",
       pdf: "PDF",
       youtube: "YouTube",
+      other: "Diğer",
     },
     delete: "Siliniz",
     deleteTitle: "Bu varlık silinsin mi?",
@@ -477,6 +480,7 @@ export const turkishAdminMessages: AdminMessages = {
     pinRight: "Sağa",
     image: "Görsel",
     pdfDocument: "PDF belgesi",
+    document: "Belge",
     mediaDescription: "Medya açıklaması",
     removeItem: (label, index) => `${label.toLocaleLowerCase("tr-TR")} ${index} öğesini kaldırın`,
   },

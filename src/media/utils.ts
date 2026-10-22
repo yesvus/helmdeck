@@ -129,6 +129,7 @@ const kindOrder: Record<AdminMediaItem["kind"], number> = {
   video: 2,
   pdf: 3,
   youtube: 4,
+  other: 5,
 };
 
 export function getAdminMediaTimestamp(item: AdminMediaItem) {

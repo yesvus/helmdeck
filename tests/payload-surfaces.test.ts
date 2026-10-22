@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createAdminPayloadContent } from "../src/payload/bridge";
 import { createAdminPayloadPersistenceAdapter } from "../src/payload/store";
-import { createAdminPayloadMediaAdapter } from "../src/payload/media";
+import { adminPayloadMediaKind, createAdminPayloadMediaAdapter } from "../src/payload/media";
 import {
   createAdminPayloadActivityLoader,
   createAdminPayloadCountLoader,
@@ -173,5 +173,19 @@ describe("the payload loaders", () => {
         { occurredAt: { less_than_equal: "2026-10-31" } },
       ],
     });
+  });
+});
+
+describe("adminPayloadMediaKind", () => {
+  it("names image, video and pdf, and keeps no claim about a type it has no name for", () => {
+    const kindOf = (mimeType: string) =>
+      adminPayloadMediaKind({ id: "m", mimeType, filename: "f", url: "u" });
+
+    expect(kindOf("image/png")).toBe("image");
+    expect(kindOf("video/mp4")).toBe("video");
+    expect(kindOf("application/pdf")).toBe("pdf");
+    expect(kindOf("application/zip")).toBe("other");
+    expect(kindOf("text/plain")).toBe("other");
+    expect(kindOf("")).toBe("other");
   });
 });

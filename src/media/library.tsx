@@ -317,7 +317,7 @@ export function AdminMediaLibrary({
             aria-label={mergedLabels.kindFilter}
           >
             <option value="">{mergedLabels.allKinds}</option>
-            {(allowedKinds ?? ["image", "video", "pdf", "youtube"]).map((value) => (
+            {(allowedKinds ?? ["image", "video", "pdf", "youtube", "other"]).map((value) => (
               <option key={value} value={value}>
                 {mergedLabels.kinds[value]}
               </option>
@@ -510,7 +510,7 @@ function MediaThumbnail({
           style={{ backgroundImage: `url("${thumbnail.replaceAll('"', "%22")}")` }}
         />
       ) : (
-        <AdminMediaPlaceholder kind={isPdfMediaItem(item) ? "pdf" : video ? "video" : item.source === "external" ? "external" : "image"} label={item.name} />
+        <AdminMediaPlaceholder kind={isPdfMediaItem(item) ? "pdf" : video ? "video" : item.source === "external" ? "external" : item.kind === "other" ? "other" : "image"} label={item.name} />
       )}
       {video ? (
         <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center bg-black/20">

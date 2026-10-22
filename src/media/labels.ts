@@ -106,6 +106,7 @@ export const defaultAdminMediaLabels = {
     video: "Video",
     pdf: "PDF",
     youtube: "YouTube",
+    other: "Other",
   },
   delete: "Delete",
   deleteTitle: "Delete this asset?",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { ExternalLink, FileText, ImageIcon, Video } from "lucide-react";
+import { ExternalLink, File, FileText, ImageIcon, Video } from "lucide-react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
 
@@ -11,11 +11,11 @@ export function AdminMediaPlaceholder({
   label,
 }: {
   className?: string;
-  kind?: "image" | "video" | "pdf" | "external";
+  kind?: "image" | "video" | "pdf" | "external" | "other";
   label?: string;
 }) {
   const i18n = useAdminMessages();
-  const Icon = kind === "pdf" ? FileText : kind === "video" ? Video : kind === "external" ? ExternalLink : ImageIcon;
+  const Icon = kind === "pdf" ? FileText : kind === "other" ? File : kind === "video" ? Video : kind === "external" ? ExternalLink : ImageIcon;
 
   return (
     <div
@@ -24,7 +24,7 @@ export function AdminMediaPlaceholder({
         className,
       )}
       role="img"
-      aria-label={label ?? (kind === "pdf" ? i18n.common.pdfDocument : i18n.common.image)}
+      aria-label={label ?? (kind === "pdf" ? i18n.common.pdfDocument : kind === "other" ? i18n.common.document : i18n.common.image)}
     >
       <Icon className="h-10 w-10" />
     </div>

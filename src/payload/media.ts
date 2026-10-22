@@ -41,9 +41,9 @@ export function adminPayloadMediaKind(row: AdminPayloadMediaRow): AdminMediaKind
   if (type.startsWith("image/")) return "image";
   if (type.startsWith("video/")) return "video";
   if (type === "application/pdf") return "pdf";
-  // A type the library has no name for is shown as an image when it is one and as a document
-  // otherwise, which is what a person needs to know about it.
-  return type.startsWith("image/") ? "image" : "pdf";
+  // A type the library has no name for keeps no claim about what it is, so the grid shows a
+  // document glyph without a type label rather than calling it an image or a PDF.
+  return "other";
 }
 
 /** The package's media item, from a Payload upload row. */
