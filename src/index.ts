@@ -29,6 +29,7 @@ export { AdminScopeProvider } from "./scope.js";
 export * from "./lifecycle/index.js";
 export * from "./media/index.js";
 export * from "./payload/bridge.js";
+export * from "./payload/theme.js";
 export * from "./primitives/index.js";
 export * from "./resources/registry.js";
 export {

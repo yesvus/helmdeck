@@ -34,6 +34,10 @@
       "default": "./dist/baseline.js"
     },
     "./theme.css": "./dist/theme/tokens.css",
+    "./payload.css": {
+      "types": "./dist/payload/payload-theme.css",
+      "default": "./dist/payload/payload-theme.css"
+    },
     "./package.json": "./package.json",
     "./tenant-scope": {
       "types": "./dist/tenant-scope.d.ts",
@@ -55,7 +59,7 @@
   "scripts": {
     "ci": "./scripts/ci",
     "prebuild": "node scripts/version-source.mjs write",
-    "build": "tsc -p tsconfig.build.json && cp src/theme/tokens.css dist/theme/tokens.css",
+    "build": "tsc -p tsconfig.build.json && cp src/theme/tokens.css dist/theme/tokens.css && mkdir -p dist/payload && cp src/payload/payload-theme.css dist/payload/payload-theme.css",
     "prepack": "pnpm build",
     "pretypecheck": "pnpm build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p fixtures",

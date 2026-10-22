@@ -308,6 +308,7 @@
     "contrastingTextHex",
     "createAdminAnalyticsRecorder",
     "createAdminLifecycle",
+    "createAdminPayloadTheme",
     "createAdminPayloadAuthStrategy",
     "createAdminPayloadContent",
     "createAdminPayloadPermissionsAdapter",
