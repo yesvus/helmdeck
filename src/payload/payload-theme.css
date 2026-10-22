@@ -19,9 +19,16 @@
 @import "../theme/tokens.css";
 
 /* Payload names its surfaces by elevation. These are the ones that carry a page, a card, a control
-   and a rule, mapped onto the tokens Helmdeck's shell already uses for the same jobs. */
+   and a rule, mapped onto the tokens Helmdeck's shell already uses for the same jobs.
+
+   The mapping is written for every mode either surface names: Payload's own `data-theme`, and
+   Helmdeck's `data-admin-theme`, which is what its token file keys the dark tokens to. A panel that
+   only knows Payload's attribute would otherwise draw its dark mode with the light tokens. */
 :root,
-[data-theme='dark'] {
+[data-theme='light'],
+[data-theme='dark'],
+[data-admin-theme='light'],
+[data-admin-theme='dark'] {
   --theme-bg: var(--admin-surface-subtle);
   --theme-bg-color: var(--admin-text-primary);
   --theme-elevation-0: var(--admin-surface);

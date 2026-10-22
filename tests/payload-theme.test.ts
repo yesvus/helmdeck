@@ -19,4 +19,9 @@ describe("the payload theme", () => {
     const theme = createAdminPayloadTheme();
     expect(theme.components).toEqual({});
   });
+
+  it("leaves out the slots the host did not give it, when it gave it some", () => {
+    const theme = createAdminPayloadTheme({ logo: "./payload-brand-logo" });
+    expect(theme.components).toEqual({ graphics: { Logo: "./payload-brand-logo" } });
+  });
 });
