@@ -120,12 +120,9 @@ describe("the getting-started documentation matches the package", () => {
     expect(leaked, "reachable from the root, so the documented subpath is optional").toEqual([]);
   });
 
-  it("mentions every API it claims to document, so neither list can rot", () => {
-    // Word boundaries, not `includes`: renaming a documented `AdminCan` to `AdminCanTypo`
-    // leaves the old name present as a substring, which would pass a plain check.
-    const unmentioned = ALL.filter((name) => !new RegExp(`\\b${name}\\b`).test(README));
-    expect(unmentioned, "listed here but no longer in the README").toEqual([]);
-  });
+  // The "mentions every API" check moved with the prose to the documentation
+  // catalog (helmdeck-web), which carries it in tests/doc-prose.test.mjs
+  // against the pages. Only the entry-point contract stays here.
 
   it("checks a meaningful number of names, and does not check an empty list", () => {
     // An empty DOCUMENTED_BASELINE made both subpath assertions vacuously true, which is
@@ -137,55 +134,11 @@ describe("the getting-started documentation matches the package", () => {
     expect(ALL.length).toBeLessThan(rootNames.size + baselineNames.size);
   });
 
-  it("documents resource field checks at the configured server boundary", () => {
-    const start = README.indexOf("### Enforcing a permission on the server");
-    const end = README.indexOf("### Recording the writes and dropping the caches", start);
-    const actions = README.slice(start, end);
-    const auditStart = end;
-    const auditEnd = README.indexOf("### The memory adapter", auditStart);
-    const audit = README.slice(auditStart, auditEnd);
-
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(start);
-    expect(auditEnd).toBeGreaterThan(auditStart);
-    expect(README).toContain("does not protect a server action called directly");
-    expect(actions).toContain("definitions: [posts]");
-    expect(actions).toContain("not field-checked");
-    expect(actions).toContain("After permission and reference checks pass");
-    expect(actions).toContain("`AdminResourceFieldError` before persistence receives the write");
-    expect(actions).toContain("its `fields` property names the keys");
-    expect(audit).toContain("definitions: [posts]");
-    expect(audit).toContain("complete configuration");
-    expect(audit).toContain("Keep `definitions` when adding either adapter");
-    expect(README).not.toContain("demo's actions run the incoming value through `adminResourceValues`");
-  });
-
-  it("documents read-only and server-action persistence adapters", () => {
-    const start = README.indexOf("#### Read-only sources and server actions");
-    const end = README.indexOf("#### Searching, sorting, filtering and paging", start);
-    const persistence = README.slice(start, end);
-
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(start);
-    expect(persistence).toContain("createReadOnlyPersistenceAdapter");
-    expect(persistence).toContain("error naming the operation and resource");
-    expect(persistence).toContain("createAdminResourceActionPersistenceAdapter");
-    expect(persistence).toContain("preserves `queryPage` only when supplied");
-    expect(persistence).toContain("Each Server Action remains responsible for authenticating");
-  });
-
-  it("documents request-scoped links, list filters and server enforcement", () => {
-    const start = README.indexOf("#### Request-scoped resources and links");
-    const end = README.indexOf("#### Searching, sorting, filtering", start);
-    const scope = README.slice(start, end);
-
-    expect(start).toBeGreaterThanOrEqual(0);
-    expect(end).toBeGreaterThan(start);
-    expect(scope).toContain("AdminScopeAdapter");
-    expect(scope).toContain("navigation, breadcrumbs, brand and profile links");
-    expect(scope).toContain("not an authorization boundary");
-    expect(scope).toContain("returns `null` for a row outside the tenant");
-  });
+  // The three prose-section checks ("documents resource field checks on the
+  // server", "documents read-only and server-action persistence adapters",
+  // "documents request-scoped links") moved with their sections to the
+  // documentation catalog: helmdeck-web's tests/doc-prose.test.mjs holds them
+  // against the pages.
 });
 
 /**

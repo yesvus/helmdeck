@@ -226,29 +226,9 @@ describe("the shared tone vocabulary", () => {
   }, 120_000);
 });
 
-describe("the documented tone vocabulary", () => {
-  it("names the canonical spelling, so a host reads it before a compiler error does", () => {
-    // The README is what a host consults when tone="danger" fails to compile, so the sentence has to
-    // carry the answer on its own rather than pointing at a table the reader has to interpret.
-    const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");
-    const section = readme.match(/^## Tone vocabulary\n([\s\S]*?)\n## /m)?.[1] ?? "";
-
-    expect(section, "a Tone vocabulary section the reader can find").not.toBe("");
-    const [lead] = section.split("\n\n");
-    expect(lead).toContain("`danger` is the canonical spelling");
-    expect(lead).toContain("`error` is still accepted");
-    expect(lead).toContain("AdminBanner");
-  }, SLOW_TYPE_CHECK);
-
-  it("documents every type name a host needs to type a shared helper", () => {
-    const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");
-
-    // A union documented without the name to annotate leaves the host with nothing to import.
-    for (const name of ["AdminTone", "AdminStatCardTone", "AdminStatusTone", "AdminBannerTone"]) {
-      expect(readme, name).toMatch(new RegExp(`\\b${name}\\b`));
-    }
-  });
-});
+// The two README prose checks of the documented tone vocabulary moved with the
+// section to the documentation catalog: helmdeck-web's tests/doc-prose.test.mjs
+// holds them against the theme page. Everything that reads the source stays.
 
 describe("danger and error render the same thing", () => {
   it("gives the status pill identical classes for both spellings", () => {
