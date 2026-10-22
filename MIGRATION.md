@@ -44,7 +44,7 @@ reaches Payload.
 
 ### The resource engine
 
-The collection, the field and the form are Payload’s. A host that keeps a table of its own keeps the read-only path below.
+The collection, the field and the form are Payload’s. A host that keeps a table of its own keeps the read-only path in "What a host keeps" above.
 
 - `ADMIN_RESOURCE_REFERENCE_LIMIT`
 - `AdminResourceFieldError`
