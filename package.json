@@ -34,10 +34,7 @@
       "default": "./dist/baseline.js"
     },
     "./theme.css": "./dist/theme/tokens.css",
-    "./payload.css": {
-      "types": "./dist/payload/payload-theme.css",
-      "default": "./dist/payload/payload-theme.css"
-    },
+    "./payload.css": "./dist/payload/payload-theme.css",
     "./package.json": "./package.json",
     "./tenant-scope": {
       "types": "./dist/tenant-scope.d.ts",
