@@ -6,9 +6,11 @@ import * as rootExports from "../src/index";
 import * as baselineExports from "../src/baseline";
 
 /**
- * The README is the documented contract, so a name it tells people to import has to exist,
- * and an API the documentation leans on should not quietly stop being mentioned. Both
- * directions are checked here.
+ * The documentation's import contract, checked from the package's side: a name the
+ * documentation tells people to import has to be exported from the entry point the
+ * documentation names. The reverse direction, that every name on these lists is still
+ * named by the prose, moved with the prose to the documentation catalog
+ * (helmdeck-web's tests/doc-prose.test.mjs), since only the landing page stays here.
  *
  * The lists are explicit rather than scraped from the prose. Scraping cannot tell a component
  * from a prop, and cannot tell a runtime export from a type-only one, since a type does not
