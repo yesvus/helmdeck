@@ -125,7 +125,7 @@ describe("the payload media adapter", () => {
       publicUrl: "/media/espresso.png",
       size: 1024,
     });
-    expect(payload.find.mock.calls[0]![0].where).toEqual({ filename: { like: "%espresso%" } });
+    expect(payload.find.mock.calls[0]![0].where).toEqual({ filename: { contains: "espresso" } });
   });
 
   it("uploads, renames and deletes through the call site", async () => {
@@ -245,7 +245,7 @@ describe("adminPayloadMediaKind", () => {
 });
 
 describe("the payload store, on what the other adapters answer", () => {
-  it("searches the fields the host named, with the term as Payload's like", async () => {
+  it("searches the fields the host named, with the term as Payload's contains", async () => {
     const payload = payloadStub({
       find: spy(async () => ({ docs: [{ id: "a" }], totalDocs: 1 })),
     });
