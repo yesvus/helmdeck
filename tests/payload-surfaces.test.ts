@@ -218,15 +218,33 @@ describe("the store's read, on what is not there and what failed", () => {
 });
 
 describe("the payload loaders' actor field", () => {
-  it("reads the configured field when it maps the event", async () => {
+  it("reads the configured field when it maps the event, and loses nothing else", async () => {
     const payload = payloadStub({
-      find: spy(async () => ({ docs: [{ id: "e1", action: "update", occurredAt: "2026-10-12T09:00:00.000Z", editorId: "u9" }], totalDocs: 1 })),
+      find: spy(async () => ({
+        docs: [{
+          id: "e1",
+          action: "update",
+          resource: "pages",
+          resourceId: "p3",
+          occurredAt: "2026-10-12T09:00:00.000Z",
+          metadata: { path: "/about" },
+          editorId: "u9",
+        }],
+        totalDocs: 1,
+      })),
     });
     const load = createAdminPayloadActivityLoader({ content: contentOver(payload), actorField: "editorId" });
 
     const events = await load({ action: "update" });
 
-    expect(events[0]).toMatchObject({ action: "update", actor: { userId: "u9", email: "u9" } });
+    expect(events[0]).toEqual({
+      action: "update",
+      resource: "pages",
+      resourceId: "p3",
+      actor: { userId: "u9", email: "u9" },
+      occurredAt: "2026-10-12T09:00:00.000Z",
+      metadata: { path: "/about" },
+    });
   });
 });
 
