@@ -217,9 +217,16 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "payload operation permission read create update delete",
   },
   AdminPayloadAccessRefused: {
+    hostNote: "It is thrown when a request has no session, and there is nothing to draw.",
     category: "Adapters",
     summary: "The refusal the payload bridge throws when a request has no session to answer it with. It is thrown rather than drawn.",
     keywords: "payload refused access session error",
+  },
+  AdminPayloadSearchRefused: {
+    hostNote: "It is thrown when a list asks for a search the store has no fields to read over, and there is nothing to draw.",
+    category: "Adapters",
+    summary: "The refusal the payload store throws when a list asks for a search and the host has named no fields for the store to read it over. It is thrown rather than drawn.",
+    keywords: "payload search refused fields store error",
   },
   createAdminPayloadAuthStrategy: {
     category: "Auth and permissions",
@@ -242,6 +249,7 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "payload theme components logo dashboard",
   },
   AdminPayloadWindowError: {
+    hostNote: "It is thrown when a window cannot be answered as it was asked, and there is nothing to draw.",
     category: "Adapters",
     summary: "The refusal the payload store throws when a window does not start on a page boundary.",
     keywords: "payload window offset page error",
