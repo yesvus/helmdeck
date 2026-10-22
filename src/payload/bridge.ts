@@ -77,17 +77,20 @@ export function createAdminPayloadContent({
     return run(user);
   };
 
+  // The caller's own arguments come first, so that they cannot overwrite the collection, the
+  // document or the data, and the two guarded keys come last, so that they cannot be overwritten
+  // either.
   return {
     find: (collection, args = {}) =>
-      call("find", (user) => payload.find({ collection, ...args, overrideAccess: false, user })),
+      call("find", (user) => payload.find({ ...args, collection, overrideAccess: false, user })),
     findByID: (collection, id, args = {}) =>
-      call("findByID", (user) => payload.findByID({ collection, id, ...args, overrideAccess: false, user })),
+      call("findByID", (user) => payload.findByID({ ...args, collection, id, overrideAccess: false, user })),
     create: (collection, data, args = {}) =>
-      call("create", (user) => payload.create({ collection, data, ...args, overrideAccess: false, user })),
+      call("create", (user) => payload.create({ ...args, collection, data, overrideAccess: false, user })),
     update: (collection, id, data, args = {}) =>
-      call("update", (user) => payload.update({ collection, id, data, ...args, overrideAccess: false, user })),
+      call("update", (user) => payload.update({ ...args, collection, id, data, overrideAccess: false, user })),
     delete: (collection, id, args = {}) =>
-      call("delete", (user) => payload.delete({ collection, id, ...args, overrideAccess: false, user })),
+      call("delete", (user) => payload.delete({ ...args, collection, id, overrideAccess: false, user })),
   };
 }
 
@@ -114,6 +117,21 @@ export function createAdminPayloadAuthStrategy({
 export type AdminPayloadOperation = "read" | "create" | "update" | "delete";
 
 /**
+ * The operation a permission names.
+ *
+ * The shell's permission is a string, and the operation is the last part of it: \`products:create\`
+ * asks about a create. A permission that names no operation is refused, because the alternative is
+ * answering a create with the read rule.
+ */
+export function adminPayloadOperationFor(permission: string): AdminPayloadOperation | undefined {
+  const suffix = permission.split(":").pop() ?? "";
+  if (suffix === "read" || suffix === "create" || suffix === "update" || suffix === "delete") {
+    return suffix;
+  }
+  return undefined;
+}
+
+/**
  * The permission adapter, backed by Payload's access functions.
  *
  * Helmdeck's shell asks "may this session do this", and the answer is Payload's own access
@@ -129,13 +147,16 @@ export function createAdminPayloadPermissionsAdapter({
   resolveUser: AdminPayloadSessionReader;
 }) {
   return {
-    can: async (permission: string, context: { operation?: AdminPayloadOperation } = {}) => {
-      const operation = context.operation ?? "read";
+    can: async (permission: string) => {
+      const operation = adminPayloadOperationFor(permission);
+      if (!operation) return false;
       const rule = access[operation];
       if (!rule) return false;
       const user = await resolveUser();
       if (!user) return false;
-      return Boolean(await rule({ user }));
+      // Only an explicit true is an approval. An access function that answers with a filter says
+      // which rows the session may see, and a filter is not a yes to the whole operation.
+      return (await rule({ user })) === true;
     },
   };
 }

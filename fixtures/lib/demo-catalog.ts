@@ -211,27 +211,23 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The record detail's own labels, for a host that writes its own in another language.",
     keywords: "labels messages record detail",
   AdminPayloadAccessRefused: {
-    hostNote: "It is thrown when a request has no session, and there is nothing to draw.",
     category: "Adapters",
-    summary: "The refusal the payload bridge throws when a request has no session to answer it with.",
+    summary: "The refusal the payload bridge throws when a request has no session to answer it with. It is thrown rather than drawn.",
     keywords: "payload refused access session error",
   },
   createAdminPayloadAuthStrategy: {
-    hostNote: "It is a factory, not a component: the host builds the strategy and gives it to Payload.",
     category: "Auth and permissions",
-    summary: "The strategy Payload's admin authenticates with, so one sign-in serves the shell and the panel.",
+    summary: "The strategy Payload's admin authenticates with, so one sign-in serves the shell and the panel. It is a factory, not a component.",
     keywords: "payload auth strategy session sign in",
   },
   createAdminPayloadContent: {
-    hostNote: "It is a factory, not a component: the host builds the module and calls it.",
     category: "Adapters",
-    summary: "The only path from the shell's server code into Payload's data, with the access check on every call.",
+    summary: "The only path from the shell's server code into Payload's data, with the access check on every call. It is a factory, not a component.",
     keywords: "payload content local api access",
   },
   createAdminPayloadPermissionsAdapter: {
-    hostNote: "It is a factory, not a component: the host builds the adapter and mounts it.",
     category: "Auth and permissions",
-    summary: "The permission adapter, backed by Payload's own access functions.",
+    summary: "The permission adapter, backed by Payload's own access functions. It is a factory, not a component.",
     keywords: "payload permissions adapter access rule",
   },
   AdminFormSection: {
