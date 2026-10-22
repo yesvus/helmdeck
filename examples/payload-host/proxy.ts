@@ -32,9 +32,15 @@ export function proxy(request: NextRequest): NextResponse | undefined {
 }
 
 /**
- * Only the guarded segment. `/login` is absent on purpose, and a redirect to itself is a loop
- * rather than a sign-in. The Payload panel is absent too: it has its own session handling and
- * redirects a signed-out visitor to this host's sign-in page itself.
+ * Only the guarded segment.
+ *
+ * The segment is `admin`, and the route group beside it is not part of a URL: the shell's pages are
+ * `/admin` and `/admin/pages`, and both are here. `/login` is absent on purpose, and a redirect to
+ * itself is a loop rather than a sign-in. The Payload panel is absent too: it has its own session
+ * handling and redirects a signed-out visitor to this host's sign-in page itself.
+ *
+ * Presence only, as everywhere else here. A cookie that is present is passed through whatever it
+ * holds, forged or expired, so the layout's guard is still the thing that refuses.
  */
 export const config = {
   matcher: ["/admin/:path*"],
