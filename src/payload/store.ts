@@ -3,7 +3,6 @@
 import type { AdminPersistenceAdapter } from "../adapters/host.js";
 import {
   ADMIN_RESOURCE_MAX_LIMIT,
-  parseAdminResourceQuery,
   type AdminResourceFilter,
   type AdminResourcePage,
   type AdminResourceQuery,
@@ -65,7 +64,9 @@ function toWhere(
     if (!fields || fields.length === 0) {
       throw new AdminPayloadSearchRefused(resource);
     }
-    clauses.push({ or: fields.map((field) => ({ [field]: { like: `%${term}%` } })) });
+    // `contains`, not `like`: the memory and sqlite stores answer a search with a literal
+    // substring, and a term with % or _ in it stays a literal there.
+    clauses.push({ or: fields.map((field) => ({ [field]: { contains: term } })) });
   }
   if (clauses.length === 0) return undefined;
   if (clauses.length === 1) return clauses[0];
@@ -182,15 +183,11 @@ export function createAdminPayloadPersistenceAdapter({
         throw error;
       }
     },
+    // The exact-match map the credential store and a host's own code hand over: each entry an
+    // equality on that field, as the memory store's query answers them. The list contract's
+    // search, filter, sort and window live on `queryPage`; a column named one of those words
+    // still matches exactly here.
     query: async <T,>(resource: string, query?: Record<string, unknown>): Promise<T[]> => {
-      // A query whose keys are the list parts is the resource query; anything else is the
-      // exact-match map the credential store and a host's own code hand over, each entry an
-      // equality on that field. A column named `search` lands on the list side: the list
-      // contract owns that word.
-      if (query !== undefined && Object.keys(query).some((key) => ["search", "filter", "sort", "window"].includes(key))) {
-        const { rows } = await find<T>(resource, parseAdminResourceQuery(query) as AdminResourceQuery, searchFields);
-        return rows;
-      }
       const result = (await content.find(collectionFor(resource), {
         where: toEqualsWhere(query ?? {}),
         sort: defaultSort,

@@ -132,7 +132,8 @@ describe("the payload media adapter", () => {
     const payload = payloadStub();
     const adapter = createAdminPayloadMediaAdapter({ content: contentOver(payload), collection: "media" });
 
-    await adapter.upload(new File(["x"], "photo.png", { type: "image/png" }));
+    const photo = new File(["x"], "photo.png", { type: "image/png" });
+    await adapter.upload(photo);
     await adapter.rename!({ name: "photo.png", path: "7", publicUrl: "", source: "uploaded", kind: "image" }, "renamed.png");
     await adapter.delete!({ name: "photo.png", path: "7", publicUrl: "", source: "uploaded", kind: "image" });
 
@@ -142,7 +143,8 @@ describe("the payload media adapter", () => {
     const createArgs = payload.create.mock.calls[0]![0];
     expect(createArgs.collection).toBe("media");
     expect(createArgs.overrideAccess).toBe(false);
-    expect(createArgs.file).toMatchObject({ mimetype: "image/png", name: "photo.png", size: 1 });
+    expect(createArgs.file).toBe(photo);
+    expect((createArgs.file as File).name).toBe("photo.png");
     expect(createArgs.data).toEqual({});
     const renameArgs = payload.update.mock.calls[0]![0];
     expect(renameArgs).toMatchObject({ collection: "media", id: "7", data: { filename: "renamed.png" } });
@@ -157,6 +159,21 @@ describe("the payload loaders", () => {
     const load = createAdminPayloadCountLoader({ content: contentOver(payload), collection: "orders" });
 
     expect(await load()).toBe(12);
+  });
+
+  it("ends the to bound at the day it names, and passes a timestamp bound as it is", async () => {
+    const payload = payloadStub();
+    const load = createAdminPayloadActivityLoader({ content: contentOver(payload) });
+
+    await load({ to: "2026-10-31" });
+    expect(payload.find.mock.calls[0]![0].where).toEqual({
+      occurredAt: { less_than_equal: "2026-10-31T23:59:59.999Z" },
+    });
+
+    await load({ to: "2026-10-31T12:00:00.000Z" });
+    expect(payload.find.mock.calls[1]![0].where).toEqual({
+      occurredAt: { less_than_equal: "2026-10-31T12:00:00.000Z" },
+    });
   });
 
   it("reads the trail with the filter as a condition, not in the browser", async () => {
@@ -243,7 +260,7 @@ describe("the payload store, on what the other adapters answer", () => {
     expect(payload.find.mock.calls[0]![0].where).toEqual({
       and: [
         { kind: { equals: "order" } },
-        { or: [{ name: { like: "%espresso%" } }, { note: { like: "%espresso%" } }] },
+        { or: [{ name: { contains: "espresso" } }, { note: { contains: "espresso" } }] },
       ],
     });
   });
