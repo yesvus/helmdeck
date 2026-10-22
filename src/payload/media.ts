@@ -125,7 +125,9 @@ export function createAdminPayloadMediaAdapter({
       };
     },
     upload: async (file: File): Promise<AdminMediaItem> => {
-      const created = (await content.create(collection, { file, filename: file.name })) as AdminPayloadMediaRow;
+      const created = (await content.create(collection, {}, {
+        file: { data: Buffer.from(await file.arrayBuffer()), mimetype: file.type, name: file.name, size: file.size },
+      })) as AdminPayloadMediaRow;
       return mapItem(created);
     },
     rename: async (item: AdminMediaItem, name: string): Promise<AdminMediaItem> => {

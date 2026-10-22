@@ -81,9 +81,10 @@ describe("the payload store", () => {
 
     await store.create("orders", { name: "An order" });
     await store.update("orders", "1", { name: "An order" });
+    await store.read("orders", "1");
     await store.delete("orders", "1");
 
-    for (const mock of [payload.create, payload.update, payload.delete]) {
+    for (const mock of [payload.create, payload.update, payload.findByID, payload.delete]) {
       const args = mock.mock.calls[0]![0];
       expect(args.overrideAccess).toBe(false);
       expect(args.user).toEqual({ id: "u1", email: "ada@example.com" });
@@ -140,6 +141,10 @@ describe("the payload media adapter", () => {
     const createArgs = payload.create.mock.calls[0]![0];
     expect(createArgs.collection).toBe("media");
     expect(createArgs.overrideAccess).toBe(false);
+    expect(createArgs.file).toMatchObject({ mimetype: "image/png", name: "photo.png", size: 1 });
+    expect(createArgs.data).toEqual({});
+    const renameArgs = payload.update.mock.calls[0]![0];
+    expect(renameArgs).toMatchObject({ collection: "media", id: "7", data: { filename: "renamed.png" } });
   });
 });
 
@@ -170,9 +175,40 @@ describe("the payload loaders", () => {
       and: [
         { action: { equals: "update" } },
         { occurredAt: { greater_than_equal: "2026-10-01" } },
-        { occurredAt: { less_than_equal: "2026-10-31" } },
+        { occurredAt: { less_than_equal: "2026-10-31T23:59:59.999Z" } },
       ],
     });
+  });
+});
+
+describe("the store's read, on what is not there and what failed", () => {
+  it("answers null for a record Payload says is not there, and throws on anything else", async () => {
+    const payload = payloadStub({
+      findByID: spy(async () => {
+        throw Object.assign(new Error("The requested resource was not found."), { name: "NotFoundError" });
+      }),
+    });
+    const store = createAdminPayloadPersistenceAdapter({ content: contentOver(payload), collection: "orders" });
+
+    expect(await store.read("orders", "1")).toBe(null);
+
+    payload.findByID = spy(async () => {
+      throw Object.assign(new Error("You are not allowed to perform this operation."), { name: "ForbiddenError" });
+    });
+    await expect(store.read("orders", "1")).rejects.toThrow(/not allowed/);
+  });
+});
+
+describe("the payload loaders' actor field", () => {
+  it("reads the configured field when it maps the event", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: [{ id: "e1", action: "update", occurredAt: "2026-10-12T09:00:00.000Z", editorId: "u9" }], totalDocs: 1 })),
+    });
+    const load = createAdminPayloadActivityLoader({ content: contentOver(payload), actorField: "editorId" });
+
+    const events = await load({ action: "update" });
+
+    expect(events[0]).toMatchObject({ action: "update", actor: { userId: "u9", email: "u9" } });
   });
 });
 

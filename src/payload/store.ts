@@ -103,6 +103,12 @@ export type AdminPayloadPersistenceOptions = {
   defaultSort?: string;
 };
 
+/** Payload's Local API reports a missing record with a not-found error; anything else is real. */
+function isNotFound(error: unknown): boolean {
+  const e = error as { name?: string; status?: number };
+  return e?.name === "NotFoundError" || e?.status === 404;
+}
+
 export function createAdminPayloadPersistenceAdapter({
   content,
   collection,
@@ -128,10 +134,12 @@ export function createAdminPayloadPersistenceAdapter({
       try {
         const found = (await content.findByID(collectionFor(resource), id)) as T | null;
         return found ?? null;
-      } catch {
+      } catch (error) {
         // A record that is not there is not an error, and Payload says so with a not-found error
-        // rather than with an empty answer.
-        return null;
+        // rather than with an empty answer. A refusal or an outage is a real failure: reporting
+        // it as not-found would tell a reader the record never existed.
+        if (isNotFound(error)) return null;
+        throw error;
       }
     },
     query: async <T,>(resource: string, query?: Record<string, unknown>): Promise<T[]> => {
