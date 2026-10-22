@@ -200,6 +200,17 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "command palette shortcut commands quick",
     renderable: true,
   },
+  AdminRecordDetail: {
+    category: "Overlays and feedback",
+    summary: "A record's detail in a dialog, with the title, the body, the footer and the pending state for the save.",
+    keywords: "record detail dialog modal form pending",
+    renderable: true,
+  },
+  defaultAdminRecordDetailLabels: {
+    category: "Overlays and feedback",
+    summary: "The record detail's own labels, for a host that writes its own in another language.",
+    keywords: "labels messages record detail",
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",

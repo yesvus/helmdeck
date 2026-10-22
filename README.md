@@ -311,6 +311,29 @@ The palette adds nothing the host did not give it: the commands are the host's, 
 
 The arrow keys move the active item and the enter key runs it, because the palette is a combobox and the combobox owns the keyboard.
 
+## Record detail
+
+`AdminRecordDetail` is a record's detail in a dialog, built from the package's own parts: the title, the body, the footer and the pending state for the save. A host that opens a record for editing writes the fields and not a dialog.
+
+```tsx
+import { AdminRecordDetail } from "@yesvus/helmdeck";
+
+<AdminRecordDetail
+  open={open}
+  onOpenChange={setOpen}
+  title={`Order ${order.id}`}
+  description="Placed on the twentieth."
+  error={error}
+  pending={saving}
+  actions={<Button variant="outline">Duplicate</Button>}
+>
+  <OrderFields order={order} />
+</AdminRecordDetail>
+```
+
+The parts are the package's own, so a host that wants a different shape uses `AdminModalContent`,
+`AdminModalHeader`, `AdminModalBody` and `AdminModalFooter` on their own.
+
 ## Loading states
 
 Use a localized announcement with a page-shaped skeleton. Skeletons are decorative, and animations stop for users who request reduced motion.
