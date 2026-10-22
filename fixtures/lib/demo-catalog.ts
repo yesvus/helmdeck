@@ -210,6 +210,7 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Overlays and feedback",
     summary: "The record detail's own labels, for a host that writes its own in another language.",
     keywords: "labels messages record detail",
+  },
   adminPayloadOperationFor: {
     category: "Auth and permissions",
     summary: "The operation a permission names, so a create is never answered with the read rule.",
