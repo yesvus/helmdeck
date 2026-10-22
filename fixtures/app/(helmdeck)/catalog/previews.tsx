@@ -997,11 +997,11 @@ export const catalogPreviews: Record<string, ComponentType> = {
   ),
   AdminRecordDetail: () => (
     <AdminRecordDetail
-      open
+      open={false}
       onOpenChange={() => {}}
       title="Order 4412"
       description="Placed on the twentieth."
-      actions={<Button variant="outline">Duplicate</Button>}
+      trigger={<Button variant="outline">Open the record</Button>}
     >
       <p className="text-sm text-zinc-600">The record's fields.</p>
     </AdminRecordDetail>
