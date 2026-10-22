@@ -1,0 +1,99 @@
+/* SPDX-License-Identifier: MIT */
+
+/**
+ * Payload's document, dressed in this host's tokens.
+ *
+ * The package's stylesheet does the work: it maps Payload's `--theme-*` variables onto Helmdeck's
+ * own tokens, and it carries the tokens themselves with it, so this document defines them without
+ * borrowing the shell's stylesheet. Retuning the brand moves both surfaces at once, which is the
+ * part of "one look" that holds up after the first commit.
+ *
+ * What is left here is the styling for this host's own three components, which Payload renders
+ * into its panel and which therefore need names of their own.
+ */
+
+@import "@yesvus/helmdeck/payload.css";
+
+/* The mark on the login screen, in the host's accent rather than Payload's ink. */
+.payload-brand-logo {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.payload-brand-logo__mark {
+  background: var(--admin-brand-500);
+  border-radius: var(--admin-control-radius);
+  display: inline-block;
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.payload-brand-logo__text {
+  color: var(--admin-text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.payload-brand-logo__suffix {
+  color: var(--admin-text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+/* The line that says what this panel is. */
+.payload-dashboard-brief {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-card-radius);
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.payload-dashboard-brief__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.payload-dashboard-brief__line {
+  color: var(--admin-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0 0 0.5rem;
+  max-width: 60ch;
+}
+
+/* The way back into the shell, and the way out of it. */
+.payload-back-link {
+  border-top: 1px solid var(--admin-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+.payload-back-link__anchor {
+  background: none;
+  border: 0;
+  color: var(--admin-brand-text);
+  cursor: pointer;
+  display: inline-block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0;
+  text-align: left;
+  text-decoration: none;
+}
+
+.payload-back-link__anchor:hover {
+  text-decoration: underline;
+}
+
+.payload-back-link__anchor[disabled] {
+  cursor: default;
+  opacity: 0.6;
+  text-decoration: none;
+}

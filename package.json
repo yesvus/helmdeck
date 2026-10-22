@@ -77,7 +77,8 @@
     "dev": "next dev fixtures",
     "build:fixtures": "pnpm build && next build fixtures",
     "typecheck:example": "node scripts/typecheck-example.mjs",
-    "typecheck:template": "node scripts/typecheck-template.mjs"
+    "typecheck:template": "node scripts/typecheck-template.mjs",
+    "typecheck:payload-host": "node scripts/typecheck-payload-host.mjs"
   },
   "peerDependencies": {
     "@dnd-kit/core": "^6.3.1",

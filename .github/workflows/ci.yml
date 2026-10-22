@@ -36,6 +36,10 @@ jobs:
       # `template/node_modules` itself, which is why this step needs no install of the template's own
       # dependencies the way the example's does.
       - run: pnpm typecheck:template
+      # The reference host is the thing a host copies, and it is the arrangement the package's bridge
+      # and theme were shipped for. Nothing else compiles it, so a change to the bridge that breaks a
+      # host would reach a release and only be noticed by the person who copies it.
+      - run: pnpm typecheck:payload-host
       - run: pnpm build:fixtures
       # The exported-surface ledger is what catches a removed export. Without this step in the
       # workflow nothing ran it, so a removal would reach a release and only be noticed by a host.
