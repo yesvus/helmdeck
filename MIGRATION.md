@@ -28,9 +28,10 @@ the version it is on.
 
 ## The six steps
 
-The procedure a host follows is in the README, under "The six steps that put
-Payload under Helmdeck". Each step names the file in the demo that implements
-it and what goes wrong when the step is skipped.
+The procedure a host follows is on the documentation catalog, under the six
+steps that put Payload under Helmdeck: <https://helmdeck-web.vercel.app/catalog/payload>.
+Each step names the file in the demo that implements it and what goes wrong
+when the step is skipped.
 
 The one to not skip is the call site. Payload's `overrideAccess` **defaults to
 `true`**, so a call that forgets it reads and writes with no access control at
