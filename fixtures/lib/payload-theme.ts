@@ -18,17 +18,18 @@
  * retuned rather than being pinned to values copied at one moment.
  */
 
+import { createAdminPayloadTheme } from "@yesvus/helmdeck";
 import type { Config } from "payload";
 
 /** Component paths are relative to `admin.importMap.baseDir`, which is `app/(payload)`. */
 const BASE = "../../components";
 
-export const payloadTheme = {
-  components: {
-    graphics: {
-      Logo: `${BASE}/payload-brand-logo`,
-    },
-    beforeDashboard: [`${BASE}/payload-dashboard-brief`],
-    afterNavLinks: [`${BASE}/payload-back-link`],
-  },
-} satisfies { components: NonNullable<Config["admin"]>["components"] };
+/**
+ * The mapping comes from the package, so the demo exercises the exported implementation rather
+ * than a copy of it that could drift.
+ */
+export const payloadTheme = createAdminPayloadTheme({
+  logo: `${BASE}/payload-brand-logo`,
+  beforeDashboard: [`${BASE}/payload-dashboard-brief`],
+  afterNavLinks: [`${BASE}/payload-back-link`],
+}) satisfies { components: NonNullable<Config["admin"]>["components"] };

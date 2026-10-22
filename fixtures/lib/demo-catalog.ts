@@ -240,6 +240,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The permission adapter, backed by Payload's own access functions. It is a factory, not a component.",
     keywords: "payload permissions adapter access rule",
   },
+  createAdminPayloadTheme: {
+    category: "Theme and colour",
+    summary: "How Payload's admin panel is made to read as Helmdeck's, with the host's own logo and way back.",
+    keywords: "payload theme components logo dashboard",
+  },
   AdminFormSection: {
     category: "Forms and fields",
     summary: "A titled group of fields inside a form, with a description of what belongs in it.",

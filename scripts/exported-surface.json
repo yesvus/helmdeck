@@ -311,6 +311,7 @@
     "createAdminPayloadAuthStrategy",
     "createAdminPayloadContent",
     "createAdminPayloadPermissionsAdapter",
+    "createAdminPayloadTheme",
     "createAdminPermissionCheck",
     "createAdminPermissionGuard",
     "createAdminResourceActionPersistenceAdapter",

@@ -1,0 +1,86 @@
+/* SPDX-License-Identifier: MIT */
+
+/**
+ * Payload's theme, pointed at Helmdeck's own tokens.
+ *
+ * Payload styles its admin panel entirely through CSS custom properties, which is what makes this
+ * file short rather than long: the panel has no hard-coded colours of its own to override, only
+ * variables. Mapping them here rather than copying values means retuning Helmdeck's accent moves
+ * both surfaces at once, which is the part of "one look" that holds up after the first commit.
+ *
+ * The token file is the same one Helmdeck's shell imports, so there is one definition of what the
+ * brand colour is. Payload reads `--admin-*` from it and this file translates.
+ *
+ * What this does not reach is Payload's own component styling, which is not reachable without
+ * replacing Payload's components wholesale. The logo, the panel's dashboard and the way back into
+ * the shell are the host's own components, and they carry their own styles.
+ */
+
+@import "../theme/tokens.css";
+
+/* Payload names its surfaces by elevation. These are the ones that carry a page, a card, a control
+   and a rule, mapped onto the tokens Helmdeck's shell already uses for the same jobs.
+
+   The mapping is written for every mode either surface names: Payload's own `data-theme`, and
+   Helmdeck's `data-admin-theme`, which is what its token file keys the dark tokens to. A panel that
+   only knows Payload's attribute would otherwise draw its dark mode with the light tokens. */
+:root,
+[data-theme='light'],
+[data-theme='dark'],
+[data-admin-theme='light'],
+[data-admin-theme='dark'] {
+  --theme-bg: var(--admin-surface-subtle);
+  --theme-bg-color: var(--admin-text-primary);
+  --theme-elevation-0: var(--admin-surface);
+  --theme-elevation-50: var(--admin-surface);
+  --theme-elevation-100: var(--admin-surface-muted);
+  --theme-elevation-150: var(--admin-surface-muted);
+  --theme-elevation-200: var(--admin-surface-muted);
+  --theme-elevation-250: var(--admin-skeleton);
+  --theme-elevation-400: var(--admin-border);
+  --theme-elevation-450: var(--admin-border);
+  --theme-elevation-500: var(--admin-border);
+  --theme-elevation-550: var(--admin-border-strong);
+  --theme-elevation-600: var(--admin-border-strong);
+  --theme-elevation-650: var(--admin-border-strong);
+  --theme-elevation-700: var(--admin-text-disabled);
+  --theme-elevation-800: var(--admin-text-secondary);
+  --theme-elevation-850: var(--admin-text-secondary);
+  --theme-elevation-900: var(--admin-text-primary);
+  --theme-elevation-950: var(--admin-text-primary);
+  --theme-elevation-1000: var(--admin-text-primary);
+  --theme-border-color: var(--admin-border);
+  --theme-input-bg: var(--admin-surface);
+  --theme-overlay: var(--admin-overlay);
+  --theme-success-500: var(--admin-success-action);
+  --theme-error-500: var(--admin-danger-action);
+  --theme-warning-500: var(--admin-warning-border);
+  --theme-success-100: var(--admin-success-surface);
+  --theme-error-100: var(--admin-danger-surface);
+  --theme-warning-100: var(--admin-warning-surface);
+  --theme-success-600: var(--admin-success-text);
+  --theme-error-600: var(--admin-danger-text);
+  --theme-warning-600: var(--admin-warning-text);
+  --theme-success-900: var(--admin-success-text);
+  --theme-error-900: var(--admin-danger-text);
+  --theme-warning-900: var(--admin-warning-text);
+  --theme-success-950: var(--admin-success-text);
+  --theme-error-950: var(--admin-danger-text);
+  --theme-warning-950: var(--admin-warning-text);
+  --theme-success-800: var(--admin-success-text);
+  --theme-error-800: var(--admin-danger-text);
+  --theme-warning-800: var(--admin-warning-text);
+  --theme-success-300: var(--admin-success-border);
+  --theme-error-300: var(--admin-danger-border);
+  --theme-warning-300: var(--admin-warning-border);
+}
+
+/* The font and the radius. Payload's defaults are a wider face and a smaller corner than
+   Helmdeck's shell uses, and those two are what a person notices before any colour. */
+:root {
+  --theme-font: var(--admin-font-family);
+  --theme-baseline: 1rem;
+  --style-radius-s: calc(var(--admin-control-radius) * 0.6);
+  --style-radius-m: var(--admin-control-radius);
+  --style-radius-l: var(--admin-card-radius);
+}
