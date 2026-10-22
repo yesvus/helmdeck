@@ -21,8 +21,9 @@ export function PayloadDashboardBrief() {
         password.
       </p>
       <p className="payload-dashboard-brief__line">
-        The documents edited here are the documents the shell&apos;s dashboard counts. Both read them
-        through the host&apos;s one call into Payload.
+        The documents edited here are the documents the shell&apos;s dashboard counts. The shell reads
+        them through the host&apos;s one call into Payload, and this panel reads them through
+        Payload&apos;s own, and both are answered by the same access functions.
       </p>
     </section>
   );

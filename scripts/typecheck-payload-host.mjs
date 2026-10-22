@@ -63,11 +63,18 @@ function linkPackage() {
  * `execFileSync` captures the compiler's output and attaches it to the thrown error, which a person
  * reading a CI log never sees: the log has the script's stack trace and not the line naming the file
  * that failed. Written out here so both callers, the script and the test, report the same way.
+ *
+ * The build of the package is inside the same reporting, because a failure there is a failure of the
+ * same check: the host is compiled against what the package builds, so a package that does not
+ * build leaves the host unchecked and the reason to be shown.
+ *
+ * This mirrors `scripts/typecheck-template.mjs`, and the two should share one helper. The shared
+ * file is not part of this change, so the duplication stands until it is.
  */
 export function typecheckPayloadHost() {
-  tsc(["-p", "tsconfig.build.json"]);
-  linkPackage();
   try {
+    tsc(["-p", "tsconfig.build.json"]);
+    linkPackage();
     tsc(["--noEmit", "-p", join(host, "tsconfig.json")]);
   } catch (cause) {
     const { stdout = "", stderr = "" } = cause;

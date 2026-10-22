@@ -15,5 +15,13 @@ export async function checkPermissionAction(
   permission: AdminPermission,
   context?: { resourceId?: string },
 ): Promise<boolean> {
-  return permissions.can(permission, context);
+  if (context?.resourceId !== undefined) {
+    // The adapter behind this answers from the role and the operation alone, so a question about a
+    // record has no answer here. Refusing it is better than answering it as though it were about
+    // the role, which would hand the record to everyone the role already allows.
+    throw new Error(
+      `The permission "${permission}" was asked about a record, and this host's rule does not read records.`,
+    );
+  }
+  return permissions.can(permission);
 }

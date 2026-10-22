@@ -17,8 +17,8 @@ npm install
 ```
 
 In this repository the package is the working tree, declared as `file:../..`, so the install links
-it and the build of the package has to exist for its types to resolve (`pnpm build` in the
-repository root). A copy declares the published version instead, which carries its own types.
+it and the package has to be built for it to resolve at all (`pnpm build` in the repository root).
+A copy declares the published version instead, which carries its own build.
 
 Two secrets, both required, both read from the environment:
 
@@ -102,14 +102,15 @@ the same account. The role is read from the account row rather than from anythin
 
 Four of them are worth stating here rather than leaving in the code.
 
-**The accounts live in Payload.** The demo keeps its accounts in its own store, which is why the
-demo turns Payload's local strategy off: with the accounts in two places, Payload's own login would
-be a second credential store giving a second answer. Here the accounts are Payload's `users`
-collection, so there is one store, Payload's local strategy stays on, and this host asks Payload's
-own login operation to check a password rather than holding a hash of its own. What is switched off
-is the response: `removeTokenFromResponses` means Payload's REST login endpoint verifies a password
-and hands back nothing that could be used, so the form at `/login` is the only way in. Payload's own
-lockout is on for the same reason: that endpoint is where an unbounded guess would otherwise go.
+**The accounts live in Payload.** The demo keeps its accounts in its own tables, which is why the
+demo turns Payload's local strategy off: Payload's own login would keep a hash in its own format
+beside the demo's, so one table would hold two answers about who may sign in. Here the accounts are
+Payload's `users` collection and nothing else, so there is one credential store, Payload's local
+strategy stays on, and this host asks Payload's own login operation to check a password rather than
+holding a hash of its own. What is switched off is the response: `removeTokenFromResponses` means
+Payload's REST login endpoint verifies a password and hands back nothing that could be used, so the
+form at `/login` is the only way in. Payload's own lockout is on for the same reason: that endpoint
+is where an unbounded guess would otherwise go.
 
 **The session is stateless.** The cookie carries the account's id, signed, so a browser cannot invent
 one, and every request reads the account again to learn what it may do. The cost is real and is
@@ -144,9 +145,11 @@ is one you have to make rather than one you have to find later.
 3. **A second interface language.** `app/(helmdeck)/layout.tsx` says `locale="en"` and nothing else.
    The package ships English and Turkish dictionaries; registering your own is `defineAdminMessages`,
    and content language is a separate concern the package keeps out of its URLs unless you map it.
-4. **A rule that reads the record.** The rule decides from the role and the operation alone. A rule
-   that withholds one record, or one row, decides it in `lib/rules.ts` and is enforced on both sides
-   with nothing else changed.
+4. **A rule that reads the record.** The rule decides from the role and the operation alone, so a
+   question about a record is refused rather than answered as though it were about the role. A rule
+   that withholds one record decides it in `lib/rules.ts` and is enforced on both sides with nothing
+   else changed, and it needs an adapter that carries the record: `lib/permissions.ts` is where the
+   host's own adapter goes when the package's bridge is not enough.
 5. **A media adapter.** Upload, listing, signed URLs, retention and media mutations are yours.
    Payload's own uploads are the CMS's answer to it, and this host does not mount them yet.
 6. **An audit trail.** A record of who wrote what is a host decision: where the trail goes, and what

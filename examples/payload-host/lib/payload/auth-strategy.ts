@@ -16,9 +16,12 @@ import { readPayloadSession, USERS_COLLECTION } from "../session";
 
 const strategy = createAdminPayloadAuthStrategy({ readSession: readPayloadSession });
 
+/** The name this host's strategy answers under. */
+const STRATEGY_NAME = "helmdeck-session";
+
 export const payloadAuthStrategies: AuthStrategy[] = [
   {
-    name: "helmdeck-session",
+    name: STRATEGY_NAME,
     /**
      * The panel's user, built from the session the host resolved.
      *
@@ -37,6 +40,10 @@ export const payloadAuthStrategies: AuthStrategy[] = [
         email: session.email,
         collection: USERS_COLLECTION,
         role: session.role,
+        // Which strategy answered. Payload carries it on the user so that a host can tell its own
+        // strategy apart from Payload's own token strategy, and it is what the panel's own session
+        // endpoints report back.
+        _strategy: STRATEGY_NAME,
       };
       return { user };
     },

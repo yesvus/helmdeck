@@ -4,6 +4,7 @@
  */
 
 import type { Config } from "payload";
+import { LOGIN_PATH } from "../sign-in";
 import { payloadTheme } from "./theme";
 
 /** Where the panel is mounted. The shell owns `/admin`, so the panel is mounted beside it. */
@@ -23,6 +24,6 @@ export const payloadAdmin = {
   routes: {
     // This host's own sign-in page. Payload's panel has no form of its own, so there is one place
     // where a password is typed and one place where a session is refused.
-    login: "/login",
+    login: LOGIN_PATH,
   },
 } satisfies NonNullable<Config["admin"]>;

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signOutAction } from "@/lib/session-actions";
+import { LOGIN_PATH } from "@/lib/sign-in";
 
 /**
  * The way back into the shell, and the way out of it.
@@ -25,7 +26,7 @@ export function PayloadBackLink() {
     setPending(true);
     try {
       await signOutAction();
-      router.push("/login");
+      router.push(LOGIN_PATH);
       router.refresh();
     } finally {
       setPending(false);

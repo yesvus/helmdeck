@@ -24,6 +24,13 @@ export default async function LoginPage({
     if (typeof value === "string") query.set(key, value);
   }
 
+  // Payload's panel sends the page it was heading for as `redirect`, and the package's own
+  // destination reader looks for `next`. Mapping one onto the other keeps a deep link into the
+  // panel a deep link out of it, and the value is validated either way.
+  if (!query.has("next") && query.has("redirect")) {
+    query.set("next", query.get("redirect") ?? "");
+  }
+
   if (await currentAdminSession()) redirect("/admin");
 
   return <SignInForm search={query.toString()} />;
