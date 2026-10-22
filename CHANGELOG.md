@@ -8,6 +8,11 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Fixed
+
+- The payload adapters, found in review: the store's `read` answers a not-found record with `null` and throws anything else, so an access refusal or an outage is no longer reported as a record that never existed. The activity loader's `to` bound covers the last day, the way the analytics query's bounds do, and its `actorField` shapes the events, not only the query. The media adapter's `upload` hands the file to Payload as Payload's own file option, where the bytes were not arriving before.
+- The payload store answers the exact-match map the credential store hands over, and a generated list's search box: a host names the fields to search per resource in `searchFields`, and a search asked with no fields is refused rather than answered unsearched. `AdminPayloadSearchRefused` is the refusal, and a query with no window is answered with every row, as the memory adapter answers one.
+
 ## 0.14.0
 
 ### Added

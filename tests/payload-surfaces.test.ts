@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createAdminPayloadContent } from "../src/payload/bridge";
 import { createAdminPayloadPersistenceAdapter } from "../src/payload/store";
+import { createPersistenceCredentialStore } from "../src/baseline/credentials";
 import { adminPayloadMediaKind, createAdminPayloadMediaAdapter } from "../src/payload/media";
 import {
   createAdminPayloadActivityLoader,
@@ -223,5 +224,74 @@ describe("adminPayloadMediaKind", () => {
     expect(kindOf("application/zip")).toBe("other");
     expect(kindOf("text/plain")).toBe("other");
     expect(kindOf("")).toBe("other");
+  });
+});
+
+describe("the payload store, on what the other adapters answer", () => {
+  it("searches the fields the host named, with the term as Payload's like", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: [{ id: "a" }], totalDocs: 1 })),
+    });
+    const store = createAdminPayloadPersistenceAdapter({
+      content: contentOver(payload),
+      collection: "orders",
+      searchFields: ["name", "note"],
+    });
+
+    await store.queryPage!("orders", { search: "espresso", filter: [{ field: "kind", operator: "eq", value: "order" }] });
+
+    expect(payload.find.mock.calls[0]![0].where).toEqual({
+      and: [
+        { kind: { equals: "order" } },
+        { or: [{ name: { like: "%espresso%" } }, { note: { like: "%espresso%" } }] },
+      ],
+    });
+  });
+
+  it("refuses a search it has no fields to read, rather than answering it unsearched", async () => {
+    const store = createAdminPayloadPersistenceAdapter({
+      content: contentOver(payloadStub()),
+      collection: "orders",
+    });
+
+    await expect(store.queryPage!("orders", { search: "espresso" })).rejects.toThrow(/no fields named to search/);
+  });
+
+  it("answers a query with no window with every row, not the list page's cap", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: Array.from({ length: 1001 }, (_, i) => ({ id: String(i) })), totalDocs: 1001 })),
+    });
+    const store = createAdminPayloadPersistenceAdapter({ content: contentOver(payload), collection: "users" });
+
+    const rows = await store.query!("users");
+
+    expect(rows).toHaveLength(1001);
+    const args = payload.find.mock.calls[0]![0];
+    expect(args.pagination).toBe(false);
+    expect(args.limit).toBeUndefined();
+  });
+
+  it("answers the exact-match map the credential store hands over", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: [{ id: "u1", email: "ada@example.com" }], totalDocs: 1 })),
+    });
+    const store = createAdminPayloadPersistenceAdapter({ content: contentOver(payload), collection: "users" });
+
+    const rows = await store.query!("users", { email: "ada@example.com" });
+
+    expect(rows).toEqual([{ id: "u1", email: "ada@example.com" }]);
+    expect(payload.find.mock.calls[0]![0].where).toEqual({ email: { equals: "ada@example.com" } });
+  });
+
+  it("finds the credential store's user by email over this store", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: [{ id: "u1", email: "ada@example.com", password_hash: "h" }], totalDocs: 1 })),
+    });
+    const store = createAdminPayloadPersistenceAdapter({ content: contentOver(payload), collection: "users" });
+    const users = createPersistenceCredentialStore(store);
+
+    const user = await users.findUserByEmail("ada@example.com");
+
+    expect(user).toMatchObject({ id: "u1" });
   });
 });
