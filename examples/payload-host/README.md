@@ -6,15 +6,19 @@ shell whose own pages read the CMS's records.
 
 It is a reference, not a product. The interface itself is in the package: the shell, the table, the
 stat cards, the empty state, the theme, and the English and Turkish wording. What this directory
-holds is the arrangement — the files that decide where the records live, who may see them, and how
-the two surfaces share a session — and the decisions a host still has to make, which
-[What you still have to add](#what-you-still-have-to-add) lists one by one.
+holds is the arrangement: the files that decide where the records live, who may see them, and how
+the two surfaces share a session. The decisions a host still has to make are in
+[What you still have to add](#what-you-still-have-to-add), one by one.
 
 ## Setup
 
 ```sh
 npm install
 ```
+
+In this repository the package is the working tree, declared as `file:../..`, so the install links
+it and the build of the package has to exist for its types to resolve (`pnpm build` in the
+repository root). A copy declares the published version instead, which carries its own types.
 
 Two secrets, both required, both read from the environment:
 
@@ -35,22 +39,28 @@ npm run dev
 
 Open <http://localhost:3000>. The database is `./payload.db`, created on the first request, and
 `PAYLOAD_DATABASE_URL` overrides it: a `libsql://` URL with `PAYLOAD_DATABASE_TOKEN` beside it is a
-hosted database, so growing into one is two environment variables rather than a rewrite.
+hosted database, so growing into one is two environment variables rather than a rewrite. A host on
+Postgres swaps the adapter in `lib/payload/db.ts` for Payload's Postgres one and points the same
+environment variable at it.
 
 **The first account is created in Payload's own panel.** With no accounts in the collection, Payload
-offers its first-user route at `/payload/create-first-user`. Give it an address and a password, and
-it becomes the first administrator: the role field defaults to `Administrator` because there is
-nobody else to make one. Every account after that should be given the `Editor` role, and an
-administrator can change a role from the panel.
+offers its first-user route at `/payload/create-first-user`. Give it an address and a password: the
+first account becomes an administrator, because there is nobody else to make one. Every account
+after that is an `Editor` unless an administrator says otherwise, and only an administrator can
+create one at all.
 
 The sign-in is this host's own form at `/login`, and Payload's panel is pointed at it, so there is
 one place where a password is typed.
+
+**A deployment names its own origin.** `PAYLOAD_SERVER_URL` is the origin the browser used, and it
+is what Payload's CSRF allowlist and its generated links are built from. A deployment behind a
+custom domain sets it; a Vercel deployment is answered from `VERCEL_URL` without it.
 
 ## The six steps
 
 | Step | Where it is |
 | --- | --- |
-| **One database.** Payload's adapter and this host's reads point at the same libsql or Postgres URL. | `lib/payload/db.ts` |
+| **One database.** Payload's adapter and this host's reads point at the same libsql URL. | `lib/payload/db.ts` |
 | **One session.** Payload's auth strategy resolves this host's session cookie, so there is one sign-in and one sign-out. | `lib/session.ts`, `lib/payload/auth-strategy.ts` |
 | **One rule.** Payload's access functions are the rule, and the shell's permission adapter delegates to them. | `lib/rules.ts`, `lib/payload/access.ts`, `lib/permissions.ts` |
 | **One call site.** Every server read and write into Payload goes through one module that always passes `overrideAccess: false` and a user. | `lib/payload/content.ts` |
@@ -66,11 +76,10 @@ and a request with no session is refused before it reaches Payload. The defence 
 module that makes the call, so a call site that remembered one of the two cannot be written by
 accident. `lib/payload/content.ts` is that module, and the dashboard and the list read through it.
 
-**The one rule.** `lib/rules.ts` holds the only function that answers "may this account do this".
-Payload's access functions ask it, and the shell's permission adapter asks it through the package's
-bridge, over the same session, so a link that renders and an operation that is refused cannot come
-to disagree about the same account. The role is read from the account row rather than from anything
-a request sent.
+**The one rule.** `lib/rules.ts` is the only place a permission is decided. Payload's access
+functions ask it, and the shell's permission adapter asks it through the package's bridge, over the
+same session, so a link that renders and an operation that is refused cannot come to disagree about
+the same account. The role is read from the account row rather than from anything a request sent.
 
 ## What is where
 
@@ -91,7 +100,7 @@ a request sent.
 
 ## The decisions this host makes for you
 
-Three of them are worth stating here rather than leaving in the code.
+Four of them are worth stating here rather than leaving in the code.
 
 **The accounts live in Payload.** The demo keeps its accounts in its own store, which is why the
 demo turns Payload's local strategy off: with the accounts in two places, Payload's own login would
@@ -99,7 +108,8 @@ be a second credential store giving a second answer. Here the accounts are Paylo
 collection, so there is one store, Payload's local strategy stays on, and this host asks Payload's
 own login operation to check a password rather than holding a hash of its own. What is switched off
 is the response: `removeTokenFromResponses` means Payload's REST login endpoint verifies a password
-and hands back nothing that could be used, so the form at `/login` is the only way in.
+and hands back nothing that could be used, so the form at `/login` is the only way in. Payload's own
+lockout is on for the same reason: that endpoint is where an unbounded guess would otherwise go.
 
 **The session is stateless.** The cookie carries the account's id, signed, so a browser cannot invent
 one, and every request reads the account again to learn what it may do. The cost is real and is
@@ -114,16 +124,20 @@ the panel is mounted beside it with one line in `payload.config.ts`. Payload's a
 its own `html` tag, so it lives in a route group of its own with a root layout of its own: two
 documents, one session, and a browser that holds the same cookie for both.
 
+**The accounts are the host's own business.** Only an administrator may create, change or delete one,
+because an account is a role and writing one is writing a permission. The content rule grants
+editors `create` and `update`, which is right for content and wrong for accounts.
+
 ## What you still have to add
 
 The host stops where your project's decisions start. Each item below is absent on purpose, and each
 is one you have to make rather than one you have to find later.
 
 1. **A schema you can deploy.** Development pushes the schema to match the config, so a change to a
-   collection is one restart away. A deployment does not: `push` alters whatever database it is
-   pointed at. Generate Payload's migrations (`npx payload migrate:create`) and run them
-   (`npx payload migrate`) against the deployment's database, and keep
-   `lib/payload/db.ts` at `push: false` for production, which it already is.
+   collection is one restart away. Nothing else does: `push` alters whatever database it is pointed
+   at. Generate Payload's migrations (`npx payload migrate:create`) in development, commit them with
+   this directory, and run them (`npx payload migrate`) against the deployment's database. The
+   procedure is in `payload-migrations/README.md`.
 2. **A way to reset a forgotten password.** Payload's own forgot-password route is present because
    its local strategy is on, and it needs an email adapter to do anything. Nothing in the package can
    send mail, and a deployment that leaves it unset answers that route with an error.
@@ -137,7 +151,11 @@ is one you have to make rather than one you have to find later.
    Payload's own uploads are the CMS's answer to it, and this host does not mount them yet.
 6. **An audit trail.** A record of who wrote what is a host decision: where the trail goes, and what
    a stale read is keyed on. The package's own activity surface reads a store you provide.
-7. **A second door, deliberately closed.** Payload's REST login endpoint verifies a password and
+7. **A throttle that outlives the process.** The sign-in's own throttle counts failed attempts in
+   the process that saw them, so a deployment with several instances spreads a guess across them.
+   Payload's lockout on the account is the shared half; a host that wants a per-client bound across
+   instances puts a shared `AdminLoginThrottle` in `lib/session.ts`.
+8. **A second door, deliberately closed.** Payload's REST login endpoint verifies a password and
    returns nothing, and the accounts collection refuses every write that is not an administrator's.
    A host that wants to invite people, or to let an editor manage accounts, changes
    `lib/payload/collections.ts` and says so here.

@@ -9,9 +9,9 @@ export const metadata: Metadata = { title: APP_NAME };
 /**
  * The English dictionary, once, for the whole shell.
  *
- * `AdminI18nProvider` defaults to Turkish, so a host that wants English says so here rather than
- * wrapping each surface. Replace the value, or register a dictionary of your own, in
- * `defineAdminMessages`; interface copy is the package's and content copy is yours.
+ * `AdminI18nProvider` takes the locale the shell speaks, and this host's is English. Replace the
+ * value, or register a dictionary of your own, in `defineAdminMessages`; interface copy is the
+ * package's and content copy is yours.
  *
  * This is the shell's own document. Payload's panel renders its own `html` tag, so it lives in a
  * route group beside this one rather than under it: two documents, one session.

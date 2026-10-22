@@ -6,3 +6,5 @@ next-env.d.ts
 # The local database, for a clone with no `PAYLOAD_DATABASE_URL`. The one database this host has.
 payload.db
 payload.db-journal
+payload.db-wal
+payload.db-shm

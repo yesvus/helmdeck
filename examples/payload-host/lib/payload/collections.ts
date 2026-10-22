@@ -10,7 +10,7 @@
 import type { CollectionConfig } from "payload";
 import { payloadAccess } from "./access";
 import { payloadAuthStrategies } from "./auth-strategy";
-import { principal } from "../rules";
+import { isAdmin, principal } from "../rules";
 
 /**
  * The accounts, which are Payload's own auth collection.
@@ -32,7 +32,15 @@ export const Users: CollectionConfig = {
   },
   auth: {
     removeTokenFromResponses: true,
-    maxLoginAttempts: 0,
+    /**
+     * Payload's own lockout, because the local strategy leaves a login endpoint on the REST API.
+     *
+     * The endpoint verifies a password and returns no token, so it is a place an unbounded guess
+     * would go: the answer is in the status code. The lockout is what bounds it, and it is shared
+     * between the instances of a deployment, which a per-process counter is not. The host's own
+     * throttle is the layer under it, per client.
+     */
+    maxLoginAttempts: 10,
     strategies: payloadAuthStrategies,
   },
   access: {
@@ -45,17 +53,47 @@ export const Users: CollectionConfig = {
     read: ({ req: { user } }) => {
       const account = principal(user);
       if (!account) return false;
-      if (account.role === "admin") return true;
+      if (isAdmin(account)) return true;
       return { id: { equals: account.id } };
     },
-    create: payloadAccess("create"),
-    update: payloadAccess("update"),
-    delete: payloadAccess("delete"),
+    /**
+     * Every write to an account is an administrator's.
+     *
+     * An account is a role, so writing one is writing a permission: an editor who could create an
+     * account could create an administrator and sign in as one. The content rule grants editors
+     * `create` and `update`, which is right for content and wrong here.
+     */
+    create: ({ req: { user } }) => isAdmin(principal(user)),
+    update: ({ req: { user } }) => isAdmin(principal(user)),
+    delete: ({ req: { user } }) => isAdmin(principal(user)),
     /**
      * Whether the panel's entry for the accounts appears at all, rather than what may be read once
      * it is. Administrators only, because an account list is a list of who may sign in.
      */
-    admin: ({ req: { user } }) => principal(user)?.role === "admin",
+    admin: ({ req: { user } }) => isAdmin(principal(user)),
+  },
+  hooks: {
+    beforeChange: [
+      /**
+       * The first account is an administrator, because there is nobody else to make one.
+       *
+       * The role field's default is `Editor`, which is the right default for every account after
+       * the first: an administrator who accepts the prefilled form should not hand out
+       * administrators by accident. The first account is the exception, and it is made here rather
+       * than by a default that would apply to all of them.
+       */
+      async ({ collection, data, operation, req }) => {
+        if (operation !== "create") return data;
+
+        const { totalDocs } = await req.payload.count({
+          collection: collection.slug,
+          overrideAccess: true,
+        });
+        if (totalDocs > 0) return data;
+
+        return { ...data, role: "admin" };
+      },
+    ],
   },
   fields: [
     {
@@ -63,9 +101,7 @@ export const Users: CollectionConfig = {
       type: "select",
       required: true,
       index: true,
-      // The first account is an administrator, because there is nobody else to make one. Every
-      // account after that should be given the editor role.
-      defaultValue: "admin",
+      defaultValue: "editor",
       options: [
         { label: "Administrator", value: "admin" },
         { label: "Editor", value: "editor" },

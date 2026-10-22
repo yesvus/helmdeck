@@ -52,7 +52,12 @@ export function payloadContent(): Promise<AdminPayloadContent> {
   pending ??= (async () => {
     const payload = await getPayload({ config });
     return createAdminPayloadContent({ payload, resolveUser: readPayloadSession });
-  })();
+  })().catch((cause) => {
+    // A failed start is not remembered. A database that was briefly unreachable would otherwise
+    // fail every later request until the process was restarted.
+    pending = null;
+    throw cause;
+  });
   return pending;
 }
 
@@ -71,14 +76,20 @@ function readDocs(result: unknown): PageDocument[] {
 /** How many documents the collection holds, for the dashboard's count. */
 export async function countPages(): Promise<number> {
   const content = await payloadContent();
-  const result = await content.find(PAGES, { limit: 1, depth: 0 });
+  const result = await content.find(PAGES, { limit: 1, depth: 0, draft: true });
   const total = (result as { totalDocs?: unknown } | null)?.totalDocs;
   return typeof total === "number" ? total : 0;
 }
 
-/** The documents, most recently changed first. */
+/**
+ * The documents, most recently changed first.
+ *
+ * Drafts are included, because the collection keeps them and a shell that counted only the
+ * published ones would report a smaller number than the editor holds. The published view is a
+ * query of its own, and a host that wants it filters on the status.
+ */
 export async function listPages(limit = 50): Promise<PageDocument[]> {
   const content = await payloadContent();
-  const result = await content.find(PAGES, { limit, depth: 0, sort: "-updatedAt" });
+  const result = await content.find(PAGES, { limit, depth: 0, sort: "-updatedAt", draft: true });
   return readDocs(result);
 }

@@ -34,10 +34,10 @@ export function payloadDatabase() {
       ...(authToken ? { authToken } : {}),
     },
     // Development pushes the schema to match the config, so a change to a collection is one
-    // restart away rather than a migration to write. A deployment does not: `push` alters whatever
+    // restart away rather than a migration to write. Nothing else does: `push` alters whatever
     // database it is pointed at, and a shared database must not be changed by a process starting
-    // up. The deployment runs Payload's own migrations instead.
-    push: process.env.NODE_ENV !== "production",
+    // up. A deployment runs Payload's own migrations instead.
+    push: process.env.NODE_ENV === "development",
     migrationDir: PAYLOAD_MIGRATIONS_DIR,
     // Text ids, so a document's id is the same in a local file and in a hosted database, and so an
     // id in a URL is not a row number.

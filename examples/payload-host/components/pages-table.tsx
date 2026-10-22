@@ -44,8 +44,8 @@ export function PagesTable({ pages }: { pages: PageDocument[] }) {
       searchPlaceholder="Title or slug"
       empty={
         <AdminEmptyState
-          title="No pages yet"
-          body="The list is empty because the collection is. Write one in Payload's editor."
+          title="Nothing to show"
+          body="The collection is empty, or the search matched nothing. Write a page in Payload's editor."
         />
       }
     />

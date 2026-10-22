@@ -13,8 +13,13 @@ export function payloadServerURL(env: Record<string, string | undefined> = proce
   const explicit = env.PAYLOAD_SERVER_URL?.trim();
   if (explicit) return explicit;
 
-  const deployed = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  if (deployed) return `https://${deployed}`;
+  // The deployment's own origin, which is what a preview and a production deployment both need:
+  // the CSRF allowlist and the links Payload writes are both about the origin the browser used.
+  const deployment = env.VERCEL_URL?.trim();
+  if (deployment) return `https://${deployment}`;
+
+  const production = env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (production) return `https://${production}`;
 
   return DEFAULT_SERVER_URL;
 }

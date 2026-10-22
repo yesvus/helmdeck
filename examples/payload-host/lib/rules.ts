@@ -70,3 +70,13 @@ export function can(user: HostPrincipal | null, operation: AdminPayloadOperation
   const role = typeof user.role === "string" ? user.role : "";
   return ROLE_OPERATIONS.get(role)?.has(operation) ?? false;
 }
+
+/**
+ * Whether this account is an administrator.
+ *
+ * The accounts themselves are not content, so they are not in the operation map above: what an
+ * account may do to another account is a different question, and it has one answer.
+ */
+export function isAdmin(user: HostPrincipal | null): boolean {
+  return user?.role === "admin";
+}
