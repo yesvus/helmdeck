@@ -171,7 +171,6 @@ answered by `createAdminPayloadPersistenceAdapter` over Payload.
 
 - `AdminActivityPage`
 - `AdminActivityTimeline`
-- `AdminTrashPage`
 - `ADMIN_RESOURCE_MAX_LIMIT`
 - `adminResourceQuery`
 - `parseAdminResourceQuery`
