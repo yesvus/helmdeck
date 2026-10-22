@@ -53,10 +53,29 @@ describe("the payload content bridge", () => {
     });
 
     await content.find("pages", { collection: "other", overrideAccess: true, user: { id: "other" } });
-    const args = payload.find.mock.calls[0]![0] as Record<string, unknown>;
-    expect(args.collection).toBe("pages");
-    expect(args.overrideAccess).toBe(false);
-    expect(args.user).toEqual({ id: "u1" });
+    await content.findByID("pages", "1", { collection: "other", id: "other", overrideAccess: true, user: { id: "other" } });
+    await content.create("pages", { title: "A page" }, { collection: "other", data: { title: "Other" }, overrideAccess: true, user: { id: "other" } });
+    await content.update("pages", "1", { title: "A page" }, { collection: "other", id: "other", data: { title: "Other" }, overrideAccess: true, user: { id: "other" } });
+    await content.delete("pages", "1", { collection: "other", id: "other", overrideAccess: true, user: { id: "other" } });
+
+    const [findArgs] = payload.find.mock.calls[0]!;
+    const [findByIdArgs] = payload.findByID.mock.calls[0]!;
+    const [createArgs] = payload.create.mock.calls[0]!;
+    const [updateArgs] = payload.update.mock.calls[0]!;
+    const [deleteArgs] = payload.delete.mock.calls[0]!;
+
+    expect(findArgs.collection).toBe("pages");
+    expect(findByIdArgs.collection).toBe("pages");
+    expect(findByIdArgs.id).toBe("1");
+    expect(createArgs.collection).toBe("pages");
+    expect(createArgs.data).toEqual({ title: "A page" });
+    expect(updateArgs.id).toBe("1");
+    expect(updateArgs.data).toEqual({ title: "A page" });
+    expect(deleteArgs.id).toBe("1");
+    for (const args of [findArgs, findByIdArgs, createArgs, updateArgs, deleteArgs]) {
+      expect(args.overrideAccess).toBe(false);
+      expect(args.user).toEqual({ id: "u1" });
+    }
   });
 
   it("refuses a call with no session before it reaches payload", async () => {
@@ -99,6 +118,19 @@ describe("the payload permissions adapter", () => {
 
     expect(await adapter.can("products:read")).toBe(true);
     expect(rule).toHaveBeenCalledWith({ user: { id: "u1" } });
+  });
+
+  it("asks the rule of the operation the permission names", async () => {
+    const read = vi.fn(async () => true);
+    const create = vi.fn(async () => true);
+    const adapter = createAdminPayloadPermissionsAdapter({
+      access: { read, create },
+      resolveUser: async () => ({ id: "u1" }),
+    });
+
+    expect(await adapter.can("products:create")).toBe(true);
+    expect(create).toHaveBeenCalled();
+    expect(read).not.toHaveBeenCalled();
   });
 
   it("does not read a filter as an approval", async () => {

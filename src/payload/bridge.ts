@@ -142,8 +142,13 @@ export function createAdminPayloadPermissionsAdapter({
   access,
   resolveUser,
 }: {
-  /** The host's access functions, the same ones Payload asks. */
-  access: Partial<Record<AdminPayloadOperation, (args: { user: AdminPayloadUser | null }) => boolean | Promise<boolean>>>;
+  /**
+   * The host's access functions, the same ones Payload asks.
+   *
+   * The answer is not typed as a boolean, because Payload's access functions may answer with a
+   * filter, which says which rows the session may see rather than yes to the whole operation.
+   */
+  access: Partial<Record<AdminPayloadOperation, (args: { user: AdminPayloadUser | null }) => unknown | Promise<unknown>>>;
   resolveUser: AdminPayloadSessionReader;
 }) {
   return {
