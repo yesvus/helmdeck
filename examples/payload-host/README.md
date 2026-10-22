@@ -44,10 +44,13 @@ Postgres swaps the adapter in `lib/payload/db.ts` for Payload's Postgres one and
 environment variable at it.
 
 **The first account is created in Payload's own panel.** With no accounts in the collection, Payload
-offers its first-user route at `/payload/create-first-user`. Give it an address and a password: the
-first account becomes an administrator, because there is nobody else to make one. Every account
-after that is an `Editor` unless an administrator says otherwise, and only an administrator can
-create one at all.
+offers its first-user route at `/payload/create-first-user`. Give it an address and a password, and
+it becomes the first administrator: the role field defaults to `Administrator` because there is
+nobody else to make one, and the form asks for it if you want an editor first.
+
+That route is open until the first account exists, so a deployment that is reachable from the
+internet should create its first account before it is. After it, the collection refuses every write:
+an account is a role, and a role is not something a request may grant.
 
 The sign-in is this host's own form at `/login`, and Payload's panel is pointed at it, so there is
 one place where a password is typed.
@@ -125,9 +128,11 @@ the panel is mounted beside it with one line in `payload.config.ts`. Payload's a
 its own `html` tag, so it lives in a route group of its own with a root layout of its own: two
 documents, one session, and a browser that holds the same cookie for both.
 
-**The accounts are the host's own business.** Only an administrator may create, change or delete one,
-because an account is a role and writing one is writing a permission. The content rule grants
-editors `create` and `update`, which is right for content and wrong for accounts.
+**The accounts are not content.** Every write to an account is refused over HTTP, the way the demo's
+own accounts are: an account is a role, and a role is a permission, and a permission that a request
+may grant is a permission that a request may take. Payload's first-user route writes the first
+account, because there is nobody else to make one, and a host that wants to invite people opens the
+three access functions in `lib/payload/collections.ts` and gives them an administrator-only rule.
 
 ## What you still have to add
 
@@ -159,9 +164,8 @@ is one you have to make rather than one you have to find later.
    Payload's lockout on the account is the shared half; a host that wants a per-client bound across
    instances puts a shared `AdminLoginThrottle` in `lib/session.ts`.
 8. **A second door, deliberately closed.** Payload's REST login endpoint verifies a password and
-   returns nothing, and the accounts collection refuses every write that is not an administrator's.
-   A host that wants to invite people, or to let an editor manage accounts, changes
-   `lib/payload/collections.ts` and says so here.
+   returns nothing, and the accounts collection refuses every write. A host that wants to invite
+   people opens the collection's writes and gives them an administrator-only rule, and says so here.
 
 Also absent, and deliberately so: any records. The collection arrives empty, which is what makes the
 first page you write in Payload's editor the way you find out the panel works.

@@ -57,43 +57,21 @@ export const Users: CollectionConfig = {
       return { id: { equals: account.id } };
     },
     /**
-     * Every write to an account is an administrator's.
+     * Every write to an account is refused.
      *
-     * An account is a role, so writing one is writing a permission: an editor who could create an
-     * account could create an administrator and sign in as one. The content rule grants editors
-     * `create` and `update`, which is right for content and wrong here.
+     * An account is a role, so writing one is writing a permission, and the first account is the
+     * one Payload's own first-user route writes rather than a request anybody else can make. A host
+     * that wants to invite people opens these three, and an administrator-only rule over them is
+     * the smallest thing worth opening.
      */
-    create: ({ req: { user } }) => isAdmin(principal(user)),
-    update: ({ req: { user } }) => isAdmin(principal(user)),
-    delete: ({ req: { user } }) => isAdmin(principal(user)),
+    create: () => false,
+    update: () => false,
+    delete: () => false,
     /**
      * Whether the panel's entry for the accounts appears at all, rather than what may be read once
      * it is. Administrators only, because an account list is a list of who may sign in.
      */
     admin: ({ req: { user } }) => isAdmin(principal(user)),
-  },
-  hooks: {
-    beforeChange: [
-      /**
-       * The first account is an administrator, because there is nobody else to make one.
-       *
-       * The role field's default is `Editor`, which is the right default for every account after
-       * the first: an administrator who accepts the prefilled form should not hand out
-       * administrators by accident. The first account is the exception, and it is made here rather
-       * than by a default that would apply to all of them.
-       */
-      async ({ collection, data, operation, req }) => {
-        if (operation !== "create") return data;
-
-        const { totalDocs } = await req.payload.count({
-          collection: collection.slug,
-          overrideAccess: true,
-        });
-        if (totalDocs > 0) return data;
-
-        return { ...data, role: "admin" };
-      },
-    ],
   },
   fields: [
     {
@@ -101,7 +79,10 @@ export const Users: CollectionConfig = {
       type: "select",
       required: true,
       index: true,
-      defaultValue: "editor",
+      // The first account is an administrator, because there is nobody else to make one, and it is
+      // the only account this collection writes. The first-user form asks for the role, so a
+      // deployment that wants an editor first can say so.
+      defaultValue: "admin",
       options: [
         { label: "Administrator", value: "admin" },
         { label: "Editor", value: "editor" },
