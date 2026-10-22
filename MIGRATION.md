@@ -44,157 +44,47 @@ reaches Payload.
 
 ### The resource engine
 
-The collection, the field and the form are Payload’s. A host that keeps a table of its own keeps the read-only source below.
+The collection, the field and the form are Payload’s. A host that keeps a table of its own keeps the read-only path below.
 
 - `ADMIN_RESOURCE_REFERENCE_LIMIT`
-- `AdminResourceActionHandlers`
-- `AdminResourceActions`
-- `AdminResourceColumn`
-- `AdminResourceColumnFormat`
-- `AdminResourceDefinition`
-- `AdminResourceField`
 - `AdminResourceFieldError`
-- `AdminResourceFilterDefinition`
 - `AdminResourceForm`
-- `AdminResourceFormatter`
-- `AdminResourceHistoryActions`
-- `AdminResourceHistoryPanel`
 - `AdminResourceList`
-- `AdminResourceListQueryLabels`
 - `AdminResourceNotExposedError`
-- `AdminResourceOperation`
-- `AdminResourceReadOnlySource`
-- `AdminResourceRecord`
-- `AdminResourceReference`
-- `AdminResourceReferenceChoices`
 - `AdminResourceReferenceError`
-- `AdminResourceReferenceLabels`
-- `AdminResourceReferenceRequest`
-- `AdminResourceReferenceResolution`
 - `absentRequired`
 - `adminResourceFilters`
 - `adminResourcePath`
 - `adminResourceRecordId`
 - `adminResourceReference`
-- `adminResourceReferenceChoices`
 - `adminResourceReferenceKey`
 - `adminResourceReferenceLabel`
-- `adminResourceReferenceResolution`
 - `adminResourceReferenceValue`
 - `adminResourceValues`
 - `adminResourceValuesFromRecord`
 - `createAdminResourceActionPersistenceAdapter`
 - `createAdminResourceActions`
-- `createReadOnlyPersistenceAdapter`
-- `defaultAdminResourceListQueryLabels`
 - `defaultAdminResourceReferenceLabels`
 - `defineAdminResource`
 
 ### The baseline stores and the credential store
 
-The session is one row in Payload’s users collection and the rule is Payload’s access function. A host that wants a signed cookie keeps `createSessionSigner` and `createSessionAuthAdapter`.
+The session is one row in Payload’s users collection, and the rule is Payload’s access function.
 
-- `AccountAdmin`
-- `AccountAdminPolicy`
-- `AccountAlreadyExistsError`
-- `AccountChanges`
-- `AccountRecord`
-- `AccountRefusal`
-- `AccountRefusalReason`
-- `AccountResult`
-- `AccountSession`
-- `AdminLoginAttempt`
-- `AdminLoginHeaders`
-- `AdminLoginThrottle`
-- `AdminSessionCookieIO`
-- `AdminTenant`
-- `AdminTenantError`
-- `AdminTenantResolver`
-- `CREDENTIAL_SESSIONS_SCHEMA`
-- `CREDENTIAL_USERS_SCHEMA`
-- `CreateAccountInput`
-- `CredentialAuthAdapter`
-- `CredentialAuthOptions`
-- `CredentialColumnOptions`
-- `CredentialRevocation`
-- `CredentialSession`
-- `CredentialStore`
-- `CredentialStoreOptions`
-- `CredentialUser`
-- `DEFAULT_INVALID_MESSAGE`
-- `DEFAULT_SESSION_COOKIE`
-- `DEFAULT_SESSION_MAX_AGE`
-- `DEFAULT_THROTTLED_MESSAGE`
-- `DEFAULT_THROTTLE_LIMIT`
-- `DEFAULT_THROTTLE_WINDOW_MS`
-- `LoginReservation`
-- `LoginThrottleDecision`
-- `LoginThrottleOptions`
-- `MemoryRecord`
-- `NewAccount`
-- `PostgresClient`
-- `PostgresPersistenceOptions`
-- `PostgresResult`
-- `PostgresSchemaOptions`
-- `SqlitePersistenceOptions`
-- `assertAdminTenant`
-- `authenticate`
-- `createAccountAdmin`
-- `createAuditAdapter`
-- `createCacheAdapter`
-- `createCredentialAuthAdapter`
-- `createLoginThrottle`
-- `createMemoryPersistenceAdapter`
-- `createPersistenceCredentialStore`
-- `createPostgresPersistenceAdapter`
-- `createSessionAuthAdapter`
-- `createSessionSigner`
-- `createSqlitePersistenceAdapter`
-- `createTenantScopedPersistenceAdapter`
-- `currentAdminTenant`
-- `forwardedClientKey`
-- `generateSessionSecret`
-- `hasAdminTenant`
-- `hashPassword`
-- `loginHeader`
-- `missingTenantReason`
-- `normalizeEmail`
-- `postgresIndexStatement`
-- `postgresSchema`
-- `postgresTenancyMigration`
-- `requireAdminTenant`
-- `resolveAdminTenant`
-- `resolveSessionCookie`
-- `runWithAdminTenant`
-- `sessionCookieOptions`
-- `verifyPassword`
+
 
 ### The lifecycle
 
 Payload keeps the versions, the drafts and the deleted documents, so the history panel reads Payload’s versions collection.
 
-- `AdminChildDeclaration`
-- `AdminLifecycle`
 - `AdminLifecycleChildError`
-- `AdminLifecycleDeclaration`
 - `AdminLifecycleError`
-- `AdminLifecycleMove`
 - `AdminLifecycleNotDeclaredError`
-- `AdminLifecycleRecordState`
-- `AdminLifecycleReferrer`
-- `AdminLifecycleScope`
 - `AdminLifecycleScopeError`
 - `AdminLifecycleStateError`
-- `AdminResourceLifecycleOperation`
-- `AdminRevision`
 - `AdminRevisionDriftError`
 - `AdminRevisionMalformedError`
-- `AdminRevisionRecordOptions`
-- `AdminRevisionRestore`
-- `AdminRevisionRestoreOptions`
-- `AdminRevisionStore`
 - `AdminRevisionUnknownError`
-- `AdminRevisionWrite`
 - `adminRevision`
 - `adminRevisionId`
 - `byNewestRevision`
@@ -205,12 +95,7 @@ Payload keeps the versions, the drafts and the deleted documents, so the history
 
 The editor is Payload’s own admin panel, themed with the package’s tokens.
 
-- `AdminCollectionDefinition`
 - `AdminCollectionEditor`
-- `AdminCollectionEntry`
-- `AdminCollectionField`
-- `AdminCollectionMessages`
-- `AdminCollectionValidationProblem`
 - `adminCollectionAdd`
 - `adminCollectionDuplicateAt`
 - `adminCollectionEntryId`
@@ -224,16 +109,12 @@ The editor is Payload’s own admin panel, themed with the package’s tokens.
 - `adminCollectionShift`
 - `adminCollectionValidate`
 - `adminCollectionValues`
-- `defaultCollectionMessages`
 
 ### The account management
 
 The accounts are Payload’s users collection and the sign-in is Payload’s auth strategy.
 
-- `AdminUserManagementMessages`
 - `AdminUserManagementPage`
-- `AdminUserManagementPageProps`
-- `AdminUserManagementRecord`
 - `defaultAdminUserManagementMessages`
 - `turkishAdminUserManagementMessages`
 
@@ -241,8 +122,6 @@ The accounts are Payload’s users collection and the sign-in is Payload’s aut
 
 The deleted documents are Payload’s versions with a deleted state.
 
-- `AdminTrashItem`
-- `AdminTrashMessages`
 - `AdminTrashPage`
 - `defaultAdminTrashMessages`
 - `turkishAdminTrashMessages`
@@ -252,47 +131,22 @@ The deleted documents are Payload’s versions with a deleted state.
 A host that imports rows writes them through the content module.
 
 - `ADMIN_RESOURCE_IMPORT_MAX_FAILURES`
-- `AdminCsvRecord`
-- `AdminCsvSource`
-- `AdminResourceImportColumn`
 - `AdminResourceImportError`
-- `AdminResourceImportFailure`
-- `AdminResourceImportOptions`
-- `AdminResourceImportOutcome`
-- `AdminResourceImportResult`
-- `AdminResourceImportStop`
-- `AdminResourceImportWriter`
 - `adminCsvCellValue`
-- `adminCsvRecords`
-- `adminResourceImport`
-- `adminResourceImportResult`
 
 ### The export
 
 A host that exports rows reads them through the content module.
 
 - `ADMIN_RESOURCE_EXPORT_MAX_ROWS`
-- `AdminResourceExport`
-- `AdminResourceExportColumn`
 - `AdminResourceExportError`
-- `AdminResourceExportFinished`
-- `AdminResourceExportOptions`
-- `AdminResourceExportOptionsWithName`
-- `AdminResourceExportSource`
 - `adminCsvCell`
 - `adminCsvText`
-- `adminResourceExport`
-- `adminResourceExportResponse`
 
 ### The aggregate
 
 The dashboard tiles read through the loaders in the payload module.
 
-- `AdminAggregateBucket`
-- `AdminAggregateMeasures`
-- `AdminAggregateOptions`
-- `AdminAggregateResult`
-- `AdminAggregateTotalsOptions`
 - `adminAggregate`
 - `adminAggregateTotals`
 - `adminWholeNumber`
@@ -301,46 +155,51 @@ The dashboard tiles read through the loaders in the payload module.
 
 The report is read through the content module and exported by the host.
 
-- `ADMIN_ANALYTICS_REPORT_COLUMNS`
 - `ADMIN_ANALYTICS_REPORT_DEFAULT_SECTIONS`
-- `ADMIN_ANALYTICS_REPORT_MANIFEST`
 - `ADMIN_ANALYTICS_REPORT_MAX_ROWS`
-- `ADMIN_ANALYTICS_REPORT_REQUIRED_MANIFEST`
 - `ADMIN_ANALYTICS_REPORT_SECTIONS`
-- `ADMIN_ANALYTICS_REPORT_TOTALS`
-- `AdminAnalyticsPathPolicy`
-- `AdminAnalyticsReport`
-- `AdminAnalyticsReportFigures`
-- `AdminAnalyticsReportManifestMetric`
-- `AdminAnalyticsReportOptions`
-- `AdminAnalyticsReportOptionsWithName`
-- `AdminAnalyticsReportRow`
-- `AdminAnalyticsReportSection`
-- `AdminAnalyticsReportTotal`
-- `AdminAnalyticsReportTotals`
-- `AdminAnalyticsReportVisitor`
-- `adminAnalyticsReport`
-- `adminAnalyticsReportFigures`
-- `adminAnalyticsReportResponse`
-- `analyticsReportCells`
-- `analyticsReportHeader`
-- `analyticsReportHeaderCells`
-- `analyticsReportTotalField`
 
-## The adapters that go with them
+### The query and the adapter contracts
 
-- `AdminPersistenceAdapter`, `AdminResourceQuery`, `AdminResourcePage`,
-  `AdminResourceFilter`, `AdminResourceSort`, `AdminResourceWindow`,
-  `AdminResourceQueryBuilder` and `AdminResourceQueryError` are the query
-  contract the engine read through. A host reads through
-  `createAdminPayloadPersistenceAdapter` instead, which answers the same
-  questions over Payload.
-- `AdminMediaAdapter`, `AdminMediaItem`, `AdminMediaListQuery`,
-  `AdminMediaListResult`, `AdminMediaUploadOptions` and
-  `AdminMediaExternalInput` are the media contract. A host reads through
-  `createAdminPayloadMediaAdapter` instead, over Payload's upload collection.
-- `AdminActivityPage` and `AdminTrashPage` are the pages over those two
-  stores. Payload's admin panel and the activity trail replace them.
+These are the contracts the engine read through. A host reads through `createAdminPayloadPersistenceAdapter` and `createAdminPayloadMediaAdapter` instead, which answer the same questions over Payload.
+
+- `ADMIN_ANALYTICS_RESOURCE`
+- `ADMIN_RESOURCE_MAX_LIMIT`
+- `AdminMediaAspectRatioHint`
+- `AdminMediaField`
+- `AdminMediaGalleryField`
+- `AdminMediaLibrary`
+- `AdminMediaLibraryPage`
+- `AdminMediaLightbox`
+- `AdminMediaPicker`
+- `AdminMediaPlaceholder`
+- `AdminMediaUpload`
+- `adminDashboardCollection`
+- `adminMediaDeletableItem`
+- `adminMediaSortValues`
+- `adminPayloadMediaKind`
+- `adminResourceExport`
+- `adminResourceExportResponse`
+- `adminResourceImport`
+- `adminResourceImportResult`
+- `adminResourceQuery`
+- `adminResourceReferenceChoices`
+- `adminResourceReferenceResolution`
+- `createAdminPayloadMediaAdapter`
+- `createAdminPayloadPersistenceAdapter`
+- `defaultAdminMediaLabels`
+- `defaultAdminPayloadMediaItem`
+- `formatMediaSize`
+- `getAdminMediaThumbnailUrl`
+- `getAdminMediaTimestamp`
+- `getMediaAspectRatioClassName`
+- `isImageMediaItem`
+- `isPdfMediaItem`
+- `isVideoMediaItem`
+- `isVisualMediaItem`
+- `isYouTubeMediaItem`
+- `parseAdminResourceQuery`
+- `sortAdminMediaItems`
 
 ## When
 
