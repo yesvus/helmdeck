@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 1.0.0
+
 ### Removed
 
 - The resource engine: `AdminResourceList`, `AdminResourceForm`, `defineAdminResource`, the write boundary (`createAdminResourceActions`, `createAdminResourceActionPersistenceAdapter`), the references, the lifecycle, the import and export, the analytics export, the account management page, the trash page and the baseline store stack (the memory, sqlite and postgres adapters, the credential store, the account admin, the password helpers and the login throttle). Payload owns those now; `MIGRATION.md` names what a host replaces each export with. What survives is the shell, the primitives, the theme, the dashboard, the charts, the analytics, the activity trail, the media library, the inbox, the auth and permission contracts, the query and persistence contracts, the read-only path, the collections model and editor, the aggregate helpers and the tenancy rules.
