@@ -109,7 +109,9 @@ export function createAdminPayloadMediaAdapter({
       const condition = where
         ? where(query)
         : query.search
-          ? { filename: { like: `%${query.search}%` } }
+          // The fixture media store's own search is a literal substring, so the term's % and _
+          // stay literals here too.
+          ? { filename: { contains: query.search } }
           : undefined;
       const result = (await content.find(collection, {
         where: condition,
@@ -125,7 +127,7 @@ export function createAdminPayloadMediaAdapter({
       };
     },
     upload: async (file: File): Promise<AdminMediaItem> => {
-      const created = (await content.create(collection, { file, filename: file.name })) as AdminPayloadMediaRow;
+      const created = (await content.create(collection, {}, { file })) as AdminPayloadMediaRow;
       return mapItem(created);
     },
     rename: async (item: AdminMediaItem, name: string): Promise<AdminMediaItem> => {

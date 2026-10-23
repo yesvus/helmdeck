@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createAdminPayloadContent } from "../src/payload/bridge";
 import { createAdminPayloadPersistenceAdapter } from "../src/payload/store";
+import { createPersistenceCredentialStore } from "../src/baseline/credentials";
 import { adminPayloadMediaKind, createAdminPayloadMediaAdapter } from "../src/payload/media";
 import {
   createAdminPayloadActivityLoader,
@@ -81,9 +82,10 @@ describe("the payload store", () => {
 
     await store.create("orders", { name: "An order" });
     await store.update("orders", "1", { name: "An order" });
+    await store.read("orders", "1");
     await store.delete("orders", "1");
 
-    for (const mock of [payload.create, payload.update, payload.delete]) {
+    for (const mock of [payload.create, payload.update, payload.findByID, payload.delete]) {
       const args = mock.mock.calls[0]![0];
       expect(args.overrideAccess).toBe(false);
       expect(args.user).toEqual({ id: "u1", email: "ada@example.com" });
@@ -123,14 +125,15 @@ describe("the payload media adapter", () => {
       publicUrl: "/media/espresso.png",
       size: 1024,
     });
-    expect(payload.find.mock.calls[0]![0].where).toEqual({ filename: { like: "%espresso%" } });
+    expect(payload.find.mock.calls[0]![0].where).toEqual({ filename: { contains: "espresso" } });
   });
 
   it("uploads, renames and deletes through the call site", async () => {
     const payload = payloadStub();
     const adapter = createAdminPayloadMediaAdapter({ content: contentOver(payload), collection: "media" });
 
-    await adapter.upload(new File(["x"], "photo.png", { type: "image/png" }));
+    const photo = new File(["x"], "photo.png", { type: "image/png" });
+    await adapter.upload(photo);
     await adapter.rename!({ name: "photo.png", path: "7", publicUrl: "", source: "uploaded", kind: "image" }, "renamed.png");
     await adapter.delete!({ name: "photo.png", path: "7", publicUrl: "", source: "uploaded", kind: "image" });
 
@@ -140,6 +143,11 @@ describe("the payload media adapter", () => {
     const createArgs = payload.create.mock.calls[0]![0];
     expect(createArgs.collection).toBe("media");
     expect(createArgs.overrideAccess).toBe(false);
+    expect(createArgs.file).toBe(photo);
+    expect((createArgs.file as File).name).toBe("photo.png");
+    expect(createArgs.data).toEqual({});
+    const renameArgs = payload.update.mock.calls[0]![0];
+    expect(renameArgs).toMatchObject({ collection: "media", id: "7", data: { filename: "renamed.png" } });
   });
 });
 
@@ -151,6 +159,21 @@ describe("the payload loaders", () => {
     const load = createAdminPayloadCountLoader({ content: contentOver(payload), collection: "orders" });
 
     expect(await load()).toBe(12);
+  });
+
+  it("ends the to bound at the day it names, and passes a timestamp bound as it is", async () => {
+    const payload = payloadStub();
+    const load = createAdminPayloadActivityLoader({ content: contentOver(payload) });
+
+    await load({ to: "2026-10-31" });
+    expect(payload.find.mock.calls[0]![0].where).toEqual({
+      occurredAt: { less_than_equal: "2026-10-31T23:59:59.999Z" },
+    });
+
+    await load({ to: "2026-10-31T12:00:00.000Z" });
+    expect(payload.find.mock.calls[1]![0].where).toEqual({
+      occurredAt: { less_than_equal: "2026-10-31T12:00:00.000Z" },
+    });
   });
 
   it("reads the trail with the filter as a condition, not in the browser", async () => {
@@ -170,8 +193,57 @@ describe("the payload loaders", () => {
       and: [
         { action: { equals: "update" } },
         { occurredAt: { greater_than_equal: "2026-10-01" } },
-        { occurredAt: { less_than_equal: "2026-10-31" } },
+        { occurredAt: { less_than_equal: "2026-10-31T23:59:59.999Z" } },
       ],
+    });
+  });
+});
+
+describe("the store's read, on what is not there and what failed", () => {
+  it("answers null for a record Payload says is not there, and throws on anything else", async () => {
+    const payload = payloadStub({
+      findByID: spy(async () => {
+        throw Object.assign(new Error("The requested resource was not found."), { name: "NotFoundError" });
+      }),
+    });
+    const store = createAdminPayloadPersistenceAdapter({ content: contentOver(payload), collection: "orders" });
+
+    expect(await store.read("orders", "1")).toBe(null);
+
+    payload.findByID = spy(async () => {
+      throw Object.assign(new Error("You are not allowed to perform this operation."), { name: "ForbiddenError" });
+    });
+    await expect(store.read("orders", "1")).rejects.toThrow(/not allowed/);
+  });
+});
+
+describe("the payload loaders' actor field", () => {
+  it("reads the configured field when it maps the event, and loses nothing else", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({
+        docs: [{
+          id: "e1",
+          action: "update",
+          resource: "pages",
+          resourceId: "p3",
+          occurredAt: "2026-10-12T09:00:00.000Z",
+          metadata: { path: "/about" },
+          editorId: "u9",
+        }],
+        totalDocs: 1,
+      })),
+    });
+    const load = createAdminPayloadActivityLoader({ content: contentOver(payload), actorField: "editorId" });
+
+    const events = await load({ action: "update" });
+
+    expect(events[0]).toEqual({
+      action: "update",
+      resource: "pages",
+      resourceId: "p3",
+      actor: { userId: "u9", email: "u9" },
+      occurredAt: "2026-10-12T09:00:00.000Z",
+      metadata: { path: "/about" },
     });
   });
 });
@@ -187,5 +259,74 @@ describe("adminPayloadMediaKind", () => {
     expect(kindOf("application/zip")).toBe("other");
     expect(kindOf("text/plain")).toBe("other");
     expect(kindOf("")).toBe("other");
+  });
+});
+
+describe("the payload store, on what the other adapters answer", () => {
+  it("searches the fields the host named, with the term as Payload's contains", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: [{ id: "a" }], totalDocs: 1 })),
+    });
+    const store = createAdminPayloadPersistenceAdapter({
+      content: contentOver(payload),
+      collection: "orders",
+      searchFields: ["name", "note"],
+    });
+
+    await store.queryPage!("orders", { search: "espresso", filter: [{ field: "kind", operator: "eq", value: "order" }] });
+
+    expect(payload.find.mock.calls[0]![0].where).toEqual({
+      and: [
+        { kind: { equals: "order" } },
+        { or: [{ name: { contains: "espresso" } }, { note: { contains: "espresso" } }] },
+      ],
+    });
+  });
+
+  it("refuses a search it has no fields to read, rather than answering it unsearched", async () => {
+    const store = createAdminPayloadPersistenceAdapter({
+      content: contentOver(payloadStub()),
+      collection: "orders",
+    });
+
+    await expect(store.queryPage!("orders", { search: "espresso" })).rejects.toThrow(/no fields named to search/);
+  });
+
+  it("answers a query with no window with every row, not the list page's cap", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: Array.from({ length: 1001 }, (_, i) => ({ id: String(i) })), totalDocs: 1001 })),
+    });
+    const store = createAdminPayloadPersistenceAdapter({ content: contentOver(payload), collection: "users" });
+
+    const rows = await store.query!("users");
+
+    expect(rows).toHaveLength(1001);
+    const args = payload.find.mock.calls[0]![0];
+    expect(args.pagination).toBe(false);
+    expect(args.limit).toBeUndefined();
+  });
+
+  it("answers the exact-match map the credential store hands over", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: [{ id: "u1", email: "ada@example.com" }], totalDocs: 1 })),
+    });
+    const store = createAdminPayloadPersistenceAdapter({ content: contentOver(payload), collection: "users" });
+
+    const rows = await store.query!("users", { email: "ada@example.com" });
+
+    expect(rows).toEqual([{ id: "u1", email: "ada@example.com" }]);
+    expect(payload.find.mock.calls[0]![0].where).toEqual({ email: { equals: "ada@example.com" } });
+  });
+
+  it("finds the credential store's user by email over this store", async () => {
+    const payload = payloadStub({
+      find: spy(async () => ({ docs: [{ id: "u1", email: "ada@example.com", password_hash: "h" }], totalDocs: 1 })),
+    });
+    const store = createAdminPayloadPersistenceAdapter({ content: contentOver(payload), collection: "users" });
+    const users = createPersistenceCredentialStore(store);
+
+    const user = await users.findUserByEmail("ada@example.com");
+
+    expect(user).toMatchObject({ id: "u1" });
   });
 });

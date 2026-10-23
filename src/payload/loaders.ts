@@ -80,8 +80,12 @@ export type AdminPayloadActivityRow = {
 };
 
 /** The package's audit event, from a row in the activity collection. */
-export function defaultAdminPayloadActivityEvent(row: AdminPayloadActivityRow): AdminAuditEvent {
-  const actor: AdminSession | undefined = row.actorId ? { userId: row.actorId, email: row.actorId } : undefined;
+export function defaultAdminPayloadActivityEvent(
+  row: AdminPayloadActivityRow,
+  actorField = "actorId",
+): AdminAuditEvent {
+  const actorId = (row as unknown as Record<string, unknown>)[actorField] as string | null | undefined;
+  const actor: AdminSession | undefined = actorId ? { userId: actorId, email: actorId } : undefined;
   return {
     action: row.action ?? "",
     resource: row.resource ?? "",
@@ -100,7 +104,7 @@ export type AdminPayloadActivityLoaderOptions = {
   /** The field the actor is held in. */
   actorField?: string;
   /** How a row becomes the event the trail shows. */
-  mapEvent?: (row: AdminPayloadActivityRow) => AdminAuditEvent;
+  mapEvent?: (row: AdminPayloadActivityRow, actorField: string) => AdminAuditEvent;
   /** How many events one read holds. */
   limit?: number;
 };
@@ -125,7 +129,12 @@ export function createAdminPayloadActivityLoader({
     if (filter.action) clauses.push({ action: { equals: filter.action } });
     if (filter.actor) clauses.push({ [actorField]: { equals: filter.actor } });
     if (filter.from) clauses.push({ [occurredAtField]: { greater_than_equal: filter.from } });
-    if (filter.to) clauses.push({ [occurredAtField]: { less_than_equal: filter.to } });
+    if (filter.to) {
+      // A calendar day ends at its last millisecond; a value that is already a timestamp is
+      // the bound it says it is.
+      const bound = /^\d{4}-\d{2}-\d{2}$/.test(filter.to) ? `${filter.to}T23:59:59.999Z` : filter.to;
+      clauses.push({ [occurredAtField]: { less_than_equal: bound } });
+    }
 
     const result = (await content.find(collection, {
       where: clauses.length === 0 ? undefined : clauses.length === 1 ? clauses[0] : { and: clauses },
@@ -134,6 +143,6 @@ export function createAdminPayloadActivityLoader({
       page: 1,
     })) as AdminPayloadFindResult<AdminPayloadActivityRow>;
 
-    return (result.docs ?? []).map((row) => mapEvent(row));
+    return (result.docs ?? []).map((row) => mapEvent(row, actorField));
   };
 }

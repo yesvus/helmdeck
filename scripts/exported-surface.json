@@ -122,6 +122,7 @@
     "AdminPageHeader",
     "AdminPagination",
     "AdminPayloadAccessRefused",
+    "AdminPayloadSearchRefused",
     "AdminPayloadWindowError",
     "AdminPendingButton",
     "AdminPermissionDeniedError",

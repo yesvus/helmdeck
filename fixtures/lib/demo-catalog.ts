@@ -222,20 +222,23 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The refusal the payload bridge throws when a request has no session to answer it with. It is thrown rather than drawn.",
     keywords: "payload refused access session error",
   },
+  AdminPayloadSearchRefused: {
+    hostNote: "It is thrown when a list asks for a search the store has no fields to read over, and there is nothing to draw.",
+    category: "Adapters",
+    summary: "The refusal the payload store throws when a list asks for a search and the host has named no fields for the store to read it over. It is thrown rather than drawn.",
+    keywords: "payload search refused fields store error",
+  },
   createAdminPayloadAuthStrategy: {
-    hostNote: "It is a factory: the host builds the strategy and gives it to Payload.",
     category: "Auth and permissions",
     summary: "The strategy Payload's admin authenticates with, so one sign-in serves the shell and the panel. It is a factory, not a component.",
     keywords: "payload auth strategy session sign in",
   },
   createAdminPayloadContent: {
-    hostNote: "It is a factory: the host builds the module and calls it.",
     category: "Adapters",
     summary: "The only path from the shell's server code into Payload's data, with the access check on every call. It is a factory, not a component.",
     keywords: "payload content local api access",
   },
   createAdminPayloadPermissionsAdapter: {
-    hostNote: "It is a factory: the host builds the adapter and mounts it.",
     category: "Auth and permissions",
     summary: "The permission adapter, backed by Payload's own access functions. It is a factory, not a component.",
     keywords: "payload permissions adapter access rule",
@@ -252,7 +255,6 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "payload window offset page error",
   },
   createAdminPayloadPersistenceAdapter: {
-    hostNote: "It is a factory: the host builds the store and hands it to the surfaces that read through it.",
     category: "Adapters",
     summary: "The resource store, over Payload, so the package's own surfaces read Payload through the one call site.",
     keywords: "payload store persistence adapter resource",
