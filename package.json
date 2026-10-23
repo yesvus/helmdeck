@@ -1,6 +1,6 @@
 {
   "name": "@yesvus/helmdeck",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "packageManager": "pnpm@12.7.0",
   "type": "module",
   "description": "A batteries-included Next.js admin dashboard engine: admin shell, generated resource views, dashboard tiles, a complete set of themed accessible UI primitives, and host-configurable auth and data adapters",
