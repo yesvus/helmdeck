@@ -1,11 +1,11 @@
 # Migrating to Payload as the CMS
 
-The next major version retires the resource engine. Payload does what that
-engine did, and does it better: the collections, the fields, the versions, the
-drafts, the trash, the uploads and the accounts are all Payload's, and Helmdeck
-keeps the half Payload has no answer for: the shell, the primitives, the theme,
-the dashboard, the charts, the analytics, the activity trail, the media library
-and the inbox.
+The next major version, `1.0.0`, retires the resource engine. Payload does what
+that engine did, and does it better: the collections, the fields, the versions,
+the drafts, the trash, the uploads and the accounts are all Payload's, and
+Helmdeck keeps the half Payload has no answer for: the shell, the primitives,
+the theme, the dashboard, the charts, the analytics, the activity trail, the
+media library and the inbox.
 
 **This note says what a host replaces each retired export with, and what a host
 keeps.** It is written before the removals, so that a host can read it against
@@ -17,14 +17,38 @@ the version it is on.
   analytics, the activity trail, the media library and the inbox.
 - The auth contract. A host still decides who is signed in, how long the
   session lasts and how it is revoked; the session is now a row in Payload's
-  users collection and the auth strategy reads it.
+  users collection and the auth strategy reads it. A host that signs its own
+  cookie keeps `createSessionAuthAdapter`, `generateSessionSecret` and the
+  `AdminSessionCookieIO` type from `@yesvus/helmdeck/baseline`.
 - The permission contract. A host still decides what a session may do; the
   rule is Payload's access function and the permission adapter asks it.
-- **`AdminResourceReadOnlySource` and `createReadOnlyPersistenceAdapter`**, the
-  read-only path. A host that shows a table that is not a Payload collection
-  keeps this: it is a source of rows for a list, with no writes and no form.
-- `createSessionSigner` and `createSessionAuthAdapter`, for a host that signs
-  its own cookie rather than reading a row.
+- **The query contract**: `AdminResourceQuery`, `AdminResourceFilter`,
+  `AdminResourceSort`, `AdminResourceWindow`, `AdminResourcePage`,
+  `adminResourceQuery`, `parseAdminResourceQuery` and
+  `ADMIN_RESOURCE_MAX_LIMIT`. It is not the engine's, it is the shape every
+  store answers: `createAdminPayloadPersistenceAdapter` returns it, the scope
+  provider parses a request through it, and a host's own store implements it.
+- **The persistence contract**: `AdminPersistenceAdapter` and
+  `AdminResourceReadOnlySource`, with `createReadOnlyPersistenceAdapter`. A host
+  that shows a table that is not a Payload collection keeps the read-only path:
+  it is a source of rows for a list, with no writes and no form.
+- **The collections model and editor**: `AdminCollectionEntry`, the
+  `adminCollection*` helpers, `AdminCollectionEditor` and
+  `adminDashboardCollection`. The dashboard's arrangement is a collection of
+  placements, and the editor that reorders it is the same editor as before.
+- **The aggregate helpers**: `adminAggregate`, `adminAggregateTotals` and
+  `adminWholeNumber`. The analytics module computes its figures with them, and
+  a host's own tiles can too: they take the persistence contract, not the
+  engine.
+- **The activity trail**: `AdminActivityTimeline`, `AdminActivityPage`,
+  `adminActivityTone` and the activity messages. The trail reads events; they
+  arrive from `createAdminPayloadActivityLoader` or from the host's own loader,
+  so the component and its wording stay.
+- **The tenancy rules**: `AdminTenantError`, `assertAdminTenant`,
+  `resolveAdminTenant`, `runWithAdminTenant` and
+  `createTenantScopedPersistenceAdapter`, on the `@yesvus/helmdeck/baseline`
+  and `@yesvus/helmdeck/tenant-scope` entry points. A tenant scope wraps any
+  adapter, including one over Payload.
 
 ## The six steps
 
@@ -43,17 +67,27 @@ reaches Payload.
 
 ## The retired exports
 
-### The resource engine
+### The generated resource views
 
-The collection, the field and the form are Payload’s. A host that keeps a table of its own keeps the read-only path in "What a host keeps" above.
+The collection, the field and the form are Payload's own admin panel. A host
+that keeps a table of its own keeps the read-only path in "What a host keeps"
+above.
 
-- `ADMIN_RESOURCE_REFERENCE_LIMIT`
 - `AdminResourceFieldError`
 - `AdminResourceForm`
 - `AdminResourceList`
 - `AdminResourceNotExposedError`
-- `AdminResourceReferenceError`
 - `absentRequired`
+- `adminResourceValues`
+- `adminResourceValuesFromRecord`
+
+### The resource definitions and the references
+
+The fields are Payload's, and a relation is a field on a collection rather than
+a definition the package resolves.
+
+- `ADMIN_RESOURCE_REFERENCE_LIMIT`
+- `AdminResourceReferenceError`
 - `adminResourceFilters`
 - `adminResourcePath`
 - `adminResourceRecordId`
@@ -63,16 +97,22 @@ The collection, the field and the form are Payload’s. A host that keeps a tabl
 - `adminResourceReferenceLabel`
 - `adminResourceReferenceResolution`
 - `adminResourceReferenceValue`
-- `adminResourceValues`
-- `adminResourceValuesFromRecord`
-- `createAdminResourceActionPersistenceAdapter`
-- `createAdminResourceActions`
 - `defaultAdminResourceReferenceLabels`
 - `defineAdminResource`
 
+### The write boundary
+
+A write is Payload's, refused by an access function before it runs. The action
+handlers that wrapped the store's writes, checked them against a definition and
+audited them are the engine's, and they go with it.
+
+- `createAdminResourceActionPersistenceAdapter`
+- `createAdminResourceActions`
+
 ### The lifecycle
 
-Payload keeps the versions, the drafts and the deleted documents, so the history panel reads Payload’s versions collection.
+Payload keeps the versions, the drafts and the deleted documents, so the
+history panel reads Payload's versions collection.
 
 - `AdminLifecycleChildError`
 - `AdminLifecycleError`
@@ -88,36 +128,18 @@ Payload keeps the versions, the drafts and the deleted documents, so the history
 - `createAdminLifecycle`
 - `revisionIdOf`
 
-### The collection editor
+### The account management page
 
-The editor is Payload’s own admin panel, themed with the package’s tokens.
-
-- `AdminCollectionEditor`
-- `adminCollectionAdd`
-- `adminCollectionDuplicateAt`
-- `adminCollectionEntryId`
-- `adminCollectionFirstProblem`
-- `adminCollectionFormData`
-- `adminCollectionIds`
-- `adminCollectionMove`
-- `adminCollectionNextId`
-- `adminCollectionRemoveAt`
-- `adminCollectionReorder`
-- `adminCollectionShift`
-- `adminCollectionValidate`
-- `adminCollectionValues`
-
-### The account management
-
-The accounts are Payload’s users collection and the sign-in is Payload’s auth strategy.
+The accounts are Payload's users collection and the sign-in is Payload's auth
+strategy.
 
 - `AdminUserManagementPage`
 - `defaultAdminUserManagementMessages`
 - `turkishAdminUserManagementMessages`
 
-### The trash
+### The trash page
 
-The deleted documents are Payload’s versions with a deleted state.
+The deleted documents are Payload's versions with a deleted state.
 
 - `AdminTrashPage`
 - `defaultAdminTrashMessages`
@@ -145,14 +167,6 @@ A host that exports rows reads them through the content module.
 - `adminResourceExport`
 - `adminResourceExportResponse`
 
-### The aggregate
-
-The dashboard tiles read through the loaders in the payload module.
-
-- `adminAggregate`
-- `adminAggregateTotals`
-- `adminWholeNumber`
-
 ### The analytics export
 
 The report is read through the content module and exported by the host.
@@ -164,21 +178,44 @@ The report is read through the content module and exported by the host.
 - `adminAnalyticsReportFigures`
 - `adminAnalyticsReportResponse`
 
-### The pages and the query contract
+### The baseline stores
 
-The pages over the two stores, and the contract the engine's reads were built
-on. The pages are Payload's admin panel and the activity trail; the contract is
-answered by `createAdminPayloadPersistenceAdapter` over Payload.
+The database is Payload's: `payloadDatabase()` points at the same libsql or
+Postgres URL the demo uses. The accounts, the sessions and the login are
+Payload's auth. What a host keeps on this entry point is named in "What a host
+keeps" above.
 
-- `AdminActivityPage`
-- `AdminActivityTimeline`
-- `ADMIN_RESOURCE_MAX_LIMIT`
-- `adminResourceQuery`
-- `parseAdminResourceQuery`
+- `AccountAlreadyExistsError`
+- `CREDENTIAL_SESSIONS_SCHEMA`
+- `CREDENTIAL_USERS_SCHEMA`
+- `DEFAULT_THROTTLE_LIMIT`
+- `DEFAULT_THROTTLE_WINDOW_MS`
+- `DEFAULT_THROTTLED_MESSAGE`
+- `authenticate`
+- `createAccountAdmin`
+- `createCredentialAuthAdapter`
+- `createLoginThrottle`
+- `createMemoryPersistenceAdapter`
+- `createPersistenceCredentialStore`
+- `createPostgresPersistenceAdapter`
+- `createSqlitePersistenceAdapter`
+- `forwardedClientKey`
+- `hashPassword`
+- `loginHeader`
+- `normalizeEmail`
+- `postgresIndexStatement`
+- `postgresSchema`
+- `postgresTenancyMigration`
+- `verifyPassword`
 
 ## When
 
-The removals land in one major release, not in a patch. A minor release that
-took an export away would be a release a host could not plan for, and the
-package's own rule is that a name removed in a minor or a patch is a failure
-rather than a change.
+The removals land in one major release, not in a patch: `1.0.0`. A minor
+release that took an export away would be a release a host could not plan for,
+and the package's own rule is that a name removed in a minor or a patch is a
+failure rather than a change. `pnpm surface:check` holds that rule: every name
+recorded in `scripts/exported-surface.json` that the build no longer exports
+fails the check, and the fix it names is restoring the name or cutting a major.
+The ledger is re-recorded by the release itself, in the same commit as
+`VERSION`, so the release that takes these names away is the one that records
+their absence.
