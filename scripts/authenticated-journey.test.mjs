@@ -68,5 +68,6 @@ try {
   await page.waitForTimeout(500);
 } finally {
   if (browser) await browser.close();
-  try { process.kill(-server.pid, "SIGTERM"); } catch { try { server.kill("SIGTERM"); } catch {} }
+  try { process.kill(-server.pid, "SIGTERM"); } catch { /* already stopped */ }
+try { server.kill("SIGTERM"); } catch { /* already stopped */ }
 }
