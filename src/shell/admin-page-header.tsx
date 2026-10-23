@@ -8,17 +8,24 @@ import { useAdminShell } from "./context.js";
 
 export function AdminPageHeader({
   action,
+  compact = false,
   groups,
   title,
 }: {
   action?: ReactNode;
+  /** Render only the action row, with no header bar, title or breadcrumbs. */
+  compact?: boolean;
   groups?: AdminNavGroup[];
   title: string;
 }) {
   const shell = useAdminShell();
 
+  if (compact) {
+    return action ? <div className="flex items-center justify-end gap-2">{action}</div> : null;
+  }
+
   if (shell?.currentPageTitle) {
-    return action ? <div className="flex justify-end">{action}</div> : null;
+    return action ? <div className="flex items-center justify-end gap-2">{action}</div> : null;
   }
 
   return (

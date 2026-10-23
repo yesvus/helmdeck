@@ -309,7 +309,25 @@ export function AdminShell({
 
                   return (
                     <section key={group.label} className="mb-1">
-                      {collapsed ? null : (
+                      {collapsed ? (
+                        GroupIcon ? (
+                          <span
+                            className={cn("mb-1 flex h-8 w-full items-center justify-center", activeItem && "text-admin-brand-text")}
+                            title={group.label}
+                            aria-label={group.label}
+                          >
+                            <GroupIcon className={cn("h-4 w-4 shrink-0", activeItem ? "text-brand-600" : "text-zinc-400")} aria-hidden="true" />
+                          </span>
+                        ) : activeItem ? (
+                          <span
+                            className="mb-1 flex h-8 w-full items-center justify-center"
+                            title={group.label}
+                            aria-label={group.label}
+                          >
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true" />
+                          </span>
+                        ) : null
+                      ) : (
                         <button
                           type="button"
                           onClick={() =>
