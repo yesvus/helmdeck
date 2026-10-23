@@ -1,4 +1,4 @@
-import { createAdminResourceActions } from "@yesvus/helmdeck";
+import { createAdminResourceActions } from "./engine/resources/actions";
 import { persistence } from "./persistence";
 import { adminResources } from "./resources";
 import { exposedResource, requirePermission } from "./rules";

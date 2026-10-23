@@ -16,19 +16,7 @@
  */
 
 import Link from "next/link";
-import {
-  AdminBanner,
-  AdminCollectionEditor,
-  AdminField,
-  AdminSelect,
-  adminCollectionValidate,
-  adminDashboardCollection,
-  adminWidgetSizes,
-  type AdminCollectionEntry,
-  type AdminDashboard,
-  type AdminDashboardPlacement,
-  type AdminWidgetSize,
-} from "@yesvus/helmdeck";
+import { AdminBanner, AdminCollectionEditor, AdminField, AdminSelect, adminCollectionValidate, adminDashboardCollection, adminWidgetSizes, type AdminCollectionEntry, type AdminDashboard, type AdminDashboardPlacement, type AdminWidgetSize } from "@yesvus/helmdeck";
 import { useCallback, useRef, useState } from "react";
 import { saveDashboardArrangementAction } from "../../../../lib/demo-dashboard-arrangement";
 import { dashboardRegistry } from "../registry";

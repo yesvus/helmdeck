@@ -17,6 +17,7 @@ export {
   AdminPermissionsProvider,
   useAdminCan,
   useAdminPermission,
+  useAdminPermissionMap,
 } from "./permissions.js";
 export type { AdminPermissionState } from "./permissions.js";
 export {

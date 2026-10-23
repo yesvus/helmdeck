@@ -22,11 +22,9 @@
  * beside it.
  */
 
-import {
-  createCredentialAuthAdapter,
-  createPersistenceCredentialStore,
-} from "@yesvus/helmdeck/baseline";
-import type { AdminSessionCookieIO, CredentialAuthAdapter, CredentialStore } from "@yesvus/helmdeck/baseline";
+import { createCredentialAuthAdapter, createPersistenceCredentialStore } from "./engine/baseline/credentials";
+import type { AdminSessionCookieIO } from "@yesvus/helmdeck/baseline";
+import type { CredentialAuthAdapter, CredentialStore } from "./engine/baseline/credentials";
 import type { AdminPersistenceAdapter, AdminSession } from "@yesvus/helmdeck";
 import { demoPersistence } from "./demo-persistence";
 import { ensureDemoSeeded } from "./ensure-seeded";

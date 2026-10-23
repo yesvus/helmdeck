@@ -1,7 +1,7 @@
 import "server-only";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { createSqlitePersistenceAdapter } from "@yesvus/helmdeck/baseline";
+import { createSqlitePersistenceAdapter } from "../lib/engine/baseline/sqlite";
 import type { AdminPersistenceAdapter, AdminResourceQuery } from "@yesvus/helmdeck";
 
 const seedRecords: readonly [string, string, unknown][] = [

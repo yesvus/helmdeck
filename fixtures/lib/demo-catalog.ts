@@ -1,6 +1,8 @@
-// SPDX-License-Identifier: MIT
-import * as baselineExports from "@yesvus/helmdeck/baseline";
 import * as rootExports from "@yesvus/helmdeck";
+import * as baselineExports from "@yesvus/helmdeck/baseline";
+// SPDX-License-Identifier: MIT
+
+
 
 /**
  * The catalogue of everything the package ships, built from the module namespaces rather than from
@@ -30,7 +32,6 @@ export const CATALOG_CATEGORIES = [
   "Media",
   "Resources",
   "Activity",
-  "Import and export",
   "Internationalisation",
   "Theme and colour",
   "Adapters",
@@ -142,22 +143,6 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Presents one host-provided message with read and archive callbacks.",
     keywords: "inbox contact support detail unread archive message",
     renderable: true,
-  },
-  AdminTrashPage: {
-    category: "Resources",
-    summary: "Lists host-provided removed records with restore and confirmed permanent-purge actions.",
-    keywords: "trash deleted recycle bin restore purge bulk selection",
-    renderable: true,
-  },
-  defaultAdminTrashMessages: {
-    category: "Internationalisation",
-    summary: "The English wording the trash page uses for actions and empty states.",
-    keywords: "labels copy trash wording deleted restore purge",
-  },
-  turkishAdminTrashMessages: {
-    category: "Internationalisation",
-    summary: "The Turkish wording the trash page uses for actions and empty states.",
-    keywords: "labels copy trash turkish restore purge",
   },
   AdminCombobox: {
     category: "Forms and fields",
@@ -815,40 +800,6 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "Removes the events older than the window the host named, and says what it left. There is no default, because this package does not decide how long a table of visits is kept.",
     keywords: "retain prune retention delete window days privacy",
   },
-  adminAnalyticsReport: {
-    category: "Analytics",
-    summary:
-      "A range of analytics as a report a person opens in a spreadsheet: the period, the policy behind it, the figures per day, the paths, the sources, and the totals they add up to.",
-    keywords: "report export csv download spreadsheet figures totals period",
-  },
-  adminAnalyticsReportResponse: {
-    category: "Analytics",
-    summary: "The same report as a download response, for a route handler to return as it is.",
-    keywords: "report response download attachment route csv",
-  },
-  adminAnalyticsReportFigures: {
-    category: "Analytics",
-    summary:
-      "A report file read back as the figures it states, with the totals handed back apart from the rows so a host can check the two against each other.",
-    keywords: "read back parse import figures totals verify reconcile",
-  },
-  ADMIN_ANALYTICS_REPORT_MAX_ROWS: {
-    category: "Analytics",
-    summary:
-      "How many rows one report writes, above which it is refused rather than served with a file of the first figures of a range.",
-    keywords: "cap limit rows report range refuse bound",
-  },
-  ADMIN_ANALYTICS_REPORT_SECTIONS: {
-    category: "Analytics",
-    summary: "The four tables a report can hold, in the order the file writes them.",
-    keywords: "sections tables series paths sources visitors",
-  },
-  ADMIN_ANALYTICS_REPORT_DEFAULT_SECTIONS: {
-    category: "Analytics",
-    summary:
-      "The three a report holds unless a host names others, which is every one of them but the one that can carry a visitor key.",
-    keywords: "default sections tables series paths sources",
-  },
 
   AdminBanner: {
     category: "Overlays and feedback",
@@ -1476,112 +1427,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "An error a server action throws to refuse a request, with the decision attached. There is nothing to draw here: catch it, or turn it into a forbidden response.",
   },
 
-  CREDENTIAL_USERS_SCHEMA: {
-    category: "Credentials and sessions",
-    summary:
-      "The users table as SQL to run once, with the address constraint in the database rather than only in the adapter, and the role column unconstrained because the vocabulary is the host's.",
-    keywords: "users table sql schema create password disabled role",
-  },
-  CREDENTIAL_SESSIONS_SCHEMA: {
-    category: "Credentials and sessions",
-    summary:
-      "The sessions table as SQL, with expiry as a column so a session can be ended early rather than only left to lapse.",
-    keywords: "sessions table sql schema expiry create",
-  },
-  hashPassword: {
-    category: "Credentials and sessions",
-    summary:
-      "Derives a password into scrypt$salt$key, with the parameters travelling inside the value so they can be raised later without a migration.",
-    keywords: "hash scrypt salt password derive",
-  },
-  verifyPassword: {
-    category: "Credentials and sessions",
-    summary:
-      "Compares a password against a stored hash in constant time, and refuses a value this package did not write.",
-    keywords: "verify compare scrypt timing safe check",
-  },
-  normalizeEmail: {
-    category: "Credentials and sessions",
-    summary:
-      "The form an address is stored and looked up in, so a pasted or capitalised address still finds the row it belongs to.",
-    keywords: "email normalize trim lower case lookup",
-  },
   generateSessionSecret: {
     category: "Credentials and sessions",
     summary:
       "Mints the signing secret a session adapter needs, for a host to run once at install and keep in its environment.",
     keywords: "secret generate random sign hmac",
-  },
-  authenticate: {
-    category: "Credentials and sessions",
-    summary:
-      "Decides who the credentials belong to, or refuses without saying which half was wrong, so a public login form is not an enumeration oracle.",
-    keywords: "authenticate login signin credentials decoy",
-  },
-  createPersistenceCredentialStore: {
-    category: "Credentials and sessions",
-    summary:
-      "The credential store over a persistence adapter the host already has, with the table and column names as options rather than a schema of ours.",
-    keywords: "store persistence users sessions adapter columns",
-  },
-  createCredentialAuthAdapter: {
-    category: "Credentials and sessions",
-    summary:
-      "The auth adapter over a user store and a session row, so a sign-out ends the row and not just this browser's copy of the cookie.",
-    keywords: "auth adapter session cookie login logout revoke",
-  },
-  createAccountAdmin: {
-    category: "Credentials and sessions",
-    summary:
-      "The operator surface over a credential store: create an account, change a role, turn one off and back on, list accounts and live sessions, and end a session by its id. Every operation asks the host's own policy before the store is reached.",
-    keywords:
-      "accounts users roles invite disable enable revoke sessions operator onboarding manage list",
-  },
-  AccountAlreadyExistsError: {
-    category: "Credentials and sessions",
-    summary:
-      "What a credential store throws when an address already has an account, so the refusal is recognisable rather than something to match on the text of an error.",
-    keywords: "duplicate exists conflict unique error refuse address",
-    hostNote:
-      "An error a credential store raises to refuse a duplicate account. There is nothing to draw here: throw it from your own store's createUser, or rethrow the database's own refusal as it.",
-  },
-  createLoginThrottle: {
-    category: "Credentials and sessions",
-    summary:
-      "The in-memory bound on failed sign-ins: eight per key per fifteen minutes, kept in one process, with attempts arriving together sharing that eight. A host running more than one writes the same three methods over what the processes share.",
-    keywords: "throttle limit lockout attempts brute force guess rate concurrent burst",
-    hostNote:
-      "Pass it as `throttle`. The refusal arrives before the password is compared and names itself, so a throttled visitor is not left guessing why. What it is not: a distributed limiter. Its counts live in one process and are lost on restart, so a scaled host needs its own implementation of `AdminLoginThrottle` over Redis or a table, has to make its `check` take a reservation in the same operation that refuses rather than reading the count and then writing it, and has to retire the reservation its reports name rather than a slot off a shared pile. A `limit` of zero refuses every attempt, and a limit that is not a whole number is refused at construction.",
-  },
-  forwardedClientKey: {
-    category: "Credentials and sessions",
-    summary:
-      "Names the client behind a sign-in attempt: the first address in `x-forwarded-for`, then `x-real-ip`, and the account being signed in to when neither arrived.",
-    keywords: "client key forwarded for ip address headers",
-    hostNote:
-      "The default key function, exported so the `x-forwarded-for` handling is written once. Read what it is not: that header is set by whatever is in front, so a client that can write it can name a new key per attempt. Strip it at the edge and pass your own key built from the address the edge saw.",
-  },
-  loginHeader: {
-    category: "Credentials and sessions",
-    summary:
-      "Reads one header from either shape a request arrives in, so a host on `next/headers` and a host on a plain record can share one key function.",
-    keywords: "header read get request headers lookup",
-  },
-  DEFAULT_THROTTLE_LIMIT: {
-    category: "Credentials and sessions",
-    summary: "Failures a key may make before the next attempt is refused. Eight.",
-    keywords: "limit default failures attempts threshold",
-  },
-  DEFAULT_THROTTLE_WINDOW_MS: {
-    category: "Credentials and sessions",
-    summary: "How long a key stays refused once it reaches the limit. Fifteen minutes.",
-    keywords: "window default window ms duration lapse",
-  },
-  DEFAULT_THROTTLED_MESSAGE: {
-    category: "Credentials and sessions",
-    summary:
-      "What a refusal says, deliberately not the invalid-credentials message, because a visitor who is being throttled cannot fix it by typing a different password.",
-    keywords: "message throttle refusal notice wording",
   },
 
   AdminDashboardLayout: {
@@ -1971,19 +1821,6 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Whether an asset is one this library could remove, which is what a delete control is for.",
     keywords: "deletable delete guard source uploaded",
   },
-  AdminResourceList: {
-    category: "Resources",
-    summary: "The list for a declared resource: filters, a table, and the actions the rule allows.",
-    keywords: "list table resource records",
-    hostNote:
-      "It is given a resource definition, its rows and a permissions adapter by the host, and has no records of its own.",
-  },
-  AdminResourceForm: {
-    category: "Resources",
-    summary: "The create and edit form for a declared resource, driven by its field definitions.",
-    keywords: "form create edit resource",
-    hostNote: "It is given a resource definition and a record by the host, and has no fields of its own.",
-  },
   AdminActivityTimeline: {
     category: "Activity",
     summary: "A trail of audit events with filters for action, actor and date, and expandable details.",
@@ -1995,22 +1832,6 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The whole activity page: a heading and the trail, for a host adding one route.",
     keywords: "activity audit page route log trail",
     renderable: true,
-  },
-  AdminUserManagementPage: {
-    category: "Auth and permissions",
-    summary: "A full account-management page for host-provided role, status, session, and activity operations.",
-    keywords: "users accounts roles sessions disable activity management password reset",
-    renderable: true,
-  },
-  defaultAdminUserManagementMessages: {
-    category: "Internationalisation",
-    summary: "English labels for the reusable account-management page.",
-    keywords: "users accounts roles sessions activity labels",
-  },
-  turkishAdminUserManagementMessages: {
-    category: "Internationalisation",
-    summary: "Turkish labels for the reusable account-management page.",
-    keywords: "users accounts roles sessions activity turkish labels",
   },
   adminActivityTone: {
     category: "Activity",
@@ -2037,293 +1858,38 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The Turkish wording inbox views use for statuses and loading or empty states.",
     keywords: "labels copy inbox turkish messages",
   },
+  isAdminResourceField: {
+    category: "Adapters",
+    summary: "Whether a value is a field name a resource query may filter on.",
+    keywords: "resource query field filter adapter",
+  },
+  useAdminPermissionMap: {
+    category: "Auth and permissions",
+    summary: "Reads the permissions a session holds for a set of requests.",
+    keywords: "permission map auth guard",
+  },
+  useAdminScopeToken: {
+    category: "Adapters",
+    summary: "The request scope token the shell hands to a scoped persistence adapter.",
+    keywords: "scope token adapter request",
+  },
+  useAdminScopedPersistence: {
+    category: "Adapters",
+    summary: "Wraps a persistence adapter so its reads carry the current request scope.",
+    keywords: "scope persistence adapter request",
+  },
   AdminScopeProvider: {
     category: "Resources",
     summary: "Carries a request scope through generated resource queries and shell links.",
     keywords: "scope tenant request links filters resources",
     hostNote: "It needs a request scope and an adapter that maps links and resource filters.",
   },
-  defineAdminResource: {
-    category: "Resources",
-    summary: "Declares a resource: its table, its fields, its filters and the operations it allows.",
-    keywords: "define declare resource table fields",
-  },
-  adminResourceValues: {
-    category: "Resources",
-    summary: "Reads a submitted resource form back into a record, coercing each field's type.",
-    keywords: "formdata values record parse",
-  },
-  adminResourceValuesFromRecord: {
-    category: "Resources",
-    summary: "Copies declared own fields from a structured value while preserving omitted fields.",
-    keywords: "json record values fields whitelist structured partial",
-  },
-  adminResourcePath: {
-    category: "Resources",
-    summary: "The URL path a resource lives at, derived from its name when it declares none.",
-    keywords: "path url route derive",
-  },
-  adminResourceRecordId: {
-    category: "Resources",
-    summary: "The id of a record, whether the host stores it as a string, a number or an object.",
-    keywords: "record id identifier",
-  },
-  absentRequired: {
-    category: "Resources",
-    summary: "The required fields a record is missing, which is what an import should refuse on.",
-    keywords: "required missing validation import",
-  },
-  createAdminResourceActions: {
-    category: "Resources",
-    summary:
-      "The five resource calls a client makes, each refusing through a guard before the store is reached, so a name from the browser is never a capability on its own.",
-    keywords: "actions server guard persistence boundary capability",
-  },
-  createAdminResourceActionPersistenceAdapter: {
-    category: "Resources",
-    summary: "Maps host Server Actions onto the resource persistence contract, preserving optional paging.",
-    keywords: "server actions client bridge persistence queryPage",
-  },
   createReadOnlyPersistenceAdapter: {
     category: "Resources",
     summary: "Adapts a read-only resource source and refuses writes with the operation and resource named.",
     keywords: "read only remote source query read create update delete",
   },
-  AdminResourceNotExposedError: {
-    category: "Resources",
-    summary:
-      "Thrown when a request names a resource this admin does not expose, whatever the session behind it may do.",
-    keywords: "not exposed error resource refuse unknown",
-    hostNote:
-      "An error the resource actions throw before the store is reached. There is nothing to draw here: catch it, or turn it into a not-found response.",
-  },
-  AdminLifecycleError: {
-    category: "Resources",
-    summary:
-      "The base of every refusal the content lifecycle makes, so a host can tell them apart with one check.",
-    keywords: "lifecycle error base refuse resource",
-    hostNote:
-      "An error the lifecycle throws rather than a component. There is nothing to draw here: catch it, or turn it into the response a person should read.",
-  },
-  AdminLifecycleNotDeclaredError: {
-    category: "Resources",
-    summary:
-      "Thrown when a resource was declared to the lifecycle with no trash table or no revision store, which is a wiring fault rather than a decision.",
-    keywords: "lifecycle not declared error wiring trash revisions refuse",
-    hostNote:
-      "An error the lifecycle throws at the point of use. There is nothing to draw here: fix the declaration, since nothing about this session decides it.",
-  },
-  AdminLifecycleStateError: {
-    category: "Resources",
-    summary:
-      "Thrown when an operation names a record that is not in the state it needs, naming which state it was in rather than succeeding quietly.",
-    keywords: "lifecycle state error live trashed missing refuse",
-    hostNote:
-      "An error the lifecycle throws instead of a silent success. There is nothing to draw here: catch it, or show the trash instead of the live row.",
-  },
-  AdminLifecycleChildError: {
-    category: "Resources",
-    summary:
-      "Thrown when rows point at the record a trash would take away, naming them, so a host decides what happens to them.",
-    keywords: "lifecycle child reference refuse cascade trash rows point",
-    hostNote:
-      "An error the lifecycle throws, carrying the rows that point at the record. There is nothing to draw here: catch it, or declare what those rows' fate is.",
-  },
-  AdminLifecycleScopeError: {
-    category: "Resources",
-    summary:
-      "Thrown when a trash scope is asked for another resource's name or for a write, since a trashed row is not a live one.",
-    keywords: "lifecycle scope error trash write refuse resource",
-    hostNote:
-      "An error the trash adapter throws. There is nothing to draw here: it names a wiring mistake at the call site rather than a decision.",
-  },
-  AdminRevisionUnknownError: {
-    category: "Resources",
-    summary:
-      "Thrown when the named revision is not one of this record's revisions, because a revision is read through the record it describes.",
-    keywords: "revision unknown error restore refuse history",
-    hostNote:
-      "An error the lifecycle throws before a restore writes anything. There is nothing to draw here: catch it, or send the person back to the history that does hold it.",
-  },
-  AdminRevisionDriftError: {
-    category: "Resources",
-    summary:
-      "Thrown when a revision holds a field the record no longer has, because a dropped column cannot be brought back and writing it would lose a value quietly.",
-    keywords: "revision drift error dropped column refuse restore schema",
-    hostNote:
-      "An error the lifecycle throws, naming the fields. There is nothing to draw here: catch it, or pass the fields you accept losing in dropFields.",
-  },
-  AdminRevisionMalformedError: {
-    category: "Resources",
-    summary:
-      "Thrown when a revision row cannot be ordered or attributed, which means the store's shape does not match the declaration naming its columns.",
-    keywords: "revision malformed error position cause columns refuse",
-    hostNote:
-      "An error the lifecycle throws while reading a history, naming the column. There is nothing to draw here: fix the declaration, since no operation can make the history readable.",
-  },
-  createAdminLifecycle: {
-    category: "Resources",
-    summary:
-      "Builds revision history, a soft delete with a trash, and a restore from both, over the host's own rows and the persistence adapter the admin already reads through.",
-    keywords: "lifecycle revisions history restore trash soft delete trash recover version undo",
-  },
-  adminRevision: {
-    category: "Resources",
-    summary:
-      "One stored revision row read as a revision, with every part checked rather than assumed, so ordering and attribution can be relied on downstream.",
-    keywords: "revision row read order position cause history",
-  },
-  adminRevisionId: {
-    category: "Resources",
-    summary:
-      "The revision id for a record at a position, derived from both, so two callers racing for one position ask the store for the same id.",
-    keywords: "revision id deterministic position race unique",
-  },
-  revisionIdOf: {
-    category: "Resources",
-    summary:
-      "The revision's id at a position, from the store's own rule when it declares one and derived from the position when it does not.",
-    keywords: "revision id store position derive",
-  },
-  byNewestRevision: {
-    category: "Resources",
-    summary:
-      "Orders revisions newest first by position rather than by time, because two changes in one tick are two changes and only a position says which was first.",
-    keywords: "revision order sort position newest first history",
-  },
-  AdminResourceFieldError: {
-    category: "Resources",
-    summary:
-      "Thrown when a write carries a key its resource definition does not declare, so a privilege column cannot be smuggled through the boundary",
-    keywords: "field column whitelist privilege refuse error resource create update",
-    hostNote:
-      "A definition's `columns` are the shape a write is held to, because they are the stored shape. Name an extra column in the definition's `writable` and it is accepted; every other key is refused by name. A resource with no definition is not checked, since the host told this seam nothing about its shape.",
-  },
-  AdminResourceReferenceError: {
-    category: "Resources",
-    summary:
-      "Thrown when a write carries a value naming a row the store does not hold, so a reference is checked rather than stored as a string.",
-    keywords: "reference foreign key dangling refuse error resource",
-    hostNote:
-      "An error the resource actions throw before the store is reached. There is nothing to draw here: catch it, or turn it into a validation response naming the field.",
-  },
-  adminResourceReference: {
-    category: "Resources",
-    summary: "The reference a field or column of that name declares, or nothing for one that declares none.",
-    keywords: "reference field column foreign key lookup",
-  },
-  adminResourceFilters: {
-    category: "Resources",
-    summary:
-      "The filters a list draws: the declared ones, then one per reference the definition declares no filter for.",
-    keywords: "filters list reference declared",
-  },
-  adminResourceReferenceValue: {
-    category: "Resources",
-    summary: "The id a stored value names, or null for one that names nothing.",
-    keywords: "reference value id null",
-  },
-  ADMIN_RESOURCE_REFERENCE_LIMIT: {
-    category: "Resources",
-    summary:
-      "How many rows one reference offers as choices, so a foreign key into a large table is a window rather than a page that never arrives.",
-    keywords: "limit reference choices window ceiling cap",
-  },
-  adminResourceReferenceChoices: {
-    category: "Resources",
-    summary:
-      "The rows a reference offers, asked of the store through the same call the form and the list both use.",
-    keywords: "reference choices options store query",
-  },
-  adminResourceReferenceLabel: {
-    category: "Resources",
-    summary: "The text a target row is read by, which is the label field a declaration names or the id.",
-    keywords: "reference label display text",
-  },
-  adminResourceReferenceKey: {
-    category: "Resources",
-    summary: "A value's own key in a resolution map, so two resources holding one id stay apart.",
-    keywords: "reference key resolve map",
-  },
-  adminResourceReferenceResolution: {
-    category: "Resources",
-    summary:
-      "The rows the values on a page name, resolved one hop each, so a self-referencing column terminates.",
-    keywords: "reference resolve read hop terminate cycle",
-  },
-  defaultAdminResourceReferenceLabels: {
-    category: "Resources",
-    summary: "The words a reference draws, one object shared by a form and the list that filters it.",
-    keywords: "reference labels i18n copy translate",
-  },
 
-  adminResourceExport: {
-    category: "Import and export",
-    summary:
-      "The list a query names, as a CSV read through the resource actions and handed back one row at a time.",
-    keywords: "export csv download spreadsheet query list file",
-  },
-  adminResourceExportResponse: {
-    category: "Import and export",
-    summary: "The same export as a download response, for a route handler to return as it is.",
-    keywords: "export response download attachment route csv",
-  },
-  ADMIN_RESOURCE_EXPORT_MAX_ROWS: {
-    category: "Import and export",
-    summary:
-      "How many records one export writes, above which it is refused rather than served with a truncated file.",
-    keywords: "limit export rows ceiling cap refuse",
-  },
-  AdminResourceExportError: {
-    category: "Import and export",
-    summary:
-      "Thrown before a byte is written, when the query cannot be read or the store cannot answer it with a count.",
-    keywords: "export error refuse query count store",
-    hostNote:
-      "An error an export throws while it is being set up, before any row is read. There is nothing to draw here: let it reach the route, which turns it into a 400.",
-  },
-  adminCsvCell: {
-    category: "Import and export",
-    summary: "One value as a CSV cell, quoted where it has to be and marked where a spreadsheet would run it.",
-    keywords: "csv cell quote escape formula inject",
-  },
-  adminCsvText: {
-    category: "Import and export",
-    summary: "The value a cell carries, with the mark an export put on it taken off again.",
-    keywords: "csv cell read unmark parse text",
-  },
-  adminResourceImport: {
-    category: "Import and export",
-    summary: "A file read into the store a row at a time, reporting what happened to each row as it goes.",
-    keywords: "import csv upload rows create seed",
-  },
-  adminResourceImportResult: {
-    category: "Import and export",
-    summary: "The same import read to the end, and the counts a response about it needs.",
-    keywords: "import result counts failures report",
-  },
-  ADMIN_RESOURCE_IMPORT_MAX_FAILURES: {
-    category: "Import and export",
-    summary: "How many failures one run's report holds, with the count of the ones it left out.",
-    keywords: "limit import failures cap report",
-  },
-  AdminResourceImportError: {
-    category: "Import and export",
-    summary: "Thrown when a file's header cannot be read, before a single row of it is written.",
-    keywords: "import error header refuse columns csv",
-    hostNote:
-      "An error an import throws before it writes anything. There is nothing to draw here: let it reach the route, which turns it into a 400 naming the line.",
-  },
-  adminCsvRecords: {
-    category: "Import and export",
-    summary: "A file read as records, one at a time, whether it arrives whole or a character at a time.",
-    keywords: "csv parse records reader stream chunks",
-  },
-  adminCsvCellValue: {
-    category: "Import and export",
-    summary: "The value a cell of a file being read carries, which is its text with any mark removed.",
-    keywords: "csv cell value read mark unmark",
-  },
 
   AdminI18nProvider: {
     category: "Internationalisation",
@@ -2579,37 +2145,6 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Adapters",
     summary: "Composes resource searches with resource- and record-level permission checks.",
     keywords: "search adapter records permission authorized resource",
-  },
-  createMemoryPersistenceAdapter: {
-    category: "Adapters",
-    summary: "A persistence adapter that keeps everything in memory, for a test or a demo.",
-    keywords: "persistence memory adapter baseline",
-  },
-  createSqlitePersistenceAdapter: {
-    category: "Adapters",
-    summary: "A persistence adapter over SQLite, which is what the demo's own store runs on.",
-    keywords: "persistence sqlite libsql adapter baseline",
-  },
-  createPostgresPersistenceAdapter: {
-    category: "Adapters",
-    summary:
-      "A persistence adapter over PostgreSQL, taking a connection the host already has rather than a driver this package chose.",
-    keywords: "persistence postgres postgresql pg adapter baseline",
-  },
-  postgresSchema: {
-    category: "Adapters",
-    summary: "The statements that create the table the PostgreSQL adapter stores in, for a host to run in its own migrations.",
-    keywords: "postgres schema migration table ddl baseline",
-  },
-  postgresTenancyMigration: {
-    category: "Adapters",
-    summary: "The statements that turn a single-tenant table into one holding a tenant per row.",
-    keywords: "postgres tenancy tenant migration baseline",
-  },
-  postgresIndexStatement: {
-    category: "Adapters",
-    summary: "An expression index for one field, which is what turns a filter on it from a scan into a lookup.",
-    keywords: "postgres index performance field filter baseline",
   },
   runWithAdminTenant: {
     category: "Tenancy",

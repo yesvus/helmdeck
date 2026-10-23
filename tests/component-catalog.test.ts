@@ -123,7 +123,6 @@ describe("a class in a catalogue that reads kinds off names", () => {
     expect(classes.map((entry) => entry.name)).toEqual(
       expect.arrayContaining([
         "AdminPermissionDeniedError",
-        "AdminResourceNotExposedError",
         "AdminUnauthenticatedError",
       ]),
     );

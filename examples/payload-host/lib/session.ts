@@ -19,13 +19,9 @@
  * copy somebody else kept.
  */
 
-import { createLoginThrottle, createSessionAuthAdapter } from "@yesvus/helmdeck/baseline";
-import type {
-  AdminAuthAdapter,
-  AdminLoginCredentials,
-  AdminPayloadUser,
-  AdminSession,
-} from "@yesvus/helmdeck";
+import { createSessionAuthAdapter } from "@yesvus/helmdeck/baseline";
+import { createLoginThrottle } from "./engine/baseline/throttle";
+import type { AdminAuthAdapter, AdminLoginCredentials, AdminPayloadUser, AdminSession } from "@yesvus/helmdeck";
 import { AuthenticationError, getPayload } from "payload";
 import { SESSION_COOKIE } from "./sign-in";
 

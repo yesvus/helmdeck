@@ -93,7 +93,6 @@ different location, update the `@source` path to the package's `dist` directory.
 | `app/actions/` | The three `"use server"` files that carry the seams across to the browser. |
 | `components/` | The client halves: the frame, the adapter the generated views read through, the form. |
 | `proxy.ts` | Where the redirect for a visitor with no session is built, because only it knows the path. |
-| `scripts/create-user.mjs` | How an account is made. Run it by hand; it is not a route. |
 
 ## The one rule
 
@@ -126,11 +125,7 @@ control that renders and then fails.
 The template stops where your project's decisions start. Each item below is absent on purpose, and
 each is one you have to make rather than one you have to find later.
 
-1. **A way to create an account.** The only thing that writes a `users` row is
-   `scripts/create-user.mjs`, which a person runs from a terminal. That is enough to sign in and
-   nothing else: no registration route, because an unauthenticated write path is something you would
-   have to remember to close, and an account-invite flow is your product's, not this template's.
-2. **A way to reset a forgotten password.** Nothing in the package can send mail, and `AdminSession`
+1. **A way to reset a forgotten password.** Nothing in the package can send mail, and `AdminSession`
    carries no timestamp and no recovery token, so an account whose password is forgotten is reset by
    a person with a shell. The sign-in answers an unknown address in the same message and the same time
    as a wrong password, so whatever you write on top of that envelope can stay honest.

@@ -1,5 +1,6 @@
 "use server";
-import { createLoginThrottle, createSessionAuthAdapter } from "@yesvus/helmdeck/baseline";
+import { createSessionAuthAdapter } from "@yesvus/helmdeck/baseline";
+import { createLoginThrottle } from "../lib/engine/baseline/throttle";
 import type { AdminLoginCredentials, AdminLoginResult, AdminSession } from "@yesvus/helmdeck";
 import { HOST_SESSION_COOKIE } from "./session-cookie";
 import { createSession as storeSession, getSessionExpiry, revokeSession } from "./session-store";

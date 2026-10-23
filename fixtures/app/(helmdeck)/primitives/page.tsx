@@ -2,41 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { AlertCircle, CheckCircle2, Info, Trash2 } from "lucide-react";
-import {
-  AdminContentSkeleton,
-  AdminDestructiveAction,
-  AdminDragHandle,
-  AdminEmptyState,
-  AdminField,
-  AdminFieldGrid,
-  AdminFormActions,
-  AdminFormSection,
-  AdminInput,
-  AdminModal,
-  AdminModalBody,
-  AdminModalClose,
-  AdminModalContent,
-  AdminModalDescription,
-  AdminModalFooter,
-  AdminModalHeader,
-  AdminModalTitle,
-  AdminModalTrigger,
-  AdminPagination,
-  AdminSelect,
-  AdminSkeleton,
-  AdminSortableCard,
-  AdminSortableDndContext,
-  AdminSortableToast,
-  AdminStatusPill,
-  AdminSubmitButton,
-  AdminTable,
-  AdminToastCard,
-  AdminToastViewport,
-  Button,
-  useAdminSortableList,
-  type AdminStatusTone,
-  type AdminToastTone,
-} from "@yesvus/helmdeck";
+import { AdminContentSkeleton, AdminDestructiveAction, AdminDragHandle, AdminEmptyState, AdminField, AdminFieldGrid, AdminFormActions, AdminFormSection, AdminInput, AdminModal, AdminModalBody, AdminModalClose, AdminModalContent, AdminModalDescription, AdminModalFooter, AdminModalHeader, AdminModalTitle, AdminModalTrigger, AdminPagination, AdminSelect, AdminSkeleton, AdminSortableCard, AdminSortableDndContext, AdminSortableToast, AdminStatusPill, AdminSubmitButton, AdminTable, AdminToastCard, AdminToastViewport, Button, useAdminSortableList, type AdminStatusTone, type AdminToastTone } from "@yesvus/helmdeck";
 import { Frame } from "../../../components/frame";
 import { useDemoLocale } from "../../../components/demo-i18n-provider";
 

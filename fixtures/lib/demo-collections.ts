@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use server";
 
-import {
-  adminWidgetSizes,
-  type AdminPermission,
-  type AdminSession,
-  type AdminWidgetSize,
-} from "@yesvus/helmdeck";
+import { adminWidgetSizes, type AdminPermission, type AdminSession, type AdminWidgetSize } from "@yesvus/helmdeck";
 import { demoCan } from "./demo-rules";
 import { requireDemoSession } from "./demo-guard";
 import { demoPersistence } from "./demo-persistence";

@@ -42,7 +42,7 @@ export type {
 // hand is where the guessing this contract exists to close comes back: a hand-built object typed as
 // `AdminResourceQuery` compiles whether or not its operator is real. `parseAdminResourceQuery` is the
 // answer to "is this the query I think it is", and `adminResourceQuery` builds one that is.
-export { ADMIN_RESOURCE_MAX_LIMIT, adminResourceQuery, parseAdminResourceQuery } from "./query.js";
+export { ADMIN_RESOURCE_MAX_LIMIT, adminResourceQuery, parseAdminResourceQuery, isAdminResourceField } from "./query.js";
 export type { AdminResourceQueryBuilder } from "./query.js";
 export type {
   AdminResourceFilter,

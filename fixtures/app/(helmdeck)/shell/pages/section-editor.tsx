@@ -2,18 +2,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  AdminCollectionEditor,
-  AdminDashboardLayout,
-  AdminField,
-  AdminMediaField,
-  AdminInput,
-  AdminSelect,
-  adminWidgetSizes,
-  useAdminContentLocale,
-  useAdminInterfaceLocale,
-  type AdminWidgetSize,
-} from "@yesvus/helmdeck";
+import { AdminCollectionEditor, AdminDashboardLayout, AdminField, AdminMediaField, AdminInput, AdminSelect, adminWidgetSizes, useAdminContentLocale, useAdminInterfaceLocale, type AdminWidgetSize } from "@yesvus/helmdeck";
 import {
   landingSectionCopy,
   landingSectionName,

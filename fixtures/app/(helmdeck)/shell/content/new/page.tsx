@@ -3,7 +3,7 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { AdminResourceForm } from "@yesvus/helmdeck";
+import { AdminResourceForm } from "../../../../../lib/engine/resources/views";
 import { contentPosts } from "../content-registry";
 import { contentPersistence } from "../content-persistence";
 

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createCredentialAuthAdapter } from "@yesvus/helmdeck/baseline";
+import { createCredentialAuthAdapter } from "./engine/baseline/credentials";
 import { createAdminSessionGuard } from "@yesvus/helmdeck";
 import type { AdminSession } from "@yesvus/helmdeck";
 import { credentialStore } from "./persistence";

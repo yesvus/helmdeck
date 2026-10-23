@@ -33,7 +33,7 @@
  * prevent, and this is built to sit beside it rather than to undo it.
  */
 
-import type { AdminLoginCredentials } from "../adapters/index.js";
+import type { AdminLoginCredentials } from "@yesvus/helmdeck";
 
 /** Failures a key may make before the next attempt is refused. */
 export const DEFAULT_THROTTLE_LIMIT = 8;

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from "vitest";
 import { adminAggregate, adminAggregateTotals, adminWholeNumber } from "../src/aggregate";
-import { createMemoryPersistenceAdapter } from "../src/baseline/memory";
-import { createSqlitePersistenceAdapter } from "../src/baseline/sqlite";
+import { createMemoryPersistenceAdapter } from "../fixtures/lib/engine/baseline/memory";
+import { createSqlitePersistenceAdapter } from "../fixtures/lib/engine/baseline/sqlite";
 import { adminChartDayKey, adminChartDayRange } from "../src/charts";
 import type { AdminPersistenceAdapter } from "../src/adapters";
 

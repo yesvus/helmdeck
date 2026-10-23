@@ -2,11 +2,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import {
-  AdminI18nProvider,
-  useAdminContentLocale,
-  type AdminLocaleAdapter,
-} from "@yesvus/helmdeck";
+import { AdminI18nProvider, useAdminContentLocale, type AdminLocaleAdapter } from "@yesvus/helmdeck";
 
 const INTERFACE_LOCALE = "tr";
 const CONTENT_LOCALES = ["tr", "en"] as const;

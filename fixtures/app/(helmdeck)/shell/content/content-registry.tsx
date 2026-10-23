@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
-import {
-  AdminSelect,
-  AdminStatusPill,
-  defineAdminResource,
-  type AdminResourceFormatter,
-  type AdminStatusTone,
-} from "@yesvus/helmdeck";
+import { AdminSelect, AdminStatusPill, type AdminStatusTone } from "@yesvus/helmdeck";
+import type { AdminResourceFormatter } from "../../../../lib/engine/resources/registry";
+import { defineAdminResource } from "../../../../lib/engine/resources/registry";
 import { CONTENT_RESOURCE, CONTENT_STATUSES, isContentStatus } from "./content-status";
 
 /**

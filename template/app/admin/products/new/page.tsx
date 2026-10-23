@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { AdminResourceForm } from "@yesvus/helmdeck";
+import { AdminResourceForm } from "../../../../lib/engine/resources/views";
 import { clientPersistence } from "@/components/client-persistence";
 import { productsResource } from "@/lib/resources";
 

@@ -32,14 +32,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import {
-  AdminDashboardLayout,
-  adminDashboardValidate,
-  useAdminWidgetData,
-  type AdminDashboard,
-  type AdminDashboardPlacement,
-  type AdminWidgetState,
-} from "@yesvus/helmdeck";
+import { AdminDashboardLayout, adminDashboardValidate, useAdminWidgetData, type AdminDashboard, type AdminDashboardPlacement, type AdminWidgetState } from "@yesvus/helmdeck";
 import {
   loadContentActivityAction,
   loadDailyRevenueAction,

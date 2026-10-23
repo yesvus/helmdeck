@@ -21,16 +21,7 @@
 
 "use client";
 
-import {
-  adminActivityWidget,
-  adminChartWidget,
-  adminListWidget,
-  adminRankWidget,
-  adminStatWidget,
-  adminTableWidget,
-  createAdminWidgetRegistry,
-  type AdminWidgetDefinition,
-} from "@yesvus/helmdeck";
+import { adminActivityWidget, adminChartWidget, adminListWidget, adminRankWidget, adminStatWidget, adminTableWidget, createAdminWidgetRegistry, type AdminWidgetDefinition } from "@yesvus/helmdeck";
 import type {
   ActivityEvent,
   DailyRevenue,

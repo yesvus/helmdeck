@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { createAdminResourceActionPersistenceAdapter } from "@yesvus/helmdeck";
+import { createAdminResourceActionPersistenceAdapter } from "./engine/resources/persistence";
 import {
   createResourceAction,
   deleteResourceAction,

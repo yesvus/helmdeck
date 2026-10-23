@@ -18,11 +18,7 @@
  * read; the orders table takes a row of its own because a money column is compared, not scanned.
  */
 
-import {
-  adminDashboardAddPlacement,
-  adminDashboardSetSize,
-  type AdminDashboard,
-} from "@yesvus/helmdeck";
+import { adminDashboardAddPlacement, adminDashboardSetSize, type AdminDashboard } from "@yesvus/helmdeck";
 import { shippedTileRegistry } from "./registry";
 
 /** The tiles as the grid shows them, and the two that are then widened to the full grid. */

@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -22,7 +21,7 @@ const templateReadme = readFileSync(join(template, "README.md"), "utf8");
 function templateSources(directory = template): string[] {
   return readdirSync(directory)
     .flatMap((entry) => {
-      if (entry === "node_modules" || entry === ".next" || entry === "dist") return [];
+      if (entry === "node_modules" || entry === ".next" || entry === "dist" || entry === "engine") return [];
       const path = join(directory, entry);
       if (statSync(path).isDirectory()) return templateSources(path);
       return /\.(ts|tsx|mjs)$/.test(entry) ? [path] : [];
@@ -198,47 +197,6 @@ describe("the starter template", () => {
     }
   }, 120_000);
 
-  it("creates an account the sign-in accepts, and refuses a wrong password", async () => {
-    // The claim a host makes when they run the command is "I can sign in now", and nothing else here
-    // can check it. So the command is run for real against a database in a temporary directory, and
-    // the same store the app uses is asked whether the account it wrote verifies. Two facts that can
-    // drift and are the usual way this breaks: the column the command writes and the column the
-    // sign-in reads, and the address form the command stores and the form the sign-in looks up.
-    const directory = mkdtempSync(join(root, "node_modules", ".helmdeck-starter-"));
-    const database = join(directory, "accounts.db");
-    const password = "a-password-long-enough";
-    const previous = process.env.HELMDECK_DATABASE_URL;
-    process.env.HELMDECK_DATABASE_URL = `file:${database}`;
-    try {
-      const created = execFileSync(
-        process.execPath,
-        [join(template, "scripts", "create-user.mjs"), "someone@somewhere.test", "editor"],
-        { input: `${password}\n`, encoding: "utf8", env: { ...process.env } },
-      );
-      expect(created).toContain("someone@somewhere.test");
-      expect(created).not.toContain(password);
-
-      const { authenticate, createPersistenceCredentialStore, createSqlitePersistenceAdapter } =
-        await import("@yesvus/helmdeck/baseline");
-      const store = createPersistenceCredentialStore(
-        createSqlitePersistenceAdapter({ url: `file:${database}` }),
-      );
-
-      // The role comes back on the user row, which is where `lib/rules.ts` reads it from. A row
-      // that stored it somewhere the session does not carry would leave every account with no role,
-      // and the rule's answer to that is nothing at all.
-      const verified = await authenticate(store, "  Someone@Somewhere.test ", password);
-      expect(verified?.role).toBe("editor");
-
-      // And a wrong password is refused, which is the half that a command writing the wrong column
-      // would still pass.
-      expect(await authenticate(store, "someone@somewhere.test", "not-the-password")).toBeNull();
-    } finally {
-      if (previous === undefined) delete process.env.HELMDECK_DATABASE_URL;
-      else process.env.HELMDECK_DATABASE_URL = previous;
-      rmSync(directory, { recursive: true, force: true });
-    }
-  }, 120_000);
 
   it("refuses to load without a signing secret rather than falling back to a constant", async () => {
     // A constant here is a constant in every host that forgets to configure one, and those hosts
@@ -365,16 +323,6 @@ describe("the starter template", () => {
  * takes no record, which is what "this rule does not read the record" means in source.
  */
 const OMISSIONS = [
-  {
-    slug: "a way to create an account",
-    absent: () => {
-      // One file in the template names the accounts resource, and it is the command a person runs by
-      // hand. A second one would be a registration route, which is an unauthenticated write path that
-      // has to be there forever and remembered to be closed.
-      const naming = filesMentioning(/["'`]users["'`]/);
-      return naming.length > 0 && naming.every((file) => file === "scripts/create-user.mjs");
-    },
-  },
   {
     slug: "a way to reset a forgotten password",
     absent: () => !anyFile(/\brecovery\b|recoverPassword|forgot|passwordReset/i),

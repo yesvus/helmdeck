@@ -1,4 +1,5 @@
-import { createPersistenceCredentialStore, createSqlitePersistenceAdapter } from "@yesvus/helmdeck/baseline";
+import { createSqlitePersistenceAdapter } from "./engine/baseline/sqlite";
+import { createPersistenceCredentialStore } from "./engine/baseline/credentials";
 import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
 import { databaseUrl } from "./database-url.mjs";
 

@@ -1,14 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  AdminPermissionsProvider,
-  AdminShell,
-  useAdminPermittedNav,
-  type AdminNavGroup,
-  type AdminPermissionsAdapter,
-  type AdminSession,
-} from "@yesvus/helmdeck";
+import { AdminPermissionsProvider, AdminShell, useAdminPermittedNav, type AdminNavGroup, type AdminPermissionsAdapter, type AdminSession } from "@yesvus/helmdeck";
 import { checkPermissionAction } from "@/app/actions/permission-actions";
 import { APP_NAME } from "@/lib/brand";
 

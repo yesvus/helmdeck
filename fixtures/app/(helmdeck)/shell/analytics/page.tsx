@@ -17,16 +17,7 @@
  */
 
 import { useState } from "react";
-import {
-  AdminChartFrame,
-  AdminRankChart,
-  AdminTimeSeriesChart,
-  AdminStatCard,
-  adminChartFormatters,
-  adminFormatCents,
-  type AdminChartFrameLabels,
-  type AdminWidgetState,
-} from "@yesvus/helmdeck";
+import { AdminChartFrame, AdminRankChart, AdminTimeSeriesChart, AdminStatCard, adminChartFormatters, adminFormatCents, type AdminChartFrameLabels, type AdminWidgetState } from "@yesvus/helmdeck";
 import { BarChart3, Boxes, Receipt, Wallet, type LucideIcon } from "lucide-react";
 import { useAnalyticsTotals, useDailyRevenue, useStockByProduct } from "./hooks";
 

@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
 "use server";
 
-import {
-  createAdminResourceActions,
-  type AdminPersistenceAdapter,
-  type AdminResourcePage,
-  type AdminResourceQuery,
-} from "@yesvus/helmdeck";
+import type { AdminPersistenceAdapter, AdminResourcePage, AdminResourceQuery } from "@yesvus/helmdeck";
+import { createAdminResourceActions } from "./engine/resources/actions";
 import { adminResources } from "./admin-resources";
 import { exposedResource } from "./demo-rules";
 import { demoPersistence } from "./demo-persistence";
