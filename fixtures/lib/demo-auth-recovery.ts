@@ -184,6 +184,21 @@ export function createDemoRecovery(options: DemoRecoveryOptions = {}): DemoRecov
     }
   }
 
+  let lock: Promise<void> = Promise.resolve();
+  async function withLock<T>(work: () => Promise<T>): Promise<T> {
+    const previous = lock;
+    let release!: () => void;
+    lock = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await work();
+    } finally {
+      release();
+    }
+  }
+
   return {
     configured: transport !== undefined,
 
@@ -236,17 +251,23 @@ export function createDemoRecovery(options: DemoRecoveryOptions = {}): DemoRecov
      * away from every other visitor.
      */
     async redeem(token) {
-      const presented = token.trim();
-      const match = presented ? await find(presented) : null;
-      if (!match) return { ok: false, status: "spent", message: RECOVERY_SPENT_TOKEN };
+      return withLock(async () => {
+        const presented = token.trim();
+        const match = presented ? await find(presented) : null;
+        if (!match) return { ok: false, status: "spent", message: RECOVERY_SPENT_TOKEN };
 
-      records.delete(match.id);
-      forget(match.record.accountId);
-      const account = demoAccounts.find((candidate) => candidate.id === match.record.accountId);
+        // Consume the matched record atomically: `delete` reports whether the record was still there,
+        // so a concurrent redemption that already spent it resolves to "spent" rather than succeeding.
+        if (!records.delete(match.id)) {
+          return { ok: false, status: "spent", message: RECOVERY_SPENT_TOKEN };
+        }
+        forget(match.record.accountId);
+        const account = demoAccounts.find((candidate) => candidate.id === match.record.accountId);
 
-      // A record whose account is no longer there resolves nothing rather than a stranger's account.
-      if (!account) return { ok: false, status: "spent", message: RECOVERY_SPENT_TOKEN };
-      return { ok: true, status: "redeemed", accountId: account.id, email: account.email };
+        // A record whose account is no longer there resolves nothing rather than a stranger's account.
+        if (!account) return { ok: false, status: "spent", message: RECOVERY_SPENT_TOKEN };
+        return { ok: true, status: "redeemed", accountId: account.id, email: account.email };
+      });
     },
   };
 }

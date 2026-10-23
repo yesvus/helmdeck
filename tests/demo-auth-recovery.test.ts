@@ -108,6 +108,19 @@ describe("a recovery the host has configured", () => {
     expect(result).toEqual({ ok: true, status: "redeemed", accountId: owner.id, email: owner.email });
   });
 
+  it("redeems a token at most once, even when two calls race", async () => {
+    const host = hostTransport();
+    const recovery = createDemoRecovery({ transport: host.transport });
+
+    await recovery.request(owner.email);
+    const token = host.sent[0].token;
+
+    const [first, second] = await Promise.all([recovery.redeem(token), recovery.redeem(token)]);
+
+    const successes = [first, second].filter((result) => result.ok).length;
+    expect(successes).toBe(1);
+  });
+
   it("gives an editor's token the editor and nothing else", async () => {
     const host = hostTransport();
     const recovery = createDemoRecovery({ transport: host.transport });
