@@ -70,6 +70,8 @@ jobs:
         run: pnpm verify:layout -- --port 4319
       - name: Modal geometry
         run: pnpm test:modal-geometry
+      - name: Authenticated journey
+        run: pnpm test:journey
       - name: Stop the fixture
         if: always()
         run: pkill -f "next start fixtures" || true
