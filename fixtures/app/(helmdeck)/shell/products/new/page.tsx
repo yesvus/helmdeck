@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { AdminResourceForm } from "@yesvus/helmdeck";
+import { AdminResourceForm } from "../../../../../lib/engine/resources/views";
 import { productsResource } from "../../../../../lib/admin-resources";
 import { clientPersistence } from "../../../../../lib/client-persistence";
 

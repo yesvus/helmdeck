@@ -1,4 +1,4 @@
-import { defineAdminResource } from "@yesvus/helmdeck";
+import { defineAdminResource } from "./engine/resources/registry";
 
 /**
  * The resources this admin exposes, described once for the list and the form.

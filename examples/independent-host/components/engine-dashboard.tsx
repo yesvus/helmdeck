@@ -1,11 +1,4 @@
-import {
-  AdminDashboardLayout,
-  adminStatWidget,
-  adminWidgetSizes,
-  createAdminWidgetRegistry,
-  type AdminDashboardPlacement,
-  type AdminWidgetState,
-} from "@yesvus/helmdeck";
+import { AdminDashboardLayout, adminStatWidget, adminWidgetSizes, createAdminWidgetRegistry, type AdminDashboardPlacement, type AdminWidgetState } from "@yesvus/helmdeck";
 
 const projectCount = adminStatWidget({
   id: "project-count",

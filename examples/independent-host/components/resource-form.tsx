@@ -1,6 +1,7 @@
 "use client";
 
-import { AdminResourceForm, type AdminResourceDefinition } from "@yesvus/helmdeck";
+import type { AdminResourceDefinition } from "../lib/engine/resources/registry";
+import { AdminResourceForm } from "../lib/engine/resources/views";
 import { ExampleResourceListPersistence } from "@/components/resource-list";
 
 export function ExampleResourceForm({

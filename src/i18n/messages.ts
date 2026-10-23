@@ -23,10 +23,6 @@ import {
 } from "../widgets/labels.js";
 import { defaultDashboardMessages, type AdminDashboardMessages } from "../dashboard/messages.js";
 import {
-  defaultAdminResourceListQueryLabels,
-  type AdminResourceListQueryLabels,
-} from "../resources/list-labels.js";
-import {
   defaultAdminActivityMessages,
   turkishAdminActivityMessages,
   type AdminActivityMessages,
@@ -37,20 +33,10 @@ import {
   type AdminInboxMessages,
 } from "../inbox/messages.js";
 import {
-  defaultAdminTrashMessages,
-  turkishAdminTrashMessages,
-  type AdminTrashMessages,
-} from "../trash/messages.js";
-import {
   defaultAdminAnalyticsChartMessages,
   turkishAdminAnalyticsChartMessages,
   type AdminAnalyticsChartMessages,
 } from "../charts/analytics-messages.js";
-import {
-  defaultAdminUserManagementMessages,
-  turkishAdminUserManagementMessages,
-  type AdminUserManagementMessages,
-} from "../users/messages.js";
 
 export type AdminDestructiveActionLabels = {
   title: string;
@@ -63,57 +49,6 @@ export type AdminDestructiveActionLabels = {
 export type AdminStatusLabels = {
   published: string;
   draft: string;
-};
-
-export type AdminResourceHistoryMessages = {
-  title: string;
-  description: string;
-  unavailable: string;
-  loadFailed: string;
-  empty: string;
-  emptyBody: string;
-  unknownActor: string;
-  noChanges: string;
-  from: string;
-  to: string;
-  emptyValue: string;
-  restore: string;
-  restoring: string;
-  restoreFailed: string;
-};
-
-const defaultAdminResourceHistoryMessages: AdminResourceHistoryMessages = {
-  title: "History",
-  description: "Previous versions, newest first.",
-  unavailable: "History is not available for this record.",
-  loadFailed: "The record history could not be loaded.",
-  empty: "No history yet",
-  emptyBody: "Changes will appear here after a revision is recorded.",
-  unknownActor: "Unknown actor",
-  noChanges: "No fields changed in this revision.",
-  from: "From",
-  to: "to",
-  emptyValue: "(empty)",
-  restore: "Restore this version",
-  restoring: "Restoring…",
-  restoreFailed: "This version could not be restored.",
-};
-
-const turkishAdminResourceHistoryMessages: AdminResourceHistoryMessages = {
-  title: "Geçmiş",
-  description: "En yeniden eskiye önceki sürümler.",
-  unavailable: "Bu kayıt için geçmiş kullanılamıyor.",
-  loadFailed: "Kayıt geçmişi yüklenemedi.",
-  empty: "Henüz geçmiş yok",
-  emptyBody: "Bir revizyon kaydedildikten sonra değişiklikler burada görünür.",
-  unknownActor: "Bilinmeyen kullanıcı",
-  noChanges: "Bu revizyonda alan değişmedi.",
-  from: "Önce",
-  to: "sonra",
-  emptyValue: "(boş)",
-  restore: "Bu sürümü geri yükleyin",
-  restoring: "Geri yükleniyor…",
-  restoreFailed: "Bu sürüm geri yüklenemedi.",
 };
 
 export type AdminCommonLabels = {
@@ -160,14 +95,10 @@ export type AdminMessages = {
   /** The words the shipped tiles print themselves, which a tile cannot read from a context. */
   shippedWidget: AdminShippedWidgetLabels;
   dashboard: AdminDashboardMessages;
-  resourceList: AdminResourceListQueryLabels;
-  resourceHistory?: AdminResourceHistoryMessages;
   /** The words the activity trail prints itself, which a trail cannot read from a context. */
   activity?: AdminActivityMessages;
   inbox?: AdminInboxMessages;
-  trash?: AdminTrashMessages;
   analyticsCharts?: AdminAnalyticsChartMessages;
-  users?: AdminUserManagementMessages;
   destructive: AdminDestructiveActionLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
@@ -201,13 +132,9 @@ export const englishAdminMessages: AdminMessages = {
   widget: defaultWidgetMessages,
   shippedWidget: defaultAdminShippedWidgetLabels,
   dashboard: defaultDashboardMessages,
-  resourceList: defaultAdminResourceListQueryLabels,
-  resourceHistory: defaultAdminResourceHistoryMessages,
   activity: defaultAdminActivityMessages,
   inbox: defaultAdminInboxMessages,
-  trash: defaultAdminTrashMessages,
   analyticsCharts: defaultAdminAnalyticsChartMessages,
-  users: defaultAdminUserManagementMessages,
   destructive: {
     title: "Delete this item?",
     description: "This action cannot be undone.",
@@ -411,22 +338,9 @@ export const turkishAdminMessages: AdminMessages = {
     empty: "Bu panoda henüz bileşen yok.",
     missingWidget: (widget) => `Bu pano, bu sürümde bulunmayan "${widget}" bileşenine başvuruyor.`,
   },
-  resourceList: {
-    search: "Ara",
-    searchPlaceholder: "Bu listede ara",
-    all: "Tümü",
-    ascending: "artan",
-    descending: "azalan",
-    resultCount: (from, to, total) => `${total} kayıttan ${from}-${to} arası gösteriliyor`,
-    noMatches: "Aradığınızla eşleşen kayıt yok.",
-    noMatchesBody: "Farklı bir terim ya da temizlenmiş bir filtre bulabilir.",
-  },
-  resourceHistory: turkishAdminResourceHistoryMessages,
   activity: turkishAdminActivityMessages,
   inbox: turkishAdminInboxMessages,
-  trash: turkishAdminTrashMessages,
   analyticsCharts: turkishAdminAnalyticsChartMessages,
-  users: turkishAdminUserManagementMessages,
   widget: {
     emptyTitle: "Gösterilecek veri yok",
     emptyBody: "Bu bileşen için henüz veri yok.",

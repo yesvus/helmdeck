@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from "vitest";
-import { createMemoryPersistenceAdapter } from "../src/baseline/memory";
+import { createMemoryPersistenceAdapter } from "../fixtures/lib/engine/baseline/memory";
 import {
   createContactSubmissionThrottle,
   parseContactSubmission,

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  sortAdminMediaItems,
-  type AdminMediaAdapter,
-  type AdminMediaExternalInput,
-  type AdminMediaItem,
-  type AdminMediaListQuery,
-} from "@yesvus/helmdeck";
+import { sortAdminMediaItems, type AdminMediaAdapter, type AdminMediaExternalInput, type AdminMediaItem, type AdminMediaListQuery } from "@yesvus/helmdeck";
 
 let demoItems: AdminMediaItem[] = [
   {

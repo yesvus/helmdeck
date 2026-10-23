@@ -1,4 +1,4 @@
-import { defineAdminResource } from "@yesvus/helmdeck";
+import { defineAdminResource } from "../lib/engine/resources/registry";
 
 export const projectsResource = defineAdminResource({
   resource: "projects",

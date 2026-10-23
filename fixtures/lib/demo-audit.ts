@@ -1,10 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type {
-  AdminAuditAdapter,
-  AdminAuditEvent,
-  AdminCacheInvalidationAdapter,
-  AdminPersistenceAdapter,
-} from "@yesvus/helmdeck";
+import type { AdminAuditAdapter, AdminAuditEvent, AdminCacheInvalidationAdapter, AdminPersistenceAdapter } from "@yesvus/helmdeck";
 import { revalidatePath } from "next/cache";
 import { demoPersistence } from "./demo-persistence";
 import { demoCacheRoutes } from "./demo-cache";

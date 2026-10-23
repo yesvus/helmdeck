@@ -112,7 +112,6 @@ describe("one command writes a project a host can install", () => {
 
       expect(result.files).toContain("lib/rules.ts");
       expect(result.files).toContain("app/admin/products/page.tsx");
-      expect(result.files).toContain("scripts/create-user.mjs");
       expect(result.files).toContain(".gitignore");
 
       // Every file the source holds is in the copy, so a file added to the template and missed here
@@ -265,7 +264,6 @@ describe("the command says where it got to, because a wall of prose is not a mes
       expect(result.stdout).toContain(join(directory, "my-admin"));
       expect(result.stdout).toContain(url);
       // The two commands a host still runs, so the report is the next step rather than a summary.
-      expect(result.stdout).toContain("create-user.mjs");
       expect(result.stdout).toContain("run dev");
     } finally {
       rmSync(directory, { recursive: true, force: true });

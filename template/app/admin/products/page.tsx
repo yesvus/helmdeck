@@ -1,6 +1,6 @@
 "use client";
 
-import { AdminResourceList } from "@yesvus/helmdeck";
+import { AdminResourceList } from "../../../lib/engine/resources/views";
 import { clientPersistence } from "@/components/client-persistence";
 import { productsResource } from "@/lib/resources";
 

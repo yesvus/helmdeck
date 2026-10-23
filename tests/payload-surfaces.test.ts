@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createAdminPayloadContent } from "../src/payload/bridge";
 import { createAdminPayloadPersistenceAdapter } from "../src/payload/store";
-import { createPersistenceCredentialStore } from "../src/baseline/credentials";
+import { createPersistenceCredentialStore } from "../fixtures/lib/engine/baseline/credentials";
 import { adminPayloadMediaKind, createAdminPayloadMediaAdapter } from "../src/payload/media";
 import {
   createAdminPayloadActivityLoader,

@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: MIT
-import {
-  adminDashboardCollection,
-  createAdminWidgetRegistry,
-  defineAdminWidget,
-  type AdminCollectionDefinition,
-  type AdminCollectionEntry,
-  type AdminDashboardPlacementValue,
-} from "@yesvus/helmdeck";
+import { adminDashboardCollection, createAdminWidgetRegistry, defineAdminWidget, type AdminCollectionDefinition, type AdminCollectionEntry, type AdminDashboardPlacementValue } from "@yesvus/helmdeck";
 
 /**
  * The sections a landing page is built from, declared once for the editor, the preview and the store.

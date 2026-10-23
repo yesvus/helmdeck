@@ -1,17 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import {
-  AdminCollectionEditor,
-  AdminField,
-  AdminInput,
-  AdminMediaField,
-  AdminPageHeader,
-  AdminSelect,
-  adminCollectionFormData,
-  useAdminContentLocale,
-  useAdminInterfaceLocale,
-} from "@yesvus/helmdeck";
+import { AdminCollectionEditor, AdminField, AdminInput, AdminMediaField, AdminPageHeader, AdminSelect, adminCollectionFormData, useAdminContentLocale, useAdminInterfaceLocale } from "@yesvus/helmdeck";
 import { saveContentBlocks } from "../host/actions";
 import { blockKinds, createExampleBlock, exampleBlockDefinition, getExampleBlockLocale, type ExampleBlockKind, type ExampleContentBlock, type ExampleContentBlockEntry } from "../host/block-definition";
 import { mediaItems } from "../host/media";

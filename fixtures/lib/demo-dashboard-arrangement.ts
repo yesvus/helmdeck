@@ -17,14 +17,7 @@
  */
 
 import { revalidatePath } from "next/cache";
-import {
-  adminDashboardValidate,
-  type AdminDashboard,
-  type AdminDashboardPlacement,
-  type AdminPermission,
-  type AdminSession,
-  type AdminWidgetSize,
-} from "@yesvus/helmdeck";
+import { adminDashboardValidate, type AdminDashboard, type AdminDashboardPlacement, type AdminPermission, type AdminSession, type AdminWidgetSize } from "@yesvus/helmdeck";
 import { dashboardRegistry } from "../app/(helmdeck)/dashboard/registry";
 import { requireDemoSession } from "./demo-guard";
 import { demoCan } from "./demo-rules";

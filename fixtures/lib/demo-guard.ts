@@ -13,14 +13,7 @@
  */
 
 import { redirect } from "next/navigation";
-import {
-  adminLoginHref,
-  createAdminPermissionCheck,
-  createAdminPermissionGuard,
-  createAdminSessionGuard,
-  type AdminSession,
-  type AdminSessionGuard,
-} from "@yesvus/helmdeck";
+import { adminLoginHref, createAdminPermissionCheck, createAdminPermissionGuard, createAdminSessionGuard, type AdminSession, type AdminSessionGuard } from "@yesvus/helmdeck";
 import { demoCan } from "./demo-rules";
 import { LOGIN_PATH } from "./demo-sign-in";
 import { currentDemoSession, type DemoAuthOptions } from "./demo-session";

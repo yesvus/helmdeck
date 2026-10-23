@@ -2,18 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ImagePlus, UploadCloud } from "lucide-react";
-import {
-  AdminMediaField,
-  AdminMediaPicker,
-  AdminMediaPlaceholder,
-  AdminMediaUpload,
-  AdminSectionCard,
-  Button,
-  formatMediaSize,
-  getAdminMediaThumbnailUrl,
-  isPdfMediaItem,
-  type AdminMediaItem,
-} from "@yesvus/helmdeck";
+import { AdminMediaField, AdminMediaPicker, AdminMediaPlaceholder, AdminMediaUpload, AdminSectionCard, Button, formatMediaSize, getAdminMediaThumbnailUrl, isPdfMediaItem, type AdminMediaItem } from "@yesvus/helmdeck";
 import { demoMediaAdapter, getDemoMediaItems } from "../../../media";
 import { useDemoLocale } from "../../../components/demo-i18n-provider";
 

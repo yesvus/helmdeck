@@ -8,6 +8,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Removed
+
+- The resource engine: `AdminResourceList`, `AdminResourceForm`, `defineAdminResource`, the write boundary (`createAdminResourceActions`, `createAdminResourceActionPersistenceAdapter`), the references, the lifecycle, the import and export, the analytics export, the account management page, the trash page and the baseline store stack (the memory, sqlite and postgres adapters, the credential store, the account admin, the password helpers and the login throttle). Payload owns those now; `MIGRATION.md` names what a host replaces each export with. What survives is the shell, the primitives, the theme, the dashboard, the charts, the analytics, the activity trail, the media library, the inbox, the auth and permission contracts, the query and persistence contracts, the read-only path, the collections model and editor, the aggregate helpers and the tenancy rules.
+
 ### Fixed
 
 - The payload adapters, found in review: the store's `read` answers a not-found record with `null` and throws anything else, so an access refusal or an outage is no longer reported as a record that never existed. The activity loader's `to` bound covers the last day, the way the analytics query's bounds do, and its `actorField` shapes the events, not only the query. The media adapter's `upload` hands the file to Payload as Payload's own file option, where the bytes were not arriving before.

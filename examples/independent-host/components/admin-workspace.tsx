@@ -2,15 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Suspense, useMemo } from "react";
-import {
-  AdminPermissionsProvider,
-  AdminShell,
-  AdminThemePreference,
-  AdminRequireSession,
-  useAdminSession,
-  type AdminNavGroup,
-  type AdminPermissionsAdapter,
-} from "@yesvus/helmdeck";
+import { AdminPermissionsProvider, AdminShell, AdminThemePreference, AdminRequireSession, useAdminSession, type AdminNavGroup, type AdminPermissionsAdapter } from "@yesvus/helmdeck";
 
 export function AdminWorkspace({
   nav,

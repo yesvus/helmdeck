@@ -24,14 +24,7 @@
  * `demo-widgets-types.ts`, which carries no directive and is erased before the bundle is built.
  */
 
-import {
-  adminAggregate,
-  adminAggregateTotals,
-  adminChartDayKey,
-  adminChartDayRange,
-  adminChartFillDays,
-  adminWholeNumber,
-} from "@yesvus/helmdeck";
+import { adminAggregate, adminAggregateTotals, adminChartDayKey, adminChartDayRange, adminChartFillDays, adminWholeNumber } from "@yesvus/helmdeck";
 import { queryResourceAction } from "./resource-actions";
 import { listPostRevisions } from "./demo-revisions";
 import { currentDemoSession } from "./demo-session";

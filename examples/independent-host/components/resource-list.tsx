@@ -1,13 +1,14 @@
 "use client";
 
-import { AdminResourceList, type AdminPersistenceAdapter } from "@yesvus/helmdeck";
+import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
+import { AdminResourceList } from "../lib/engine/resources/views";
 import {
   createExampleResource,
   queryExampleResource,
   readExampleResource,
   updateExampleResource,
 } from "@/host/actions";
-import type { AdminResourceDefinition } from "@yesvus/helmdeck";
+import type { AdminResourceDefinition } from "../lib/engine/resources/registry";
 
 export const ExampleResourceListPersistence: AdminPersistenceAdapter = {
   read: async <T,>(resource: string, id: string): Promise<T | null> =>

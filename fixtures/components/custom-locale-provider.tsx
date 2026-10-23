@@ -1,12 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  AdminI18nProvider,
-  defineAdminMessages,
-  englishAdminMessages,
-  type AdminMessages,
-} from "@yesvus/helmdeck";
+import { AdminI18nProvider, defineAdminMessages, englishAdminMessages, type AdminMessages } from "@yesvus/helmdeck";
 
 const customMessages: AdminMessages = {
   ...englishAdminMessages,

@@ -2,7 +2,7 @@
 "use client";
 
 import { use } from "react";
-import { AdminResourceForm } from "@yesvus/helmdeck";
+import { AdminResourceForm } from "../../../../../lib/engine/resources/views";
 import { customersResource } from "../../../../../lib/admin-resources";
 import { clientPersistence } from "../../../../../lib/client-persistence";
 

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createClient, type Client } from "@libsql/client";
 import { migrateDemo, splitStatements } from "../fixtures/lib/migrate";
 import { createTursoPersistenceAdapter as makeAdapter, type SqlClient } from "../fixtures/lib/turso-persistence";
-import { createCredentialAuthAdapter, createPersistenceCredentialStore } from "../src/baseline/credentials";
+import { createCredentialAuthAdapter, createPersistenceCredentialStore } from "../fixtures/lib/engine/baseline/credentials";
 import { seedDemo } from "../fixtures/lib/seed";
 
 const MIGRATIONS = join(process.cwd(), "fixtures", "lib", "migrations");

@@ -10,7 +10,7 @@
  * not know about.
  */
 
-export { hashPassword, verifyPassword } from "@yesvus/helmdeck/baseline";
+export { hashPassword, verifyPassword } from "./engine/baseline/passwords";
 
 /** The roles the seed hands out. A role the rule does not define grants nothing, so this is the set. */
 export type DemoRole = "admin" | "editor";

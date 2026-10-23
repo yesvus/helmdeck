@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-import { adminFormatCount, defineAdminResource, type AdminResourceFormatter } from "@yesvus/helmdeck";
+import { adminFormatCount } from "@yesvus/helmdeck";
+import type { AdminResourceFormatter } from "./engine/resources/registry";
+import { defineAdminResource } from "./engine/resources/registry";
 
 /**
  * The demo's real resources, described once for both the list and the detail form.

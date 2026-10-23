@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createMemoryPersistenceAdapter } from "../src/baseline/memory";
-import { createSqlitePersistenceAdapter } from "../src/baseline/sqlite";
+import { createMemoryPersistenceAdapter } from "../fixtures/lib/engine/baseline/memory";
+import { createSqlitePersistenceAdapter } from "../fixtures/lib/engine/baseline/sqlite";
 import { adminResourceQuery } from "../src/adapters/query";
 import type {
   AdminPersistenceAdapter,

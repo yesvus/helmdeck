@@ -1,7 +1,4 @@
-import {
-  type AdminCollectionDefinition,
-  type AdminCollectionEntry,
-} from "@yesvus/helmdeck";
+import type { AdminCollectionDefinition, AdminCollectionEntry } from "@yesvus/helmdeck";
 
 export type ExampleBlockKind = "hero" | "quote";
 

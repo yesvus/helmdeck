@@ -12,11 +12,7 @@
  */
 
 import Link from "next/link";
-import {
-  AdminDashboardTiles,
-  adminDashboardValidate,
-  type AdminDashboard,
-} from "@yesvus/helmdeck";
+import { AdminDashboardTiles, adminDashboardValidate, type AdminDashboard } from "@yesvus/helmdeck";
 import { dashboardRegistry } from "./registry";
 import { dashboardLoadersFor } from "./widgets";
 

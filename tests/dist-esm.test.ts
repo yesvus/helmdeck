@@ -55,8 +55,8 @@ function baselineExportNames(): string[] {
   // A parser that stopped matching, or started matching the type-only blocks, would produce a list
   // that looks plausible. Both bounds are what the file actually satisfies, so a regex that quietly
   // changes what it matches fails here rather than agreeing with whatever the build happened to emit.
-  expect(names.length, "runtime exports parsed out of src/baseline.ts").toBeGreaterThan(20);
-  expect(names.length, "type-only exports leaked into the runtime list").toBeLessThan(45);
+  expect(names.length, "runtime exports parsed out of src/baseline.ts").toBeGreaterThan(5);
+  expect(names.length, "type-only exports leaked into the runtime list").toBeLessThan(10);
 
   return [...new Set(names)].sort();
 }
@@ -176,9 +176,8 @@ describe("published package under Node ESM", () => {
       // One import per name rather than a count, because a subpath resolving to a module that exports
       // nothing would satisfy a length check and fail every host on the first line they wrote.
       const names = [
-        "createSqlitePersistenceAdapter",
-        "createPostgresPersistenceAdapter",
-        "createMemoryPersistenceAdapter",
+        "createSessionAuthAdapter",
+        "generateSessionSecret",
         "assertAdminTenant",
         "AdminTenantError",
       ];

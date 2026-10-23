@@ -3,15 +3,7 @@
 
 import Link from "next/link.js";
 import { createContext, useContext, type ReactNode } from "react";
-import {
-  AdminShell,
-  AdminThemeSettingsProvider,
-  AdminPermissionsProvider,
-  DEFAULT_ADMIN_DENSITY,
-  type AdminDensity,
-  type AdminNavGroup,
-  type AdminSession,
-} from "@yesvus/helmdeck";
+import { AdminShell, AdminThemeSettingsProvider, AdminPermissionsProvider, DEFAULT_ADMIN_DENSITY, type AdminDensity, type AdminNavGroup, type AdminSession } from "@yesvus/helmdeck";
 import { signOutAction } from "./sign-out-action";
 import { demoPermissionsAdapter } from "../../../lib/demo-permissions";
 
