@@ -27,7 +27,9 @@ const PAYLOAD_RESOURCE = "posts";
 export function demoPayloadCan(user: unknown, operation: string): boolean {
   const session = demoPrincipal(user);
   if (!session) return false;
-  return demoCan(session, `${PAYLOAD_RESOURCE}.${operation}`);
+  // Version history is a read of the same resource, so it follows the read permission.
+  const normalized = operation === "readVersions" ? "read" : operation;
+  return demoCan(session, `${PAYLOAD_RESOURCE}.${normalized}`);
 }
 
 /**
