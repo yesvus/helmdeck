@@ -1209,6 +1209,13 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "nav link item active",
     renderable: true,
   },
+  AdminNotificationCenter: {
+    category: "Shell and navigation",
+    summary: "A bell, unread badge and dropdown for host-provided notifications.",
+    keywords: "notification center bell alerts",
+    hostNote:
+      "The host supplies the notification items and any refresh callback; the center only renders them.",
+  },
   AdminMobileNav: {
     category: "Shell and navigation",
     summary: "The bottom navigation on a small screen, holding only the items marked as primary.",
