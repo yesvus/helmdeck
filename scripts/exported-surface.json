@@ -1,5 +1,5 @@
 {
-  "version": "v1.1.0",
+  "version": "v1.2.0",
   "exports": [
     "ADMIN_ANALYTICS_BATCH_SIZE",
     "ADMIN_ANALYTICS_FAILURE_HISTORY",
@@ -72,6 +72,7 @@
     "AdminDropdownMenuSeparator",
     "AdminDropdownMenuTrigger",
     "AdminEmptyState",
+    "AdminErrorBoundary",
     "AdminField",
     "AdminFieldGrid",
     "AdminFormActions",
@@ -107,6 +108,7 @@
     "AdminModalTitle",
     "AdminModalTrigger",
     "AdminNavLink",
+    "AdminNotificationCenter",
     "AdminPageActionLink",
     "AdminPageHeader",
     "AdminPagination",
@@ -178,6 +180,7 @@
     "AdminToggle",
     "AdminUnauthenticatedError",
     "AdminUrlFeedback",
+    "AdminVisitorCount",
     "AdminVisitorTrendChart",
     "AdminWidget",
     "AdminWidgetPanel",

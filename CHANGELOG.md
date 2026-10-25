@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 1.2.0
+
 ## 1.1.0
 
 ## 1.0.0

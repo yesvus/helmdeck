@@ -52,7 +52,7 @@ Install the package (below), import the theme tokens into the host stylesheet (u
 ## Install
 
 ```bash
-pnpm add https://github.com/yesvus/helmdeck/releases/download/v1.1.0/yesvus-helmdeck-1.1.0.tgz
+pnpm add https://github.com/yesvus/helmdeck/releases/download/v1.2.0/yesvus-helmdeck-1.2.0.tgz
 ```
 
 Release artifacts are distributed through GitHub releases. npm publication is postponed indefinitely.
