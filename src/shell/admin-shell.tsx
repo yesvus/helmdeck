@@ -4,8 +4,8 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link.js";
-import { usePathname } from "next/navigation.js";
-import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation.js";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { AdminNavGroup, AdminSession } from "../adapters/index.js";
 import { filterNavGroups } from "../adapters/index.js";
@@ -92,6 +92,9 @@ export function AdminShell({
   profileMenuExtra,
   showTopbar = true,
   topbarExtra,
+  showReloadButton = false,
+  onReload,
+  reloadLabel = "Reload",
   sidebarExtra,
   children,
 }: {
@@ -112,10 +115,15 @@ export function AdminShell({
   profileMenuExtra?: ReactNode;
   showTopbar?: boolean;
   topbarExtra?: ReactNode;
+  showReloadButton?: boolean;
+  onReload?: () => void | Promise<void>;
+  reloadLabel?: string;
   sidebarExtra?: ReactNode;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isReloading, setIsReloading] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const i18n = useAdminMessages();
   const toHref = useAdminHref();
@@ -407,6 +415,26 @@ export function AdminShell({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {recordSearchAdapter ? <AdminRecordSearch adapter={recordSearchAdapter} labels={labels} /> : null}
+              {showReloadButton ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsReloading(true);
+                    try {
+                      if (onReload) await onReload();
+                      else router.refresh();
+                    } finally {
+                      setIsReloading(false);
+                    }
+                  }}
+                  disabled={isReloading}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50"
+                  aria-label={reloadLabel}
+                  title={reloadLabel}
+                >
+                  <RefreshCw className={cn("h-4 w-4", isReloading && "animate-spin")} aria-hidden="true" />
+                </button>
+              ) : null}
               {topbarExtra ? (
                 <div className="flex items-center justify-end gap-2">{topbarExtra}</div>
               ) : null}
