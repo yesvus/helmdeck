@@ -58,4 +58,16 @@ describe("AdminNotificationCenter", () => {
 
     expect(onMarkRead).toHaveBeenCalledWith(notification);
   });
+
+  it("preserves external hrefs without locale rewriting", async () => {
+    render(
+      <AdminNotificationCenter
+        items={[{ id: "1", title: "External Link", href: "https://example.com/status", read: false }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Notifications, 1 unread" }));
+    const link = screen.getByRole("link", { name: /External Link/ });
+    expect(link).toHaveAttribute("href", "https://example.com/status");
+  });
 });

@@ -29,6 +29,7 @@ export function AdminNotificationCenter({
   onMarkRead,
   onMarkAllRead,
   onRefresh,
+  onError,
   label = "Notifications",
   emptyLabel = "No notifications",
   markAllLabel = "Mark all read",
@@ -39,6 +40,7 @@ export function AdminNotificationCenter({
   onMarkRead?: (notification: AdminNotification) => void | Promise<void>;
   onMarkAllRead?: () => void | Promise<void>;
   onRefresh?: () => void | Promise<void>;
+  onError?: (error: unknown, context: "refresh" | "markAllRead" | "markRead") => void;
   label?: string;
   emptyLabel?: string;
   markAllLabel?: string;
@@ -70,6 +72,10 @@ export function AdminNotificationCenter({
   }, [open]);
 
   const buttonAriaLabel = count > 0 ? `${label}, ${count} unread` : label;
+
+  function resolveHref(target: string): string {
+    return /^https?:\/\//i.test(target) ? target : toHref(target);
+  }
 
   return (
     <div ref={containerRef} className="relative shrink-0">
@@ -105,6 +111,7 @@ export function AdminNotificationCenter({
                     try {
                       await onRefresh();
                     } catch (e) {
+                      onError?.(e, "refresh");
                       console.error("Failed to refresh notifications", e);
                     }
                   }}
@@ -120,6 +127,7 @@ export function AdminNotificationCenter({
                     try {
                       await onMarkAllRead();
                     } catch (e) {
+                      onError?.(e, "markAllRead");
                       console.error("Failed to mark all notifications read", e);
                     }
                   }}
@@ -146,11 +154,12 @@ export function AdminNotificationCenter({
                     <li key={item.id}>
                       {item.href ? (
                         <Link
-                          href={toHref(item.href)}
+                          href={resolveHref(item.href)}
                           onClick={async () => {
                             try {
                               await onMarkRead?.(item);
                             } catch (e) {
+                              onError?.(e, "markRead");
                               console.error("Failed to mark notification read", e);
                             }
                             setOpen(false);
@@ -166,6 +175,7 @@ export function AdminNotificationCenter({
                             try {
                               await onMarkRead?.(item);
                             } catch (e) {
+                              onError?.(e, "markRead");
                               console.error("Failed to mark notification read", e);
                             }
                           }}
