@@ -1182,7 +1182,6 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     category: "Shell and navigation",
     summary: "An admin error boundary body whose retry reloads the document, so server-side failures can recover.",
     keywords: "error boundary reload retry",
-    renderable: false,
     hostNote:
       "The host supplies the thrown error and the reset callback; the component owns the reload action.",
   },
