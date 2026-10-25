@@ -3,6 +3,8 @@ export { AdminBreadcrumbs } from "./admin-breadcrumbs.js";
 export { AdminErrorBoundary } from "./admin-error-boundary.js";
 export { AdminLoginScreen } from "./admin-login-screen.js";
 export { AdminMobileNav } from "./admin-mobile-nav.js";
+export { AdminNotificationCenter } from "./admin-notification-center.js";
+export type { AdminNotification } from "./admin-notification-center.js";
 export { AdminNavLink } from "./admin-nav.js";
 export { AdminPageHeader } from "./admin-page-header.js";
 export { AdminProfileMenu } from "./admin-profile-menu.js";

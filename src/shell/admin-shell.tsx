@@ -134,6 +134,7 @@ export function AdminShell({
   profileMenuExtra,
   showTopbar = true,
   topbarExtra,
+  notificationCenter,
   showReloadButton = false,
   onReload,
   reloadLabel = "Reload",
@@ -157,6 +158,7 @@ export function AdminShell({
   profileMenuExtra?: ReactNode;
   showTopbar?: boolean;
   topbarExtra?: ReactNode;
+  notificationCenter?: ReactNode;
   showReloadButton?: boolean;
   onReload?: () => void | Promise<void>;
   reloadLabel?: string;
@@ -455,6 +457,9 @@ export function AdminShell({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {recordSearchAdapter ? <AdminRecordSearch adapter={recordSearchAdapter} labels={labels} /> : null}
+              {notificationCenter ? (
+                <div className="flex items-center justify-end gap-2">{notificationCenter}</div>
+              ) : null}
               {showReloadButton ? (
                 <AdminTopBarReloadButton onReload={onReload} label={reloadLabel} />
               ) : null}
