@@ -401,10 +401,3 @@ function resolveDynamicSegments(href: string, file: string): string {
     .join("/");
 }
 
-function existsInTemplate(relativePath: string): boolean {
-  try {
-    return statSync(join(template, relativePath)).isDirectory();
-  } catch {
-    return false;
-  }
-}
