@@ -1178,6 +1178,14 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     hostNote:
       "The shell is the host. It is handed navigation, a session and a permissions adapter before it has anything to draw.",
   },
+  AdminErrorBoundary: {
+    category: "Shell and navigation",
+    summary: "An admin error boundary body whose retry reloads the document, so server-side failures can recover.",
+    keywords: "error boundary reload retry",
+    renderable: false,
+    hostNote:
+      "The host supplies the thrown error and the reset callback; the component owns the reload action.",
+  },
   AdminBreadcrumbs: {
     category: "Shell and navigation",
     summary: "The trail of the current page, read off the navigation groups and the pathname.",
