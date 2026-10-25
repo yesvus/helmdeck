@@ -129,18 +129,15 @@ each is one you have to make rather than one you have to find later.
    carries no timestamp and no recovery token, so an account whose password is forgotten is reset by
    a person with a shell. The sign-in answers an unknown address in the same message and the same time
    as a wrong password, so whatever you write on top of that envelope can stay honest.
-3. **A settings page.** `AdminShell` points its settings entry at `${homeHref}/settings`, and the
-   template does not mount one, so pass `settingsHref` to `AdminProfilePage` once you have a page to
-   point at. The account page itself is mounted, and it renders only the controls it can honour.
-4. **A media adapter.** Upload, listing, signed URLs, retention and media mutations are yours.
+3. **A media adapter.** Upload, listing, signed URLs, retention and media mutations are yours.
    `AdminMediaAdapter` is the contract and the upload, picker, gallery and placeholder components are
    the package's; the storage behind them is not, and a stub that was copied is a stub that stayed.
-5. **An audit trail and a cache invalidator.** `createAdminResourceActions` takes both and calls them
+4. **An audit trail and a cache invalidator.** `createAdminResourceActions` takes both and calls them
    after a write that reached the store. The template passes neither, because both of their shapes
    are host decisions: where a trail goes, and what a stale read is keyed on. A `console.log` sink or
    a no-op invalidator left behind is a trail going nowhere or a list that never refreshes, and both
    fail silently.
-6. **A rule that reads the record.** `can` decides from the role and the operation alone. A rule that
+5. **A rule that reads the record.** `can` decides from the role and the operation alone. A rule that
    withholds one record, or one row, decides it in `can` and gets the record's id in the third
    argument, enforced on both sides of the admin with nothing else changed.
 7. **A second interface language.** `app/layout.tsx` says `locale="en"` and nothing else. The package
