@@ -74,6 +74,48 @@ function subscribeToCollapsed(onChange: () => void): () => void {
   };
 }
 
+function AdminTopBarReloadButton({
+  onReload,
+  label = "Reload",
+}: {
+  onReload?: () => void | Promise<void>;
+  label?: string;
+}) {
+  const router = useRouter();
+  const [isReloading, setIsReloading] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        setIsReloading(true);
+        try {
+          if (onReload) {
+            await onReload();
+          } else {
+            router.refresh();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        } catch (e) {
+          console.error("Reload failed", e);
+        } finally {
+          setIsReloading(false);
+        }
+      }}
+      disabled={isReloading}
+      aria-busy={isReloading}
+      className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50"
+      aria-label={label}
+      title={label}
+    >
+      <RefreshCw
+        className={cn("h-4 w-4", isReloading && "animate-spin motion-reduce:animate-none")}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
 export function AdminShell({
   nav,
   session = null,
@@ -122,8 +164,6 @@ export function AdminShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [isReloading, setIsReloading] = useState(false);
   const shouldReduceMotion = useReducedMotion();
   const i18n = useAdminMessages();
   const toHref = useAdminHref();
@@ -416,27 +456,7 @@ export function AdminShell({
             <div className="flex shrink-0 items-center gap-2">
               {recordSearchAdapter ? <AdminRecordSearch adapter={recordSearchAdapter} labels={labels} /> : null}
               {showReloadButton ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setIsReloading(true);
-                    try {
-                      if (onReload) await onReload();
-                      else {
-                        router.refresh();
-                        await new Promise((resolve) => setTimeout(resolve, 300));
-                      }
-                    } finally {
-                      setIsReloading(false);
-                    }
-                  }}
-                  disabled={isReloading}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50"
-                  aria-label={reloadLabel}
-                  title={reloadLabel}
-                >
-                  <RefreshCw className={cn("h-4 w-4", isReloading && "animate-spin")} aria-hidden="true" />
-                </button>
+                <AdminTopBarReloadButton onReload={onReload} label={reloadLabel} />
               ) : null}
               {topbarExtra ? (
                 <div className="flex items-center justify-end gap-2">{topbarExtra}</div>
