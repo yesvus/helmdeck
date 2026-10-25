@@ -16,9 +16,9 @@ import { AdminSectionCard } from "../primitives/layout.js";
 export function AdminErrorBoundary({
   error,
   reset,
-  title = "Bir şeyler ters gitti",
-  description = "Sayfa yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.",
-  reloadLabel = "Sayfayı yenile",
+  title = "Something went wrong",
+  description = "An error occurred while loading this page. Please reload to try again.",
+  reloadLabel = "Reload page",
   children,
 }: {
   error?: Error & { digest?: string };
