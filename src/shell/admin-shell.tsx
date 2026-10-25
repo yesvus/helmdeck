@@ -4,8 +4,8 @@
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties, ReactNode, Ref } from "react";
 import Link from "next/link.js";
-import { usePathname } from "next/navigation.js";
-import { ChevronDown, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation.js";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, RefreshCw } from "lucide-react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { AdminNavGroup, AdminSession } from "../adapters/index.js";
 import { filterNavGroups } from "../adapters/index.js";
@@ -74,6 +74,48 @@ function subscribeToCollapsed(onChange: () => void): () => void {
   };
 }
 
+function AdminTopBarReloadButton({
+  onReload,
+  label = "Reload",
+}: {
+  onReload?: () => void | Promise<void>;
+  label?: string;
+}) {
+  const router = useRouter();
+  const [isReloading, setIsReloading] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        setIsReloading(true);
+        try {
+          if (onReload) {
+            await onReload();
+          } else {
+            router.refresh();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        } catch (e) {
+          console.error("Reload failed", e);
+        } finally {
+          setIsReloading(false);
+        }
+      }}
+      disabled={isReloading}
+      aria-busy={isReloading}
+      className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50"
+      aria-label={label}
+      title={label}
+    >
+      <RefreshCw
+        className={cn("h-4 w-4", isReloading && "animate-spin motion-reduce:animate-none")}
+        aria-hidden="true"
+      />
+    </button>
+  );
+}
+
 export function AdminShell({
   nav,
   session = null,
@@ -92,6 +134,9 @@ export function AdminShell({
   profileMenuExtra,
   showTopbar = true,
   topbarExtra,
+  showReloadButton = false,
+  onReload,
+  reloadLabel = "Reload",
   sidebarExtra,
   children,
 }: {
@@ -112,6 +157,9 @@ export function AdminShell({
   profileMenuExtra?: ReactNode;
   showTopbar?: boolean;
   topbarExtra?: ReactNode;
+  showReloadButton?: boolean;
+  onReload?: () => void | Promise<void>;
+  reloadLabel?: string;
   sidebarExtra?: ReactNode;
   children: ReactNode;
 }) {
@@ -407,6 +455,9 @@ export function AdminShell({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {recordSearchAdapter ? <AdminRecordSearch adapter={recordSearchAdapter} labels={labels} /> : null}
+              {showReloadButton ? (
+                <AdminTopBarReloadButton onReload={onReload} label={reloadLabel} />
+              ) : null}
               {topbarExtra ? (
                 <div className="flex items-center justify-end gap-2">{topbarExtra}</div>
               ) : null}
