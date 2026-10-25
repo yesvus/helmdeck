@@ -1454,6 +1454,13 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "dashboard grid layout tiles server",
     renderable: true,
   },
+  AdminVisitorCount: {
+    category: "Dashboard and widgets",
+    summary: "A live counter of active visitors, refreshed on an interval when the host passes `fetchCount`.",
+    keywords: "visitor count live dashboard",
+    hostNote:
+      "The host supplies session tracking and a count source; the component only displays and refreshes.",
+  },
   AdminDashboardTile: {
     category: "Dashboard and widgets",
     summary: "One tile: a placement, the widget it names, and that widget's state.",
