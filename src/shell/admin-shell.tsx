@@ -422,7 +422,10 @@ export function AdminShell({
                     setIsReloading(true);
                     try {
                       if (onReload) await onReload();
-                      else router.refresh();
+                      else {
+                        router.refresh();
+                        await new Promise((resolve) => setTimeout(resolve, 300));
+                      }
                     } finally {
                       setIsReloading(false);
                     }
