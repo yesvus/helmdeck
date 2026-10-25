@@ -50,3 +50,5 @@ export type { AdminStatWidgetOptions } from "./stat.js";
 export { adminTableWidget } from "./table.js";
 export type { AdminTableWidgetColumn, AdminTableWidgetOptions } from "./table.js";
 export type { AdminWidgetCap, AdminWidgetCappedRows, AdminWidgetEmptyCopy } from "./values.js";
+
+export { AdminVisitorCount } from "./visitor-count.js";
