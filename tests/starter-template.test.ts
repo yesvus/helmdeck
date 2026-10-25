@@ -328,10 +328,6 @@ const OMISSIONS = [
     absent: () => !anyFile(/\brecovery\b|recoverPassword|forgot|passwordReset/i),
   },
   {
-    slug: "a settings page",
-    absent: () => !anyFile(/\bsettingsHref\b|\/admin\/settings/) && !existsInTemplate("app/admin/settings"),
-  },
-  {
     slug: "a media adapter",
     absent: () => !anyFile(/\bAdminMediaAdapter\b|\bAdminMediaUpload\b/),
   },
