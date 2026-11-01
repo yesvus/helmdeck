@@ -66,6 +66,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - The surfaces read Payload: `createAdminPayloadPersistenceAdapter` for the resource store, `createAdminPayloadMediaAdapter` for the media library, and `createAdminPayloadCountLoader`, `createAdminPayloadRecordLoader` and `createAdminPayloadActivityLoader` for the dashboard tiles and the activity trail. Every call goes through the content module, so every call carries the access check and the session.
 
 - `MIGRATION.md` names every retired export of the resource engine and what a host replaces it with, and says what a host keeps: the shell, the primitives, the theme, the dashboard, the charts, the analytics, the activity trail, the media library, the inbox, the auth and permission contracts, and the read-only path for a table that is not a Payload collection.
+- Payload host settings backed by a Payload Global: the example defines a `siteSettings` Global with host-owned schema and validation, reads and writes it through access-checked server calls (`overrideAccess: false` with the session user on every call), and the shell reads the same stored values as the settings page.
 
 ### Changed
 

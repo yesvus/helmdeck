@@ -3,6 +3,9 @@ import type { AdminNavGroup } from "@yesvus/helmdeck";
 import { AdminFrame } from "@/components/admin-frame";
 import { requireAdminSession } from "@/lib/guard";
 import { PERMISSIONS } from "@/lib/permissions";
+import { payloadInstance } from "@/lib/payload/content";
+import { readPayloadSession } from "@/lib/session";
+import { readPayloadSiteSettings } from "@/lib/payload/settings";
 
 /**
  * The sidebar, and the one page every other one is a child of.
@@ -29,6 +32,12 @@ const nav: AdminNavGroup[] = [
         icon: "article",
         permission: PERMISSIONS.mediaRead,
       },
+      {
+        href: "/admin/settings",
+        label: "Settings",
+        icon: "overview",
+        permission: PERMISSIONS.settingsRead,
+      },
     ],
   },
 ];
@@ -43,8 +52,17 @@ const nav: AdminNavGroup[] = [
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await requireAdminSession({ returnTo: "/admin" });
 
+  let siteName: string | undefined;
+  try {
+    const payload = await payloadInstance();
+    const settings = (await readPayloadSiteSettings(payload, readPayloadSession)) as { name?: unknown } | null;
+    if (settings && typeof settings.name === "string" && settings.name) siteName = settings.name;
+  } catch {
+    siteName = undefined;
+  }
+
   return (
-    <AdminFrame nav={nav} session={session}>
+    <AdminFrame nav={nav} session={session} siteName={siteName}>
       <div className="p-6 lg:p-10">{children}</div>
     </AdminFrame>
   );

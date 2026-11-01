@@ -19,6 +19,7 @@ import { en } from "@payloadcms/translations/languages/en";
 import { buildConfig } from "payload";
 import { PAYLOAD_ADMIN_ROUTE, payloadAdmin } from "./lib/payload/admin";
 import { payloadCollections } from "./lib/payload/collections";
+import { siteSettingsGlobal } from "./lib/payload/globals";
 import { payloadDatabase } from "./lib/payload/db";
 import { PAYLOAD_ROUTE_GROUP } from "./lib/payload/routes";
 import { payloadServerURL } from "./lib/payload/server-url";
@@ -52,6 +53,7 @@ export default buildConfig({
   // Payload's job rather than this host's.
   editor: lexicalEditor(),
   collections: payloadCollections,
+  globals: [siteSettingsGlobal],
   jobs: {
     tasks: [
       {
