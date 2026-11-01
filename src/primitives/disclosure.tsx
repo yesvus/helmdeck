@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// Adapted from shadcn/ui (MIT)
 "use client";
 
 import { useId, useRef, useState } from "react";
@@ -22,6 +23,7 @@ export type AdminTabsProps = {
   label?: string;
   className?: string;
   tabClassName?: string;
+  orientation?: "horizontal" | "vertical";
 };
 
 /**
@@ -36,11 +38,15 @@ export function AdminTabs({
   label,
   className,
   tabClassName,
+  orientation = "horizontal",
 }: AdminTabsProps) {
   const baseId = useId();
   const generatedId = useId();
   const [uncontrolled, setUncontrolled] = useState(defaultTabId ?? items[0]?.id ?? "");
-  const selected = value ?? uncontrolled;
+  const requested = value ?? uncontrolled;
+  const selected = items.some((item) => item.id === requested && !item.disabled)
+    ? requested
+    : items.find((item) => !item.disabled)?.id ?? "";
   const tabs = useRef(new Map<string, HTMLButtonElement>());
 
   const select = (id: string) => {
@@ -64,7 +70,7 @@ export function AdminTabs({
 
   return (
     <div className={cn("grid gap-4", className)}>
-      <div role="tablist" aria-label={label ?? generatedId} className="flex flex-wrap gap-1 border-b border-zinc-200">
+      <div role="tablist" aria-orientation={orientation} aria-label={label ?? generatedId} className={cn("flex gap-1", orientation === "horizontal" ? "flex-wrap border-b border-zinc-200" : "flex-col border-l border-zinc-200")}>
         {items.map((item) => {
           const isSelected = item.id === selected;
           return (
@@ -79,7 +85,10 @@ export function AdminTabs({
               disabled={item.disabled}
               onClick={() => select(item.id)}
               onKeyDown={(event) => {
-                if (!["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+                const navigationKeys = orientation === "horizontal"
+                  ? ["ArrowRight", "ArrowLeft", "Home", "End"]
+                  : ["ArrowDown", "ArrowUp", "Home", "End"];
+                if (!navigationKeys.includes(event.key)) return;
                 event.preventDefault();
                 move(item.id, event.key);
               }}

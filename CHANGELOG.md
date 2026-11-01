@@ -28,6 +28,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ### Changed
 
+- Adapt `AdminTabs` and overlay menu patterns to the Helmdeck design language, add orientation-aware tabs, and document the primitive audit in `docs/primitives-audit-382.md`.
+
 - Update the README, package description, and demo copy to define Helmdeck's framework posture, system boundaries, and shipped versus planned work.
 
 - `AdminSwitch` supports small sizing, inline labels and descriptions, and native checkbox form submission while retaining its existing default rendering.
