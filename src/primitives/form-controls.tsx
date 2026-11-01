@@ -62,7 +62,10 @@ export function AdminCheckbox({
   );
 }
 
-export type AdminSwitchProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type"> & {
+export type AdminSwitchProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "size"> & {
+  size?: "default" | "sm";
+  label?: ReactNode;
+  description?: ReactNode;
   onCheckedChange?: (checked: boolean) => void;
   ref?: Ref<HTMLInputElement>;
 };
@@ -77,6 +80,9 @@ export function AdminSwitch({
   ref,
   onCheckedChange,
   onChange,
+  size = "default",
+  label,
+  description,
   "aria-describedby": describedBy,
   "aria-invalid": invalid,
   "aria-label": ariaLabel,
@@ -84,17 +90,21 @@ export function AdminSwitch({
   ...props
 }: AdminSwitchProps) {
   const field = useAdminFieldContext();
-  return (
-    <span className={cn("relative inline-flex h-6 w-11 shrink-0 items-center", className)}>
+  const generatedId = useId();
+  const controlId = id ?? field?.id ?? ((label !== undefined || description !== undefined) ? generatedId : undefined);
+  const descriptionId = description ? `${controlId}-description` : undefined;
+  const labelId = label !== undefined ? `${controlId}-label` : undefined;
+  const control = (
+    <span className={cn("relative inline-flex shrink-0 items-center", size === "sm" ? "h-5 w-9" : "h-6 w-11", className)}>
       <input
         {...props}
         type="checkbox"
         role="switch"
-        id={id ?? field?.id}
-        aria-describedby={describedBy ?? field?.describedBy}
+        id={controlId}
+        aria-describedby={[describedBy ?? field?.describedBy, descriptionId].filter(Boolean).join(" ") || undefined}
         aria-invalid={invalid ?? (field?.invalid ? true : undefined)}
         aria-label={ariaLabel}
-        aria-labelledby={labelledBy ?? (ariaLabel ? undefined : field?.labelId)}
+        aria-labelledby={labelledBy ?? (ariaLabel ? undefined : labelId ?? field?.labelId)}
         data-invalid={invalid ?? (field?.invalid ? true : undefined) ? "" : undefined}
         onChange={(event) => {
           onChange?.(event);
@@ -111,15 +121,26 @@ export function AdminSwitch({
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none relative inline-flex h-6 w-11 shrink-0 rounded-full bg-zinc-300 transition-colors",
-          "after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-admin-surface after:shadow after:transition-transform",
-          "peer-checked:bg-brand-600 peer-checked:after:translate-x-5",
+          "pointer-events-none relative inline-flex shrink-0 rounded-full bg-zinc-300 transition-colors",
+          size === "sm" ? "h-5 w-9 after:h-4 after:w-4" : "h-6 w-11 after:h-5 after:w-5",
+          "after:absolute after:left-0.5 after:top-0.5 after:rounded-full after:bg-admin-surface after:shadow after:transition-transform",
+          size === "sm" ? "peer-checked:after:translate-x-4" : "peer-checked:after:translate-x-5",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-2",
           "peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
           "peer-data-invalid:bg-red-500",
         )}
       />
     </span>
+  );
+  if (label === undefined && description === undefined) return control;
+  return (
+    <label className="inline-flex items-center gap-3">
+      {control}
+      <span className="grid gap-0.5 text-sm">
+        {label !== undefined ? <span id={labelId} className="font-medium text-zinc-900">{label}</span> : null}
+        {description !== undefined ? <span id={descriptionId} className="text-xs text-zinc-500">{description}</span> : null}
+      </span>
+    </label>
   );
 }
 

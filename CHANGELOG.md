@@ -24,6 +24,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Framework-neutral hierarchical admin URL path building and resolution, with an opt-in breadcrumb override; hosts retain ownership of route registration and URL navigation.
 
+### Changed
+
+- `AdminSwitch` supports small sizing, inline labels and descriptions, and native checkbox form submission while retaining its existing default rendering.
+
 ## 1.4.0
 
 ### Deprecated
