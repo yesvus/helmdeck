@@ -20,10 +20,10 @@
  */
 
 import { createSessionAuthAdapter } from "@yesvus/helmdeck/baseline";
-import { createLoginThrottle } from "./engine/baseline/throttle";
+import { createLoginThrottle } from "./engine/baseline/throttle.ts";
 import type { AdminAuthAdapter, AdminLoginCredentials, AdminPayloadUser, AdminSession } from "@yesvus/helmdeck";
 import { AuthenticationError, getPayload } from "payload";
-import { SESSION_COOKIE } from "./sign-in";
+import { SESSION_COOKIE } from "./sign-in.ts";
 
 /** The collection the accounts live in. One name, so a typo cannot half-apply. */
 export const USERS_COLLECTION = "users";

@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: examples/payload-host/Dockerfile
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      # Set PAYLOAD_SECRET to a unique, long random value outside this file.
+      PAYLOAD_SECRET: ${PAYLOAD_SECRET:?Set PAYLOAD_SECRET in your environment}
+      HELMDECK_SESSION_SECRET: ${HELMDECK_SESSION_SECRET:?Set HELMDECK_SESSION_SECRET in your environment}
+      # The local SQLite database lives in the named volume, not in the image.
+      PAYLOAD_DATABASE_URL: file:/app/data/payload.db
+    volumes:
+      - payload-data:/app/data
+
+volumes:
+  payload-data:

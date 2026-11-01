@@ -13,20 +13,10 @@
 import { adminPayloadOperationFor, createAdminPayloadPermissionsAdapter } from "@yesvus/helmdeck";
 import type { AdminPermissionsAdapter } from "@yesvus/helmdeck";
 import { accessByOperation } from "./payload/access";
+import { PERMISSIONS } from "./permission-names";
 import { readPayloadSession } from "./session";
 
-export const PERMISSIONS = {
-  pagesRead: "pages:read",
-  pagesCreate: "pages:create",
-  pagesUpdate: "pages:update",
-  pagesDelete: "pages:delete",
-  mediaRead: "media:read",
-  mediaCreate: "media:create",
-  mediaUpdate: "media:update",
-  mediaDelete: "media:delete",
-  settingsRead: "siteSettings:read",
-  settingsUpdate: "siteSettings:update",
-} as const;
+export { PERMISSIONS } from "./permission-names";
 
 /**
  * Every name above, checked against the package's own reader of a permission name.

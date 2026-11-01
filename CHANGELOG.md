@@ -26,6 +26,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 ### Changed
 
 - The data table adopts the compact corporate look: small-caps header cells on a zinc-50 background with the wider vertical rhythm, compact sm-sized toolbar controls and borders, contextual `AdminTableEmptyState` components in place of bare empty text, and thin zinc borders with a subtle row hover.
+- The Payload reference host can run in a vendor-neutral production Docker image with a persistent SQLite volume and documented deployment steps.
+
 
 ### Fixed
 

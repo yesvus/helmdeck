@@ -4,8 +4,8 @@
  */
 
 import type { Config } from "payload";
-import { LOGIN_PATH } from "../sign-in";
-import { payloadTheme } from "./theme";
+import { LOGIN_PATH } from "../sign-in.ts";
+import { payloadTheme } from "./theme.ts";
 
 /** Where the panel is mounted. The shell owns `/admin`, so the panel is mounted beside it. */
 export const PAYLOAD_ADMIN_ROUTE = "/payload";
