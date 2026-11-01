@@ -51,12 +51,32 @@ describe("AdminTabs", () => {
     expect(screen.getByRole("tab", { name: "Locked" })).toBeDisabled();
   });
 
+  it("falls back to an enabled tab when the requested initial tab is disabled", () => {
+    render(<AdminTabs items={items} defaultTabId="locked" />);
+
+    expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("General panel")).toBeVisible();
+  });
+
   it("keeps the panel tied to its tab", () => {
     render(<AdminTabs items={items} />);
     const tab = screen.getByRole("tab", { name: "General" });
     const panel = screen.getByRole("tabpanel");
     expect(tab).toHaveAttribute("aria-controls", panel.id);
     expect(panel).toHaveAttribute("aria-labelledby", tab.id);
+  });
+
+  it("uses vertical arrow navigation without treating horizontal arrows as movement", async () => {
+    const user = userEvent.setup();
+    render(<AdminTabs items={items} orientation="vertical" label="Vertical sections" />);
+
+    const general = screen.getByRole("tab", { name: "General" });
+    await user.tab();
+    await user.keyboard("{ArrowRight}");
+    expect(general).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("tab", { name: "Billing" })).toHaveFocus();
+    expect(screen.getByRole("tablist")).toHaveAttribute("aria-orientation", "vertical");
   });
 });
 

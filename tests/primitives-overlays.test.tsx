@@ -59,6 +59,24 @@ describe("AdminDropdownMenu", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
   });
+
+  it("skips disabled entries during keyboard navigation", async () => {
+    const user = userEvent.setup();
+    render(
+      <AdminDropdownMenu>
+        <AdminDropdownMenuTrigger>Actions</AdminDropdownMenuTrigger>
+        <AdminDropdownMenuContent>
+          <AdminDropdownMenuItem disabled>Unavailable</AdminDropdownMenuItem>
+          <AdminDropdownMenuItem>Available</AdminDropdownMenuItem>
+        </AdminDropdownMenuContent>
+      </AdminDropdownMenu>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "Available" })).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "Unavailable" })).toHaveAttribute("data-disabled");
+  });
 });
 
 describe("AdminPopover", () => {

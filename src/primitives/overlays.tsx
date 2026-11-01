@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// Adapted from shadcn/ui (MIT)
 "use client";
 
 import type { ComponentProps } from "react";
@@ -37,7 +38,7 @@ export function AdminDropdownMenuItem({
     <DropdownMenuPrimitive.Item
       className={cn(
         "flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-1.5 outline-none transition-colors",
-        "focus:bg-zinc-100 focus:text-zinc-900 data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-900",
+        "focus:bg-zinc-100 focus:text-admin-brand-text data-[highlighted]:bg-zinc-100 data-[highlighted]:text-admin-brand-text",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         destructive && "text-admin-danger-action focus:bg-red-50 focus:text-admin-danger-action",
         className,
@@ -55,7 +56,7 @@ export function AdminDropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       className={cn(
         "flex cursor-pointer select-none items-center gap-2 rounded-md py-1.5 pl-8 pr-2.5 outline-none transition-colors",
-        "focus:bg-zinc-100 focus:text-zinc-900 data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-900",
+        "focus:bg-zinc-100 focus:text-admin-brand-text data-[highlighted]:bg-zinc-100 data-[highlighted]:text-admin-brand-text",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
