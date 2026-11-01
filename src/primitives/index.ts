@@ -120,6 +120,17 @@ export {
   AdminModalTitle,
   AdminModalTrigger,
 } from "./modal.js";
+export { AdminModalDialog, AdminDialogProvider, useAdminDialog } from "./modal-dialog.js";
+export type {
+  AdminModalDialogProps,
+  AdminModalDialogVariant,
+  AdminDialogs,
+  AdminDialogContextValue,
+  AdminDialogProviderProps,
+  AdminConfirmConfig,
+  AdminAlertConfig,
+  AdminPromptConfig,
+} from "./modal-dialog.js";
 export { AdminPagination } from "./pagination.js";
 export { AdminPendingButton } from "./pending-button.js";
 export type { AdminPendingButtonProps } from "./pending-button.js";

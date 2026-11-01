@@ -1029,6 +1029,23 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "dialog modal root open",
     renderable: true,
   },
+  AdminModalDialog: {
+    category: "Overlays and feedback",
+    summary: "A confirm, alert or prompt dialog with the focus trap, validation and pending state wired.",
+    keywords: "dialog confirm alert prompt destructive modal validate",
+    renderable: true,
+  },
+  AdminDialogProvider: {
+    category: "Overlays and feedback",
+    summary: "The mount the imperative dialog helper renders into, so JSX and code dialogs share one surface.",
+    keywords: "provider imperative dialog prompt context",
+    renderable: true,
+  },
+  useAdminDialog: {
+    category: "Overlays and feedback",
+    summary: "The imperative dialog handle: confirm answers a boolean, prompt answers the typed value or null. An AdminDialogProvider has to sit above the call site.",
+    keywords: "hook imperative confirm prompt promise dialog provider",
+  },
   AdminModalTrigger: {
     category: "Overlays and feedback",
     summary: "The control that opens the dialog it sits inside.",
