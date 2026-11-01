@@ -119,6 +119,7 @@ jobs:
 
   quality:
     runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
     needs:
       - lint
       - typecheck
@@ -128,7 +129,18 @@ jobs:
       - typecheck-example
       - typecheck-template
       - audit
-    # Reports the legacy "quality" check name for branch protection, and fails if a parallel
-    # job was cancelled, because needs alone is not a gate a required check can trust.
+    # Reports the legacy "quality" check name for branch protection. The umbrella states its own
+    # verdict because GitHub reads a skipped check as passing, so the workflow has to run even when
+    # a job above it failed and turn the umbrella red by hand.
     steps:
+      - name: Turn the umbrella red when any parallel gate did not succeed
+        if: ${{ needs.lint.result != 'success'
+              || needs.typecheck.result != 'success'
+              || needs.test.result != 'success'
+              || needs.release-gate.result != 'success'
+              || needs.fixtures-build.result != 'success'
+              || needs.typecheck-example.result != 'success'
+              || needs.typecheck-template.result != 'success'
+              || needs.audit.result != 'success' }}
+        run: exit 1
       - run: echo "All harness checks passed."
