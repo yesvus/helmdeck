@@ -114,6 +114,17 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "label hint error validation",
     renderable: true,
   },
+  defineAdminSettings: {
+    category: "Forms and fields",
+    summary: "Registers a host's grouped, typed settings, so one definition answers the keys, the defaults and the validation for both the settings page and any other reader of the same configuration.",
+    keywords: "settings registry schema groups typed defaults validation",
+  },
+  AdminSettingsPanel: {
+    hostNote: "The host hands it a registry and its own adapter, so nothing renders without them.",
+    category: "Forms and fields",
+    summary: "The renderer over a settings registry: reads through the host adapter, edits with the package's own controls, validates before a save, and shows the busy, refusal and denied outcomes. Secret settings read back masked.",
+    keywords: "settings panel adapter save denied masked secret",
+  },
   AdminFieldGrid: {
     category: "Forms and fields",
     summary: "Lays fields out in columns that collapse to one on a narrow screen.",
