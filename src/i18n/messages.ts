@@ -53,6 +53,8 @@ export type AdminDialogLabels = {
   submitLabel: string;
   busyLabel: string;
   invalidValueLabel: string;
+};
+
 export type AdminSettingsPanelLabels = {
   loading: string;
   saved: string;
@@ -167,6 +169,7 @@ export const englishAdminMessages: AdminMessages = {
     submitLabel: "Submit",
     busyLabel: "Working...",
     invalidValueLabel: "Provide a valid value.",
+  },
   settingsPanel: {
     loading: "Loading settings…",
     saved: "Saved.",
@@ -414,6 +417,7 @@ export const turkishAdminMessages: AdminMessages = {
     submitLabel: "Gönderin",
     busyLabel: "İşleniyor...",
     invalidValueLabel: "Geçerli bir değer giriniz.",
+  },
   settingsPanel: {
     loading: "Ayarlar yükleniyor…",
     saved: "Kaydedildi.",
