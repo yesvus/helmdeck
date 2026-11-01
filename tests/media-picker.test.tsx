@@ -40,6 +40,18 @@ describe("AdminMediaPicker", () => {
     expect(onSelect).toHaveBeenCalledWith(image);
   });
 
+  it("returns the host-owned opaque identifier with the full selected item", async () => {
+    const user = userEvent.setup();
+    const identified = { ...image, id: "asset:opaque/42" };
+    const onSelect = vi.fn();
+    render(<EnglishPicker items={[identified]} onClose={vi.fn()} onSelect={onSelect} open title="Choose media" />);
+
+    const card = await screen.findByRole("button", { name: /Product photo/ });
+    await user.click(card);
+    expect(card).toHaveAttribute("aria-pressed", "true");
+    expect(onSelect).toHaveBeenCalledWith(identified);
+  });
+
   it("uses a wide responsive dialog with fixed controls and a scrollable library", async () => {
     render(<EnglishPicker items={[image]} onClose={vi.fn()} onSelect={vi.fn()} open title="Choose media" />);
     const dialog = await screen.findByRole("dialog", { name: "Choose media" });

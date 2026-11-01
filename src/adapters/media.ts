@@ -10,6 +10,8 @@ export type AdminMediaUsage = {
 };
 
 export type AdminMediaItem = {
+  /** Opaque identifier assigned by the host for this asset. */
+  id?: string;
   name: string;
   path: string;
   publicUrl: string;

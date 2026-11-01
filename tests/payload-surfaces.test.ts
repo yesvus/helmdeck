@@ -120,6 +120,7 @@ describe("the payload media adapter", () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
+      id: "7",
       name: "espresso.png",
       kind: "image",
       publicUrl: "/media/espresso.png",
