@@ -12,9 +12,9 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Media items can carry an opaque host-owned ID through picker selection, and `AdminMediaField` can submit it alongside the existing URL.
 
-### Added
-
 - A provider-neutral shared-database path for the Payload host, with PostgreSQL as the initial self-hosted backend and SQLite/libSQL retained as optional local or single-instance choices.
+
+- The Payload host accepts validated, rate-limited public feedback and provides administrator-only inbox review and archive actions.
 
 ## 1.4.0
 

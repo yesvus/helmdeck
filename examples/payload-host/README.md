@@ -183,3 +183,8 @@ npm run typecheck
 In this repository, `pnpm typecheck:payload-host` runs the same compiler over this directory after
 linking the package into `examples/payload-host/node_modules`, which is what keeps a host nobody
 compiles from being copied stale.
+## Contact feedback
+
+- `POST /api/feedback-intake` accepts only name, email, subject and message. Submissions are validated, deduplicated by content for five minutes, and subject to a 100-per-15-minute process-wide cap. A proxy bucket is added only when `PAYLOAD_TRUSTED_PROXY_HEADER` names a trusted header; unset by default, no forwarding header is trusted. Spoofed `x-forwarded-for` is ignored. Submissions receive server-owned timestamps and `new` status.
+- The in-memory throttle is per process. Multi-replica deployments need a shared throttle store, and must ensure the trusted edge supplies client address headers.
+- Administrators review feedback at `/admin/inbox`. Archiving changes status to `archived`; it does not delete the submission.
