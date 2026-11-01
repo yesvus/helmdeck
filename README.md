@@ -38,6 +38,10 @@ Every topic below is its own page in the [documentation catalog](https://helmdec
 | [Development](https://helmdeck-web.vercel.app/catalog/development) | Contextual help and the deploy check, with what the smoke check cannot detect. |
 | [Getting started](https://helmdeck-web.vercel.app/catalog/getting-started) | The install command and shell setup, with the package's catalogue beside it. |
 
+## Feedback
+
+Feedback is welcome through GitHub issue forms: report defects with the [bug report form](https://github.com/yesvus/helmdeck/issues/new?template=bug_report.yml) and propose capabilities with the [feature request form](https://github.com/yesvus/helmdeck/issues/new?template=feature_request.yml). For open-ended feedback that does not fit either form, open a [blank issue](https://github.com/yesvus/helmdeck/issues/new). Blank issues remain enabled, so there is always a path for general questions and discussion.
+
 ## Migrating to Payload
 
 The resource engine was retired in 1.0.0, and
