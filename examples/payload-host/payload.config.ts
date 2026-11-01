@@ -22,6 +22,7 @@ import { payloadCollections } from "./lib/payload/collections";
 import { payloadDatabase } from "./lib/payload/db";
 import { PAYLOAD_ROUTE_GROUP } from "./lib/payload/routes";
 import { payloadServerURL } from "./lib/payload/server-url";
+import { createAdminPayloadPagePublishHandler } from "@yesvus/helmdeck";
 
 /**
  * The secret that signs Payload's own tokens.
@@ -51,6 +52,20 @@ export default buildConfig({
   // Payload's job rather than this host's.
   editor: lexicalEditor(),
   collections: payloadCollections,
+  jobs: {
+    tasks: [
+      {
+        slug: "publishPayloadPage",
+        handler: createAdminPayloadPagePublishHandler(),
+      },
+    ],
+    autoRun: [{ cron: "* * * * *", queue: "default" }],
+    access: {
+      queue: ({ req }: { req: { user?: unknown } }) => Boolean(req?.user),
+      run: ({ req }: { req: { user?: unknown } }) => Boolean(req?.user),
+      cancel: ({ req }: { req: { user?: unknown } }) => Boolean(req?.user),
+    },
+  },
   admin: {
     ...payloadAdmin,
     importMap: {

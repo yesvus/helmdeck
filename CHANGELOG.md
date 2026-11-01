@@ -11,7 +11,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 ### Added
 
 - Payload uploads are wired into the media library: `createAdminPayloadMediaAdapter` reads and writes a Payload upload collection through the shared content bridge, and the Payload host example defines a `media` upload collection with a media page behind it.
-
+- Payload Jobs scheduling for Payload-managed pages: `createAdminPayloadScheduler` queues a page for publish-at-a-time through Payload Jobs with the access envelope on every call (no session, no call), and a host moves or cancels a schedule or runs the queue's due jobs through the same handle; `createAdminPayloadPagePublishHandler` is the task a host config registers, so the queued job publishes its page exactly the write the access rules govern. The payload-host example wires the cron and the task.
 ## 1.3.0
 
 ### Added
