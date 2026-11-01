@@ -59,6 +59,11 @@ one place where a password is typed.
 is what Payload's CSRF allowlist and its generated links are built from. A deployment behind a
 custom domain sets it; a Vercel deployment is answered from `VERCEL_URL` without it.
 
+## Deployment
+
+For container deployment see [Docker](deploy/docker.md); for a vendor-neutral Kubernetes example,
+including the migration Job and replica guidance, see [Kubernetes](deploy/kubernetes.md).
+
 ## The six steps
 
 | Step | Where it is |
