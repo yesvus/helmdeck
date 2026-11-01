@@ -2,7 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { AdminDataTable, useAdminDataTable } from "../src/primitives/data-table";
+import { AdminDataTable, AdminTableEmptyState, useAdminDataTable } from "../src/primitives/data-table";
 import type { AdminDataTableColumn } from "../src/primitives/data-table";
 
 type Row = { id: string; name: string; quantity: number };
@@ -242,5 +242,24 @@ describe("AdminDataTable", () => {
       <AdminDataTable<Row> columns={columns} rows={rows} getKey={(row) => row.id} variant="flat" />,
     );
     expect(screen.getByRole("table").closest("div")).not.toHaveClass("rounded-admin-card");
+  });
+
+  it("falls back to bare empty text and renders a contextual empty state when given one", () => {
+    const { rerender } = render(
+      <AdminDataTable<Row> columns={columns} rows={[]} getKey={(row) => row.id} />,
+    );
+    expect(screen.getByText("No results.")).toBeInTheDocument();
+
+    rerender(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={[]}
+        getKey={(row) => row.id}
+        empty={<AdminTableEmptyState icon={<span data-testid="empty-icon" />} title="Nothing here" description="Add rows to begin" action={<button type="button">Add</button>} />}
+      />,
+    );
+    expect(screen.getByText("Nothing here")).toBeInTheDocument();
+    expect(screen.getByText("Add rows to begin")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
   });
 });

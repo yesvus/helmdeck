@@ -190,6 +190,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The behaviour layer of the data table: the sorting, the filters, the search and the paging.",
     keywords: "hook sort filter search paginate rows",
   },
+  AdminTableEmptyState: {
+    category: "Data display",
+    summary: "A contextual empty state for a data table: an icon, a title, a description and an optional action.",
+    keywords: "table empty state contextual icon title description action",
+    renderable: true,
+  },
   AdminCommandPalette: {
     category: "Shell and navigation",
     summary: "A palette of commands over the combobox, opened by a keyboard shortcut.",
