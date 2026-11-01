@@ -19,10 +19,12 @@ function PermittedNav({
   nav,
   session,
   children,
+  siteName,
 }: {
   nav: AdminNavGroup[];
   session: AdminSession;
   children: ReactNode;
+  siteName?: string;
 }) {
   // Inside the provider, because it asks it. An item with a `permission` is kept only once that
   // permission has been answered, and nothing is removed until every one of them has, so a denied
@@ -34,7 +36,7 @@ function PermittedNav({
       nav={groups}
       session={session}
       homeHref="/admin"
-      brand={{ label: APP_NAME, href: "/admin" }}
+      brand={{ label: siteName ?? APP_NAME, href: "/admin" }}
       onLogout={signOutAction}
     >
       {children}
@@ -56,14 +58,16 @@ export function AdminFrame({
   nav,
   session,
   children,
+  siteName,
 }: {
   nav: AdminNavGroup[];
   session: AdminSession;
   children: ReactNode;
+  siteName?: string;
 }) {
   return (
     <AdminPermissionsProvider adapter={permissions}>
-      <PermittedNav nav={nav} session={session}>
+      <PermittedNav nav={nav} session={session} siteName={siteName}>
         {children}
       </PermittedNav>
     </AdminPermissionsProvider>

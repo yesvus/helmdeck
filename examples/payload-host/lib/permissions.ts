@@ -24,6 +24,8 @@ export const PERMISSIONS = {
   mediaCreate: "media:create",
   mediaUpdate: "media:update",
   mediaDelete: "media:delete",
+  settingsRead: "siteSettings:read",
+  settingsUpdate: "siteSettings:update",
 } as const;
 
 /**

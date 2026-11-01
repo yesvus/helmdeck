@@ -16,7 +16,7 @@
  * read as an account is not an anonymous account, it is a request that must not be answered.
  */
 
-import { createAdminPayloadContent } from "@yesvus/helmdeck";
+import { AdminPayloadAccessRefused, createAdminPayloadContent } from "@yesvus/helmdeck";
 import type { AdminPayloadContent } from "@yesvus/helmdeck";
 import { getPayload, type Payload } from "payload";
 import config from "../../payload.config";
@@ -70,6 +70,36 @@ export function payloadContent(): Promise<AdminPayloadContent> {
     throw cause;
   });
   return pending;
+}
+
+/**
+ * Globals, the same guarded way.
+ *
+ * A Global has no collection and no id, so it cannot travel the collection bridge the package
+ * ships; it gets this side of the same module instead. The keys are passed exactly where they are
+ * passed for collections, so the guard against a forgotten `overrideAccess` stays one place.
+ */
+export type GlobalsContent = {
+  get: (slug: string) => Promise<unknown>;
+  set: (slug: string, data: Record<string, unknown>) => Promise<unknown>;
+};
+
+export async function globalContentGet(slug: string): Promise<unknown> {
+  const payload = await getPayload({ config });
+  const user = await readPayloadSession();
+  if (!user) throw new AdminPayloadAccessRefused("findGlobal");
+  return payload.findGlobal({ slug, overrideAccess: false, user, depth: 0 });
+}
+
+export async function globalContentSet(slug: string, data: Record<string, unknown>): Promise<unknown> {
+  const payload = await getPayload({ config });
+  const user = await readPayloadSession();
+  if (!user) throw new AdminPayloadAccessRefused("updateGlobal");
+  return payload.updateGlobal({ slug, data, overrideAccess: false, user, depth: 0 });
+}
+
+export function globalsContent(): GlobalsContent {
+  return { get: globalContentGet, set: globalContentSet };
 }
 
 /**
