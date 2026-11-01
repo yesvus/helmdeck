@@ -11,10 +11,10 @@ import {
 
 export async function readPayloadSiteSettingsAction(): Promise<PayloadSiteSettings> {
   const payload = await payloadInstance();
-  return (await readPayloadSiteSettings(payload, readPayloadSession)) as PayloadSiteSettings;
+  return readPayloadSiteSettings({ payload, resolveUser: readPayloadSession });
 }
 
 export async function writePayloadSiteSettingsAction(values: Record<string, unknown>): Promise<PayloadSiteSettings> {
   const payload = await payloadInstance();
-  return (await writePayloadSiteSettings(payload, readPayloadSession, values)) as PayloadSiteSettings;
+  return writePayloadSiteSettings({ payload, resolveUser: readPayloadSession }, values);
 }

@@ -55,8 +55,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   let siteName: string | undefined;
   try {
     const payload = await payloadInstance();
-    const settings = (await readPayloadSiteSettings(payload, readPayloadSession)) as { name?: unknown } | null;
-    if (settings && typeof settings.name === "string" && settings.name) siteName = settings.name;
+    const settings = await readPayloadSiteSettings({ payload, resolveUser: readPayloadSession });
+    if (typeof settings.name === "string" && settings.name) siteName = settings.name;
   } catch {
     siteName = undefined;
   }

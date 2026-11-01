@@ -35,8 +35,8 @@ function payloadStub(overrides: Partial<Record<string, (args: PayloadArgs) => Pr
 describe("payload site settings denied reads and writes", () => {
   it("refuses read and write with no session before reaching payload", async () => {
     const payload = payloadStub();
-    await expect(readPayloadSiteSettings(payload as never, async () => null)).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
-    await expect(writePayloadSiteSettings(payload as never, async () => null, { name: "X" })).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    await expect(readPayloadSiteSettings({ payload: payload as never, resolveUser: async () => null })).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    await expect(writePayloadSiteSettings({ payload: payload as never, resolveUser: async () => null }, { name: "X" })).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
 
     expect((payload as { findGlobal: { calls: unknown[] } }).findGlobal.calls).toHaveLength(0);
     expect((payload as { updateGlobal: { calls: unknown[] } }).updateGlobal.calls).toHaveLength(0);
@@ -46,7 +46,7 @@ describe("payload site settings denied reads and writes", () => {
 describe("payload site settings persistence", () => {
   it("reads the global with overrideAccess false and the session user", async () => {
     const payload = payloadStub();
-    const result = await readPayloadSiteSettings(payload as never, async () => ({ id: "u1" }));
+    const result = await readPayloadSiteSettings({ payload: payload as never, resolveUser: async () => ({ id: "u1" }) });
     expect(result).toBeTruthy();
     const args = (payload as { findGlobal: { calls: PayloadArgs[] } }).findGlobal.calls[0]!;
     expect(args.slug).toBe(SITE_SETTINGS_GLOBAL);
@@ -57,7 +57,7 @@ describe("payload site settings persistence", () => {
   it("writes the global with overrideAccess false and the session user", async () => {
     const payload = payloadStub();
     const values = { name: "Acme", accent: "#123456", support_email: "help@acme.test", density: "compact" };
-    await writePayloadSiteSettings(payload as never, async () => ({ id: "u1" }), values);
+    await writePayloadSiteSettings({ payload: payload as never, resolveUser: async () => ({ id: "u1" }) }, values);
 
     const args = (payload as { updateGlobal: { calls: PayloadArgs[] } }).updateGlobal.calls[0]!;
     expect(args.slug).toBe(SITE_SETTINGS_GLOBAL);
@@ -79,7 +79,7 @@ describe("payload site settings invalid values", () => {
   it("rejects invalid values before reaching payload", async () => {
     const payload = payloadStub();
     await expect(
-      writePayloadSiteSettings(payload as never, async () => ({ id: "u1" }), { name: "", accent: "red", support_email: "nope", density: "huge" }),
+      writePayloadSiteSettings({ payload: payload as never, resolveUser: async () => ({ id: "u1" }) }, { name: "", accent: "red", support_email: "nope", density: "huge" }),
     ).rejects.toThrow();
     expect((payload as { updateGlobal: { calls: unknown[] } }).updateGlobal.calls).toHaveLength(0);
   });
