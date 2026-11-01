@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 1.3.0
+
 ### Added
 
 - The data table's row selection: the checkbox column the table primitive already draws, driven by the host's selection state or held internally when the host only listens. Controlled callers keep the keys, uncontrolled ones get them back on every change.
