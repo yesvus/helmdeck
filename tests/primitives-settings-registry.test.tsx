@@ -82,6 +82,12 @@ describe("defineAdminSettings", () => {
     expect(registry.validateValue("shareUrl", "a@b")).toMatch(/at sign/);
     expect(registry.validateValue("nowhere", 1)).toBe("Unknown setting.");
   });
+
+  it("treats a cleared optional number as unset rather than zero", () => {
+    expect(registry.validateValue("featuredLimit", "")).toBeNull();
+    expect(registry.validateValue("featuredLimit", undefined)).toBeNull();
+    expect(registry.validateValue("siteTitle", "")).toMatch(/Required/);
+  });
 });
 
 describe("AdminSettingsPanel", () => {
@@ -165,6 +171,20 @@ describe("AdminSettingsPanel", () => {
     );
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Store unreachable.");
+  });
+
+  it("writes a cleared optional number as unset, not as zero", async () => {
+    const user = userEvent.setup();
+    const stored: Stored = { featuredLimit: 8 };
+    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter(stored)} />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    await user.clear(screen.getByLabelText("Featured products"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const saved = await screen.findByRole("status");
+    expect(saved).toHaveTextContent("Saved.");
+    expect(stored["featuredLimit"]).toBeUndefined();
   });
 });
 

@@ -107,6 +107,9 @@ function validateOne(setting: AdminSettingDefinition, value: unknown): string | 
   if (value === undefined || value === null) return null;
   switch (setting.type) {
     case "number": {
+      // A cleared field is unset, not zero: the empty string coerces to 0, which would turn a save
+      // of "cleared" into a write of zero.
+      if (typeof value === "string" && value.trim() === "") return null;
       const n = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(n)) return "Must be a number.";
       if (setting.min !== undefined && n < setting.min) return `Must be at least ${setting.min}.`;
@@ -338,7 +341,10 @@ function updateValue(key: string, value: unknown) {
                     type={setting.type === "number" ? "number" : setting.type === "secret" ? "password" : "text"}
                     value={value === undefined || value === null ? "" : String(value)}
                     onChange={(event: { target: { value: string } }) =>
-                      updateValue(key, setting.type === "number" ? event.target.value : event.target.value)
+                      updateValue(
+                        key,
+                        setting.type === "number" && event.target.value === "" ? undefined : event.target.value,
+                      )
                     }
                     disabled={busy}
                     min={setting.min}
