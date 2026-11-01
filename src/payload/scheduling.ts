@@ -3,20 +3,42 @@
 import type { AdminPayloadContent } from "./bridge.js";
 import type { AdminPayloadSessionReader, AdminPayloadUser } from "./bridge.js";
 
-/** The slice of the installed Payload Jobs surface a scheduler calls, and nothing more. */
+/**
+ * The slice of the installed Payload Jobs surface a scheduler calls, and nothing more. The arg
+ * types are the shapes the calls make, narrow on purpose: a real Payload instance (whose own queue
+ * is typed against its config) then satisfies this slice rather than fighting it.
+ */
 export type AdminPayloadJobs = {
-  queue: (args: Record<string, unknown>) => Promise<unknown>;
-  run: (args?: Record<string, unknown>) => Promise<unknown>;
-  runByID: (args: Record<string, unknown>) => Promise<unknown>;
-  cancel: (args: Record<string, unknown>) => Promise<void>;
-  cancelByID: (args: Record<string, unknown>) => Promise<void>;
+  queue: (args: {
+    task: string;
+    input: unknown;
+    waitUntil?: Date;
+    overrideAccess: boolean;
+    req: { user: unknown };
+    queue?: string;
+    meta?: Record<string, unknown>;
+  }) => Promise<unknown>;
+  run: (args?: { allQueues?: boolean; queue?: string; limit?: number; silent?: boolean } & Record<string, unknown>) => Promise<unknown>;
+  runByID: (args: { id: string | number; overrideAccess: boolean; req: { user: unknown }; silent?: boolean }) => Promise<unknown>;
+  cancel: (args: { where: Record<string, unknown>; overrideAccess: boolean; req: { user: unknown }; queue?: string }) => Promise<void>;
+  cancelByID: (args: { id: string | number; overrideAccess: boolean; req: { user: unknown } }) => Promise<void>;
   handleSchedules: (args?: Record<string, unknown>) => Promise<unknown>;
 };
 
 export type AdminPayloadJobInstance = {
   jobs: AdminPayloadJobs;
-  update?: (args: Record<string, unknown>) => Promise<unknown>;
-  findByID?: (args: Record<string, unknown>) => Promise<unknown>;
+  /** The direct writes the scheduler and its handler need, both carrying the session themselves. */
+  update?: (args: {
+    collection: string;
+    id: string | number;
+    data?: unknown;
+    draft?: boolean;
+    overrideAccess: boolean;
+    user?: unknown;
+    req?: { user: unknown };
+    depth?: number;
+  }) => Promise<unknown>;
+  findByID?: (args: { collection: string; id: string | number; overrideAccess: boolean; user?: unknown; depth?: number }) => Promise<unknown>;
   [key: string]: unknown;
 };
 
@@ -54,7 +76,12 @@ export type AdminPayloadCancelInput = {
   queue?: string;
 };
 
-export type AdminPayloadRunInput = Record<string, unknown>;
+export type AdminPayloadRunInput = {
+  allQueues?: boolean;
+  queue?: string;
+  limit?: number;
+  silent?: boolean;
+};
 
 export type AdminPayloadScheduler = {
   task: string;
@@ -69,14 +96,16 @@ export type AdminPayloadScheduler = {
 
 /** The task handler a host config registers, so a queued job publishes its page when it runs. */
 export function createAdminPayloadPagePublishHandler(options: { payload?: AdminPayloadJobInstance } = {}) {
-  return async (args: { input?: Record<string, unknown>; req?: { user?: unknown; payload?: AdminPayloadJobInstance } }) => {
+  // The request Payload passes carries its own tightly typed instance, which no slice type can name;
+  // the instance is taken through `unknown` and narrowed once here.
+  return async (args: { input?: Record<string, unknown>; req?: { user?: unknown; payload?: unknown } }) => {
     const input = args?.input ?? {};
     const collection = String(input.collection ?? "pages");
     const id = input.id;
-    if (id === undefined || id === null) {
+    if (id === undefined || id === null || (typeof id !== "string" && typeof id !== "number")) {
       throw new Error("A page-publishing job needs a page id.");
     }
-    const payload = options.payload ?? args?.req?.payload;
+    const payload = (options.payload ?? args?.req?.payload) as AdminPayloadJobInstance | undefined;
     const user = args?.req?.user;
     if (!payload) {
       throw new Error("No Payload instance available to publish the page.");
@@ -148,13 +177,14 @@ export function createAdminPayloadScheduler(options: AdminPayloadSchedulerOption
 
     schedule: async (input) => {
       const user = await currentUser("schedule");
+      const queue = input.queue ?? defaultQueue;
       return payload.jobs.queue({
         task,
         input: { collection: input.collection ?? "pages", id: input.id },
         waitUntil: toWaitUntil(input.publishAt),
         overrideAccess: false,
         req: reqOf(user),
-        ...(input.queue ?? defaultQueue ? { queue: input.queue ?? defaultQueue } : {}),
+        ...(queue ? { queue } : {}),
         ...(input.meta ? { meta: input.meta } : {}),
       });
     },
@@ -162,8 +192,9 @@ export function createAdminPayloadScheduler(options: AdminPayloadSchedulerOption
     reschedule: async (input) => {
       const user = await currentUser("reschedule");
       const waitUntil = toWaitUntil(input.publishAt);
-      // A scheduled job moved by id edits its own waitUntil when Payload allows it, and falls back
-      // to cancel-plus-requeue so the old moment never survives the new instruction.
+      const queue = input.queue ?? defaultQueue;
+      // A schedule moved by id edits its own waitUntil when Payload allows it, and falls back to a
+      // requeue so the old moment never survives the new instruction.
       if (input.id !== undefined && input.collection === undefined && input.pageId === undefined) {
         try {
           if (typeof payload.update === "function") {
@@ -177,7 +208,8 @@ export function createAdminPayloadScheduler(options: AdminPayloadSchedulerOption
             });
           }
         } catch {
-          // Fall through to cancel plus queue.
+          // Fall through to cancel the job, which survives without requeueing a page the caller
+          // never named.
         }
       }
       if (input.id !== undefined) {
@@ -187,18 +219,22 @@ export function createAdminPayloadScheduler(options: AdminPayloadSchedulerOption
           // The job may already be gone; queuing the new one is still the right move.
         }
       }
+      if (input.pageId === undefined) {
+        return { id: input.id, waitUntil };
+      }
       return payload.jobs.queue({
         task,
         input: { collection: input.collection ?? "pages", id: input.pageId },
         waitUntil,
         overrideAccess: false,
         req: reqOf(user),
-        ...(input.queue ?? defaultQueue ? { queue: input.queue ?? defaultQueue } : {}),
+        ...(queue ? { queue } : {}),
       });
     },
 
     cancel: async (input) => {
       const user = await currentUser("cancel");
+      const queue = input.queue ?? defaultQueue;
       if (input.id !== undefined) {
         await payload.jobs.cancelByID({ id: input.id, overrideAccess: false, req: reqOf(user) });
         return;
@@ -207,17 +243,18 @@ export function createAdminPayloadScheduler(options: AdminPayloadSchedulerOption
         where: input.where ?? {},
         overrideAccess: false,
         req: reqOf(user),
-        ...(input.queue ?? defaultQueue ? { queue: input.queue ?? defaultQueue } : {}),
+        ...(queue ? { queue } : {}),
       });
     },
 
     run: async (input) => {
       const user = await currentUser("run");
+      const queue = input?.queue ?? defaultQueue;
       return payload.jobs.run({
         ...input,
         overrideAccess: false,
         req: reqOf(user),
-        ...(input?.queue ?? defaultQueue ? { queue: input?.queue ?? defaultQueue } : {}),
+        ...(queue ? { queue } : {}),
       });
     },
 
