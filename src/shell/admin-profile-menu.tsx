@@ -77,7 +77,7 @@ export function AdminProfileMenu({
       {open ? (
         <div
           className={cn(
-            "absolute bottom-full mb-2 rounded-xl border border-zinc-200 bg-admin-surface p-1.5 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]",
+            "absolute bottom-full z-20 mb-2 rounded-xl border border-zinc-200 bg-admin-surface p-1.5 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.35)]",
             compact ? "left-3 w-56" : "inset-x-3",
           )}
         >
