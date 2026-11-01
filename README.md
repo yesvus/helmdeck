@@ -26,6 +26,8 @@ UI permission filtering and client callbacks are presentation boundaries; every 
 
 `buildAdminUrlPath` and `resolveAdminUrlHierarchy` provide framework-neutral hierarchical path construction and resolution, and `AdminBreadcrumbs` accepts optional host-resolved `resolvedCrumbs`. Hosts own route registration, browser URL changes, and query-state navigation; these helpers do not modify the address bar.
 
+The optional, host-owned assistant contract and provider notes are in [docs/assistant.md](./docs/assistant.md).
+
 For a vendor-neutral production deployment of the Payload reference host, see the [Docker guide](examples/payload-host/deploy/docker.md).
 
 Payload is the CMS in the reference host: it owns its collections, fields, auth, access control, versions, trash and uploads. Helmdeck's own resource engine was retired in 1.0.0. [Payload under the hood](https://helmdeck-web.vercel.app/catalog/payload) describes the integration and its six steps.

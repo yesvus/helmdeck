@@ -1013,6 +1013,7 @@ export const catalogPreviews: Record<string, ComponentType> = {
       <Button size="sm" variant="outline" onClick={() => toast.success("Saved")}>Show toast</Button>
     </div>
   ),
+  AdminAssistantPanel: () => <div className="rounded-xl border border-border bg-card p-4"><strong>Assistant</strong><p className="mt-3 text-sm">assistant: How can I help with your content?</p><p className="mt-4 rounded-md border border-amber-500/50 p-3 text-sm">Approval required: draft post summary</p></div>,
   AdminToastCard: () => (
     <AdminToastCard tone="success" title="Saved" body="The product was published." icon={<CheckCircle2 className="h-5 w-5" />} onClose={() => undefined} />
   ),
