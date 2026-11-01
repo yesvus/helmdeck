@@ -46,6 +46,15 @@ export type AdminDestructiveActionLabels = {
   busyLabel: string;
 };
 
+export type AdminDialogLabels = {
+  confirmLabel: string;
+  cancelLabel: string;
+  alertLabel: string;
+  submitLabel: string;
+  busyLabel: string;
+  invalidValueLabel: string;
+};
+
 export type AdminStatusLabels = {
   published: string;
   draft: string;
@@ -100,6 +109,7 @@ export type AdminMessages = {
   inbox?: AdminInboxMessages;
   analyticsCharts?: AdminAnalyticsChartMessages;
   destructive: AdminDestructiveActionLabels;
+  dialogs: AdminDialogLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
   pagination: AdminPaginationLabels;
@@ -141,6 +151,14 @@ export const englishAdminMessages: AdminMessages = {
     confirmLabel: "Yes, delete",
     cancelLabel: "Cancel",
     busyLabel: "Working...",
+  },
+  dialogs: {
+    confirmLabel: "Confirm",
+    cancelLabel: "Cancel",
+    alertLabel: "OK",
+    submitLabel: "Submit",
+    busyLabel: "Working...",
+    invalidValueLabel: "Provide a valid value.",
   },
   status: {
     published: "Published",
@@ -373,6 +391,14 @@ export const turkishAdminMessages: AdminMessages = {
     confirmLabel: "Evet, siliniz",
     cancelLabel: "Vazgeçiniz",
     busyLabel: "İşleniyor...",
+  },
+  dialogs: {
+    confirmLabel: "Onaylayın",
+    cancelLabel: "Vazgeçiniz",
+    alertLabel: "Tamam",
+    submitLabel: "Gönderin",
+    busyLabel: "İşleniyor...",
+    invalidValueLabel: "Geçerli bir değer giriniz.",
   },
   status: {
     published: "Yayında",
