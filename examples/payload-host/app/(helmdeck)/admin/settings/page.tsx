@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 import { AdminPageHeader } from "@yesvus/helmdeck";
-import { PERMISSIONS } from "@/lib/permissions";
 import { requireAdminSession } from "@/lib/guard";
 import { readPayloadSiteSettingsAction, writePayloadSiteSettingsAction } from "@/lib/payload/settings-actions";
 
