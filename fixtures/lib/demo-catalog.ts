@@ -866,6 +866,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "assistant AI chat streaming approval tools",
     renderable: true,
   },
+  sanitizeAssistantData: {
+    category: "Shell and navigation",
+    summary: "Removes sensitive fields and bounds assistant data before it is stored or displayed.",
+    keywords: "assistant sanitize privacy data",
+  },
   toast: {
     category: "Overlays and feedback",
     summary: "Dispatches success, error and loading notifications through the Sonner-backed AdminToast host.",

@@ -72,4 +72,5 @@ export type {
   AdminUrlHierarchyNode,
   AdminUrlRecordContext,
 } from "./url-segments.js";
-export type { AdminAssistantAdapter, AdminAssistantError, AdminAssistantEvent, AdminAssistantMessage, AdminAssistantTool } from "./assistant.js";
+export type { AdminAssistantAdapter, AdminAssistantError, AdminAssistantEvent, AdminAssistantMessage, AdminAssistantRunRecord, AdminAssistantTool, SanitizedAssistantData } from "./assistant.js";
+export { sanitizeAssistantData } from "./assistant.js";

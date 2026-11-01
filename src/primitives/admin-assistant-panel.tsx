@@ -26,7 +26,7 @@ export function AdminAssistantPanel({ adapter, tools, title }: AdminAssistantPan
         if (event.type === "text-delta") setMessages((current) => current.map((message, index) => index === current.length - 1 ? { ...message, content: message.content + event.text } : message));
         if (event.type === "tool-call") {
           const tool = tools.find((candidate) => candidate.name === event.name);
-          if (!tool) { setStatus(labels.unknownTool); continue; }
+           if (!tool) { try { await event.resolve({ tool: { name: event.name, title: event.name, label: event.name, description: "", parameters: {}, requiresApproval: false, execute: () => undefined }, args: event.args }, false); } catch { setStatus(labels.unknownTool); } setStatus(labels.unknownTool); continue; }
           if (tool.requiresApproval) setPending({ tool, args: event.args, resolve: event.resolve });
           else await event.resolve({ tool, args: event.args }, true);
         }

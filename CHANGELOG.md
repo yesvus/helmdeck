@@ -33,6 +33,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Add a read-only Medusa commerce host example, keeping product mutations in Medusa Admin.
 
+- Add assistant run-record and untrusted-data sanitization contracts, with an example-local admin history surface.
+
 ### Changed
 
 - Adapt `AdminTabs` and overlay menu patterns to the Helmdeck design language, add orientation-aware tabs, and document the primitive audit in `docs/primitives-audit-382.md`.
