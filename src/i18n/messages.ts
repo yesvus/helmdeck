@@ -64,6 +64,14 @@ export type AdminSettingsPanelLabels = {
   savePending: string;
 };
 
+export type AdminFormActionPanelLabels = {
+  save: string;
+  publish: string;
+  discard: string;
+  discardConfirm: string;
+  unsaved: string;
+};
+
 export type AdminStatusLabels = {
   published: string;
   draft: string;
@@ -120,6 +128,7 @@ export type AdminMessages = {
   destructive: AdminDestructiveActionLabels;
   dialogs: AdminDialogLabels;
   settingsPanel: AdminSettingsPanelLabels;
+  formActionPanel: AdminFormActionPanelLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
   pagination: AdminPaginationLabels;
@@ -178,6 +187,7 @@ export const englishAdminMessages: AdminMessages = {
     save: "Save",
     savePending: "Saving...",
   },
+  formActionPanel: { save: "Save changes", publish: "Publish", discard: "Discard", discardConfirm: "Discard your unsaved changes?", unsaved: "Unsaved changes" },
   status: {
     published: "Published",
     draft: "Draft",
@@ -426,6 +436,7 @@ export const turkishAdminMessages: AdminMessages = {
     save: "Kaydediniz",
     savePending: "Kaydediliyor...",
   },
+  formActionPanel: { save: "Değişiklikleri kaydet", publish: "Yayımla", discard: "Vazgeç", discardConfirm: "Kaydedilmemiş değişikliklerinizden vazgeçilsin mi?", unsaved: "Kaydedilmemiş değişiklikler" },
   status: {
     published: "Yayında",
     draft: "Taslak",

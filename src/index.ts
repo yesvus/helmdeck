@@ -26,6 +26,7 @@ export * from "./payload/index.js";
 export * from "./settings/index.js";
 export * from "./payload/theme.js";
 export * from "./primitives/index.js";
+export { AdminFormActionPanel } from "./primitives/action-panel.js";
 export {
   createReadOnlyPersistenceAdapter,
 } from "./resources/persistence.js";
