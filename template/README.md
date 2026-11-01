@@ -93,6 +93,7 @@ different location, update the `@source` path to the package's `dist` directory.
 | `app/actions/` | The three `"use server"` files that carry the seams across to the browser. |
 | `components/` | The client halves: the frame, the adapter the generated views read through, the form. |
 | `proxy.ts` | Where the redirect for a visitor with no session is built, because only it knows the path. |
+| `app/admin/backups/page.tsx` | A reusable database-backups page that renders host-supplied entries, status and retention policy; the contract lives in `lib/backups.ts`. |
 
 ## The one rule
 
