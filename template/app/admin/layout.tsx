@@ -25,6 +25,7 @@ const nav: AdminNavGroup[] = [
         permission: productsResource.permissions?.read,
       },
       { href: "/admin/settings", label: "Settings", icon: "settings" },
+      { href: "/admin/backups", label: "Backups", icon: "settings" },
     ],
   },
 ];
