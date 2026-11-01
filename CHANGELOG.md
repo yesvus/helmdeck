@@ -20,6 +20,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - The Payload host accepts validated, rate-limited public feedback and provides administrator-only inbox review and archive actions.
 
+- Framework-neutral hierarchical admin URL path building and resolution, with an opt-in breadcrumb override; hosts retain ownership of route registration and URL navigation.
+
 ## 1.4.0
 
 ### Deprecated

@@ -17,18 +17,20 @@ export function useBreadcrumbs(
   groups?: AdminNavGroup[],
   pathnameOverride?: string,
   homeHref?: string,
+  resolvedCrumbs?: AdminBreadcrumbTrail["crumbs"],
 ): AdminBreadcrumbTrail | null {
   const shell = useAdminShell();
   const pathname = usePathname();
   const nav = groups ?? shell?.nav ?? [];
   const path = pathnameOverride ?? pathname;
-  return path === null ? null : createAdminBreadcrumbTrail(nav, path, homeHref ?? shell?.homeHref);
+  return path === null ? null : createAdminBreadcrumbTrail(nav, path, homeHref ?? shell?.homeHref, resolvedCrumbs);
 }
 
 export function createAdminBreadcrumbTrail(
   nav: AdminNavGroup[],
   pathname: string,
   homeHref?: string,
+  resolvedCrumbs?: AdminBreadcrumbTrail["crumbs"],
 ): AdminBreadcrumbTrail | null {
   const normalizedPath = normalizePath(pathname);
   const entries = nav.flatMap((group) => group.items.map((item) => ({ group, item })));
@@ -50,7 +52,7 @@ export function createAdminBreadcrumbTrail(
 
   if (crumbs.length === 0) crumbs.push({ label: item.label, href: item.href, current: true });
   if (!crumbs.some((crumb) => crumb.current)) crumbs[crumbs.length - 1] = { ...crumbs.at(-1)!, current: true };
-  return { item, crumbs };
+  return { item, crumbs: resolvedCrumbs ?? crumbs };
 }
 
 /**

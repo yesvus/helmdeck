@@ -13,6 +13,8 @@ Helmdeck takes care of the admin interface and its reusable workflows. It does n
 
 The adapters define where the host connects its services. UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](https://helmdeck-web.vercel.app/catalog/quick-start) shows a working host with a local SQLite store and generated resource pages. The [independent host](https://github.com/yesvus/helmdeck/tree/main/examples/independent-host) demonstrates integrating the package into a separate Next.js application.
 
+`buildAdminUrlPath` and `resolveAdminUrlHierarchy` provide framework-neutral hierarchical path construction and resolution, and `AdminBreadcrumbs` accepts optional host-resolved `resolvedCrumbs`. Hosts own route registration, browser URL changes, and query-state navigation; these helpers do not modify the address bar.
+
 For a vendor-neutral production deployment of the Payload reference host, see the [Docker guide](examples/payload-host/deploy/docker.md).
 
 Payload is the CMS under Helmdeck: Payload owns collections, fields, auth, access control, versions, trash and uploads, and Helmdeck's own resource engine was retired in 1.0.0. [Payload under the hood](https://helmdeck-web.vercel.app/catalog/payload) states the shape and the six steps that get there.

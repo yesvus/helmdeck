@@ -65,3 +65,9 @@ export type { AdminShellLabels } from "./labels.js";
 export { resolveNavIcon } from "./nav-icons.js";
 export { useBreadcrumbs } from "./use-breadcrumbs.js";
 export type { AdminBreadcrumbTrail } from "./use-breadcrumbs.js";
+export { buildAdminUrlPath, resolveAdminUrlHierarchy } from "./url-segments.js";
+export type {
+  AdminResolvedUrlHierarchy,
+  AdminUrlHierarchyNode,
+  AdminUrlRecordContext,
+} from "./url-segments.js";

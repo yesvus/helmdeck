@@ -2124,6 +2124,16 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "Why an accent was refused and the best ratio either label colour reached on it, so the message can advise rather than only decline.",
     keywords: "reject refuse reason ratio explain accent",
   },
+  buildAdminUrlPath: {
+    category: "Shell and navigation",
+    summary: "Builds a locale-neutral admin path from configured hierarchy segments and an optional record.",
+    keywords: "admin url path hierarchy slug route build",
+  },
+  resolveAdminUrlHierarchy: {
+    category: "Shell and navigation",
+    summary: "Resolves an admin path into its configured navigation trail and optional record identifier.",
+    keywords: "admin url resolve hierarchy breadcrumbs route slug",
+  },
   ADMIN_DENSITIES: {
     category: "Theme and colour",
     summary: "The three density steps a host picks between, ordered tightest to loosest so a select reads in order.",
