@@ -12,6 +12,10 @@ export type {
   AdminSortableMessages,
 } from "./messages.js";
 export { AdminDestructiveAction } from "./destructive-action.js";
+export { AdminErrorView } from "./admin-error-view.js";
+export type { AdminErrorViewLabels, HelmdeckErrorAdapter } from "./admin-error-view.js";
+export { AdminErrorBoundary } from "../shell/admin-error-boundary.js";
+export type { AdminErrorBoundaryProps } from "../shell/admin-error-boundary.js";
 export { AdminContextualHelp } from "./contextual-help.js";
 export { AdminContactForm } from "./contact-form.js";
 export type { AdminContactFormLabels, AdminContactSubmission } from "./contact-form.js";

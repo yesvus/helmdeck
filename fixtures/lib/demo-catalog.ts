@@ -1242,11 +1242,16 @@ const CATALOG_META: Record<string, CatalogMeta> = {
       "The shell is the host. It is handed navigation, a session and a permissions adapter before it has anything to draw.",
   },
   AdminErrorBoundary: {
-    category: "Shell and navigation",
-    summary: "An admin error boundary body whose retry reloads the document, so server-side failures can recover.",
-    keywords: "error boundary reload retry",
-    hostNote:
-      "The host supplies the thrown error and the reset callback; the component owns the reload action.",
+    category: "Overlays and feedback",
+    summary: "Catches admin render errors and presents diagnostics with retry and optional monitoring integration.",
+    keywords: "error boundary retry diagnostics monitoring",
+    hostNote: "The host may provide an error, a reset callback, and a monitoring adapter; children are caught by the client boundary.",
+  },
+  AdminErrorView: {
+    category: "Overlays and feedback",
+    summary: "A headless diagnostic screen for rendering an error, digest, stack and recovery actions.",
+    keywords: "error diagnostics stack retry",
+    renderable: true,
   },
   AdminBreadcrumbs: {
     category: "Shell and navigation",
