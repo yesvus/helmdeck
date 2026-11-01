@@ -24,6 +24,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Framework-neutral hierarchical admin URL path building and resolution, with an opt-in breadcrumb override; hosts retain ownership of route registration and URL navigation.
 
+- Add `AdminFormActionPanel`, a sticky form action surface that consumes managed dirty state without host-side duplication.
+
 - Add a vendor-neutral Kubernetes deployment example for the Payload host, including a pre-rollout migration Job.
 
 - Add an optional Payload-powered blog starter to the Payload host example, with Lexical posts, categories, publishing, preview, SEO metadata and public article routes.

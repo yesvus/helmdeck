@@ -95,6 +95,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "save dirty form",
     renderable: true,
   },
+  AdminFormActionPanel: {
+    category: "Forms and fields",
+    summary: "A sticky change-aware action panel that reads dirty and pending form state directly.",
+    keywords: "save publish discard sticky dirty form",
+    renderable: true,
+  },
   AdminSubmitButton: {
     category: "Actions and buttons",
     summary: "The form's submit control, with the pending and disabled states applied to it.",
