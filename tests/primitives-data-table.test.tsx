@@ -138,4 +138,109 @@ describe("AdminDataTable", () => {
 
     expect(screen.getByRole("button", { name: "Grinder" })).toBeInTheDocument();
   });
+
+  it("toggles row selection internally and reports it when the caller holds none", async () => {
+    const user = userEvent.setup();
+    const onSelectionChange = vi.fn();
+    render(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={rows}
+        getKey={(row) => row.id}
+        selectedKeys={undefined}
+        selectable
+        onSelectionChange={onSelectionChange}
+        selectionLabel="Select"
+        selectAllLabel="Select all"
+      />,
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: "Select b" }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith(new Set(["b"]));
+    // A second click returns the row to unselected rather than adding a duplicate key.
+    await user.click(screen.getByRole("checkbox", { name: "Select b" }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith(new Set());
+  });
+
+  it("renders the caller's selection state instead of an internal one", () => {
+    const onSelectionChange = vi.fn();
+    render(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={rows}
+        getKey={(row) => row.id}
+        selection={{ selectedKeys: new Set(["a"]), onSelectionChange, label: "Select", selectAllLabel: "Select all" }}
+      />,
+    );
+
+    expect(screen.getByRole("checkbox", { name: "Select a" })).toBeChecked();
+  });
+
+  it("offers a reload button that calls the caller's reload", async () => {
+    const user = userEvent.setup();
+    const onReload = vi.fn(async () => undefined);
+    render(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={rows}
+        getKey={(row) => row.id}
+        showReloadButton
+        onReload={onReload}
+        reloadLabel="Refresh"
+      />,
+    );
+
+    const reload = screen.getByRole("button", { name: "Refresh" });
+    await user.click(reload);
+    expect(onReload).toHaveBeenCalledOnce();
+  });
+
+  it("gives each column a filter input when the caller asks for column filters", async () => {
+    const user = userEvent.setup();
+    render(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={rows}
+        getKey={(row) => row.id}
+        columnFilters
+      />,
+    );
+
+    await user.type(screen.getByRole("searchbox", { name: "Product filter" }), "Grinder");
+    expect(screen.getByRole("cell", { name: "Grinder" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Espresso machine" })).not.toBeInTheDocument();
+  });
+
+  it("honours a server-provided page count instead of counting the rows", () => {
+    render(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={rows}
+        getKey={(row) => row.id}
+        serverSide
+        total={40}
+        pageCount={4}
+        pageSize={4}
+      />,
+    );
+
+    expect(screen.getByRole("navigation", { name: "Pagination" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Page 1" })).toHaveAttribute("aria-current", "page");
+    // The rows alone fill one page, so a fourth page button only appears when the caller's
+    // page count, not the row count, drives the pager.
+    expect(screen.getByRole("button", { name: "Page 4" })).toBeInTheDocument();
+  });
+
+  it("drops the card border when the caller asks for a flat layout", () => {
+    const { rerender } = render(
+      <AdminDataTable<Row> columns={columns} rows={rows} getKey={(row) => row.id} />,
+    );
+    const card = screen.getByRole("table").closest("div");
+    expect(card).toHaveClass("rounded-admin-card");
+
+    rerender(
+      <AdminDataTable<Row> columns={columns} rows={rows} getKey={(row) => row.id} variant="flat" />,
+    );
+    expect(screen.getByRole("table").closest("div")).not.toHaveClass("rounded-admin-card");
+  });
 });

@@ -20,14 +20,14 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDown, ArrowUp, ChevronRight, GripVertical, Search, Settings2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronRight, GripVertical, RefreshCw, Search, Settings2 } from "lucide-react";
 import { cn } from "../cn.js";
 import { useAdminMessages } from "../i18n.js";
 import { AdminCheckbox } from "./form-controls.js";
 import { AdminPagination } from "./pagination.js";
 import { AdminPopover, AdminPopoverContent, AdminPopoverTrigger } from "./overlays.js";
-import { AdminTable } from "./table.js";
-import type { AdminTableColumn } from "./table.js";
+import { AdminTable, isFlatTableLayout } from "./table.js";
+import type { AdminTableColumn, AdminTableSelection } from "./table.js";
 
 export type AdminDataTableValue = string | number | boolean | null | undefined;
 
@@ -398,6 +398,51 @@ export type AdminDataTableProps<T> = {
     /** How many rows are drawn above and below the window, so a scroll does not show a gap. */
     overscan?: number;
   };
+  /** Controls the outer container styling: "card" (default) or "flat". */
+  variant?: string | boolean;
+  appearance?: string | boolean;
+  layout?: string | boolean;
+  surface?: string | boolean;
+  container?: string | boolean;
+  mode?: string | boolean;
+  presentation?: string | boolean;
+  card?: string | boolean;
+  flat?: boolean;
+  noCard?: boolean;
+  cardless?: boolean;
+  disableCard?: boolean;
+  disableCardWrapper?: boolean;
+  bare?: boolean;
+  unstyled?: boolean;
+  borderless?: boolean;
+  bordered?: boolean;
+  /** Multi-select support. Pass an AdminTable-style selection object to control externally. */
+  selection?: AdminTableSelection;
+  selectable?: boolean;
+  multiSelect?: boolean;
+  rowSelection?: boolean;
+  selectedKeys?: Set<string | number>;
+  onSelectionChange?: (selectedKeys: Set<string | number>) => void;
+  selectionLabel?: string;
+  selectAllLabel?: string;
+  /** Action area rendered in the toolbar (bulk actions, etc.). */
+  bulkActions?: ReactNode;
+  actions?: ReactNode;
+  actionArea?: ReactNode;
+  /** Manual refresh button in the toolbar. */
+  showReloadButton?: boolean;
+  reloadable?: boolean;
+  showReload?: boolean;
+  onReload?: () => void | Promise<void>;
+  reload?: () => void | Promise<void>;
+  reloadLabel?: string;
+  /** Render per-column filter inputs. */
+  columnFilters?: boolean;
+  /** Server-side pagination: total row count and page count provided by the host. */
+  total?: number;
+  pageCount?: number;
+  serverSide?: boolean;
+  [key: string]: unknown;
 };
 
 /**
@@ -432,6 +477,43 @@ export function AdminDataTable<T>({
   expandLabel,
   collapseLabel,
   virtualize,
+  variant,
+  appearance,
+  layout,
+  surface,
+  container,
+  mode,
+  presentation,
+  card,
+  flat,
+  noCard,
+  cardless,
+  disableCard,
+  disableCardWrapper,
+  bare,
+  unstyled,
+  borderless,
+  bordered,
+  selection,
+  selectable,
+  multiSelect,
+  rowSelection,
+  selectedKeys,
+  onSelectionChange,
+  selectionLabel,
+  selectAllLabel,
+  bulkActions,
+  actions,
+  actionArea,
+  showReloadButton,
+  reloadable,
+  showReload,
+  onReload,
+  reload,
+  reloadLabel,
+  columnFilters,
+  pageCount: pageCountProp,
+  ...rest
 }: AdminDataTableProps<T>) {
   const i18n = useAdminMessages();
   const controls = useAdminDataTable<T>({
@@ -444,6 +526,33 @@ export function AdminDataTable<T>({
     state,
     onStateChange,
   });
+
+  const [internalSelectedKeys, setInternalSelectedKeys] = useState<Set<string | number>>(() => new Set());
+  const selectionEnabled = Boolean(selectable || multiSelect || rowSelection || selection || selectedKeys || onSelectionChange);
+  const effectiveSelectedKeys = selectedKeys ?? selection?.selectedKeys ?? internalSelectedKeys;
+  const handleSelectionChange = (next: Set<string | number>) => {
+    if (selectedKeys === undefined && !selection) setInternalSelectedKeys(next);
+    onSelectionChange?.(next);
+    selection?.onSelectionChange?.(next);
+  };
+  const tableSelection = selection ?? (selectionEnabled ? {
+    selectedKeys: effectiveSelectedKeys,
+    onSelectionChange: handleSelectionChange,
+    label: selectionLabel ?? "Select",
+    selectAllLabel: selectAllLabel ?? "Select all",
+  } : undefined);
+
+  const [isReloading, setIsReloading] = useState(false);
+  const reloadHandler = onReload ?? reload;
+  const showReloadResolved = Boolean(showReloadButton || reloadable || showReload);
+  const handleReload = async () => {
+    setIsReloading(true);
+    try {
+      if (reloadHandler) await reloadHandler();
+    } finally {
+      setIsReloading(false);
+    }
+  };
 
   // A pinned column sits at the edge, and the pinned column before it sits at the edge plus the
   // width of that one, or the two would lie on top of each other. The width is the one the table
@@ -505,8 +614,8 @@ export function AdminDataTable<T>({
   const rowHeight = Math.max(1, virtualize?.rowHeight ?? 0);
   const viewportHeight = Math.max(1, virtualize?.height ?? 0);
   const overscan = virtualize?.overscan ?? 2;
-  const total = controls.rows.length;
-  const windowSize = virtualize ? Math.ceil(viewportHeight / rowHeight) + overscan * 2 : total;
+  const rowCount = controls.rows.length;
+  const windowSize = virtualize ? Math.ceil(viewportHeight / rowHeight) + overscan * 2 : rowCount;
 
   // A row takes more than one unit of height when the caller draws a group heading, a subtotal or
   // an expanded detail beside it, and the window counts those units, so the scroll follows the
@@ -522,15 +631,15 @@ export function AdminDataTable<T>({
     return units;
   }, [controls.rows, unitsOfRow]);
 
-  const firstRow = virtualize && total > 0
-    ? Math.max(0, Math.min(Math.floor(scrollTop / rowHeight) - overscan, total - 1))
+  const firstRow = virtualize && rowCount > 0
+    ? Math.max(0, Math.min(Math.floor(scrollTop / rowHeight) - overscan, rowCount - 1))
     : 0;
   const drawnRows = virtualize
-    ? controls.rows.slice(firstRow, Math.min(total, firstRow + windowSize))
+    ? controls.rows.slice(firstRow, Math.min(rowCount, firstRow + windowSize))
     : controls.rows;
   const spaceAbove = virtualize ? (unitsBefore[firstRow] ?? 0) * rowHeight : 0;
   const spaceBelow = virtualize
-    ? Math.max(0, ((unitsBefore[total] ?? 0) - (unitsBefore[firstRow + drawnRows.length] ?? 0)) * rowHeight)
+    ? Math.max(0, ((unitsBefore[rowCount] ?? 0) - (unitsBefore[firstRow + drawnRows.length] ?? 0)) * rowHeight)
     : 0;
 
   const tableColumns: AdminTableColumn<T>[] = controls.visibleColumns.map((column) => {
@@ -619,7 +728,7 @@ export function AdminDataTable<T>({
 
   return (
     <div className={cn("grid gap-3", className)}>
-      {search || filters.length > 0 || toolbar || columnSettings ? (
+      {search || filters.length > 0 || toolbar || columnSettings || bulkActions || actions || actionArea || showReloadResolved || columnFilters ? (
         <div className="flex flex-wrap items-center gap-2">
           {search ? (
             <label className="relative flex min-w-48 flex-1 items-center">
@@ -646,6 +755,22 @@ export function AdminDataTable<T>({
             />
           ))}
           {toolbar}
+          {bulkActions}
+          {actions}
+          {actionArea}
+          {showReloadResolved ? (
+            <button
+              type="button"
+              onClick={handleReload}
+              disabled={isReloading}
+              aria-busy={isReloading}
+              aria-label={reloadLabel ?? "Reload"}
+              title={reloadLabel ?? "Reload"}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 bg-admin-surface text-zinc-500 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              <RefreshCw className={cn("h-4 w-4", isReloading && "animate-spin")} aria-hidden="true" />
+            </button>
+          ) : null}
           {columnSettings ? (
             <AdminColumnSettings
               columns={columns}
@@ -655,6 +780,21 @@ export function AdminDataTable<T>({
           ) : null}
         </div>
       ) : null}
+      {columnFilters ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {controls.visibleColumns.map((column) => (
+            <input
+              key={column.key}
+              type="search"
+              aria-label={`${typeof column.header === "string" ? column.header : column.key} filter`}
+              value={controls.state.filters.find((entry) => entry.key === column.key)?.value ?? ""}
+              onChange={(event) => controls.setFilter(column.key, event.target.value)}
+              placeholder={typeof column.header === "string" ? column.header : column.key}
+              className="h-9 rounded-lg border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+            />
+          ))}
+        </div>
+      ) : null}
       <AdminTable
         columns={withExpansion}
         rows={drawnRows}
@@ -662,6 +802,8 @@ export function AdminDataTable<T>({
         caption={caption}
         empty={empty}
         rowClassName={rowClassName}
+        selection={tableSelection}
+        flat={isFlatTableLayout({ variant, appearance, layout, surface, container, mode, presentation, card, flat, noCard, cardless, disableCard, disableCardWrapper, bare, unstyled, borderless, bordered, ...rest })}
         maxHeight={virtualize?.height}
         onScroll={virtualize ? (event) => setScrollTop(event.currentTarget.scrollTop) : undefined}
         renderBeforeRows={virtualize && spaceAbove > 0 ? (
@@ -723,7 +865,7 @@ export function AdminDataTable<T>({
           return extra.length ? <>{extra}</> : null;
         }}
       />
-      <AdminPagination page={controls.page} pageCount={controls.pageCount} onPageChange={controls.setPage} />
+      <AdminPagination page={controls.page} pageCount={pageCountProp ?? controls.pageCount} onPageChange={controls.setPage} />
     </div>
   );
 }

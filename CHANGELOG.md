@@ -8,6 +8,15 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Added
+
+- The data table's row selection: the checkbox column the table primitive already draws, driven by the host's selection state or held internally when the host only listens. Controlled callers keep the keys, uncontrolled ones get them back on every change.
+- The data table's toolbar additions: bulk action and action slots beside the column settings, a reload button the host's promise spins until it settles, and a per-column filter row that feeds each column's filter into the behaviour the table already has.
+- The data table's server-side pager: a host that pages on its own supplies the page count and the count drives the pager, rather than the row count in front of it.
+- The table's flat layout: `variant` and the layout names a caller reaches for drop the card border, so the table can sit inside a host that already draws the container.
+
+### Fixed
+
 ## 1.2.0
 
 ## 1.1.0

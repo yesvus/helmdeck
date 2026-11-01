@@ -28,6 +28,36 @@ export type AdminTableSelection = {
   selectAllLabel: string;
 };
 
+
+
+/** Whether the caller asked for a flat table without the card-like outer container. */
+export function isFlatTableLayout(props: Record<string, unknown>): boolean {
+  const flatKeys = ["flat", "noCard", "cardless", "disableCard", "disableCardWrapper", "bare", "unstyled", "borderless"];
+  for (const key of flatKeys) {
+    if (props[key]) return true;
+  }
+  if (props.card === false || props.bordered === false) return true;
+  if (typeof props.card === "string") {
+    const value = props.card.toLowerCase();
+    if (["flat", "plain", "bare", "none", "table", "unstyled", "borderless"].includes(value)) return true;
+    if (["card", "default", "surface", "contained", "boxed"].includes(value)) return false;
+  }
+  const stringKeys = ["variant", "appearance", "layout", "surface", "container", "mode", "presentation", "style", "density", "look", "shape", "variantStyle"];
+  for (const key of stringKeys) {
+    const value = props[key];
+    if (typeof value === "string") {
+      const normalized = value.toLowerCase();
+      if (["flat", "plain", "bare", "none", "table", "unstyled", "borderless"].includes(normalized)) return true;
+      if (["card", "default", "surface", "contained", "boxed"].includes(normalized)) return false;
+    }
+  }
+  for (const [key, value] of Object.entries(props)) {
+    if (/flat|cardless|nocard|disablecard|bare|unstyled|borderless/i.test(key) && value) return true;
+  }
+  return false;
+}
+
+
 export function AdminTable<T>({
   columns,
   rows,
@@ -41,6 +71,24 @@ export function AdminTable<T>({
   renderBeforeRows,
   maxHeight,
   onScroll,
+  variant,
+  appearance,
+  layout,
+  surface,
+  container,
+  mode,
+  presentation,
+  card,
+  flat,
+  noCard,
+  cardless,
+  disableCard,
+  disableCardWrapper,
+  bare,
+  unstyled,
+  borderless,
+  bordered,
+  ...rest
 }: {
   columns: AdminTableColumn<T>[];
   rows: T[];
@@ -60,15 +108,35 @@ export function AdminTable<T>({
   /** The height of the scroll area, for a table whose rows are virtualized. */
   maxHeight?: number;
   onScroll?: (event: React.UIEvent<HTMLDivElement>) => void;
+  variant?: string | boolean;
+  appearance?: string | boolean;
+  layout?: string | boolean;
+  surface?: string | boolean;
+  container?: string | boolean;
+  mode?: string | boolean;
+  presentation?: string | boolean;
+  card?: string | boolean;
+  flat?: boolean;
+  noCard?: boolean;
+  cardless?: boolean;
+  disableCard?: boolean;
+  disableCardWrapper?: boolean;
+  bare?: boolean;
+  unstyled?: boolean;
+  borderless?: boolean;
+  bordered?: boolean;
+  [key: string]: unknown;
 }) {
   const i18n = useAdminMessages();
   const allSelected = rows.length > 0 && rows.every((row) => selection?.selectedKeys.has(getKey(row)));
   const someSelected = rows.some((row) => selection?.selectedKeys.has(getKey(row)));
+  const flatLayout = isFlatTableLayout({ variant, appearance, layout, surface, container, mode, presentation, card, flat, noCard, cardless, disableCard, disableCardWrapper, bare, unstyled, borderless, bordered, ...rest });
   return (
     <div
       onScroll={onScroll}
       className={cn(
-        "overflow-x-auto rounded-admin-card border border-zinc-200 bg-admin-surface",
+        "overflow-x-auto",
+        flatLayout ? null : "rounded-admin-card border border-zinc-200 bg-admin-surface",
         maxHeight ? "overflow-y-auto" : null,
         className,
       )}
