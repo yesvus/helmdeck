@@ -18,12 +18,23 @@
 
 import { createAdminPayloadContent } from "@yesvus/helmdeck";
 import type { AdminPayloadContent } from "@yesvus/helmdeck";
-import { getPayload } from "payload";
+import { getPayload, type Payload } from "payload";
 import config from "../../payload.config";
 import { readPayloadSession } from "../session";
 
 /** The collection the content lives in. */
 export const PAGES = "pages";
+
+let payloadInstancePending: Promise<Payload> | null = null;
+
+/** The Payload instance, for surfaces that need Payload's own API (such as Jobs). */
+export function payloadInstance(): Promise<Payload> {
+  payloadInstancePending ??= getPayload({ config }).catch((cause) => {
+    payloadInstancePending = null;
+    throw cause;
+  });
+  return payloadInstancePending;
+}
 
 /**
  * A page, as this host reads it.
