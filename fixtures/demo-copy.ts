@@ -1,9 +1,9 @@
 export const demoCopy = {
   en: {
-    productDescription: "Admin engine",
+    productDescription: "Next.js admin platform",
     openDemo: "Open demo",
-    heroTitle: "The admin engine your product installs.",
-    heroBody: "Helmdeck is an installable admin engine for Next.js: the shell, the generated resource workflows, the dashboard, and the primitives they are built from. Your application keeps its data, its sessions, and its permissions, and connects them through documented adapters.",
+    heroTitle: "A cohesive admin platform for your Next.js application.",
+    heroBody: "Helmdeck provides the shell and reusable workflows. Your application owns its data, sessions, permissions, and product rules, connected through typed adapters.",
     exploreShell: "Explore the shell",
     viewSource: "View source",
     technologies: ["MIT licensed", "React 19", "Tailwind CSS 4", "TypeScript"],
