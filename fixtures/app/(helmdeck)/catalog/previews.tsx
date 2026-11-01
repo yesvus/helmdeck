@@ -17,7 +17,7 @@
 import { useState, type ComponentType, type ReactNode } from "react";
 import type { AdminAuditEvent, AdminMediaAdapter, AdminMediaItem } from "@yesvus/helmdeck";
 import { AlertTriangle, BarChart3, CheckCircle2, Eye, Info, LineChart, Package, Palette, Pencil, Rows3, Trash2, type LucideIcon } from "lucide-react";
-import { ADMIN_DENSITIES, AdminActivityPage, AdminActivityTimeline, AdminMediaLibrary, AdminMediaLibraryPage, AdminBanner, AdminBreadcrumbs, AdminChartFrame, AdminChartTable, AdminCheckbox, AdminCombobox, AdminCommandPalette, AdminRecordDetail, AdminDataTable, AdminCalendar, AdminDatePicker, AdminDateRangePicker, AdminContextualHelp, AdminContextMenu, AdminContextMenuContent, AdminContextMenuItem, AdminContextMenuLabel, AdminContextMenuSeparator, AdminContextMenuTrigger, AdminDropdownMenu, AdminDropdownMenuCheckboxItem, AdminDropdownMenuContent, AdminDropdownMenuItem, AdminDropdownMenuLabel, AdminDropdownMenuRadioGroup, AdminDropdownMenuRadioItem, AdminDropdownMenuSeparator, AdminDropdownMenuTrigger, AdminPopover, AdminPopoverClose, AdminPopoverContent, AdminPopoverDescription, AdminPopoverTitle, AdminPopoverTrigger, AdminSheet, AdminSheetBody, AdminSheetClose, AdminSheetContent, AdminSheetDescription, AdminSheetFooter, AdminSheetHeader, AdminSheetTitle, AdminSheetTrigger, AdminContactForm, AdminDeviceBreakdownChart, AdminContentSkeleton, AdminDashboardLayout, AdminDashboardMissingTile, AdminDashboardTile, AdminDashboardTiles, AdminDestructiveAction, AdminDragHandle, AdminEmptyState, AdminField, AdminFieldGrid, AdminFormActions, AdminFormCard, AdminFormSection, AdminTabs, AdminAccordion, AdminI18nProvider, AdminInboxList, AdminInboxMessage, AdminInput, AdminLoadingState, AdminListItemCard, AdminLoginScreen, AdminMediaAspectRatioHint, AdminMediaLightbox, AdminMediaPlaceholder, AdminModal, AdminModalBody, AdminModalClose, AdminModalContent, AdminModalDescription, AdminModalFooter, AdminModalHeader, AdminModalTitle, AdminModalTrigger, AdminMobileNav, AdminNavLink, AdminPageActionLink, AdminPageHeader, AdminPagination, AdminPendingButton, AdminProfileMenu, AdminRecordSearch, AdminRadioGroup, AdminRankChart, AdminRepeaterListField, AdminSaveButton, AdminSearch, AdminSectionCard, AdminSectionIntro, AdminSettingsFooter, AdminSelect, AdminSkeleton, AdminTableSkeleton, AdminFormSkeleton, AdminCardGridSkeleton, AdminDashboardSkeleton, AdminSortableCard, AdminSortableDndContext, AdminSortableRow, AdminSortableToast, AdminSplitFormLayout, AdminStatCard, AdminStatusPill, AdminBadge, AdminAvatar, AdminProgress, AdminSeparator, AdminBreadcrumb, AdminSwitch, AdminSubmitButton, AdminSurfaceCard, AdminTable, AdminTableActionButton, AdminTableBulkActions, AdminTableRowActions, AdminTextarea, AdminToggle, AdminThemeSettingsProvider, AdminTimeSeriesChart, AdminVisitorTrendChart, AdminToastCard, AdminToastViewport, AdminUrlFeedback, AdminWidget, AdminWidgetPanel, Button, Tooltip, TooltipProvider, adminActivityWidget, adminChartDayRange, adminChartFillDays, adminChartFormatters, adminChartWidget, adminDashboardAddPlacement, adminDashboardCopy, adminDashboardProblems, adminListWidget, adminRankWidget, adminStatWidget, adminTableWidget, adminWidgetState, createAdminWidgetRegistry, defineAdminWidget, englishAdminMessages, turkishAdminMessages, sortAdminMediaItems, useAdminSortableList, useAdminTableSelection, type AdminChartPoint, type AdminChartSeries, type AdminChartStatus, type AdminDashboard, type AdminDensity, type AdminNavGroup, type AdminTableColumn, type AdminWidgetDefinition, type AdminWidgetLoader, type AdminWidgetState } from "@yesvus/helmdeck";
+import { ADMIN_DENSITIES, AdminActivityPage, AdminActivityTimeline, AdminMediaLibrary, AdminMediaLibraryPage, AdminBanner, AdminBreadcrumbs, AdminChartFrame, AdminChartTable, AdminCheckbox, AdminCombobox, AdminCommandPalette, AdminRecordDetail, AdminDataTable, AdminCalendar, AdminDatePicker, AdminDateRangePicker, AdminContextualHelp, AdminContextMenu, AdminContextMenuContent, AdminContextMenuItem, AdminContextMenuLabel, AdminContextMenuSeparator, AdminContextMenuTrigger, AdminDropdownMenu, AdminDropdownMenuCheckboxItem, AdminDropdownMenuContent, AdminDropdownMenuItem, AdminDropdownMenuLabel, AdminDropdownMenuRadioGroup, AdminDropdownMenuRadioItem, AdminDropdownMenuSeparator, AdminDropdownMenuTrigger, AdminPopover, AdminPopoverClose, AdminPopoverContent, AdminPopoverDescription, AdminPopoverTitle, AdminPopoverTrigger, AdminSheet, AdminSheetBody, AdminSheetClose, AdminSheetContent, AdminSheetDescription, AdminSheetFooter, AdminSheetHeader, AdminSheetTitle, AdminSheetTrigger, AdminContactForm, AdminDeviceBreakdownChart, AdminContentSkeleton, AdminDashboardLayout, AdminDashboardMissingTile, AdminDashboardTile, AdminDashboardTiles, AdminDestructiveAction, AdminDragHandle, AdminEmptyState, AdminField, AdminFieldGrid, AdminFormActions, AdminFormCard, AdminFormSection, AdminTabs, AdminAccordion, AdminI18nProvider, AdminInboxList, AdminInboxMessage, AdminInput, AdminLoadingState, AdminListItemCard, AdminLoginScreen, AdminMediaAspectRatioHint, AdminMediaLightbox, AdminMediaPlaceholder, AdminModal, AdminModalBody, AdminModalClose, AdminModalContent, AdminModalDescription, AdminModalFooter, AdminModalHeader, AdminModalTitle, AdminModalTrigger, AdminModalDialog, AdminDialogProvider, useAdminDialog, AdminMobileNav, AdminNavLink, AdminPageActionLink, AdminPageHeader, AdminPagination, AdminPendingButton, AdminProfileMenu, AdminRecordSearch, AdminRadioGroup, AdminRankChart, AdminRepeaterListField, AdminSaveButton, AdminSearch, AdminSectionCard, AdminSectionIntro, AdminSettingsFooter, AdminSelect, AdminSkeleton, AdminTableSkeleton, AdminFormSkeleton, AdminCardGridSkeleton, AdminDashboardSkeleton, AdminSortableCard, AdminSortableDndContext, AdminSortableRow, AdminSortableToast, AdminSplitFormLayout, AdminStatCard, AdminStatusPill, AdminBadge, AdminAvatar, AdminProgress, AdminSeparator, AdminBreadcrumb, AdminSwitch, AdminSubmitButton, AdminSurfaceCard, AdminTable, AdminTableActionButton, AdminTableBulkActions, AdminTableRowActions, AdminTextarea, AdminToggle, AdminThemeSettingsProvider, AdminTimeSeriesChart, AdminVisitorTrendChart, AdminToastCard, AdminToastViewport, AdminUrlFeedback, AdminWidget, AdminWidgetPanel, Button, Tooltip, TooltipProvider, adminActivityWidget, adminChartDayRange, adminChartFillDays, adminChartFormatters, adminChartWidget, adminDashboardAddPlacement, adminDashboardCopy, adminDashboardProblems, adminListWidget, adminRankWidget, adminStatWidget, adminTableWidget, adminWidgetState, createAdminWidgetRegistry, defineAdminWidget, englishAdminMessages, turkishAdminMessages, sortAdminMediaItems, useAdminSortableList, useAdminTableSelection, type AdminChartPoint, type AdminChartSeries, type AdminChartStatus, type AdminDashboard, type AdminDensity, type AdminNavGroup, type AdminTableColumn, type AdminWidgetDefinition, type AdminWidgetLoader, type AdminWidgetState } from "@yesvus/helmdeck";
 
 const NAV: AdminNavGroup[] = [
   {
@@ -146,6 +146,22 @@ function dialogPart(render: () => ReactNode): ComponentType {
 }
 
 const SORTABLE_ITEMS = ["Espresso machine", "Grinder", "Water filter"];
+
+function ProviderSample() {
+  const dialogs = useAdminDialog();
+  const [answer, setAnswer] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col gap-2">
+      <Button variant="outline" onClick={async () => {
+        const decision = await dialogs.confirm({ title: "Archive the supplier?", description: "Their list stays until you empty the trash." });
+        setAnswer(decision ? "Confirmed" : "Cancelled");
+      }}>
+        Ask the helper
+      </Button>
+      <p className="text-sm text-zinc-600">{answer === null ? "The helper answers a promise." : `The answer was ${answer.toLowerCase()}.`}</p>
+    </div>
+  );
+}
 
 function SortableFrame({ children = null, toast }: { children?: ReactNode; toast?: { tone: "success" | "error"; message: string } | null }) {
   const sortable = useAdminSortableList({
@@ -1008,6 +1024,21 @@ export const catalogPreviews: Record<string, ComponentType> = {
       give the dialog its shape.
     </p>
   )),
+  AdminModalDialog: () => (
+    <AdminModalDialog
+      variant="confirm"
+      destructive
+      trigger={<Button variant="outline">Delete the item</Button>}
+      title="Delete this item?"
+      description="This action cannot be undone."
+      confirmLabel="Yes, delete"
+    />
+  ),
+  AdminDialogProvider: () => (
+    <AdminDialogProvider>
+      <ProviderSample />
+    </AdminDialogProvider>
+  ),
   AdminModalTrigger: () => (
     <AdminModal>
       <AdminModalTrigger asChild>
