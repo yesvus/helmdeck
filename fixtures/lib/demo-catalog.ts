@@ -250,6 +250,24 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The media library's adapter, over Payload's upload collection.",
     keywords: "payload media upload adapter library",
   },
+  createAdminPayloadScheduler: {
+    hostNote: "It is a factory: the host builds the scheduler with its Payload instance and hands it to the scheduling page.",
+    category: "Adapters",
+    summary: "The scheduler over Payload Jobs, so a page can be queued for publish-at-a-time and its schedule moved, cancelled or run, with the access check on every call. It is a factory, not a component.",
+    keywords: "payload jobs scheduler schedule publish queue cron",
+  },
+  createAdminPayloadPagePublishHandler: {
+    hostNote: "It is a factory: the host registers the task it builds in the Payload config's jobs.",
+    category: "Adapters",
+    summary: "The task handler the Payload config registers for scheduled page publishing, so a queued job republishes its page through an access-checked write.",
+    keywords: "payload jobs task handler publish page config",
+  },
+  PAYLOAD_PAGE_PUBLISH_TASK: {
+    hostNote: "It is the slug the schedule and the registered task must agree on.",
+    category: "Adapters",
+    summary: "The Payload Jobs task slug for scheduled page publishing, shared by the scheduler and the example host's task registration.",
+    keywords: "payload jobs task slug constant publish",
+  },
   createAdminPayloadCountLoader: {
     hostNote: "It is a factory: the host builds the loader and hands it to the dashboard.",
     category: "Dashboard and widgets",
