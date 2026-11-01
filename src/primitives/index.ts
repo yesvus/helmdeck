@@ -167,6 +167,7 @@ export { AdminTableActionButton, AdminTableBulkActions, AdminTableRowActions, us
 export type { AdminTableActionButtonProps, AdminTableActionSize, AdminTableActionVariant } from "./table-actions.js";
 export { AdminToastCard, AdminToastViewport } from "./toast.js";
 export type { AdminToastTone } from "./toast.js";
+export { AdminToast, toast } from "./toasts.js";
 export type { AdminTone } from "./tone.js";
 export { AdminUrlFeedback } from "./url-feedback.js";
 export type { AdminUrlFeedbackLabels, AdminUrlFeedbackQueryKeys } from "./url-feedback.js";

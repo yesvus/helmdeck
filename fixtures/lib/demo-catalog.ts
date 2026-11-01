@@ -848,6 +848,17 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "toast message transient notification",
     renderable: true,
   },
+  AdminToast: {
+    category: "Overlays and feedback",
+    summary: "The compact accessible host for transient Helmdeck notifications.",
+    keywords: "toast notification live region success error loading",
+    renderable: true,
+  },
+  toast: {
+    category: "Overlays and feedback",
+    summary: "Dispatches success, error and loading notifications through the Sonner-backed AdminToast host.",
+    keywords: "toast notification success error loading",
+  },
   AdminToastViewport: {
     category: "Overlays and feedback",
     summary: "The fixed corner the toasts stack in, and the region a screen reader announces from.",

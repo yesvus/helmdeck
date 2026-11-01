@@ -7,6 +7,7 @@ import { AdminInput } from "../primitives/input.js";
 import { AdminSelect } from "../primitives/select.js";
 import { AdminSwitch } from "../primitives/form-controls.js";
 import { useAdminMessages } from "../i18n.js";
+import { toast } from "../primitives/toasts.js";
 
 /** The controls a settings page renders, on the primitives the package already ships. */
 export type AdminSettingsControlType = "text" | "number" | "boolean" | "choice" | "secret";
@@ -196,6 +197,7 @@ export type AdminSettingsPanelProps = {
   title?: string;
   description?: string;
   onSaved?: (values: Record<string, unknown>) => void;
+  notify?: boolean;
 };
 
 /**
@@ -209,6 +211,7 @@ export function AdminSettingsPanel({
   title,
   description,
   onSaved,
+  notify = true,
 }: AdminSettingsPanelProps) {
   const [values, setValues] = useState<Record<string, unknown>>(() => registry.defaults());
   const messages = useAdminMessages().settingsPanel;
@@ -275,6 +278,7 @@ export function AdminSettingsPanel({
         }
       }
       setSaved(true);
+      if (notify) toast.success(messages.saved);
       onSaved?.(values);
     } finally {
       setBusy(false);
@@ -308,7 +312,7 @@ function updateValue(key: string, value: unknown) {
           ))}
         </div>
       ) : null}
-      {saved ? <p role="status">{messages.saved}</p> : null}
+      {saved && !notify ? <p role="status">{messages.saved}</p> : null}
       {registry.groups.map((group) => (
         <section key={group.key}>
           <h3>{group.title}</h3>

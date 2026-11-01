@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: MIT
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineAdminSettings, AdminSettingsPanel } from "../src/settings/contract";
+import { toast } from "../src/primitives/toasts";
 import type { AdminSettingsAdapter, AdminSettingsMaskedSecret, AdminSettingsWriteEnvelope } from "../src/settings/contract";
 
 type Stored = Record<string, unknown>;
+
+afterEach(() => {
+  toast.dismissAll();
+  vi.restoreAllMocks();
+});
 
 function fakeAdapter(values: Stored, handler?: (next: Stored) => AdminSettingsWriteEnvelope | Promise<AdminSettingsWriteEnvelope>): AdminSettingsAdapter {
   const current: Stored = values;
@@ -91,10 +97,26 @@ describe("defineAdminSettings", () => {
 });
 
 describe("AdminSettingsPanel", () => {
+  it("emits a success toast by default and can suppress it", async () => {
+    const user = userEvent.setup();
+    const success = vi.spyOn(toast, "success");
+    const adapter = fakeAdapter({});
+    const { rerender } = render(<AdminSettingsPanel registry={registry} adapter={adapter} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(success).toHaveBeenCalledWith("Saved."));
+
+    success.mockClear();
+    rerender(<AdminSettingsPanel registry={registry} adapter={adapter} notify={false} />);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Saved."));
+    expect(success).not.toHaveBeenCalled();
+  });
+
   it("stores values through the adapter on a valid save", async () => {
     const user = userEvent.setup();
     const stored: Stored = {};
-    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter(stored)} />);
+    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter(stored)} notify={false} />);
 
     // The initial read replaces the defaults, then the save carries the edited map through.
     await user.type(screen.getByRole("textbox", { name: "Site title" }), "Atlantis");
@@ -176,7 +198,7 @@ describe("AdminSettingsPanel", () => {
   it("writes a cleared optional number as unset, not as zero", async () => {
     const user = userEvent.setup();
     const stored: Stored = { featuredLimit: 8 };
-    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter(stored)} />);
+    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter(stored)} notify={false} />);
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
     await user.clear(screen.getByLabelText("Featured products"));
