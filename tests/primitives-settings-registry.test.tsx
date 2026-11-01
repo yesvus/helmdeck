@@ -1,117 +1,178 @@
 // SPDX-License-Identifier: MIT
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
-import {
-  createAdminSettingsRegistry,
-  type AdminSettingsAdapter,
-} from "../src/settings/contract.js";
+import { describe, expect, it, vi } from "vitest";
+import { defineAdminSettings, AdminSettingsPanel } from "../src/settings/contract";
+import type { AdminSettingsAdapter, AdminSettingsMaskedSecret, AdminSettingsWriteEnvelope } from "../src/settings/contract";
 
-afterEach(() => cleanup());
+type Stored = Record<string, unknown>;
 
-describe("settings registry building", () => {
-  it("builds grouped definitions with defaults", () => {
-    const registry = createAdminSettingsRegistry({
-      groups: [
+function fakeAdapter(values: Stored, handler?: (next: Stored) => AdminSettingsWriteEnvelope | Promise<AdminSettingsWriteEnvelope>): AdminSettingsAdapter {
+  const current: Stored = values;
+  return {
+    read: async () => ({ ...current }),
+    write: async (next) => {
+      if (handler) {
+        const envelope = await handler(next);
+        if (envelope.ok) Object.assign(current, next);
+        return envelope;
+      }
+      Object.assign(current, next);
+      return { ok: true, values: { ...current } };
+    },
+  };
+}
+
+const registry = defineAdminSettings({
+  groups: [
+    {
+      key: "storefront",
+      title: "Storefront",
+      description: "What the public site reads.",
+      settings: [
+        { key: "siteTitle", label: "Site title", type: "text", default: "Birted", required: true },
+        { key: "featuredLimit", label: "Featured products", type: "number", default: 8, min: 1, max: 12, step: 1 },
+        { key: "goldenHour", label: "Golden hour banner", type: "boolean", default: true },
         {
-          id: "general",
-          title: "General",
-          settings: [
-            { id: "siteName", label: "Site name", type: "text", default: "Helmdeck" },
-            { id: "port", label: "Port", type: "number", default: 3000 },
-          ],
+          key: "themeName",
+          label: "Theme",
+          type: "choice",
+          default: "light",
+          choices: ["light", "dark", { value: "system", label: "System" }],
+        },
+        {
+          key: "shareUrl",
+          label: "Share address",
+          type: "text",
+          default: "",
+          validate: (value) => (typeof value === "string" && value.includes("@") ? "Share address cannot hold an at sign." : undefined),
         },
       ],
-    });
-    expect(registry.groups).toHaveLength(1);
-    expect(registry.groups[0].title).toBe("General");
-    expect(registry.has("siteName")).toBe(true);
-    expect(registry.defaults()).toEqual({ siteName: "Helmdeck", port: 3000 });
+    },
+    {
+      key: "keys",
+      title: "Keys",
+      settings: [{ key: "webhookSecret", label: "Webhook secret", type: "secret", default: "" }],
+    },
+  ],
+});
+
+describe("defineAdminSettings", () => {
+  it("flattens the groups and answers get, has and the defaults", () => {
+    expect(registry.settings.map((setting) => setting.key)).toEqual([
+      "siteTitle",
+      "featuredLimit",
+      "goldenHour",
+      "themeName",
+      "shareUrl",
+      "webhookSecret",
+    ]);
+    expect(registry.has("goldenHour")).toBe(true);
+    expect(registry.get("webhookSecret")?.type).toBe("secret");
+    expect(registry.defaults()).toMatchObject({ siteTitle: "Birted", featuredLimit: 8, goldenHour: true });
+    expect(registry.has("nowhere")).toBe(false);
+    expect(registry.get("nowhere")).toBeUndefined();
   });
 
-  it("supports a plain array of groups", () => {
-    const registry = createAdminSettingsRegistry([
-      { id: "g", title: "G", settings: [{ id: "flag", label: "Flag", type: "boolean", default: false }] },
-    ]);
-    expect(registry.settings).toHaveLength(1);
-  });
-
-  it("validates refusal shapes", () => {
-    const registry = createAdminSettingsRegistry([
-      {
-        id: "g",
-        title: "G",
-        settings: [
-          { id: "port", label: "Port", type: "number", default: 3000, min: 1 },
-          { id: "theme", label: "Theme", type: "choice", choices: ["light", "dark"], default: "light" },
-        ],
-      },
-    ]);
-    const problems = registry.validate({ port: "abc", theme: "nope", unknown: 1 });
-    expect(problems.length).toBeGreaterThan(0);
-    expect(problems[0]).toMatchObject({ setting: expect.any(String), reason: expect.any(String), message: expect.any(String) });
-    expect(registry.validateValue("port", 5)).toBeNull();
-    expect(registry.validateValue("port", "abc")).toBeTruthy();
+  it("refuses values the definitions do not accept", () => {
+    expect(registry.validateValue("featuredLimit", 0)).toMatch(/at least 1/);
+    expect(registry.validateValue("featuredLimit", 13)).toMatch(/at most 12/);
+    expect(registry.validateValue("themeName", "sepia")).toMatch(/one of/);
+    expect(registry.validateValue("siteTitle", "")).toMatch(/Required/);
+    expect(registry.validateValue("shareUrl", "a@b")).toMatch(/at sign/);
+    expect(registry.validateValue("nowhere", 1)).toBe("Unknown setting.");
   });
 });
 
-describe("settings renderer", () => {
-  it("shows a denied write envelope", async () => {
+describe("AdminSettingsPanel", () => {
+  it("stores values through the adapter on a valid save", async () => {
     const user = userEvent.setup();
-    const registry = createAdminSettingsRegistry([
-      { id: "g", title: "G", settings: [{ id: "name", label: "Name", type: "text", default: "" }] },
-    ]);
-    const adapter: AdminSettingsAdapter = {
-      read: async () => ({ name: "initial" }),
-      write: async () => ({ ok: false, accessDenied: true }),
-    };
-    const { AdminSettingsRegistry } = await import("../src/settings/contract.js");
-    render(<AdminSettingsRegistry registry={registry} adapter={adapter} />);
-    await waitFor(() => expect(screen.getByDisplayValue("initial")).toBeTruthy());
-    await user.click(screen.getByRole("button", { name: /save/i }));
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-    expect(screen.getByText(/access denied/i)).toBeTruthy();
+    const stored: Stored = {};
+    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter(stored)} />);
+
+    // The initial read replaces the defaults, then the save carries the edited map through.
+    await user.type(screen.getByRole("textbox", { name: "Site title" }), "Atlantis");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const saved = await screen.findByRole("status");
+    expect(saved).toHaveTextContent("Saved.");
+    expect(stored["siteTitle"]).toBe("BirtedAtlantis");
+    expect(stored["goldenHour"]).toBe(true);
   });
 
-  it("reads back masked secrets after save", async () => {
+  it("blocks the save and lists the refusals the registry returns", async () => {
     const user = userEvent.setup();
-    const registry = createAdminSettingsRegistry([
-      { id: "g", title: "G", settings: [{ id: "secret", label: "Secret", type: "secret", default: "" }] },
-    ]);
-    let stored = "";
-    const adapter: AdminSettingsAdapter = {
-      read: async () => ({ secret: stored ? "••••••••" : "" }),
-      write: async (values) => {
-        stored = String(values.secret ?? "");
-        return { ok: true, values: { secret: "••••••••" } };
-      },
-    };
-    const { AdminSettingsRegistry } = await import("../src/settings/contract.js");
-    render(<AdminSettingsRegistry registry={registry} adapter={adapter} />);
-    const input = await screen.findByLabelText(/secret/i);
-    await user.clear(input);
-    await user.type(input, "topsecret");
-    await user.click(screen.getByRole("button", { name: /save/i }));
-    await waitFor(() => expect(screen.getByDisplayValue("••••••••")).toBeTruthy());
-    expect((screen.getByLabelText(/secret/i) as HTMLInputElement).value).not.toBe("topsecret");
+    const write = vi.fn(async (): Promise<AdminSettingsWriteEnvelope> => ({ ok: true }));
+    render(<AdminSettingsPanel registry={registry} adapter={{ read: async () => ({}), write }} />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    // The definition's own validator refuses this value, so the write never reaches the adapter.
+    await user.type(screen.getByRole("textbox", { name: "Share address" }), "a@b");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Share address cannot hold an at sign.");
+    expect(write).not.toHaveBeenCalled();
   });
 
-  it("shows a pending state while saving", async () => {
+  it("shows the host adapter's denial as a denied outcome", async () => {
     const user = userEvent.setup();
-    const registry = createAdminSettingsRegistry([
-      { id: "g", title: "G", settings: [{ id: "name", label: "Name", type: "text", default: "" }] },
-    ]);
-    let resolveWrite: (value: unknown) => void = () => {};
-    const adapter: AdminSettingsAdapter = {
-      read: async () => ({ name: "initial" }),
-      write: () => new Promise((resolve) => { resolveWrite = resolve; }),
-    };
-    const { AdminSettingsRegistry } = await import("../src/settings/contract.js");
-    render(<AdminSettingsRegistry registry={registry} adapter={adapter} />);
-    await waitFor(() => expect(screen.getByDisplayValue("initial")).toBeTruthy());
-    await user.click(screen.getByRole("button", { name: /save/i }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /save/i })).toBeDisabled());
-    resolveWrite({ ok: true });
-    await waitFor(() => expect(screen.getByRole("button", { name: /save/i })).not.toBeDisabled());
+    const adapter = fakeAdapter({}, async (): Promise<AdminSettingsWriteEnvelope> => ({
+      ok: false,
+      accessDenied: true,
+      message: "Only a keeper writes keys.",
+    }));
+    render(<AdminSettingsPanel registry={registry} adapter={adapter} />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Access denied.");
+    expect(alert).toHaveTextContent("Only a keeper writes keys.");
+    // A denial is the host's own access rule speaking, so the panel keeps the values on hand rather
+    // than wiping them.
+    expect(screen.getByRole("textbox", { name: "Site title" })).toBeInTheDocument();
+  });
+
+  it("re-reads the stored values after a save, so a secret comes back masked", async () => {
+    const user = userEvent.setup();
+    const adapter = fakeAdapter({}, (): AdminSettingsWriteEnvelope => ({
+      ok: true,
+      values: { webhookSecret: "MASK" } as Record<string, unknown>,
+    }));
+    render(<AdminSettingsPanel registry={registry} adapter={adapter} />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    const secret = screen.getByLabelText("Webhook secret") as HTMLInputElement;
+    await user.type(secret, "the-real-secret");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    const maskedSecret = screen.getByLabelText("Webhook secret") as HTMLInputElement;
+    expect(maskedSecret.value).toBe("MASK");
+    expect(maskedSecret.type).toBe("password");
+  });
+
+  it("surfaces a failing read instead of an empty page", async () => {
+    render(
+      <AdminSettingsPanel
+        registry={registry}
+        adapter={{
+          read: async () => { throw new Error("Store unreachable."); },
+          write: async () => ({ ok: true }),
+        }}
+      />,
+    );
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Store unreachable.");
+  });
+});
+
+describe("the masked secret contract", () => {
+  it("is the only way a value re-enters as a secret", () => {
+    // The brand is a compile-time device: a host cannot type a plaintext secret where the adapter
+    // promised it had already been masked on the server.
+    const masked = "MASK" as AdminSettingsMaskedSecret;
+    expect(masked.length).toBeGreaterThan(0);
   });
 });

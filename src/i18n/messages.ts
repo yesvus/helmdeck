@@ -53,6 +53,13 @@ export type AdminDialogLabels = {
   submitLabel: string;
   busyLabel: string;
   invalidValueLabel: string;
+export type AdminSettingsPanelLabels = {
+  loading: string;
+  saved: string;
+  denied: string;
+  loadFailed: string;
+  save: string;
+  savePending: string;
 };
 
 export type AdminStatusLabels = {
@@ -110,6 +117,7 @@ export type AdminMessages = {
   analyticsCharts?: AdminAnalyticsChartMessages;
   destructive: AdminDestructiveActionLabels;
   dialogs: AdminDialogLabels;
+  settingsPanel: AdminSettingsPanelLabels;
   status: AdminStatusLabels;
   common: AdminCommonLabels;
   pagination: AdminPaginationLabels;
@@ -159,6 +167,13 @@ export const englishAdminMessages: AdminMessages = {
     submitLabel: "Submit",
     busyLabel: "Working...",
     invalidValueLabel: "Provide a valid value.",
+  settingsPanel: {
+    loading: "Loading settings…",
+    saved: "Saved.",
+    denied: "Access denied.",
+    loadFailed: "Failed to load settings.",
+    save: "Save",
+    savePending: "Saving...",
   },
   status: {
     published: "Published",
@@ -399,6 +414,13 @@ export const turkishAdminMessages: AdminMessages = {
     submitLabel: "Gönderin",
     busyLabel: "İşleniyor...",
     invalidValueLabel: "Geçerli bir değer giriniz.",
+  settingsPanel: {
+    loading: "Ayarlar yükleniyor…",
+    saved: "Kaydedildi.",
+    denied: "Erişim reddedildi.",
+    loadFailed: "Ayarlar yüklenemedi.",
+    save: "Kaydediniz",
+    savePending: "Kaydediliyor...",
   },
   status: {
     published: "Yayında",
