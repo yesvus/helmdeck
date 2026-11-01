@@ -8,6 +8,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Deprecated
+
+- The in-memory admin table primitives are deprecated in favor of headless industry standards such as TanStack Table v8; retirement in a future major release, with no date set. See DEVELOPING.md.
+
 ### Added
 
 - Payload uploads are wired into the media library: `createAdminPayloadMediaAdapter` reads and writes a Payload upload collection through the shared content bridge, and the Payload host example defines a `media` upload collection with a media page behind it.

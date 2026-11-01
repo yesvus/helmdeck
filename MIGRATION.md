@@ -219,3 +219,5 @@ fails the check, and the fix it names is restoring the name or cutting a major.
 The ledger is re-recorded by the release itself, in the same commit as
 `VERSION`, so the release that took these names away is the one that records
 their absence.
+
+The shipped in-memory admin table primitives are deprecated in favor of headless industry standards; see [DEVELOPING.md](DEVELOPING.md) for the table standard. They remain available until retirement in a future major release.
