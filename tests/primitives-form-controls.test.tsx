@@ -102,6 +102,32 @@ describe("AdminSwitch", () => {
     await user.click(input);
     expect(onCheckedChange).toHaveBeenCalledWith(true);
   });
+
+  it("supports sizes, labels, descriptions, and native form submission", () => {
+    render(
+      <form>
+        <AdminSwitch size="sm" label="Publish" description="Visible to customers" name="published" value="yes" defaultChecked />
+      </form>,
+    );
+
+    const control = screen.getByRole("switch", { name: "Publish" });
+    expect(control).toBeChecked();
+    expect(control).toHaveClass("peer");
+    expect(control.getAttribute("aria-describedby")).toContain("description");
+    expect(screen.getByText("Visible to customers")).toBeInTheDocument();
+    expect(new FormData(control.closest("form")!).get("published")).toBe("yes");
+  });
+
+  it("does not toggle when disabled", async () => {
+    const user = userEvent.setup();
+    const onCheckedChange = vi.fn();
+    render(<AdminSwitch aria-label="Locked" disabled onCheckedChange={onCheckedChange} />);
+    const control = screen.getByRole("switch", { name: "Locked" });
+    await user.click(control);
+    expect(control).toBeDisabled();
+    expect(control).not.toBeChecked();
+    expect(onCheckedChange).not.toHaveBeenCalled();
+  });
 });
 
 describe("AdminRadioGroup", () => {
