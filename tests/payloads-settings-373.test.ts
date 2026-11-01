@@ -9,83 +9,102 @@ import {
   SITE_SETTINGS_GLOBAL,
 } from "../examples/payload-host/lib/payload/settings";
 
-type PayloadArgs = { slug?: string; [key: string]: unknown };
+type GlobalArgs = { slug?: string; data?: Record<string, unknown>; [key: string]: unknown };
 
-function makeSpy(answer: (args: PayloadArgs) => Promise<unknown> = async () => ({ name: "Helmdeck Payload Host" })) {
-  const calls: PayloadArgs[] = [];
-  const fn = async (args: PayloadArgs) => {
-    calls.push(args);
-    return answer(args);
+/** A store that persists: `set` writes, `get` returns what was written, so a round trip is real. */
+function storingStub() {
+  const stored: Record<string, unknown> = {};
+  const calls: GlobalArgs[] = [];
+  const get = async (slug: string) => {
+    calls.push({ slug });
+    return { ...stored };
   };
-  (fn as unknown as { calls: PayloadArgs[] }).calls = calls;
-  return fn as unknown as ((args: PayloadArgs) => Promise<unknown>) & { calls: PayloadArgs[] };
-}
-
-function payloadStub(overrides: Partial<Record<string, (args: PayloadArgs) => Promise<unknown>>> = {}) {
-  const base: Record<string, unknown> = {
-    findGlobal: makeSpy(async () => ({ name: "Helmdeck Payload Host", accent: "#b45309", support_email: "support@example.com", density: "comfortable" })),
-    updateGlobal: makeSpy(async (args) => ({ ...(args.data as object), updated: true })),
+  const set = async (slug: string, data: unknown) => {
+    calls.push({ slug, data } as GlobalArgs);
+    Object.assign(stored, data as Record<string, unknown>);
+    return { ...stored };
   };
-  for (const [key, value] of Object.entries(overrides)) {
-    (base as Record<string, unknown>)[key] = makeSpy(value);
-  }
-  return base;
+  return { stored, calls, get, set };
 }
 
 describe("payload site settings denied reads and writes", () => {
-  it("refuses read and write with no session before reaching payload", async () => {
-    const payload = payloadStub();
-    await expect(readPayloadSiteSettings({ payload: payload as never, resolveUser: async () => null })).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
-    await expect(writePayloadSiteSettings({ payload: payload as never, resolveUser: async () => null }, { name: "X" })).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
-
-    expect((payload as { findGlobal: { calls: unknown[] } }).findGlobal.calls).toHaveLength(0);
-    expect((payload as { updateGlobal: { calls: unknown[] } }).updateGlobal.calls).toHaveLength(0);
+  it("refuses read and write with no session before reaching the store", async () => {
+    const { get, set, stored } = storingStub();
+    await expect(
+      readPayloadSiteSettings({ store: { get, set }, resolveUser: async () => null }),
+    ).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    await expect(
+      writePayloadSiteSettings({ store: { get, set }, resolveUser: async () => null }, { name: "X" }),
+    ).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    expect(stored).toEqual({});
   });
 });
 
 describe("payload site settings persistence", () => {
-  it("reads the global with overrideAccess false and the session user", async () => {
-    const payload = payloadStub();
-    const result = await readPayloadSiteSettings({ payload: payload as never, resolveUser: async () => ({ id: "u1" }) });
-    expect(result).toBeTruthy();
-    const args = (payload as { findGlobal: { calls: PayloadArgs[] } }).findGlobal.calls[0]!;
-    expect(args.slug).toBe(SITE_SETTINGS_GLOBAL);
-    expect(args.overrideAccess).toBe(false);
-    expect(args.user).toEqual({ id: "u1" });
+  it("reads the global through the store, after the session settles", async () => {
+    const { get, set, calls, stored } = storingStub();
+    stored["name"] = "Helmdeck Payload Host";
+    const result = await readPayloadSiteSettings({ store: { get, set }, resolveUser: async () => ({ id: "u1" }) });
+    expect(result["name"]).toBe("Helmdeck Payload Host");
+    expect(calls[0]!.slug).toBe(SITE_SETTINGS_GLOBAL);
   });
 
-  it("writes the global with overrideAccess false and the session user", async () => {
-    const payload = payloadStub();
-    const values = { name: "Acme", accent: "#123456", support_email: "help@acme.test", density: "compact" };
-    await writePayloadSiteSettings({ payload: payload as never, resolveUser: async () => ({ id: "u1" }) }, values);
+  it("writes the global with the allowlisted keys and the server stamps", async () => {
+    const { get, set, calls } = storingStub();
+    const values = {
+      name: "Acme",
+      accent: "#123456",
+      support_email: "help@acme.test",
+      density: "compact",
+      role: "admin",
+    };
+    await writePayloadSiteSettings({ store: { get, set }, resolveUser: async () => ({ id: "u1" }) }, values);
 
-    const args = (payload as { updateGlobal: { calls: PayloadArgs[] } }).updateGlobal.calls[0]!;
+    const args = calls.find((call) => call.data !== undefined)!;
     expect(args.slug).toBe(SITE_SETTINGS_GLOBAL);
-    expect(args.overrideAccess).toBe(false);
-    expect(args.user).toEqual({ id: "u1" });
-    expect(args.data).toMatchObject(values);
+    expect(args.data).toMatchObject({ name: "Acme", accent: "#123456", support_email: "help@acme.test", density: "compact" });
+    // The caller's unlisted key does not travel, and the change stamps are the server's fact.
+    expect(args.data!["role"]).toBeUndefined();
+    expect(args.data!["updated_by"]).toBe("u1");
+    expect(args.data!["updated_at"]).toContain("2026");
   });
 
-  it("round trips through the adapter", async () => {
-    const payload = payloadStub();
-    const adapter = createPayloadSiteSettings({ payload: payload as never, resolveUser: async () => ({ id: "u1" }) });
-    await adapter.write({ name: "Acme", accent: "#123456", support_email: "help@acme.test", density: "compact" });
+  it("round trips: the read answers the written values from the store", async () => {
+    const stub = storingStub();
+    const adapter = createPayloadSiteSettings({ store: stub, resolveUser: async () => ({ id: "u1" }) });
+    const written = { name: "Acme", accent: "#123456", support_email: "help@acme.test", density: "compact" };
+    await adapter.write(written);
     const read = await adapter.read();
-    expect(read).toBeTruthy();
+    expect(read).toMatchObject(written);
+  });
+
+  it("trims the text it stores, so what was validated is what lands", async () => {
+    const { get, set, calls } = storingStub();
+    await writePayloadSiteSettings(
+      { store: { get, set }, resolveUser: async () => ({ id: "u1" }) },
+      { name: "  Acme  ", accent: " #123456 ", support_email: "help@acme.test ", density: "compact" },
+    );
+    const data = calls.find((call) => call.data !== undefined)!.data!;
+    expect(data["name"]).toBe("Acme");
+    expect(data["accent"]).toBe("#123456");
+    expect(data["support_email"]).toBe("help@acme.test");
   });
 });
 
 describe("payload site settings invalid values", () => {
-  it("rejects invalid values before reaching payload", async () => {
-    const payload = payloadStub();
+  it("rejects invalid values with the named reasons before reaching the store", async () => {
+    const { get, set, calls } = storingStub();
     await expect(
-      writePayloadSiteSettings({ payload: payload as never, resolveUser: async () => ({ id: "u1" }) }, { name: "", accent: "red", support_email: "nope", density: "huge" }),
-    ).rejects.toThrow();
-    expect((payload as { updateGlobal: { calls: unknown[] } }).updateGlobal.calls).toHaveLength(0);
+      writePayloadSiteSettings(
+        { store: { get, set }, resolveUser: async () => ({ id: "u1" }) },
+        { name: "", accent: "red", support_email: "nope", density: "huge" },
+      ),
+    ).rejects.toThrow("name: Name must be between 2 and 48 characters.");
+    expect(calls).toHaveLength(0);
   });
 
-  it("validate lists problems", () => {
+  it("validate lists a problem per rejected field", () => {
     const problems = validatePayloadSiteSettings({ name: "", accent: "red", support_email: "nope", density: "huge" });
-    expect(problems.length).toBeGreaterThan(0);
+    expect(problems.map((problem) => problem.key)).toEqual(["name", "accent", "support_email", "density"]);
   });
 });

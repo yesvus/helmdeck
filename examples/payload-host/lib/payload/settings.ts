@@ -2,15 +2,20 @@
 /**
  * The one path from this host's settings screen into Payload's `siteSettings` Global.
  *
- * A Global has no collection and no id, so it does not travel through the package's collection
- * bridge. The two guarded keys travel the same way they do there: `overrideAccess: false` and the
- * session's user, on every read and every write, so Payload's access functions stay the rule.
+ * Globals have no id to address, so they cannot travel the collection bridge; they travel the
+ * globals side of the same module instead, which passes `overrideAccess: false` and the session's
+ * user in the same place every other Payload call does. What this module adds is what the host
+ * owns: the editable keys, the normalisation, the validation and the change stamps.
  */
 
-import type { AdminPayloadUser } from "@yesvus/helmdeck";
 import { AdminPayloadAccessRefused } from "@yesvus/helmdeck";
+import {
+  SITE_SETTINGS_BOUNDS,
+  SITE_SETTINGS_EDITABLE_KEYS,
+  SITE_SETTINGS_GLOBAL,
+} from "./globals";
 
-export const SITE_SETTINGS_GLOBAL = "siteSettings";
+export { SITE_SETTINGS_GLOBAL };
 
 export type PayloadSiteSettings = {
   name?: string | null;
@@ -21,85 +26,95 @@ export type PayloadSiteSettings = {
   updated_by?: string | null;
 };
 
-/** The slice of the Payload instance the settings module calls, and nothing more. Method-style so a
- * real instance, whose own args are typed against its config, satisfies the slice. */
-export type PayloadLike = {
-  findGlobal(args: { slug: string; [key: string]: unknown }): Promise<unknown>;
-  updateGlobal(args: { slug: string; data: unknown; [key: string]: unknown }): Promise<unknown>;
+/**
+ * The globals side of the content module, so the module carries no direct Payload calls and the
+ * overrideAccess guard stays where every other call's guard lives.
+ */
+export type PayloadSettingsStore = {
+  get: (slug: string) => Promise<unknown>;
+  set: (slug: string, data: Record<string, unknown>) => Promise<unknown>;
 };
 
-export type ResolveUser = () => Promise<AdminPayloadUser | null>;
+export type ResolveUser = () => Promise<{ id: string } | null>;
 
 export type PayloadSettingsOptions = {
-  payload: PayloadLike;
+  store: PayloadSettingsStore;
   resolveUser: ResolveUser;
 };
 
-const DENSITIES = new Set(["comfortable", "compact", "cosy"]);
-
 export type PayloadSettingsProblem = { key: string; reason: string };
 
-/** The schema and its validation stay the host's own; this is where the host declares them. */
+/** Trim once, then validate and write the same strings the caller read back. */
+export function normaliseSettings(values: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of SITE_SETTINGS_EDITABLE_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(values, key) && typeof values[key] === "string") {
+      out[key] = (values[key] as string).trim();
+    }
+  }
+  return out;
+}
+
+const DENSITIES = SITE_SETTINGS_BOUNDS.densities;
+
+const HEX_ACCENT = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const EMAIL = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
+
 export function validatePayloadSiteSettings(values: Record<string, unknown>): PayloadSettingsProblem[] {
   const problems: PayloadSettingsProblem[] = [];
   if (Object.prototype.hasOwnProperty.call(values, "name")) {
     const value = values["name"];
-    if (typeof value !== "string" || value.trim().length < 2 || value.trim().length > 48) {
+    if (typeof value !== "string" || value.length < SITE_SETTINGS_BOUNDS.nameMinLength || value.length > SITE_SETTINGS_BOUNDS.nameMaxLength) {
       problems.push({ key: "name", reason: "Name must be between 2 and 48 characters." });
     }
   }
   if (Object.prototype.hasOwnProperty.call(values, "accent")) {
     const value = values["accent"];
-    if (typeof value !== "string" || !/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value.trim())) {
+    if (typeof value !== "string" || !HEX_ACCENT.test(value)) {
       problems.push({ key: "accent", reason: "Accent must be a 3 or 6 digit hex colour." });
     }
   }
   if (Object.prototype.hasOwnProperty.call(values, "support_email")) {
     const value = values["support_email"];
-    if (typeof value !== "string" || !/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(value.trim())) {
+    if (typeof value !== "string" || !EMAIL.test(value)) {
       problems.push({ key: "support_email", reason: "Support email must be a valid address." });
     }
   }
   if (Object.prototype.hasOwnProperty.call(values, "density")) {
     const value = values["density"];
-    if (typeof value !== "string" || !DENSITIES.has(value)) {
+    if (typeof value !== "string" || !DENSITIES.includes(value as (typeof DENSITIES)[number])) {
       problems.push({ key: "density", reason: "Density must be comfortable, compact or cosy." });
     }
   }
   return problems;
 }
 
-async function userOf(options: PayloadSettingsOptions, operation: string): Promise<AdminPayloadUser> {
+async function userOf(options: PayloadSettingsOptions, operation: string): Promise<{ id: string }> {
   const user = await options.resolveUser();
   if (!user) throw new AdminPayloadAccessRefused(operation);
   return user;
 }
 
 export async function readPayloadSiteSettings(options: PayloadSettingsOptions): Promise<PayloadSiteSettings> {
-  const user = await userOf(options, "findGlobal");
-  const found = await options.payload.findGlobal({
-    slug: SITE_SETTINGS_GLOBAL,
-    overrideAccess: false,
-    user,
-    depth: 0,
-  });
-  return found as PayloadSiteSettings;
+  await userOf(options, "findGlobal");
+  return (await options.store.get(SITE_SETTINGS_GLOBAL)) as PayloadSiteSettings;
 }
 
 export async function writePayloadSiteSettings(
   options: PayloadSettingsOptions,
-  values: Record<string, unknown>,
+  rawValues: Record<string, unknown>,
 ): Promise<PayloadSiteSettings> {
   const user = await userOf(options, "updateGlobal");
-  const problems = validatePayloadSiteSettings(values ?? {});
+  const values = normaliseSettings(rawValues ?? {});
+  const problems = validatePayloadSiteSettings(values);
   if (problems.length > 0) {
     throw new Error(problems.map((problem) => `${problem.key}: ${problem.reason}`).join("; "));
   }
-  const written = await options.payload.updateGlobal({
-    slug: SITE_SETTINGS_GLOBAL,
-    data: values ?? {},
-    overrideAccess: false,
-    user,
+  // Only the named keys travel, and the change stamps are the server's fact, not the caller's.
+  const written = await options.store.set(SITE_SETTINGS_GLOBAL, {
+    ...values,
+    updated_at: new Date().toISOString(),
+    updated_by: user.id,
   });
   return written as PayloadSiteSettings;
 }

@@ -3,7 +3,7 @@ import type { AdminNavGroup } from "@yesvus/helmdeck";
 import { AdminFrame } from "@/components/admin-frame";
 import { requireAdminSession } from "@/lib/guard";
 import { PERMISSIONS } from "@/lib/permissions";
-import { payloadInstance } from "@/lib/payload/content";
+import { globalsContent } from "@/lib/payload/content";
 import { readPayloadSession } from "@/lib/session";
 import { readPayloadSiteSettings } from "@/lib/payload/settings";
 
@@ -35,7 +35,7 @@ const nav: AdminNavGroup[] = [
       {
         href: "/admin/settings",
         label: "Settings",
-        icon: "overview",
+        icon: "settings",
         permission: PERMISSIONS.settingsRead,
       },
     ],
@@ -54,11 +54,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   let siteName: string | undefined;
   try {
-    const payload = await payloadInstance();
-    const settings = await readPayloadSiteSettings({ payload, resolveUser: readPayloadSession });
-    if (typeof settings.name === "string" && settings.name) siteName = settings.name;
-  } catch {
-    siteName = undefined;
+    const settings = await readPayloadSiteSettings({ store: globalsContent(), resolveUser: readPayloadSession });
+    if (typeof settings.name === "string") {
+      const name = settings.name.trim();
+      // A whitespace-only stored name is not a brand label; the fallback stays.
+      if (name) siteName = name;
+    }
+  } catch (cause) {
+    // The shell still renders on a broken settings read; the fault is logged for whoever owns it.
+    console.error("Failed to read the site settings for the brand label.", cause);
   }
 
   return (
