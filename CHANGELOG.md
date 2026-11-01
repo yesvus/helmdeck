@@ -30,6 +30,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Add an optional Payload-powered blog starter to the Payload host example, with Lexical posts, categories, publishing, preview, SEO metadata and public article routes.
 
+- Add a read-only Medusa commerce host example, keeping product mutations in Medusa Admin.
+
 ### Changed
 
 - Adapt `AdminTabs` and overlay menu patterns to the Helmdeck design language, add orientation-aware tabs, and document the primitive audit in `docs/primitives-audit-382.md`.
