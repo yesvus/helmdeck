@@ -10,7 +10,47 @@ permissions:
   contents: read
 
 jobs:
-  quality:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  release-gate:
+    name: Release gate scripts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -21,19 +61,86 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm version:check
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
       - run: pnpm test:release
-      # The example host is the first thing a host reads, and nothing compiled it. Its dependency is
-      # `link:../..`, so it follows the working tree, and a stale install here made it look pinned to
-      # the previous release. That is exactly how a real staleness would have been found: by noticing
-      # a version that was not the one it claimed.
-      - run: pnpm typecheck:example
-      # The starter template is the one thing in this repository that gets copied rather than read, so
-      # nothing else may be the only place it is checked. Its script links the package into
-      # `template/node_modules` itself, which is why this step needs no install of the template's own
-      # dependencies the way the example's does.
-      - run: pnpm typecheck:template
+
+  fixtures-build:
+    name: Fixtures build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm build:fixtures
+
+  typecheck-example:
+    name: Example host typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Builds dist itself before compiling the example host.
+      - run: pnpm typecheck:example
+
+  typecheck-template:
+    name: Template typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Builds dist itself before compiling the template.
+      - run: pnpm typecheck:template
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm audit --prod
+
+  quality:
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    needs:
+      - lint
+      - typecheck
+      - test
+      - release-gate
+      - fixtures-build
+      - typecheck-example
+      - typecheck-template
+      - audit
+    # Reports the legacy "quality" check name for branch protection. The umbrella states its own
+    # verdict because GitHub reads a skipped check as passing, so the workflow has to run even when
+    # a job above it failed and turn the umbrella red by hand.
+    steps:
+      - name: Turn the umbrella red when any parallel gate did not succeed
+        if: ${{ needs.lint.result != 'success'
+              || needs.typecheck.result != 'success'
+              || needs.test.result != 'success'
+              || needs.release-gate.result != 'success'
+              || needs.fixtures-build.result != 'success'
+              || needs.typecheck-example.result != 'success'
+              || needs.typecheck-template.result != 'success'
+              || needs.audit.result != 'success' }}
+        run: exit 1
+      - run: echo "All harness checks passed."
