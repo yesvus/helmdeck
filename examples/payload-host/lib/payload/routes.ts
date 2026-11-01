@@ -17,3 +17,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 
 /** `app/(payload)`, the route group holding Payload's admin panel and its API. */
 export const PAYLOAD_ROUTE_GROUP = join(here, "..", "..", "app", "(payload)");
+
+export const BLOG_BASE_PATH = process.env.HELMDECK_BLOG_PATH?.trim() ?? "/blog";
+
+export function blogRouteMatches(path: string, basePath: string | undefined): boolean {
+  if (!basePath) return false;
+  const base = basePath.replace(/\/$/, "");
+  return path === base || path.startsWith(`${base}/`);
+}

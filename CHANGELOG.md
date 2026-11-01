@@ -26,6 +26,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Add a vendor-neutral Kubernetes deployment example for the Payload host, including a pre-rollout migration Job.
 
+- Add an optional Payload-powered blog starter to the Payload host example, with Lexical posts, categories, publishing, preview, SEO metadata and public article routes.
+
 ### Changed
 
 - Adapt `AdminTabs` and overlay menu patterns to the Helmdeck design language, add orientation-aware tabs, and document the primitive audit in `docs/primitives-audit-382.md`.

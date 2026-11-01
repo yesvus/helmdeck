@@ -64,6 +64,8 @@ custom domain sets it; a Vercel deployment is answered from `VERCEL_URL` without
 For container deployment see [Docker](deploy/docker.md); for a vendor-neutral Kubernetes example,
 including the migration Job and replica guidance, see [Kubernetes](deploy/kubernetes.md).
 
+Optional blog setup, editing and route customization are documented in [Blog starter](docs/blog.md).
+
 ## The six steps
 
 | Step | Where it is |

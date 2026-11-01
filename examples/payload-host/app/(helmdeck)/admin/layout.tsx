@@ -20,6 +20,7 @@ const nav: AdminNavGroup[] = [
     label: "Workspace",
     items: [
       { href: "/admin", label: "Overview", icon: "overview" },
+      { href: "/admin/posts", label: "Posts", icon: "article", permission: PERMISSIONS.pagesRead },
       {
         href: "/admin/pages",
         label: "Pages",
