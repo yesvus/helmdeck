@@ -28,6 +28,14 @@ export type AdminMediaItem = {
   usages?: AdminMediaUsage[];
 };
 
+/**
+ * A bounded read of a media store. The host applies `search`, `kind`, `kinds`, `source` and `sort`
+ * to its whole collection first, then returns at most `limit` items starting after `cursor`, so a
+ * page is never a slice of an unfiltered or unsorted list. `cursor` is the opaque continuation
+ * token returned by the previous result; an absent cursor reads the first page. `limit` is the
+ * page size the caller asks for, and a host clamps it to what it can serve. Absent fields mean
+ * the host's own default rather than "none", so one code path answers a paged and a bare query.
+ */
 export type AdminMediaListQuery = {
   cursor?: string;
   limit?: number;
@@ -47,6 +55,11 @@ export type AdminMediaSort =
   | "size-asc"
   | "kind";
 
+/**
+ * One page of a bounded media read. `items` holds at most the requested page; `nextCursor` is
+ * present only when another page follows, and a caller stops when it is absent. `total` is the
+ * number of items the same query matched across the whole store, not the length of this page.
+ */
 export type AdminMediaListResult = {
   items: AdminMediaItem[];
   nextCursor?: string;

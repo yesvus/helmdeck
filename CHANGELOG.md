@@ -16,6 +16,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - A schema-driven settings registry: `defineAdminSettings` groups typed setting definitions, and `AdminSettingsPanel` renders them with validation, pending, error and denial states through an `AdminSettingsAdapter`. Secret settings read back masked. A host supplying its own message catalog adds the `settingsPanel` group the way it already maintains `destructive`.
 - Payload host settings backed by a Payload Global: the example defines a `siteSettings` Global with host-owned schema and validation, reads and writes it through the example's access-checked globals path (`overrideAccess: false` with the session user on every call), and the shell reads the stored site name for its brand label.
 - A reusable admin database-backups page template: `template/app/admin/backups` renders host-supplied backup entries, overall status and the authoritative retention policy, with configured, unconfigured, empty, stale and unavailable states, and documents the host-owned contract in `template/lib/backups.ts`.
+- The media library reads through a bounded server-side page: `AdminMediaAdapter.list` takes pagination, query, kind filters and sort, applies them in the host store before paging, and returns continuation metadata, so the library and picker request one page at a time and re-query on search, filter or sort changes.
+
 ## 1.3.0
 
 ### Added

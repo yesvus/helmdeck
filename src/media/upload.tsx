@@ -202,7 +202,7 @@ export function AdminMediaUpload({
           <button
             type="button"
             aria-disabled={busy}
-            aria-label={file ? `${mergedLabels.drop}: ${file.name}` : mergedLabels.drop}
+            aria-label={mergedLabels.drop}
             aria-invalid={Boolean(error)}
             onKeyDown={handleDropzoneKeyDown}
             onDragEnter={handleDropState}
