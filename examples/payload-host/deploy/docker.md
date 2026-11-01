@@ -84,3 +84,6 @@ shared `AdminLoginThrottle` implementation supplied at the `throttle` option in 
 
 No hosted database is required. If opting into hosted libsql, configure its URL and token through
 the runtime environment and review its backup and migration procedures separately.
+# Feedback intake proxy trust
+
+`PAYLOAD_TRUSTED_PROXY_HEADER` is unset by default, meaning no request header is trusted for client identity. Set it only to the exact header your trusted ingress overwrites. Forwarding headers such as `x-forwarded-for` are ignored unless explicitly configured.
