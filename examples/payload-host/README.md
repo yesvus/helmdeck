@@ -155,8 +155,12 @@ is one you have to make rather than one you have to find later.
    that withholds one record decides it in `lib/rules.ts` and is enforced on both sides with nothing
    else changed, and it needs an adapter that carries the record: `lib/permissions.ts` is where the
    host's own adapter goes when the package's bridge is not enough.
-5. **A media adapter.** Upload, listing, signed URLs, retention and media mutations are yours.
-   Payload's own uploads are the CMS's answer to it, and this host does not mount them yet.
+5. **A media adapter.** Payload's uploads are now mounted: the `media` collection in
+   `lib/payload/collections.ts` is a collection of type upload, and `app/(helmdeck)/admin/media`
+   browses and uploads through `createAdminPayloadMediaAdapter` over the one call site. What stays
+   yours is storage (local disk by default; a storage adapter for S3 or R2 in production),
+   signed URLs, retention and any media mutation beyond rename and delete, because those are
+   deployment decisions the package cannot make for you.
 6. **An audit trail.** A record of who wrote what is a host decision: where the trail goes, and what
    a stale read is keyed on. The package's own activity surface reads a store you provide.
 7. **A throttle that outlives the process.** The sign-in's own throttle counts failed attempts in

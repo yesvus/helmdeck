@@ -20,6 +20,10 @@ export const PERMISSIONS = {
   pagesCreate: "pages:create",
   pagesUpdate: "pages:update",
   pagesDelete: "pages:delete",
+  mediaRead: "media:read",
+  mediaCreate: "media:create",
+  mediaUpdate: "media:update",
+  mediaDelete: "media:delete",
 } as const;
 
 /**

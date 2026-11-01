@@ -8,6 +8,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Added
+
+- Payload uploads are wired into the media library: `createAdminPayloadMediaAdapter` reads and writes a Payload upload collection through the shared content bridge, and the Payload host example defines a `media` upload collection with a media page behind it.
+
 ## 1.3.0
 
 ### Added

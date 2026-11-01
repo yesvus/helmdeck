@@ -23,6 +23,12 @@ const nav: AdminNavGroup[] = [
         icon: "article",
         permission: PERMISSIONS.pagesRead,
       },
+      {
+        href: "/admin/media",
+        label: "Media",
+        icon: "article",
+        permission: PERMISSIONS.mediaRead,
+      },
     ],
   },
 ];
