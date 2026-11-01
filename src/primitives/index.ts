@@ -18,8 +18,11 @@ export type { AdminContactFormLabels, AdminContactSubmission } from "./contact-f
 export { AdminDataTable, useAdminDataTable, AdminTableEmptyState } from "./data-table.js";
 export type {
   AdminDataTableColumn,
+  AdminDataTableColumnFilter,
   AdminDataTableControls,
   AdminDataTableFilter,
+  AdminDataTableFilterRange,
+  AdminDataTableFilterValue,
   AdminDataTableProps,
   AdminDataTableSort,
   AdminDataTableState,

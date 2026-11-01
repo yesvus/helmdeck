@@ -31,6 +31,8 @@ import type { AdminTableColumn, AdminTableSelection } from "./table.js";
 
 export type AdminDataTableValue = string | number | boolean | null | undefined;
 
+export type AdminDataTableColumnFilter = "text" | "select" | "dateRange";
+
 export type AdminDataTableColumn<T> = {
   key: string;
   header: ReactNode;
@@ -45,6 +47,10 @@ export type AdminDataTableColumn<T> = {
   width?: string;
   className?: string;
   headerClassName?: string;
+  /** The kind of filter input the column's filter row cell renders. Defaults to "text". */
+  filter?: AdminDataTableColumnFilter;
+  /** The fixed values a "select" filter compares against. */
+  filterOptions?: AdminDataTableValue[];
 };
 
 export type AdminDataTableSort = {
@@ -52,11 +58,19 @@ export type AdminDataTableSort = {
   direction: "asc" | "desc";
 };
 
+/** A bounded date range carried by a single filter, both bounds optional and inclusive. */
+export type AdminDataTableFilterRange = {
+  from?: string;
+  to?: string;
+};
+
+export type AdminDataTableFilterValue = string | AdminDataTableFilterRange;
+
 export type AdminDataTableFilter = {
   key: string;
-  value: string;
+  value: AdminDataTableFilterValue;
   /** How a row's value is compared with the filter's value. */
-  match?: (rowValue: AdminDataTableValue, filterValue: string) => boolean;
+  match?: (rowValue: AdminDataTableValue, filterValue: AdminDataTableFilterValue) => boolean;
 };
 
 /** What the table knows about one column: whether it is shown, where it is pinned and how wide it is. */
@@ -91,7 +105,7 @@ export type AdminDataTableControls<T> = {
   state: AdminDataTableState;
   setState: (state: AdminDataTableState) => void;
   toggleSort: (key: string) => void;
-  setFilter: (key: string, value: string) => void;
+  setFilter: (key: string, value: AdminDataTableFilterValue) => void;
   clearFilters: () => void;
   setSearch: (term: string) => void;
   setPage: (page: number) => void;
@@ -117,6 +131,40 @@ function defaultMatch(rowValue: AdminDataTableValue, filterValue: string) {
     return String(rowValue).toLocaleLowerCase() === filterValue.trim().toLocaleLowerCase();
   }
   return String(rowValue).toLocaleLowerCase().includes(filterValue.trim().toLocaleLowerCase());
+}
+
+function defaultSelectMatch(rowValue: AdminDataTableValue, filterValue: string) {
+  if (rowValue === null || rowValue === undefined) return false;
+  return String(rowValue).toLocaleLowerCase() === String(filterValue).trim().toLocaleLowerCase();
+}
+
+function asDateValue(value: AdminDataTableValue | string): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "boolean") return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    // Compare calendar days directly so the time of day cannot move a boundary.
+    const [year, month, day] = text.split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  }
+  const parsed = Date.parse(text);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function defaultRangeMatch(rowValue: AdminDataTableValue, filterValue: AdminDataTableFilterRange) {
+  const row = asDateValue(rowValue);
+  if (row === null) return false;
+  if (filterValue.from) {
+    const from = asDateValue(filterValue.from);
+    if (from !== null && row < from) return false;
+  }
+  if (filterValue.to) {
+    const to = asDateValue(filterValue.to);
+    if (to !== null && row > to) return false;
+  }
+  return true;
 }
 
 function compareValues(left: AdminDataTableValue, right: AdminDataTableValue) {
@@ -203,11 +251,21 @@ export function useAdminDataTable<T>({
     const term = state.search.trim().toLocaleLowerCase();
     return rows.filter((row) => {
       for (const filter of state.filters) {
-        if (!filter.value.trim()) continue;
+        const filterValue = filter.value;
+        const empty = typeof filterValue === "string"
+          ? !filterValue.trim()
+          : !(filterValue?.from || filterValue?.to);
+        if (empty) continue;
         const column = columnByKey.get(filter.key);
         if (!column?.value) continue;
-        const match = filter.match ?? defaultMatch;
-        if (!match(column.value(row), filter.value)) return false;
+        const defaultMatcher = typeof filterValue === "string"
+          ? (column.filter === "select" ? defaultSelectMatch : defaultMatch)
+          : defaultRangeMatch;
+        const match = (filter.match ?? defaultMatcher) as (
+          rowValue: AdminDataTableValue,
+          filterValue: AdminDataTableFilterValue,
+        ) => boolean;
+        if (!match(column.value(row), filterValue)) return false;
       }
       if (!term) return true;
       return columns.some((column) => {
@@ -272,9 +330,10 @@ export function useAdminDataTable<T>({
     setState({ ...state, sort: next, page: 1 });
   };
 
-  const setFilter = (key: string, value: string) => {
+  const setFilter = (key: string, value: AdminDataTableFilterValue) => {
     const filters = state.filters.filter((filter) => filter.key !== key);
-    if (value.trim()) filters.push({ key, value });
+    const empty = typeof value === "string" ? !value.trim() : !(value?.from || value?.to);
+    if (!empty) filters.push({ key, value });
     setState({ ...state, filters, page: 1 });
   };
 
@@ -752,7 +811,7 @@ export function AdminDataTable<T>({
               key={filter.key}
               type="search"
               aria-label={filter.label}
-              value={controls.state.filters.find((entry) => entry.key === filter.key)?.value ?? ""}
+              value={(() => { const value = controls.state.filters.find((entry) => entry.key === filter.key)?.value; return value && typeof value === "string" ? value : ""; })()}
               onChange={(event) => controls.setFilter(filter.key, event.target.value)}
               placeholder={filter.placeholder}
               className="h-8 rounded-md border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
@@ -786,17 +845,62 @@ export function AdminDataTable<T>({
       ) : null}
       {columnFilters ? (
         <div className="flex flex-wrap items-center gap-2">
-          {controls.visibleColumns.map((column) => (
-            <input
-              key={column.key}
-              type="search"
-              aria-label={`${typeof column.header === "string" ? column.header : column.key} filter`}
-              value={controls.state.filters.find((entry) => entry.key === column.key)?.value ?? ""}
-              onChange={(event) => controls.setFilter(column.key, event.target.value)}
-              placeholder={typeof column.header === "string" ? column.header : column.key}
-              className="h-8 rounded-md border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-            />
-          ))}
+          {controls.visibleColumns.map((column) => {
+            const headerLabel = typeof column.header === "string" ? column.header : column.key;
+            const filterMode = column.filter ?? "text";
+            const current = controls.state.filters.find((entry) => entry.key === column.key);
+            const rangeValue = ((current?.value && typeof current.value !== "string") ? current.value : {}) as AdminDataTableFilterRange;
+            if (filterMode === "select") {
+              const selected = typeof current?.value === "string" ? current.value : "";
+              return (
+                <select
+                  key={column.key}
+                  aria-label={`${headerLabel} filter`}
+                  value={selected}
+                  onChange={(event) => controls.setFilter(column.key, event.target.value)}
+                  className="h-8 rounded-md border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                >
+                  <option value="">{i18n.common.options}</option>
+                  {(column.filterOptions ?? []).map((option) => (
+                    <option key={String(option)} value={String(option)}>{String(option)}</option>
+                  ))}
+                </select>
+              );
+            }
+            if (filterMode === "dateRange") {
+              return (
+                <span key={column.key} className="inline-flex items-center gap-2">
+                  <input
+                    type="date"
+                    aria-label={`${headerLabel} from`}
+                    placeholder="From"
+                    value={rangeValue.from ?? ""}
+                    onChange={(event) => controls.setFilter(column.key, { ...rangeValue, from: event.target.value || undefined })}
+                    className="h-8 rounded-md border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                  />
+                  <input
+                    type="date"
+                    aria-label={`${headerLabel} to`}
+                    placeholder="To"
+                    value={rangeValue.to ?? ""}
+                    onChange={(event) => controls.setFilter(column.key, { ...rangeValue, to: event.target.value || undefined })}
+                    className="h-8 rounded-md border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                  />
+                </span>
+              );
+            }
+            return (
+              <input
+                key={column.key}
+                type="search"
+                aria-label={`${headerLabel} filter`}
+                value={typeof current?.value === "string" ? current.value : ""}
+                onChange={(event) => controls.setFilter(column.key, event.target.value)}
+                placeholder={headerLabel}
+                className="h-8 rounded-md border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              />
+            );
+          })}
         </div>
       ) : null}
       <AdminTable
