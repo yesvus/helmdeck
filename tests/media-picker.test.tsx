@@ -82,6 +82,7 @@ describe("AdminMediaPicker", () => {
         cursor: undefined,
         limit: 1,
         search: undefined,
+        sort: "date-desc",
         source: "uploaded",
       }),
     );
@@ -91,6 +92,7 @@ describe("AdminMediaPicker", () => {
         cursor: "next-page",
         limit: 1,
         search: undefined,
+        sort: "date-desc",
         source: "uploaded",
       }),
     );
@@ -123,6 +125,7 @@ describe("AdminMediaPicker", () => {
         kind: "image",
         limit: 48,
         search: undefined,
+        sort: "date-desc",
         source: undefined,
       }),
     );
@@ -150,6 +153,7 @@ describe("AdminMediaPicker", () => {
         kinds: ["image", "video"],
         limit: 48,
         search: undefined,
+        sort: "date-desc",
         source: undefined,
       }),
     );
@@ -174,6 +178,7 @@ describe("AdminMediaPicker", () => {
         cursor: undefined,
         limit: 48,
         search: undefined,
+        sort: "date-desc",
         source: undefined,
       }),
     );

@@ -129,6 +129,11 @@ export function AdminMediaPicker({
       const requestId = ++requestIdRef.current;
       setLoading(true);
       setLoadError(undefined);
+      if (!cursor) {
+        setAdapterItems([]);
+        setNextCursor(undefined);
+        setTotal(undefined);
+      }
 
       try {
         const kindFilter = allowedKinds?.length === 1
@@ -141,6 +146,7 @@ export function AdminMediaPicker({
           cursor,
           limit: resolvedPageSize,
           search: search.trim() || undefined,
+          sort,
           source,
         });
         const resultItems = result.items.filter((item) => matchesAllowedKinds(item, allowedKinds));
@@ -163,7 +169,7 @@ export function AdminMediaPicker({
         }
       }
     },
-    [adapter, allowedKinds, loadErrorLabel, resolvedPageSize, source],
+    [adapter, allowedKinds, loadErrorLabel, resolvedPageSize, sort, source],
   );
 
   // This effect owns the dialog's data lifecycle: it cancels in-flight work on close and
@@ -197,17 +203,25 @@ export function AdminMediaPicker({
   }
 
   const filteredItems = useMemo(() => {
+    const allowed = items.filter((item) => matchesAllowedKinds(item, allowedKinds));
     const normalized = query.trim().toLocaleLowerCase(resolvedLocale);
-    const matched = normalized
-      ? items.filter((item) =>
-          matchesAllowedKinds(item, allowedKinds) &&
-          `${item.name} ${item.path} ${item.publicUrl} ${item.contentType ?? ""}`
-            .toLocaleLowerCase(resolvedLocale)
-            .includes(normalized),
-        )
-      : items.filter((item) => matchesAllowedKinds(item, allowedKinds));
-    return sortAdminMediaItems(matched, sort, resolvedLocale);
-  }, [allowedKinds, items, query, resolvedLocale, sort]);
+    // With an adapter the store has already searched and sorted; doing it again here would drop
+    // rows a store matched on a field this does not know about and reorder across pages.
+    const matched =
+      adapter && normalized === ""
+        ? allowed
+        : normalized === ""
+          ? allowed
+          : adapter
+            ? allowed
+            : allowed.filter((item) =>
+                `${item.name} ${item.path} ${item.publicUrl} ${item.contentType ?? ""}`
+                  .toLocaleLowerCase(resolvedLocale)
+                  .includes(normalized),
+              );
+    // Local data has no store to order it; an adapter's order is global across cursors.
+    return adapter ? matched : sortAdminMediaItems(matched, sort, resolvedLocale);
+  }, [adapter, allowedKinds, items, query, resolvedLocale, sort]);
 
   return (
     <AdminModal open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
