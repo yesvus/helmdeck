@@ -1,6 +1,6 @@
 # Migrating to Payload as the CMS
 
-The next major version, `1.0.0`, retires the resource engine. Payload does what
+Version `1.0.0` retired the resource engine. Payload does what
 that engine did, and does it better: the collections, the fields, the versions,
 the drafts, the trash, the uploads and the accounts are all Payload's, and
 Helmdeck keeps the half Payload has no answer for: the shell, the primitives,
@@ -8,8 +8,8 @@ the theme, the dashboard, the charts, the analytics, the activity trail, the
 media library and the inbox.
 
 **This note says what a host replaces each retired export with, and what a host
-keeps.** It is written before the removals, so that a host can read it against
-the version it is on.
+keeps.** It is written against the release a host is on, so a host on an older
+version can still read it.
 
 ## What a host keeps
 
@@ -210,12 +210,12 @@ keeps" above.
 
 ## When
 
-The removals land in one major release, not in a patch: `1.0.0`. A minor
+The removals landed in one major release, not in a patch: `1.0.0`. A minor
 release that took an export away would be a release a host could not plan for,
 and the package's own rule is that a name removed in a minor or a patch is a
 failure rather than a change. `pnpm surface:check` holds that rule: every name
 recorded in `scripts/exported-surface.json` that the build no longer exports
 fails the check, and the fix it names is restoring the name or cutting a major.
 The ledger is re-recorded by the release itself, in the same commit as
-`VERSION`, so the release that takes these names away is the one that records
+`VERSION`, so the release that took these names away is the one that records
 their absence.
