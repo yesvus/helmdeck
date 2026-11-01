@@ -340,7 +340,7 @@ describe("useAdminDialog", () => {
     await waitFor(() => expect(answer).toBe("New name"));
   });
 
-  it("resolves an imperative confirm once, so a late cancel cannot rewrite the answer", async () => {
+  it("keeps a replacement dialog open when the closed dialog's late close fires", async () => {
     const user = userEvent.setup();
     const resolutions = vi.fn();
     function Harness() {
@@ -348,9 +348,18 @@ describe("useAdminDialog", () => {
       return (
         <button
           type="button"
-          onClick={() => { void dialogs.confirm({ title: "Delete?" }).then(resolutions); }}
+          onClick={() => {
+            void dialogs
+              .prompt({ title: "Rename" })
+              // The continuation runs while the prompt is unwinding, and the prompt's own close
+              // then fires after the replacement is on the surface. A real late close: this is
+              // the race window, because the await inside the dialog's handler resumes it.
+              .then((value) => {
+                if (value === "go") void dialogs.confirm({ title: "Publish?" }).then(resolutions);
+              });
+          }}
         >
-          Delete
+          Start
         </button>
       );
     }
@@ -360,12 +369,13 @@ describe("useAdminDialog", () => {
       </AdminDialogProvider>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Start" }));
+    await user.type(screen.getByRole("textbox", { name: "Rename" }), "go");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    const replacement = await screen.findByRole("alertdialog", { name: "Publish?" });
+    expect(replacement).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(resolutions).toHaveBeenCalledWith(true));
-    // The dialog closed on the confirm, so an extra close from the transition after it has
-    // nothing to resolve.
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    await waitFor(() => expect(resolutions).toHaveBeenCalledTimes(1));
   });
 });

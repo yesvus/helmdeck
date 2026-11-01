@@ -347,6 +347,10 @@ export function AdminDialogProvider({ children }: AdminDialogProviderProps) {
           open
           onOpenChange={(next) => {
             if (next) return;
+            // The dialog surface fires a late close while it unwinds, and a promise continuation
+            // may have opened a replacement in the gap. A dialog that lost the surface is not the
+            // authority to cancel the one on it now, so only the pending dialog may finish.
+            if (pendingRef.current?.id !== pendingDialog.id) return;
             finishDialog(pendingDialog.variant === "prompt" ? null : false);
           }}
           title={pendingDialog.config.title}
