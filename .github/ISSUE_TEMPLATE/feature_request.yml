@@ -11,10 +11,23 @@ body:
       options:
         - Shell
         - Primitives
+        - Tables
+        - Toasts
         - Media workflows
+        - Media library
+        - Dashboard widgets
+        - Settings
+        - Payload integration
+        - Independent host
+        - Auth/tenancy
         - Localization
+        - i18n
+        - Deployment templates
+        - Monitoring/error boundary
+        - Agent workflows
         - Fixture app
         - Package build or distribution
+        - Generic core
     validations:
       required: true
   - type: dropdown
