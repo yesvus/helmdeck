@@ -1,0 +1,4 @@
+# Standalone install allowlist: the example is installed with pnpm directly (Docker, CI),
+# and esbuild's postinstall fetches the platform binary drizzle-kit compiles with.
+allowBuilds:
+  esbuild: true

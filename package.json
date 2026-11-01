@@ -103,6 +103,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@eslint/js": "^10.0.1",
+    "@payloadcms/db-postgres": "3.91.0",
     "@payloadcms/db-sqlite": "3.91.0",
     "@payloadcms/next": "3.91.0",
     "@payloadcms/richtext-lexical": "3.91.0",

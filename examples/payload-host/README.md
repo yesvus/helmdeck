@@ -37,11 +37,11 @@ Then:
 npm run dev
 ```
 
-Open <http://localhost:3000>. The database is `./payload.db`, created on the first request, and
-`PAYLOAD_DATABASE_URL` overrides it: a `libsql://` URL with `PAYLOAD_DATABASE_TOKEN` beside it is a
-hosted database, so growing into one is two environment variables rather than a rewrite. A host on
-Postgres swaps the adapter in `lib/payload/db.ts` for Payload's Postgres one and points the same
-environment variable at it.
+Open <http://localhost:3000>. The database is `./payload.db`, created on the first request.
+`PAYLOAD_DATABASE_URL` can select a `file:` SQLite URL, a `libsql:` URL (with optional
+`PAYLOAD_DATABASE_TOKEN`), or a `postgres:`/`postgresql:` URL. PostgreSQL is the documented shared
+database path; see [Docker deployment](deploy/docker.md#shared-postgresql). SQLite remains the
+default for development and single-instance use.
 
 **The first account is created in Payload's own panel.** With no accounts in the collection, Payload
 offers its first-user route at `/payload/create-first-user`. Give it an address and a password, and
