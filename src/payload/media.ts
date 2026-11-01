@@ -49,6 +49,7 @@ export function adminPayloadMediaKind(row: AdminPayloadMediaRow): AdminMediaKind
 /** The package's media item, from a Payload upload row. */
 export function defaultAdminPayloadMediaItem(row: AdminPayloadMediaRow): AdminMediaItem {
   return {
+    id: String(row.id),
     name: row.filename ?? "",
     path: String(row.id),
     publicUrl: row.url ?? "",

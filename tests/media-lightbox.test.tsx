@@ -68,6 +68,33 @@ describe("AdminMediaLightbox", () => {
     expect(screen.getByRole("button", { name: "Replace" })).toBeInTheDocument();
   });
 
+  it("submits the URL and opted-in ID on select, replace, and clear", async () => {
+    const first = { name: "First", path: "first", publicUrl: "/first.webp", id: "host/first", source: "uploaded" as const, kind: "image" as const };
+    const second = { name: "Second", path: "second", publicUrl: "/second.webp", id: "opaque-second", source: "uploaded" as const, kind: "image" as const };
+    const { container } = render(
+      <English><AdminMediaField items={[first, second]} defaultValue={first.publicUrl} label="Cover" name="cover" idName="cover-id" /></English>,
+    );
+    const urlInput = container.querySelector<HTMLInputElement>('input[name="cover"]');
+    const idInput = container.querySelector<HTMLInputElement>('input[name="cover-id"]');
+    expect(urlInput).toHaveValue(first.publicUrl);
+    expect(idInput).toHaveValue(first.id);
+
+    fireEvent.click(screen.getByRole("button", { name: "Replace" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Second/ }));
+    expect(urlInput).toHaveValue(second.publicUrl);
+    expect(idInput).toHaveValue(second.id);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(urlInput).toHaveValue("");
+    expect(idInput).toHaveValue("");
+  });
+
+  it("keeps URL-only fields free of an ID input", () => {
+    const { container } = render(<English><AdminMediaField items={[]} label="Cover" name="cover" /></English>);
+    expect(container.querySelector('input[name="cover"]')).toBeInTheDocument();
+    expect(container.querySelector('input[name="cover-id"]')).not.toBeInTheDocument();
+  });
+
   it("keeps video controls outside buttons and leaves replacement available", () => {
     const video = {
       name: "Product video",

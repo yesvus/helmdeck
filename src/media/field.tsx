@@ -57,6 +57,7 @@ export function AdminMediaField({
   allowExternal = false,
   aspectRatio = "4:3",
   defaultValue,
+  defaultId,
   hint,
   items,
   label,
@@ -64,12 +65,14 @@ export function AdminMediaField({
   locale,
   mode = "image",
   name,
+  idName,
   onValueChange,
 }: {
   adapter?: AdminMediaAdapter;
   allowExternal?: boolean;
   aspectRatio?: AdminMediaAspectRatio;
   defaultValue?: string | null;
+  defaultId?: string | null;
   hint?: string;
   items: AdminMediaItem[];
   label: string;
@@ -77,17 +80,23 @@ export function AdminMediaField({
   locale?: string;
   mode?: AdminMediaPickerMode;
   name: string;
+  idName?: string;
   onValueChange?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [value, setValue] = useState(defaultValue ?? "");
+  const [idValue, setIdValue] = useState(defaultId ?? items.find((item) => item.publicUrl === (defaultValue ?? ""))?.id ?? "");
   const i18n = useAdminMessages();
   const mergedLabels = { ...defaultAdminMediaLabels, ...i18n.media, ...labels };
   const previewLabel = mergedLabels.preview ?? defaultAdminMediaLabels.preview;
   const hiddenValueRef = useAdminFormValueSignal<HTMLInputElement>(value, {
     name,
     restore: setValue,
+  });
+  const hiddenIdRef = useAdminFormValueSignal<HTMLInputElement>(idValue, {
+    name: idName ?? "",
+    restore: setIdValue,
   });
   const availableItems = useMemo(() => filterItems(items, mode), [items, mode]);
   const allowedKinds = useMemo<AdminMediaKind[]>(() => {
@@ -130,8 +139,9 @@ export function AdminMediaField({
     </div>
   );
 
-  function updateValue(nextValue: string) {
+  function updateValue(nextValue: string, nextId = "") {
     setValue(nextValue);
+    setIdValue(nextId);
     onValueChange?.(nextValue);
   }
 
@@ -139,6 +149,7 @@ export function AdminMediaField({
     <>
       <AdminField label={label} hint={hint}>
         <input ref={hiddenValueRef} type="hidden" name={name} value={value} />
+        {idName ? <input ref={hiddenIdRef} type="hidden" name={idName} value={idValue} /> : null}
         <AdminMediaAspectRatioHint aspectRatio={aspectRatio} />
         <div className="rounded-lg border border-zinc-200 bg-admin-surface p-4">
           {imagePreview ? (
@@ -210,7 +221,7 @@ export function AdminMediaField({
         locale={locale}
         onClose={() => setOpen(false)}
         onSelect={(item) => {
-          updateValue(item.publicUrl);
+          updateValue(item.publicUrl, item.id ?? "");
           setOpen(false);
         }}
         open={open}

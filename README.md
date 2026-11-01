@@ -38,6 +38,8 @@ Every topic below is its own page in the [documentation catalog](https://helmdec
 | [Media](https://helmdeck-web.vercel.app/catalog/media) | Media adapters and the media library page. |
 | [Component primitives](https://helmdeck-web.vercel.app/catalog/primitives) | The component reference by area, from form controls to overlays, tables, dates and loading states. |
 | [Development](https://helmdeck-web.vercel.app/catalog/development) | Contextual help and the deploy check, with what the smoke check cannot detect. |
+
+Map each host media record to an `AdminMediaItem`, including its opaque host-owned `id`, `publicUrl`, and display metadata. Opt into `AdminMediaField`'s `idName` to submit that identifier alongside the URL, then persist the relationship by ID and retain the URL as a robust, re-resolvable fallback.
 | [Getting started](https://helmdeck-web.vercel.app/catalog/getting-started) | The install command and shell setup, with the package's catalogue beside it. |
 
 ## Feedback
