@@ -188,21 +188,35 @@ describe("AdminModalDialog", () => {
   it("traps focus inside dialog", async () => {
     const user = userEvent.setup();
     render(
-      <AdminModalDialog
-        variant="confirm"
-        open
-        onOpenChange={vi.fn()}
-        title="Delete?"
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-      />,
+      <>
+        <button type="button" data-testid="outside">Outside</button>
+        <AdminModalDialog
+          variant="confirm"
+          open
+          onOpenChange={vi.fn()}
+          title="Delete?"
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+        />
+      </>
     );
-    const cancel = screen.getByRole("button", { name: "Cancel" });
-    const confirm = screen.getByRole("button", { name: "Delete" });
-    await user.tab();
-    // Tabbing stays on a dialog button: focus moving out to the page would put the keyboard on a
-    // control the reader cannot see.
-    expect([cancel, confirm]).toContain(document.activeElement);
+    // Radix's focus scope takes the closed page out of the accessibility tree and tabs through
+    // the dialog's own controls: a keyboard path to a control the reader cannot see does not exist.
+    const outside = document.body.querySelector("button[data-testid=outside]");
+    expect(outside).not.toBeNull();
+    // The outside control is not an accessible button while the dialog is open, so a screen
+    // reader's list of buttons stops at the dialog.
+    expect(screen.queryByRole("button", { name: "Outside" })).not.toBeInTheDocument();
+    const inside = screen.getAllByRole("button");
+    expect(inside).toHaveLength(3);
+    // Cancel, the X close and the confirm: whatever the tab order is, the keyboard cycles the
+    // dialog's own controls rather than walking out to the page the dialog opened on top of.
+    type Step = "tab" | "shift-tab";
+    const steps: Step[] = ["tab", "tab", "shift-tab", "tab"];
+    for (const step of steps) {
+      await (step === "tab" ? user.tab() : user.tab({ shift: true }));
+      expect(inside, `focus left the dialog after ${step}`).toContain(document.activeElement);
+    }
   });
 });
 
@@ -294,5 +308,64 @@ describe("useAdminDialog", () => {
     promiseRef.current?.then((value) => { answer = value; });
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(answer).toBe(null));
+  });
+
+  it("answers an imperative prompt with the value the reader typed", async () => {
+    const user = userEvent.setup();
+    const dialogsRef: { current?: AdminDialogs } = {};
+    const promiseRef: { current?: Promise<string | null> } = {};
+    function Harness() {
+      const dialogs = useAdminDialog();
+      dialogsRef.current = dialogs;
+      return (
+        <button
+          type="button"
+          onClick={() => { promiseRef.current = dialogs.prompt({ title: "Rename" }); }}
+        >
+          Rename
+        </button>
+      );
+    }
+    render(
+      <AdminDialogProvider>
+        <Harness />
+      </AdminDialogProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Rename" }));
+    let answer: string | null | undefined;
+    promiseRef.current?.then((value) => { answer = value; });
+    await user.type(screen.getByRole("textbox", { name: "Rename" }), "New name");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+    await waitFor(() => expect(answer).toBe("New name"));
+  });
+
+  it("resolves an imperative confirm once, so a late cancel cannot rewrite the answer", async () => {
+    const user = userEvent.setup();
+    const resolutions = vi.fn();
+    function Harness() {
+      const dialogs = useAdminDialog();
+      return (
+        <button
+          type="button"
+          onClick={() => { void dialogs.confirm({ title: "Delete?" }).then(resolutions); }}
+        >
+          Delete
+        </button>
+      );
+    }
+    render(
+      <AdminDialogProvider>
+        <Harness />
+      </AdminDialogProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(resolutions).toHaveBeenCalledWith(true));
+    // The dialog closed on the confirm, so an extra close from the transition after it has
+    // nothing to resolve.
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await waitFor(() => expect(resolutions).toHaveBeenCalledTimes(1));
   });
 });

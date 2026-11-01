@@ -1043,8 +1043,8 @@ const CATALOG_META: Record<string, CatalogMeta> = {
   },
   useAdminDialog: {
     category: "Overlays and feedback",
-    summary: "The imperative dialog handle: confirm answers a boolean, prompt answers the typed value or null.",
-    keywords: "hook imperative confirm prompt promise dialog",
+    summary: "The imperative dialog handle: confirm answers a boolean, prompt answers the typed value or null. An AdminDialogProvider has to sit above the call site.",
+    keywords: "hook imperative confirm prompt promise dialog provider",
   },
   AdminModalTrigger: {
     category: "Overlays and feedback",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 "use client";
 
-import { createContext, useId, useState, useContext } from "react";
+import { createContext, useId, useState, useContext, useRef } from "react";
 import type { ReactNode } from "react";
 import type { InputHTMLAttributes } from "react";
 import { Loader2 } from "lucide-react";
@@ -52,7 +52,8 @@ export type AdminModalDialogProps = {
   validate?: (value: string) => string | false | null | undefined;
   error?: string;
   hint?: string;
-  inputProps?: InputHTMLAttributes<HTMLInputElement>;
+  /** Attributes on the generated input. `value` and `onChange` belong to the component. */
+  inputProps?: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">;
   children?: ReactNode;
   className?: string;
 };
@@ -123,9 +124,15 @@ export function AdminModalDialog({
     onOpenChange?.(next);
     if (!next) {
       setInternalError(undefined);
-      // Escape or the backdrop closing is the same decision as a cancel, not a confirm.
+      // Escape, the backdrop and the cancel button all reach here, so this is the one translation
+      // of a close into a cancellation. A confirm closes its own way below, without one.
       if (!pending) onCancel?.();
     }
+  };
+  const closedByConfirm = () => {
+    if (!isControlledOpen) setInternalOpen(false);
+    onOpenChange?.(false);
+    setInternalError(undefined);
   };
   const setOpenState = (next: boolean) => {
     if (!next && internalBusy) return;
@@ -162,7 +169,9 @@ export function AdminModalDialog({
     setInternalBusy(true);
     try {
       await onConfirm?.(value);
-      changedToClosed(false);
+      // The confirm is the dialog's own decision, so it closes the way a confirm closes and never
+      // walks the cancellation path above.
+      closedByConfirm();
     } finally {
       setInternalBusy(false);
     }
@@ -221,7 +230,7 @@ export function AdminModalDialog({
         <AdminModalFooter>
           {showCancel ? (
             <AdminModalClose asChild>
-              <Button variant="secondary" disabled={busy} onClick={() => changedToClosed(false)}>
+              <Button variant="secondary" disabled={busy}>
                 {labels.cancelLabel}
               </Button>
             </AdminModalClose>
@@ -247,20 +256,35 @@ export function AdminModalDialog({
   );
 }
 
+export type AdminConfirmConfig = {
+  title: string;
+  description?: ReactNode;
+  /** Marks the primary button the danger styling, for the destructive actions the dialog asks about. */
+  destructive?: boolean;
+  confirmLabel?: string;
+};
+
+export type AdminAlertConfig = {
+  title: string;
+  description?: ReactNode;
+  confirmLabel?: string;
+};
+
 export type AdminPromptConfig = {
   title: string;
   description?: ReactNode;
-  destructive?: boolean;
   confirmLabel?: string;
   defaultValue?: string;
   inputLabel?: string;
-  inputProps?: InputHTMLAttributes<HTMLInputElement>;
+  inputProps?: Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">;
   validate?: (value: string) => string | false | null | undefined;
 };
 
 type PendingDialog = {
+  /** A fresh instance per call, so an earlier prompt's typed value cannot carry over. */
+  id: number;
   variant: AdminModalDialogVariant;
-  config: AdminPromptConfig;
+  config: AdminPromptConfig & AdminConfirmConfig;
   resolve: (value: boolean | string | null) => void;
 };
 
@@ -269,12 +293,10 @@ type PendingDialog = {
  * sentence ("await dialog.confirm(...)") and reads the answer out of the return.
  */
 export type AdminDialogs = {
-  confirm: (config: AdminPromptConfig) => Promise<boolean>;
-  alert: (config: PromptTitleConfig) => Promise<boolean>;
+  confirm: (config: AdminConfirmConfig) => Promise<boolean>;
+  alert: (config: AdminAlertConfig) => Promise<boolean>;
   prompt: (config: AdminPromptConfig) => Promise<string | null>;
 };
-
-type PromptTitleConfig = Pick<AdminPromptConfig, "title" | "description">;
 
 const DialogsContext = createContext<AdminDialogs | undefined>(undefined);
 
@@ -286,15 +308,27 @@ export type AdminDialogProviderProps = { children: ReactNode };
  */
 export function AdminDialogProvider({ children }: AdminDialogProviderProps) {
   const [pendingDialog, setPendingDialog] = useState<PendingDialog | undefined>(undefined);
+  // The ref is the resolution authority, so a confirm and a close never answer the same promise
+  // twice: whatever reaches `finishDialog` clears it first, and the late second call finds nothing.
+  const pendingRef = useRef<PendingDialog | undefined>(undefined);
+  const nextId = useRef(0);
 
-  const open = (variant: AdminModalDialogVariant, config: PromptTitleConfig, resolve: (value: boolean | string | null) => void) => {
+  const finishDialog = (value: boolean | string | null) => {
+    const current = pendingRef.current;
+    pendingRef.current = undefined;
+    setPendingDialog(undefined);
+    current?.resolve(value);
+  };
+
+  const open = (variant: AdminModalDialogVariant, config: AdminPromptConfig & AdminConfirmConfig, resolve: (value: boolean | string | null) => void) => {
     // A call while one is still open replaces it and answers the earlier caller as a cancellation,
     // because two dialogs cannot share one surface and an unfulfilled promise the caller never
     // awaited is not worth queuing for.
-    setPendingDialog((current) => {
-      current?.resolve(null);
-      return { variant, config, resolve };
-    });
+    const previous = pendingRef.current;
+    previous?.resolve(null);
+    const opened = { id: nextId.current++, variant, config, resolve };
+    pendingRef.current = opened;
+    setPendingDialog(opened);
   };
 
   const dialogs: AdminDialogs = {
@@ -308,12 +342,12 @@ export function AdminDialogProvider({ children }: AdminDialogProviderProps) {
       {children}
       {pendingDialog ? (
         <AdminModalDialog
+          key={pendingDialog.id}
           variant={pendingDialog.variant}
           open
           onOpenChange={(next) => {
             if (next) return;
-            pendingDialog.resolve(pendingDialog.variant === "prompt" ? null : false);
-            setPendingDialog(undefined);
+            finishDialog(pendingDialog.variant === "prompt" ? null : false);
           }}
           title={pendingDialog.config.title}
           description={pendingDialog.config.description}
@@ -324,8 +358,7 @@ export function AdminDialogProvider({ children }: AdminDialogProviderProps) {
           inputProps={pendingDialog.config.inputProps}
           validate={pendingDialog.config.validate}
           onConfirm={(value) => {
-            pendingDialog.resolve(pendingDialog.variant === "prompt" ? value ?? null : true);
-            setPendingDialog(undefined);
+            finishDialog(pendingDialog.variant === "prompt" ? value ?? null : true);
           }}
         />
       ) : null}

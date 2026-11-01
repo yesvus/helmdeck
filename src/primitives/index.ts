@@ -127,6 +127,8 @@ export type {
   AdminDialogs,
   AdminDialogContextValue,
   AdminDialogProviderProps,
+  AdminConfirmConfig,
+  AdminAlertConfig,
   AdminPromptConfig,
 } from "./modal-dialog.js";
 export { AdminPagination } from "./pagination.js";
