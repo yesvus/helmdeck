@@ -10,6 +10,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ### Added
 
+- Add a pluggable admin error boundary and diagnostic view with monitoring adapter support.
+
 - `AdminToast` wraps Sonner with Helmdeck theme tokens and an accessible notification region; `toast.success`, `toast.error` and `toast.loading` dispatch through it.
 
 - Settings saves emit `toast.success` by default, with `notify={false}` opting out; Sonner is the optional toast backend peer dependency.
