@@ -8,6 +8,7 @@ import { useAdminShell } from "./context.js";
 import type { AdminShellLabels } from "./labels.js";
 import { mergeAdminLabels } from "./labels.js";
 import { useBreadcrumbs } from "./use-breadcrumbs.js";
+import type { AdminBreadcrumbTrail } from "./use-breadcrumbs.js";
 import { useAdminHref, useAdminMessages } from "../i18n.js";
 
 function prettifySegment(segment: string) {
@@ -21,18 +22,20 @@ export function AdminBreadcrumbs({
   homeHref,
   labels,
   resolveSegmentLabel,
+  resolvedCrumbs,
 }: {
   groups?: AdminNavGroup[];
   pathname?: string;
   homeHref?: string;
   labels?: Partial<AdminShellLabels>;
   resolveSegmentLabel?: (segment: string, labels: AdminShellLabels) => string;
+  resolvedCrumbs?: AdminBreadcrumbTrail["crumbs"];
 }) {
   const shell = useAdminShell();
   const i18n = useAdminMessages();
   const toHref = useAdminHref();
   const mergedLabels = mergeAdminLabels({ ...i18n.shell, ...shell?.labels, ...labels });
-  const trail = useBreadcrumbs(groups, pathname, homeHref);
+  const trail = useBreadcrumbs(groups, pathname, homeHref, resolvedCrumbs);
 
   if (!trail) {
     return null;
