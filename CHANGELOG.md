@@ -18,6 +18,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - A reusable admin database-backups page template: `template/app/admin/backups` renders host-supplied backup entries, overall status and the authoritative retention policy, with configured, unconfigured, empty, stale and unavailable states, and documents the host-owned contract in `template/lib/backups.ts`.
 - The media library reads through a bounded server-side page: `AdminMediaAdapter.list` takes pagination, query, kind filters and sort, applies them in the host store before paging, and returns continuation metadata, so the library and picker request one page at a time and re-query on search, filter or sort changes.
 
+### Changed
+
+- The data table adopts the compact corporate look: small-caps header cells on a zinc-50 background with the wider vertical rhythm, compact sm-sized toolbar controls and borders, contextual `AdminTableEmptyState` components in place of bare empty text, and thin zinc borders with a subtle row hover.
+
 ### Fixed
 
 - The pagination's page numbers no longer clip on three or more digits: buttons size to content with a uniform minimum width.

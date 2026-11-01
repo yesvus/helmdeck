@@ -15,7 +15,7 @@ export { AdminDestructiveAction } from "./destructive-action.js";
 export { AdminContextualHelp } from "./contextual-help.js";
 export { AdminContactForm } from "./contact-form.js";
 export type { AdminContactFormLabels, AdminContactSubmission } from "./contact-form.js";
-export { AdminDataTable, useAdminDataTable } from "./data-table.js";
+export { AdminDataTable, useAdminDataTable, AdminTableEmptyState } from "./data-table.js";
 export type {
   AdminDataTableColumn,
   AdminDataTableControls,

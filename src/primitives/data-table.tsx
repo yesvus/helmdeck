@@ -359,6 +359,8 @@ export type AdminDataTableProps<T> = {
   getKey: (row: T) => string | number;
   caption?: string;
   empty?: ReactNode;
+  /** Contextual empty state rendered in place of the bare empty text. */
+  emptyState?: ReactNode;
   rowClassName?: (row: T) => string;
   className?: string;
   /** The filters the toolbar carries. Each one is a column key and the value it filters by. */
@@ -456,6 +458,7 @@ export function AdminDataTable<T>({
   getKey,
   caption,
   empty,
+  emptyState,
   rowClassName,
   className,
   filters = [],
@@ -658,6 +661,7 @@ export function AdminDataTable<T>({
         pinned === "right" && "sticky right-0 z-10 bg-admin-surface",
       ),
       headerClassName: cn(
+        "py-3.5",
         column.headerClassName,
         pinned === "left" && "sticky left-0 z-20 bg-zinc-50",
         pinned === "right" && "sticky right-0 z-20 bg-zinc-50",
@@ -727,7 +731,7 @@ export function AdminDataTable<T>({
     : tableColumns;
 
   return (
-    <div className={cn("grid gap-3", className)}>
+    <div className={cn("grid gap-2", className)}>
       {search || filters.length > 0 || toolbar || columnSettings || bulkActions || actions || actionArea || showReloadResolved || columnFilters ? (
         <div className="flex flex-wrap items-center gap-2">
           {search ? (
@@ -739,7 +743,7 @@ export function AdminDataTable<T>({
                 value={controls.state.search}
                 onChange={(event) => controls.setSearch(event.target.value)}
                 placeholder={searchPlaceholder}
-                className="h-9 w-full rounded-lg border border-zinc-300 bg-admin-surface pl-9 pr-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                className="h-8 w-full rounded-md border border-zinc-300 bg-admin-surface pl-9 pr-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
               />
             </label>
           ) : null}
@@ -751,7 +755,7 @@ export function AdminDataTable<T>({
               value={controls.state.filters.find((entry) => entry.key === filter.key)?.value ?? ""}
               onChange={(event) => controls.setFilter(filter.key, event.target.value)}
               placeholder={filter.placeholder}
-              className="h-9 rounded-lg border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              className="h-8 rounded-md border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
             />
           ))}
           {toolbar}
@@ -766,7 +770,7 @@ export function AdminDataTable<T>({
               aria-busy={isReloading}
               aria-label={reloadLabel ?? "Reload"}
               title={reloadLabel ?? "Reload"}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-300 bg-admin-surface text-zinc-500 hover:bg-zinc-50 disabled:opacity-50"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 bg-admin-surface text-zinc-500 hover:bg-zinc-50 disabled:opacity-50"
             >
               <RefreshCw className={cn("h-4 w-4", isReloading && "animate-spin")} aria-hidden="true" />
             </button>
@@ -790,7 +794,7 @@ export function AdminDataTable<T>({
               value={controls.state.filters.find((entry) => entry.key === column.key)?.value ?? ""}
               onChange={(event) => controls.setFilter(column.key, event.target.value)}
               placeholder={typeof column.header === "string" ? column.header : column.key}
-              className="h-9 rounded-lg border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+              className="h-8 rounded-md border border-zinc-300 bg-admin-surface px-3 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
             />
           ))}
         </div>
@@ -800,7 +804,7 @@ export function AdminDataTable<T>({
         rows={drawnRows}
         getKey={getKey}
         caption={caption}
-        empty={empty}
+        empty={empty ?? emptyState}
         rowClassName={rowClassName}
         selection={tableSelection}
         flat={isFlatTableLayout({ variant, appearance, layout, surface, container, mode, presentation, card, flat, noCard, cardless, disableCard, disableCardWrapper, bare, unstyled, borderless, bordered, ...rest })}
@@ -832,7 +836,7 @@ export function AdminDataTable<T>({
               extra.push(
                 <tr
                   key="subtotal"
-                  className="border-b border-zinc-100 bg-admin-surface-subtle"
+                  className="border-b border-zinc-200 bg-admin-surface-subtle"
                   style={virtualize ? { height: rowHeight } : undefined}
                 >
                   <td colSpan={spanCount} className="px-5 text-sm font-semibold text-zinc-900">
@@ -847,7 +851,7 @@ export function AdminDataTable<T>({
             extra.push(
               <tr
                 key="expanded"
-                className="border-b border-zinc-100 bg-admin-surface-subtle"
+                className="border-b border-zinc-200 bg-admin-surface-subtle"
                 style={virtualize ? { height: rowHeight } : undefined}
               >
                 <td colSpan={spanCount} className="px-5 text-sm text-zinc-700">
@@ -993,7 +997,7 @@ function AdminColumnSettings<T>({
         <button
           type="button"
           aria-label={label}
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-zinc-300 bg-admin-surface px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          className="inline-flex h-8 items-center gap-2 rounded-md border border-zinc-300 bg-admin-surface px-3 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
         >
           <Settings2 aria-hidden="true" className="h-4 w-4" />
           {label}
@@ -1037,5 +1041,32 @@ function AdminColumnSettings<T>({
         </DndContext>
       </AdminPopoverContent>
     </AdminPopover>
+  );
+}
+
+/**
+ * A contextual empty state for a data table: an icon, a title, a description and an optional action.
+ * Render it and pass it to the table's `empty` (or `emptyState`) prop in place of bare empty text.
+ */
+export function AdminTableEmptyState({
+  icon,
+  title,
+  description,
+  action,
+  className,
+}: {
+  icon?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col items-center justify-center gap-2 px-5 py-10 text-center", className)}>
+      {icon ? <span className="text-zinc-400" aria-hidden="true">{icon}</span> : null}
+      <p className="text-sm font-semibold text-zinc-700">{title}</p>
+      {description ? <p className="max-w-sm text-sm leading-6 text-zinc-500">{description}</p> : null}
+      {action ? <div className="mt-2 flex justify-center">{action}</div> : null}
+    </div>
   );
 }
