@@ -8,6 +8,7 @@
  */
 
 import { sqliteAdapter } from "@payloadcms/db-sqlite";
+import { postgresAdapter } from "@payloadcms/db-postgres";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -16,18 +17,31 @@ const here = dirname(fileURLToPath(import.meta.url));
 /** Where Payload's own migrations live, for a deployment that does not push the schema. */
 export const PAYLOAD_MIGRATIONS_DIR = join(here, "..", "..", "payload-migrations");
 
+export function payloadDatabaseKind(url?: string): "sqlite" | "postgres" {
+  const scheme = url?.trim().split(":", 1)[0]?.toLowerCase();
+  return scheme === "postgres" || scheme === "postgresql" ? "postgres" : "sqlite";
+}
+
 /**
  * The database, and the one environment that points at it.
  *
- * `PAYLOAD_DATABASE_URL` is a libsql URL for a hosted database and a `file:` URL for a local one.
- * The token is read beside it and never written down: a hosted database needs one and a local file
- * must not be given one, so the environment decides which shape this is rather than a branch in
- * feature code deciding it at run time.
+ * `PAYLOAD_DATABASE_URL` selects SQLite/libSQL or PostgreSQL. The optional token belongs only to
+ * libSQL; PostgreSQL credentials are carried by its URL.
  */
 export function payloadDatabase() {
   const url = process.env.PAYLOAD_DATABASE_URL?.trim();
-  const authToken = process.env.PAYLOAD_DATABASE_TOKEN?.trim();
+  const push = process.env.NODE_ENV === "development";
 
+  if (payloadDatabaseKind(url) === "postgres") {
+    return postgresAdapter({
+      pool: { connectionString: url },
+      push,
+      migrationDir: PAYLOAD_MIGRATIONS_DIR,
+      idType: "uuid",
+    });
+  }
+
+  const authToken = process.env.PAYLOAD_DATABASE_TOKEN?.trim();
   return sqliteAdapter({
     client: {
       url: url || "file:./payload.db",
@@ -37,7 +51,7 @@ export function payloadDatabase() {
     // restart away rather than a migration to write. Nothing else does: `push` alters whatever
     // database it is pointed at, and a shared database must not be changed by a process starting
     // up. A deployment runs Payload's own migrations instead.
-    push: process.env.NODE_ENV === "development",
+    push,
     migrationDir: PAYLOAD_MIGRATIONS_DIR,
     // Text ids, so a document's id is the same in a local file and in a hosted database, and so an
     // id in a URL is not a row number.

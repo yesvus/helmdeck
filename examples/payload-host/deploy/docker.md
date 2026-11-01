@@ -1,8 +1,8 @@
 # Docker deployment
 
 This reference host runs as a regular Docker image. It requires no managed database, storage
-provider, or vendor-specific deployment service. A hosted libsql database and Vercel are optional
-alternatives, not prerequisites.
+provider, or vendor-specific deployment service. SQLite is the default for development and a
+single instance; PostgreSQL is the self-hosted shared-database path. Hosted libsql remains optional.
 
 ## Build and run
 
@@ -50,6 +50,37 @@ development with `npx payload migrate:create`, review and commit the files under
 the configured database before the app serves requests. Keep a database backup before deploying
 schema changes, and coordinate concurrent application replicas so only one deployment process
 runs migrations at a time.
+
+## Shared PostgreSQL
+
+Run the separate PostgreSQL compose configuration from the repository root:
+
+```sh
+export PAYLOAD_SECRET="$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')"
+export HELMDECK_SESSION_SECRET="$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')"
+docker compose -f examples/payload-host/docker-compose.postgres.yml up --build -d
+```
+
+The compose file includes a local PostgreSQL service and named data volume. Its default
+`postgres://payload:payload@postgres:5432/payload` URL and credentials are examples only, change
+them before using this configuration beyond local evaluation. `PAYLOAD_DATABASE_URL` accepts
+`postgres:` or `postgresql:` URLs; keep the full URL in your deployment secret manager, with the
+database credentials embedded in the URL. No additional database token variable is used. Keep
+`PAYLOAD_SECRET` and `HELMDECK_SESSION_SECRET` secret and identical across instances that share
+sessions, following the same secret-manager pattern as the SQLite deployment.
+
+Generate and commit schema migrations with `npx payload migrate:create` during development. At
+deployment, run `payload migrate --disable-transpile` once against the shared database before
+scaling out or starting additional replicas. Never let multiple instances race to migrate the same
+schema. Production schema changes use migrations, not `push`; development `push` is for local
+development only. SQLite remains the no-configuration default for development and single-instance
+use, not a shared multi-replica database.
+
+The sign-in throttle is process-local: `lib/session.ts` supplies `createLoginThrottle()` to the
+session adapter, and `src/baseline/throttle.ts` stores its counters in an in-memory `Map`. Payload's
+account lockout is shared in the database, but it does not make this per-client throttle shared.
+With more than one replica, do not enable this throttle as an effective cross-replica bound; use a
+shared `AdminLoginThrottle` implementation supplied at the `throttle` option in `lib/session.ts`.
 
 No hosted database is required. If opting into hosted libsql, configure its URL and token through
 the runtime environment and review its backup and migration procedures separately.
