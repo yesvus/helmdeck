@@ -1,23 +1,34 @@
 # Helmdeck
 
-Helmdeck is a reusable, MIT-licensed admin dashboard engine for Next.js App Router applications. Install it to get a working admin shell, dashboard tiles, charts, analytics, media workflows, an inbox, an activity trail, and the shared interaction patterns around them. You configure resources and connect host-owned services through typed adapters and callbacks instead of building each admin surface from scratch. It is batteries included: the admin interface itself ships with the package, and what you write is the part that belongs to your product.
+Helmdeck is an opinionated Next.js application framework and admin platform for developers and coding agents building content and commerce sites. It provides a cohesive starter, admin shell, and reusable workflows, so a project can spend less time assembling admin foundations and more time on its product. Its WordPress-like convenience is an analogy for an integrated workflow, not a claim to replace WordPress or the systems below.
 
-Helmdeck takes care of the admin interface and its reusable workflows. It does not own your application backend:
+## System boundaries
 
-| Helmdeck provides | Your host provides |
-| --- | --- |
-| Responsive admin shell, navigation, profile and sign-in presentation | User identity, credentials, and session policy |
-| Data table primitives, query and persistence contracts, search, filters, sorting and paging | Resource definitions, validation and domain rules |
-| Dashboard tiles, charts, analytics views, media workflows, inbox and activity trail | Data storage, media storage, authorization rules, and server-side enforcement |
-| Theme, localization, accessible states, and reusable interaction patterns | Application routes, deployment, and public-facing rendering |
+- **Helmdeck** owns the scaffold, admin shell, and reusable workflows. It owns neither content nor commerce tables by default.
+- **Payload**, when enabled, owns editorial content and its tables.
+- **Medusa**, when enabled, owns commerce and its tables.
+- **The host application** owns product rules, authorization, and deployment, and connects the systems.
 
-The adapters define where the host connects its services. UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](https://helmdeck-web.vercel.app/catalog/quick-start) shows a working host with a local SQLite store and generated resource pages. The [independent host](https://github.com/yesvus/helmdeck/tree/main/examples/independent-host) demonstrates integrating the package into a separate Next.js application.
+Helmdeck is agent-friendly in concrete ways: typed adapter contracts define integration seams; the [component catalog](https://helmdeck-web.vercel.app/catalog) makes exports discoverable; labels and i18n provide explicit interface wording; and the release workflow documents versioned artifacts and upgrades. These support developers and coding agents working in the project. They do not imply autonomous behavior or integrations that are not shipped.
+
+### Shipped today
+
+- Admin shell, accessible UI primitives, tables, dashboards, and charts.
+- Typed host adapter contracts for permissions, media, and data access.
+- Payload adapters for content and media, plus the reference Payload host.
+- Documented release artifacts and a starter template.
+
+### Planned direction
+
+These are open direction issues, not shipped capabilities: [#382](https://github.com/yesvus/helmdeck/issues/382) incrementally adopts mature shadcn/ui primitives; [#383](https://github.com/yesvus/helmdeck/issues/383) adds a change-aware sticky form action panel; [#384](https://github.com/yesvus/helmdeck/issues/384) adds an optional Payload-powered blog starter; [#385](https://github.com/yesvus/helmdeck/issues/385) adds a read-only Medusa host example.
+
+UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](https://helmdeck-web.vercel.app/catalog/quick-start) shows a working host with a local SQLite store and generated resource pages. The [independent host](https://github.com/yesvus/helmdeck/tree/main/examples/independent-host) demonstrates integrating the package into a separate Next.js application.
 
 `buildAdminUrlPath` and `resolveAdminUrlHierarchy` provide framework-neutral hierarchical path construction and resolution, and `AdminBreadcrumbs` accepts optional host-resolved `resolvedCrumbs`. Hosts own route registration, browser URL changes, and query-state navigation; these helpers do not modify the address bar.
 
 For a vendor-neutral production deployment of the Payload reference host, see the [Docker guide](examples/payload-host/deploy/docker.md).
 
-Payload is the CMS under Helmdeck: Payload owns collections, fields, auth, access control, versions, trash and uploads, and Helmdeck's own resource engine was retired in 1.0.0. [Payload under the hood](https://helmdeck-web.vercel.app/catalog/payload) states the shape and the six steps that get there.
+Payload is the CMS in the reference host: it owns its collections, fields, auth, access control, versions, trash and uploads. Helmdeck's own resource engine was retired in 1.0.0. [Payload under the hood](https://helmdeck-web.vercel.app/catalog/payload) describes the integration and its six steps.
 
 [Component primitives](https://helmdeck-web.vercel.app/catalog/primitives) lists what the package already ships, and the [integration contracts](https://helmdeck-web.vercel.app/catalog/contracts) describe the adapter seams a host connects to.
 
@@ -56,8 +67,7 @@ with, and what a host keeps.
 
 ## Quick start
 
-Install the package (below), import the theme tokens into the host stylesheet (under Pinning), and follow the
-[quick start](https://helmdeck-web.vercel.app/catalog/quick-start) through the starter template and the routes it carries.
+Install the package with the exact release URL below, import the theme tokens into the host stylesheet (under Pinning), and follow the [quick start](https://helmdeck-web.vercel.app/catalog/quick-start) through the starter template and its routes. Keep the generated session secret private, configure it through the environment, and replace any starter placeholders before deployment.
 
 ## Install
 

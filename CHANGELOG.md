@@ -26,6 +26,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ### Changed
 
+- Update the README, package description, and demo copy to define Helmdeck's framework posture, system boundaries, and shipped versus planned work.
+
 - `AdminSwitch` supports small sizing, inline labels and descriptions, and native checkbox form submission while retaining its existing default rendering.
 
 ## 1.4.0

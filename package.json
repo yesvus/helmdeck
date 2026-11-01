@@ -3,7 +3,7 @@
   "version": "1.4.0",
   "packageManager": "pnpm@12.7.0",
   "type": "module",
-  "description": "A batteries-included Next.js admin dashboard engine: admin shell, generated resource views, dashboard tiles, a complete set of themed accessible UI primitives, and host-configurable auth and data adapters",
+  "description": "An opinionated Next.js application framework with a cohesive admin shell and typed host integration contracts",
   "license": "MIT",
   "repository": {
     "type": "git",
