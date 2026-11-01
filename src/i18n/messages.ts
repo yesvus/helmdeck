@@ -133,6 +133,7 @@ export type AdminMessages = {
   common: AdminCommonLabels;
   pagination: AdminPaginationLabels;
   mediaSort: Record<AdminMediaSort, string>;
+  assistant: { title: string; unknownTool: string; requestFailed: string; denied: string; approved: string; toolFailed: string; working: string; approve: string; deny: string; message: string; send: string };
 };
 
 export const englishAdminMessages: AdminMessages = {
@@ -222,6 +223,7 @@ export const englishAdminMessages: AdminMessages = {
     "size-asc": "Smallest first",
     kind: "File type",
   },
+  assistant: { title: "Assistant", unknownTool: "Unknown tool requested", requestFailed: "The assistant request failed.", denied: "Tool request denied.", approved: "Approved tool completed.", toolFailed: "Approved tool failed.", working: "Working…", approve: "Approve", deny: "Deny", message: "Message", send: "Send" },
 };
 
 export const turkishAdminMessages: AdminMessages = {
@@ -477,6 +479,7 @@ export const turkishAdminMessages: AdminMessages = {
     "size-asc": "Boyutu küçükten büyüğe",
     kind: "Dosya türü",
   },
+  assistant: { title: "Asistan", unknownTool: "Bilinmeyen araç isteği", requestFailed: "Asistan isteği başarısız oldu.", denied: "Araç isteği reddedildi.", approved: "Onaylanan araç tamamlandı.", toolFailed: "Onaylanan araç başarısız oldu.", working: "Çalışıyor…", approve: "Onayla", deny: "Reddet", message: "Mesaj", send: "Gönder" },
 };
 
 export const defaultAdminLocale = "en";

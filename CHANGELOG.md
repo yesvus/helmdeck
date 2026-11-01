@@ -11,6 +11,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 ### Added
 
 - Add a pluggable admin error boundary and diagnostic view with monitoring adapter support.
+- Add an opt-in assistant panel and provider-neutral host-owned assistant contracts.
 
 - `AdminToast` wraps Sonner with Helmdeck theme tokens and an accessible notification region; `toast.success`, `toast.error` and `toast.loading` dispatch through it.
 

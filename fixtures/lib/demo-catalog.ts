@@ -860,6 +860,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     keywords: "toast notification live region success error loading",
     renderable: true,
   },
+  AdminAssistantPanel: {
+    category: "Shell and navigation",
+    summary: "An opt-in provider-neutral assistant surface with streaming messages and host-approved tools.",
+    keywords: "assistant AI chat streaming approval tools",
+    renderable: true,
+  },
   toast: {
     category: "Overlays and feedback",
     summary: "Dispatches success, error and loading notifications through the Sonner-backed AdminToast host.",
