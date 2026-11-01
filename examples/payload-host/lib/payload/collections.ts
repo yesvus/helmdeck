@@ -123,4 +123,25 @@ export const Pages: CollectionConfig = {
   ],
 };
 
-export const payloadCollections = [Users, Pages];
+/**
+ * The uploads Payload owns, as a collection of type upload.
+ *
+ * Payload's upload collection holds the file, its size, its type, the image's dimensions and the
+ * variants. The media library reads that through the package's adapter rather than through a
+ * second store, so upload, list, rename and delete are the same rows the panel edits.
+ */
+export const Media: CollectionConfig = {
+  slug: "media",
+  upload: true,
+  access: {
+    create: payloadAccess("create"),
+    read: payloadAccess("read"),
+    update: payloadAccess("update"),
+    delete: payloadAccess("delete"),
+  },
+  fields: [
+    { name: "alt", type: "text", required: false },
+  ],
+};
+
+export const payloadCollections = [Users, Pages, Media];
