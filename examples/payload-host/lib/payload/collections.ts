@@ -12,6 +12,8 @@ import { payloadAccess } from "./access.ts";
 import { payloadAuthStrategies } from "./auth-strategy.ts";
 import { isAdmin, principal } from "../rules.ts";
 import { Feedback } from "./feedback.ts";
+import { Posts } from "./posts.ts";
+import { Categories } from "./categories.ts";
 
 /**
  * The accounts, which are Payload's own auth collection.
@@ -145,4 +147,4 @@ export const Media: CollectionConfig = {
   ],
 };
 
-export const payloadCollections = [Users, Pages, Media, Feedback];
+export const payloadCollections = [Users, Pages, Media, Feedback, Posts, Categories];
