@@ -30,7 +30,7 @@ function Harness({ initialSort = null }: { initialSort?: { key: string; directio
       </ul>
       <button type="button" onClick={() => controls.toggleSort("name")}>Sort by name</button>
       <input aria-label="Search" value={controls.state.search} onChange={(event) => controls.setSearch(event.target.value)} />
-      <input aria-label="Stock" value={controls.state.filters.find((filter) => filter.key === "quantity")?.value ?? ""} onChange={(event) => controls.setFilter("quantity", event.target.value)} />
+      <input aria-label="Stock" value={(() => { const value = controls.state.filters.find((filter) => filter.key === "quantity")?.value; return value && typeof value === "string" ? value : ""; })()} onChange={(event) => controls.setFilter("quantity", event.target.value)} />
     </div>
   );
 }
@@ -261,5 +261,90 @@ describe("AdminDataTable", () => {
     expect(screen.getByText("Nothing here")).toBeInTheDocument();
     expect(screen.getByText("Add rows to begin")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add" })).toBeInTheDocument();
+  });
+
+  it("renders a select for a select-typed column filter and matches only the chosen option", async () => {
+    type StatusRow = { id: string; name: string; status: string };
+    const statusRows: StatusRow[] = [
+      { id: "a", name: "Alpha", status: "active" },
+      { id: "b", name: "Beta", status: "inactive" },
+      { id: "c", name: "Gamma", status: "active" },
+    ];
+    const statusColumns: AdminDataTableColumn<StatusRow>[] = [
+      { key: "name", header: "Name", cell: (row) => row.name, value: (row) => row.name },
+      { key: "status", header: "Status", cell: (row) => row.status, value: (row) => row.status, filter: "select", filterOptions: ["active", "inactive"] },
+    ];
+    const user = userEvent.setup();
+    render(
+      <AdminDataTable<StatusRow>
+        columns={statusColumns}
+        rows={statusRows}
+        getKey={(row) => row.id}
+        columnFilters
+        pageSize={10}
+      />,
+    );
+
+    const select = screen.getByRole("combobox", { name: "Status filter" });
+    await user.selectOptions(select, "active");
+    expect(screen.getByRole("cell", { name: "Alpha" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Gamma" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Beta" })).not.toBeInTheDocument();
+  });
+
+  it("filters a dateRange-typed column inclusively and leaves an empty range unfiltered", async () => {
+    type DateRow = { id: string; name: string; date: string };
+    const dateRows: DateRow[] = [
+      { id: "a", name: "A", date: "2024-01-01" },
+      { id: "b", name: "B", date: "2024-06-15" },
+      { id: "c", name: "C", date: "2024-12-31" },
+    ];
+    const dateColumns: AdminDataTableColumn<DateRow>[] = [
+      { key: "name", header: "Name", cell: (row) => row.name, value: (row) => row.name },
+      { key: "date", header: "Date", cell: (row) => row.date, value: (row) => row.date, filter: "dateRange" },
+    ];
+    const user = userEvent.setup();
+    render(
+      <AdminDataTable<DateRow>
+        columns={dateColumns}
+        rows={dateRows}
+        getKey={(row) => row.id}
+        columnFilters
+        pageSize={10}
+      />,
+    );
+
+    // An empty range does not filter.
+    expect(screen.getByRole("cell", { name: "A" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "B" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "C" })).toBeInTheDocument();
+
+    const from = screen.getByLabelText("Date from");
+    const to = screen.getByLabelText("Date to");
+    await user.type(from, "2024-01-01");
+    await user.type(to, "2024-01-01");
+    // Boundaries are inclusive.
+    expect(screen.getByRole("cell", { name: "A" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "B" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "C" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a plain text input for a column with no typed filter and still filters by text", async () => {
+    const user = userEvent.setup();
+    render(
+      <AdminDataTable<Row>
+        columns={columns}
+        rows={rows}
+        getKey={(row) => row.id}
+        columnFilters
+        pageSize={10}
+      />,
+    );
+
+    const input = screen.getByRole("searchbox", { name: "Product filter" });
+    expect(input).toHaveAttribute("type", "search");
+    await user.type(input, "Grind");
+    expect(screen.getByRole("cell", { name: "Grinder" })).toBeInTheDocument();
+    expect(screen.queryByRole("cell", { name: "Espresso machine" })).not.toBeInTheDocument();
   });
 });
