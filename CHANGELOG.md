@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 1.4.0
+
 ### Deprecated
 
 - The in-memory admin table primitives are deprecated in favor of headless industry standards such as TanStack Table v8; retirement in a future major release, with no date set. See DEVELOPING.md.
