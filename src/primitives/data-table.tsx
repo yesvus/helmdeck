@@ -29,10 +29,19 @@ import { AdminPopover, AdminPopoverContent, AdminPopoverTrigger } from "./overla
 import { AdminTable, isFlatTableLayout } from "./table.js";
 import type { AdminTableColumn, AdminTableSelection } from "./table.js";
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableValue = string | number | boolean | null | undefined;
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableColumnFilter = "text" | "select" | "dateRange";
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableColumn<T> = {
   key: string;
   header: ReactNode;
@@ -53,19 +62,32 @@ export type AdminDataTableColumn<T> = {
   filterOptions?: AdminDataTableValue[];
 };
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableSort = {
   key: string;
   direction: "asc" | "desc";
 };
 
-/** A bounded date range carried by a single filter, both bounds optional and inclusive. */
+/**
+ * A bounded date range carried by a single filter, both bounds optional and inclusive.
+ *
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableFilterRange = {
   from?: string;
   to?: string;
 };
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableFilterValue = string | AdminDataTableFilterRange;
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableFilter = {
   key: string;
   value: AdminDataTableFilterValue;
@@ -73,7 +95,11 @@ export type AdminDataTableFilter = {
   match?: (rowValue: AdminDataTableValue, filterValue: AdminDataTableFilterValue) => boolean;
 };
 
-/** What the table knows about one column: whether it is shown, where it is pinned and how wide it is. */
+/**
+ * What the table knows about one column: whether it is shown, where it is pinned and how wide it is.
+ *
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableColumnState = {
   visible: boolean;
   pinned?: "left" | "right";
@@ -83,6 +109,9 @@ export type AdminDataTableColumnState = {
   order: number;
 };
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableState = {
   sort: AdminDataTableSort | null;
   filters: AdminDataTableFilter[];
@@ -94,6 +123,9 @@ export type AdminDataTableState = {
   expandedKeys: Array<string | number>;
 };
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableControls<T> = {
   /** The rows on the current page. */
   rows: T[];
@@ -184,6 +216,8 @@ function defaultColumnState(columns: Array<{ key: string }>): Record<string, Adm
  *
  * The sorting cycles ascending, descending and back to the rows' own order, one column at a time,
  * the same way the resource list's own control does it.
+ *
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
  */
 export function useAdminDataTable<T>({
   rows,
@@ -412,6 +446,9 @@ export function useAdminDataTable<T>({
   };
 }
 
+/**
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
+ */
 export type AdminDataTableProps<T> = {
   columns: AdminDataTableColumn<T>[];
   rows: T[];
@@ -510,6 +547,8 @@ export type AdminDataTableProps<T> = {
  * A table with the behaviour layer on top: a search field, the filters, sortable headers, a pager
  * and, when the host asks for it, the column settings. The cell rendering belongs to the caller's
  * column definitions.
+ *
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
  */
 export function AdminDataTable<T>({
   columns,
@@ -1151,6 +1190,8 @@ function AdminColumnSettings<T>({
 /**
  * A contextual empty state for a data table: an icon, a title, a description and an optional action.
  * Render it and pass it to the table's `empty` (or `emptyState`) prop in place of bare empty text.
+ *
+ * @deprecated In-memory admin table primitive. Prefer a headless industry standard such as TanStack Table v8 for rich or server-driven grids; see DEVELOPING.md. Retired in a future major release.
  */
 export function AdminTableEmptyState({
   icon,
