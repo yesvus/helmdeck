@@ -23,6 +23,7 @@ export * from "./i18n.js";
 export { AdminScopeProvider, useAdminScopeToken, useAdminScopedPersistence } from "./scope.js";
 export * from "./media/index.js";
 export * from "./payload/index.js";
+export * from "./settings/index.js";
 export * from "./payload/theme.js";
 export * from "./primitives/index.js";
 export {
