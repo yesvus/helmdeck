@@ -128,4 +128,7 @@ jobs:
       - typecheck-example
       - typecheck-template
       - audit
-    # Stable surface for branch protection that still references the legacy "quality" check name.
+    # Reports the legacy "quality" check name for branch protection, and fails if a parallel
+    # job was cancelled, because needs alone is not a gate a required check can trust.
+    steps:
+      - run: echo "All harness checks passed."
