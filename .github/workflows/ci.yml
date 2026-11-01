@@ -117,6 +117,29 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm audit --prod
 
+  docker-smoke:
+    name: Docker smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build production image
+        run: docker build -f examples/payload-host/Dockerfile -t helmdeck-payload-host:smoke .
+      - name: Start container and verify HTTP response
+        run: |
+          docker run -d --name helmdeck-smoke \
+            -e PAYLOAD_SECRET=ci-smoke-secret-not-for-production \
+            -e HELMDECK_SESSION_SECRET=ci-smoke-session-not-for-production \
+            -e PAYLOAD_DATABASE_URL=file:/app/data/payload.db \
+            helmdeck-payload-host:smoke
+          trap 'docker logs helmdeck-smoke; docker rm -f helmdeck-smoke' EXIT
+          for attempt in $(seq 1 60); do
+            if docker exec helmdeck-smoke node -e "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
   quality:
     runs-on: ubuntu-latest
     if: ${{ !cancelled() }}
@@ -129,6 +152,7 @@ jobs:
       - typecheck-example
       - typecheck-template
       - audit
+      - docker-smoke
     # Reports the legacy "quality" check name for branch protection. The umbrella states its own
     # verdict because GitHub reads a skipped check as passing, so the workflow has to run even when
     # a job above it failed and turn the umbrella red by hand.
@@ -141,6 +165,7 @@ jobs:
               || needs.fixtures-build.result != 'success'
               || needs.typecheck-example.result != 'success'
               || needs.typecheck-template.result != 'success'
-              || needs.audit.result != 'success' }}
+              || needs.audit.result != 'success'
+              || needs.docker-smoke.result != 'success' }}
         run: exit 1
       - run: echo "All harness checks passed."

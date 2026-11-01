@@ -17,12 +17,12 @@
 import { lexicalEditor } from "@payloadcms/richtext-lexical";
 import { en } from "@payloadcms/translations/languages/en";
 import { buildConfig } from "payload";
-import { PAYLOAD_ADMIN_ROUTE, payloadAdmin } from "./lib/payload/admin";
-import { payloadCollections } from "./lib/payload/collections";
-import { siteSettingsGlobal } from "./lib/payload/globals";
-import { payloadDatabase } from "./lib/payload/db";
-import { PAYLOAD_ROUTE_GROUP } from "./lib/payload/routes";
-import { payloadServerURL } from "./lib/payload/server-url";
+import { PAYLOAD_ADMIN_ROUTE, payloadAdmin } from "./lib/payload/admin.ts";
+import { payloadCollections } from "./lib/payload/collections.ts";
+import { siteSettingsGlobal } from "./lib/payload/globals.ts";
+import { payloadDatabase } from "./lib/payload/db.ts";
+import { PAYLOAD_ROUTE_GROUP } from "./lib/payload/routes.ts";
+import { payloadServerURL } from "./lib/payload/server-url.ts";
 import { createAdminPayloadPagePublishHandler } from "@yesvus/helmdeck";
 
 /**

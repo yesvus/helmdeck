@@ -12,7 +12,7 @@
 
 import { createAdminPayloadAuthStrategy } from "@yesvus/helmdeck";
 import type { AuthStrategy, AuthStrategyResult } from "payload";
-import { readPayloadSession, USERS_COLLECTION } from "../session";
+import { readPayloadSession, USERS_COLLECTION } from "../session.ts";
 
 const strategy = createAdminPayloadAuthStrategy({ readSession: readPayloadSession });
 

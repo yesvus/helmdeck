@@ -10,7 +10,7 @@ import {
   renamePayloadMedia,
   uploadPayloadMedia,
 } from "@/lib/payload/media-actions";
-import { PERMISSIONS } from "@/lib/permissions";
+import { PERMISSIONS } from "@/lib/permission-names";
 
 /**
  * The media library, reading and writing Payload's upload collection.

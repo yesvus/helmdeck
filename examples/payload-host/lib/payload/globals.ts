@@ -10,7 +10,7 @@
  */
 
 import type { GlobalConfig } from "payload";
-import { payloadAccess } from "./access";
+import { payloadAccess } from "./access.ts";
 
 /** The slug both the config and the server path name. */
 export const SITE_SETTINGS_GLOBAL = "siteSettings";

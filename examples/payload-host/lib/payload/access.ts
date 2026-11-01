@@ -10,7 +10,7 @@
 
 import type { Access } from "payload";
 import type { AdminPayloadOperation, AdminPayloadUser } from "@yesvus/helmdeck";
-import { can, principal } from "../rules";
+import { can, principal } from "../rules.ts";
 
 /**
  * One access function per operation, all of them the host's rule.

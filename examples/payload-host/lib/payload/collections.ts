@@ -8,9 +8,9 @@
  */
 
 import type { CollectionConfig } from "payload";
-import { payloadAccess } from "./access";
-import { payloadAuthStrategies } from "./auth-strategy";
-import { isAdmin, principal } from "../rules";
+import { payloadAccess } from "./access.ts";
+import { payloadAuthStrategies } from "./auth-strategy.ts";
+import { isAdmin, principal } from "../rules.ts";
 
 /**
  * The accounts, which are Payload's own auth collection.
