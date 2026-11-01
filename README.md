@@ -1,19 +1,19 @@
 # Helmdeck
 
-Helmdeck is a reusable, MIT-licensed admin dashboard engine for Next.js App Router applications. Install it to get a working admin shell, generated resource lists and forms, dashboard tiles, analytics, media and content-lifecycle workflows, and the shared interaction patterns around them. You configure resources and connect host-owned services through typed adapters and callbacks instead of building each admin surface from scratch. It is batteries included: the admin interface itself ships with the package, and what you write is the part that belongs to your product.
+Helmdeck is a reusable, MIT-licensed admin dashboard engine for Next.js App Router applications. Install it to get a working admin shell, dashboard tiles, charts, analytics, media workflows, an inbox, an activity trail, and the shared interaction patterns around them. You configure resources and connect host-owned services through typed adapters and callbacks instead of building each admin surface from scratch. It is batteries included: the admin interface itself ships with the package, and what you write is the part that belongs to your product.
 
 Helmdeck takes care of the admin interface and its reusable workflows. It does not own your application backend:
 
 | Helmdeck provides | Your host provides |
 | --- | --- |
 | Responsive admin shell, navigation, profile and sign-in presentation | User identity, credentials, and session policy |
-| Resource registry, generated lists and forms, search, filters, sorting, paging, import and export | Resource definitions, validation and domain rules |
-| Dashboard tiles, charts, analytics views, media workflows, inbox and content lifecycle views | Data storage, media storage, authorization rules, and server-side enforcement |
+| Data table primitives, query and persistence contracts, search, filters, sorting and paging | Resource definitions, validation and domain rules |
+| Dashboard tiles, charts, analytics views, media workflows, inbox and activity trail | Data storage, media storage, authorization rules, and server-side enforcement |
 | Theme, localization, accessible states, and reusable interaction patterns | Application routes, deployment, and public-facing rendering |
 
 The adapters define where the host connects its services. UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](https://helmdeck-web.vercel.app/catalog/quick-start) shows a working host with a local SQLite store and generated resource pages. The [independent host](https://github.com/yesvus/helmdeck/tree/main/examples/independent-host) demonstrates integrating the package into a separate Next.js application.
 
-The next major version changes this arrangement: Payload becomes the CMS under Helmdeck, and Helmdeck's own resource engine is retired. [Payload under the hood](https://helmdeck-web.vercel.app/catalog/payload) states the shape and the six steps that get there.
+Payload is the CMS under Helmdeck: Payload owns collections, fields, auth, access control, versions, trash and uploads, and Helmdeck's own resource engine was retired in 1.0.0. [Payload under the hood](https://helmdeck-web.vercel.app/catalog/payload) states the shape and the six steps that get there.
 
 [Component primitives](https://helmdeck-web.vercel.app/catalog/primitives) lists what the package already ships, and the [integration contracts](https://helmdeck-web.vercel.app/catalog/contracts) describe the adapter seams a host connects to.
 
@@ -40,7 +40,7 @@ Every topic below is its own page in the [documentation catalog](https://helmdec
 
 ## Migrating to Payload
 
-The next major version retires the resource engine, and
+The resource engine was retired in 1.0.0, and
 [MIGRATION.md](MIGRATION.md) says what a host replaces each retired export
 with, and what a host keeps.
 
