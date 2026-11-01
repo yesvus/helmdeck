@@ -3,6 +3,7 @@
 import type { AdminPayloadContent } from "./bridge.js";
 import type { AdminPayloadSessionReader, AdminPayloadUser } from "./bridge.js";
 
+/** The slice of the installed Payload Jobs surface a scheduler calls, and nothing more. */
 export type AdminPayloadJobs = {
   queue: (args: Record<string, unknown>) => Promise<unknown>;
   run: (args?: Record<string, unknown>) => Promise<unknown>;
@@ -22,6 +23,7 @@ export type AdminPayloadJobInstance = {
 export type AdminPayloadSchedulerOptions = {
   payload: AdminPayloadJobInstance;
   resolveUser: AdminPayloadSessionReader;
+  /** The task the schedule queues; a host scheduling other work names its own. */
   task?: string;
   queue?: string;
   content?: AdminPayloadContent;
@@ -29,11 +31,48 @@ export type AdminPayloadSchedulerOptions = {
 
 export const PAYLOAD_PAGE_PUBLISH_TASK = "publishPayloadPage";
 
+export type AdminPayloadScheduleInput = {
+  collection?: string;
+  id: string | number;
+  publishAt: string | number | Date;
+  queue?: string;
+  meta?: Record<string, unknown>;
+};
+
+export type AdminPayloadRescheduleInput = {
+  /** The scheduled job to move. Naming `collection` and `id` instead requeues a new job directly. */
+  id?: string | number;
+  collection?: string;
+  pageId?: string | number;
+  publishAt: string | number | Date;
+  queue?: string;
+};
+
+export type AdminPayloadCancelInput = {
+  id?: string | number;
+  where?: Record<string, unknown>;
+  queue?: string;
+};
+
+export type AdminPayloadRunInput = Record<string, unknown>;
+
+export type AdminPayloadScheduler = {
+  task: string;
+  queue: string | undefined;
+  schedule: (input: AdminPayloadScheduleInput) => Promise<unknown>;
+  reschedule: (input: AdminPayloadRescheduleInput) => Promise<unknown>;
+  cancel: (input: AdminPayloadCancelInput) => Promise<void>;
+  run: (input?: AdminPayloadRunInput) => Promise<unknown>;
+  runByID: (input: { id: string | number; silent?: boolean }) => Promise<unknown>;
+  handleSchedules: (input?: Record<string, unknown>) => Promise<unknown>;
+};
+
+/** The task handler a host config registers, so a queued job publishes its page when it runs. */
 export function createAdminPayloadPagePublishHandler(options: { payload?: AdminPayloadJobInstance } = {}) {
   return async (args: { input?: Record<string, unknown>; req?: { user?: unknown; payload?: AdminPayloadJobInstance } }) => {
     const input = args?.input ?? {};
-    const collection = String(input.collection ?? input.collectionSlug ?? input.slug ?? "pages");
-    const id = input.id ?? input.pageId ?? input.documentId;
+    const collection = String(input.collection ?? "pages");
+    const id = input.id;
     if (id === undefined || id === null) {
       throw new Error("A page-publishing job needs a page id.");
     }
@@ -67,68 +106,26 @@ export function createAdminPayloadPagePublishHandler(options: { payload?: AdminP
   };
 }
 
-function toWaitUntil(value: unknown): Date {
+function toWaitUntil(value: string | number | Date): Date {
   if (value instanceof Date) return value;
   if (typeof value === "number") {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) throw new Error(`"${value}" is not a moment`);
     return d;
   }
-  if (typeof value === "string") {
-    const sent = value.trim();
-    const zoned = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(sent) ? `${sent}Z` : sent;
-    const d = new Date(zoned);
-    if (Number.isNaN(d.getTime())) throw new Error(`"${sent}" is not a moment`);
-    return d;
-  }
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const candidate =
-      record.publishAt ?? record.publish_at ?? record.runAt ?? record.run_at ?? record.waitUntil ?? record.when ?? record.at;
-    if (candidate !== undefined) return toWaitUntil(candidate);
-  }
-  throw new Error("A scheduled publish needs a moment.");
+  const sent = value.trim();
+  // The installed Jobs surface wants a wall-clock moment; a bare local time string is UTC.
+  const zoned = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(sent) ? `${sent}Z` : sent;
+  const d = new Date(zoned);
+  if (Number.isNaN(d.getTime())) throw new Error(`"${sent}" is not a moment`);
+  return d;
 }
 
-function normalizeEnqueueArgs(args: unknown[]): Record<string, unknown> {
-  if (args.length === 0) return {};
-  if (typeof args[0] === "string") {
-    const [collection, id, publishAt, rest] = args;
-    return { collection, id, publishAt, ...(rest && typeof rest === "object" ? (rest as Record<string, unknown>) : {}) };
-  }
-  if (args[0] && typeof args[0] === "object") {
-    const first = args[0] as Record<string, unknown>;
-    const out: Record<string, unknown> = { ...first };
-    if (args[1] !== undefined && (typeof args[1] === "string" || typeof args[1] === "number" || args[1] instanceof Date)) {
-      out.publishAt = args[1];
-    }
-    if (args[2] !== undefined && typeof args[2] === "object") {
-      Object.assign(out, args[2] as Record<string, unknown>);
-    }
-    return out;
-  }
-  return {};
-}
-
-function normalizeJobArgs(args: unknown[]): Record<string, unknown> {
-  if (args.length === 0) return {};
-  if (typeof args[0] === "string" || typeof args[0] === "number") {
-    const [id, rest] = args;
-    return { id, ...(rest && typeof rest === "object" ? (rest as Record<string, unknown>) : {}) };
-  }
-  if (args[0] && typeof args[0] === "object") {
-    const first = args[0] as Record<string, unknown>;
-    const out: Record<string, unknown> = { ...first };
-    if (args[1] !== undefined && (typeof args[1] === "string" || typeof args[1] === "number" || args[1] instanceof Date)) {
-      out.publishAt = args[1];
-      out.waitUntil = args[1];
-    }
-    return out;
-  }
-  return {};
-}
-
-export function createAdminPayloadScheduler(options: AdminPayloadSchedulerOptions) {
+/**
+ * Every scheduled write rides the session: no user, no call, and `overrideAccess` stays off so the
+ * access rules of the host decide what a reader with a session may schedule.
+ */
+export function createAdminPayloadScheduler(options: AdminPayloadSchedulerOptions): AdminPayloadScheduler {
   const payload = options.payload;
   const resolveUser = options.resolveUser;
   const task = options.task ?? PAYLOAD_PAGE_PUBLISH_TASK;
@@ -143,173 +140,102 @@ export function createAdminPayloadScheduler(options: AdminPayloadSchedulerOption
     return user;
   };
 
-  const enqueue = async (...args: unknown[]): Promise<unknown> => {
-    const opts = normalizeEnqueueArgs(args);
-    const user = await currentUser("schedule");
-    const collection = String(opts.collection ?? opts.collectionSlug ?? opts.slug ?? "pages");
-    const id = opts.id ?? opts.pageId ?? opts.documentId;
-    if (id === undefined || id === null) {
-      throw new Error("A scheduled publish needs a page id.");
-    }
-    const waitUntil = toWaitUntil(opts.publishAt ?? opts.waitUntil ?? opts.runAt ?? opts.when ?? opts.at);
-    const input = { collection, id };
-    return payload.jobs.queue({
-      task,
-      input,
-      waitUntil,
-      overrideAccess: false,
-      req: { user },
-      queue: opts.queue ?? defaultQueue,
-      ...(opts.meta ? { meta: opts.meta } : {}),
-    });
-  };
+  const reqOf = (user: AdminPayloadUser) => ({ user });
 
-  const reschedule = async (...args: unknown[]): Promise<unknown> => {
-    const opts = normalizeJobArgs(args);
-    const user = await currentUser("reschedule");
-    const id = opts.id ?? opts.jobId ?? opts.scheduleId;
-    const waitUntil = toWaitUntil(opts.publishAt ?? opts.waitUntil ?? opts.runAt ?? opts.when ?? opts.at);
-    const collection = opts.collection ?? opts.collectionSlug;
-    const pageId = opts.pageId ?? opts.documentId ?? opts.id2;
-
-    if (id !== undefined && id !== null && collection === undefined && pageId === undefined) {
-      try {
-        if (typeof payload.update === "function") {
-          return await payload.update({
-            collection: "payload-jobs",
-            id,
-            data: { waitUntil: waitUntil.toISOString() },
-            overrideAccess: false,
-            user,
-            req: { user },
-          });
-        }
-      } catch {
-        // Fall through to cancel + queue.
-      }
-    }
-
-    if (id !== undefined && id !== null) {
-      try {
-        await payload.jobs.cancelByID({ id, overrideAccess: false, req: { user } });
-      } catch {
-        // The job may already be gone; queuing the new one is still the right move.
-      }
-    }
-    if (collection !== undefined || pageId !== undefined) {
-      return payload.jobs.queue({
-        task,
-        input: { collection: collection ?? "pages", id: pageId },
-        waitUntil,
-        overrideAccess: false,
-        req: { user },
-        queue: opts.queue ?? defaultQueue,
-      });
-    }
-    return { id, waitUntil };
-  };
-
-  const cancel = async (...args: unknown[]): Promise<void> => {
-    const opts = normalizeJobArgs(args);
-    const user = await currentUser("cancel");
-    const id = opts.id ?? opts.jobId ?? opts.scheduleId;
-    if (id !== undefined && id !== null) {
-      await payload.jobs.cancelByID({ id, overrideAccess: false, req: { user } });
-      return;
-    }
-    const where = opts.where ?? (opts.filter as unknown);
-    await payload.jobs.cancel({
-      where: where ?? {},
-      overrideAccess: false,
-      req: { user },
-      queue: opts.queue ?? defaultQueue,
-    });
-  };
-
-  const run = async (...args: unknown[]): Promise<unknown> => {
-    const user = await currentUser("run");
-    const opts = (args[0] && typeof args[0] === "object" ? (args[0] as Record<string, unknown>) : {});
-    return payload.jobs.run({
-      ...opts,
-      overrideAccess: false,
-      req: { user },
-      queue: opts.queue ?? defaultQueue,
-    });
-  };
-
-  const runByID = async (...args: unknown[]): Promise<unknown> => {
-    const opts = normalizeJobArgs(args);
-    const user = await currentUser("run");
-    const id = opts.id ?? opts.jobId;
-    if (id === undefined || id === null) throw new Error("A job id is needed to run.");
-    return payload.jobs.runByID({ id, overrideAccess: false, req: { user }, ...(opts.silent ? { silent: opts.silent } : {}) });
-  };
-
-  const runDue = async (...args: unknown[]): Promise<unknown> => run(args[0] ?? { allQueues: false });
-  const publishDue = runDue;
-
-  const handleSchedules = async (...args: unknown[]): Promise<unknown> => {
-    const user = await currentUser("handleSchedules");
-    const opts = (args[0] && typeof args[0] === "object" ? (args[0] as Record<string, unknown>) : {});
-    return payload.jobs.handleSchedules({ ...opts, req: { user } });
-  };
-
-  const runner = async (runArgs?: Record<string, unknown>) => run(runArgs);
-
-  const scheduler = {
+  return {
     task,
     queue: defaultQueue,
-    schedule: enqueue,
-    enqueue,
-    queueJob: enqueue,
-    add: enqueue,
-    reschedule,
-    move: reschedule,
-    cancel,
-    cancelByID: cancel,
-    cancelJob: cancel,
-    run,
-    runByID,
-    runDue,
-    publishDue,
-    handleSchedules,
-    runner,
+
+    schedule: async (input) => {
+      const user = await currentUser("schedule");
+      return payload.jobs.queue({
+        task,
+        input: { collection: input.collection ?? "pages", id: input.id },
+        waitUntil: toWaitUntil(input.publishAt),
+        overrideAccess: false,
+        req: reqOf(user),
+        ...(input.queue ?? defaultQueue ? { queue: input.queue ?? defaultQueue } : {}),
+        ...(input.meta ? { meta: input.meta } : {}),
+      });
+    },
+
+    reschedule: async (input) => {
+      const user = await currentUser("reschedule");
+      const waitUntil = toWaitUntil(input.publishAt);
+      // A scheduled job moved by id edits its own waitUntil when Payload allows it, and falls back
+      // to cancel-plus-requeue so the old moment never survives the new instruction.
+      if (input.id !== undefined && input.collection === undefined && input.pageId === undefined) {
+        try {
+          if (typeof payload.update === "function") {
+            return await payload.update({
+              collection: "payload-jobs",
+              id: input.id,
+              data: { waitUntil: waitUntil.toISOString() },
+              overrideAccess: false,
+              user,
+              req: reqOf(user),
+            });
+          }
+        } catch {
+          // Fall through to cancel plus queue.
+        }
+      }
+      if (input.id !== undefined) {
+        try {
+          await payload.jobs.cancelByID({ id: input.id, overrideAccess: false, req: reqOf(user) });
+        } catch {
+          // The job may already be gone; queuing the new one is still the right move.
+        }
+      }
+      return payload.jobs.queue({
+        task,
+        input: { collection: input.collection ?? "pages", id: input.pageId },
+        waitUntil,
+        overrideAccess: false,
+        req: reqOf(user),
+        ...(input.queue ?? defaultQueue ? { queue: input.queue ?? defaultQueue } : {}),
+      });
+    },
+
+    cancel: async (input) => {
+      const user = await currentUser("cancel");
+      if (input.id !== undefined) {
+        await payload.jobs.cancelByID({ id: input.id, overrideAccess: false, req: reqOf(user) });
+        return;
+      }
+      await payload.jobs.cancel({
+        where: input.where ?? {},
+        overrideAccess: false,
+        req: reqOf(user),
+        ...(input.queue ?? defaultQueue ? { queue: input.queue ?? defaultQueue } : {}),
+      });
+    },
+
+    run: async (input) => {
+      const user = await currentUser("run");
+      return payload.jobs.run({
+        ...input,
+        overrideAccess: false,
+        req: reqOf(user),
+        ...(input?.queue ?? defaultQueue ? { queue: input?.queue ?? defaultQueue } : {}),
+      });
+    },
+
+    runByID: async (input) => {
+      const user = await currentUser("run");
+      return payload.jobs.runByID({
+        id: input.id,
+        overrideAccess: false,
+        req: reqOf(user),
+        ...(input.silent ? { silent: input.silent } : {}),
+      });
+    },
+
+    handleSchedules: async (input) => {
+      const user = await currentUser("handleSchedules");
+      return payload.jobs.handleSchedules({ ...input, req: reqOf(user) });
+    },
   };
-
-  return scheduler;
 }
-
-export const createAdminPayloadJobScheduler = createAdminPayloadScheduler;
-export const createAdminPayloadPublishScheduler = createAdminPayloadScheduler;
-export const createAdminPayloadJobsScheduler = createAdminPayloadScheduler;
-export const createPayloadJobScheduler = createAdminPayloadScheduler;
-export const createPayloadScheduler = createAdminPayloadScheduler;
-
-export async function schedulePayloadPage(...args: unknown[]): Promise<unknown> {
-  let payload: AdminPayloadJobInstance;
-  let resolveUser: AdminPayloadSessionReader;
-  let opts: Record<string, unknown>;
-  if (args[0] && typeof args[0] === "object" && "payload" in (args[0] as Record<string, unknown>)) {
-    const o = args[0] as Record<string, unknown>;
-    payload = o.payload as AdminPayloadJobInstance;
-    resolveUser = o.resolveUser as AdminPayloadSessionReader;
-    opts = (args[1] as Record<string, unknown>) ?? {};
-  } else {
-    payload = args[0] as AdminPayloadJobInstance;
-    if (typeof args[args.length - 1] === "function") {
-      resolveUser = args[args.length - 1] as AdminPayloadSessionReader;
-      opts = (args[1] && typeof args[1] === "object" ? args[1] : {}) as Record<string, unknown>;
-    } else {
-      resolveUser = async () => null;
-      opts = (args[1] && typeof args[1] === "object" ? args[1] : {}) as Record<string, unknown>;
-    }
-  }
-  const scheduler = createAdminPayloadScheduler({ payload, resolveUser });
-  return scheduler.schedule(opts);
-}
-
-export const enqueuePayloadPagePublish = schedulePayloadPage;
-export const queuePayloadPagePublish = schedulePayloadPage;
-export const schedulePayloadPagePublish = schedulePayloadPage;
 
 export { AdminPayloadAccessRefused } from "./bridge.js";
