@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: payload-host
+  namespace: payload-host
+spec:
+  rules:
+    - host: payload.example.invalid
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: payload-host
+                port:
+                  name: http

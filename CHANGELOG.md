@@ -24,6 +24,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Framework-neutral hierarchical admin URL path building and resolution, with an opt-in breadcrumb override; hosts retain ownership of route registration and URL navigation.
 
+- Add a vendor-neutral Kubernetes deployment example for the Payload host, including a pre-rollout migration Job.
+
 ### Changed
 
 - Update the README, package description, and demo copy to define Helmdeck's framework posture, system boundaries, and shipped versus planned work.
