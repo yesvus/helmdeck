@@ -69,9 +69,13 @@ describe("the starter template", () => {
     // template that imports something it does not declare installs cleanly and then fails to build,
     // and the failure names a package the person reading the manifest has never heard of.
     const manifest = JSON.parse(readFileSync(join(template, "package.json"), "utf8"));
+    const rootManifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+    // Bundled UI primitives ship as dependencies of @yesvus/helmdeck now, so a template that
+    // imports one of them resolves it transitively even when its own manifest does not name it.
     const declared = new Set([
       ...Object.keys(manifest.dependencies ?? {}),
       ...Object.keys(manifest.devDependencies ?? {}),
+      ...Object.keys(rootManifest.dependencies ?? {}),
     ]);
     const undeclared = specifiers
       .filter(({ specifier }) => !specifier.startsWith(".") && !specifier.startsWith("@/") && !specifier.startsWith("node:"))

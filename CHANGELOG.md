@@ -15,6 +15,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - Add navigation menu builder and taxonomy management surfaces to the Payload host, with an ordered `navigation` Global, `categories` and `tags` collections, admin editor/reorder/validation flows, and public menu rendering.
 - Add SEO metadata fields (`seoTitle`, `seoDescription`, `ogImage`, `canonicalUrl`) to the Payload `pages` collection, plus `resolvePageMetadata` and `resolveSitemapEntries` helpers and an `app/(helmdeck)/sitemap.ts` route for published pages in the Payload host.
 
+### Changed
+
+- Bundle internal UI primitive dependencies (`@dnd-kit/*`, `@radix-ui/*`, `lucide-react`, `motion`) into `dependencies`, leaving only `next`, `react`, `react-dom`, and `tailwindcss` as peer dependencies; add `createAdminTableSearchAdapter` for binding pagination, sort, search, and filters to URL search params.
+
 ## 1.5.0
 
 ### Added

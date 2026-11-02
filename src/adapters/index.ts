@@ -67,3 +67,5 @@ export type {
   AdminScopeAdapter,
   AdminScopeFilter,
 } from "./host.js";
+
+export * from "./table-search.js";
