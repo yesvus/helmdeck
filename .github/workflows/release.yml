@@ -68,10 +68,16 @@ jobs:
           fi
       - name: Gate release
         run: |
+          pnpm node-floor:check
+          pnpm surface:check
           pnpm typecheck
+          pnpm typecheck:payload-host
+          pnpm typecheck:example
+          pnpm typecheck:template
           pnpm lint
           pnpm test
           pnpm test:release
+          pnpm test:modal-geometry
           pnpm build:fixtures
           pnpm audit --prod
       - name: Write release version

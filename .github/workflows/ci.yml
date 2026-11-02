@@ -6,6 +6,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -48,6 +52,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      - run: pnpm test:modal-geometry
 
   release-gate:
     name: Release gate scripts
@@ -61,6 +66,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm version:check
+      - run: pnpm node-floor:check
+      - run: pnpm surface:check
       - run: pnpm test:release
 
   fixtures-build:
@@ -89,6 +96,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Builds dist itself before compiling the example host.
       - run: pnpm typecheck:example
+
+  typecheck-payload-host:
+    name: Payload host typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck:payload-host
 
   typecheck-template:
     name: Template typecheck
@@ -150,6 +170,7 @@ jobs:
       - release-gate
       - fixtures-build
       - typecheck-example
+      - typecheck-payload-host
       - typecheck-template
       - audit
       - docker-smoke
@@ -164,6 +185,7 @@ jobs:
               || needs.release-gate.result != 'success'
               || needs.fixtures-build.result != 'success'
               || needs.typecheck-example.result != 'success'
+              || needs.typecheck-payload-host.result != 'success'
               || needs.typecheck-template.result != 'success'
               || needs.audit.result != 'success'
               || needs.docker-smoke.result != 'success' }}
