@@ -78,6 +78,12 @@ const HOST_PERMISSIONS =
   "Reads the permission rule from the provider above it, so there is nothing to decide without one.";
 
 const CATALOG_META: Record<string, CatalogMeta> = {
+  AdminBar: {
+    category: "Shell and navigation",
+    summary: "A sticky operator toolbar for host-rendered public routes, with live or draft status and dashboard and optional edit links.",
+    keywords: "public site operator toolbar draft preview dashboard edit",
+    renderable: true,
+  },
   Button: {
     category: "Actions and buttons",
     summary: "The button every other action builds on, with the variants and sizes the package uses.",

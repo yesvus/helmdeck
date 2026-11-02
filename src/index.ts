@@ -30,6 +30,8 @@ export { AdminFormActionPanel } from "./primitives/action-panel.js";
 export type { AdminAssistantAdapter, AdminAssistantError, AdminAssistantEvent, AdminAssistantMessage, AdminAssistantRunRecord, AdminAssistantTool, SanitizedAssistantData } from "./shell/assistant.js";
 export { sanitizeAssistantData } from "./shell/assistant.js";
 export { AdminAssistantPanel } from "./primitives/admin-assistant-panel.js";
+export { AdminBar } from "./shell/admin-bar.js";
+export type { AdminBarProps } from "./shell/admin-bar.js";
 export {
   createReadOnlyPersistenceAdapter,
 } from "./resources/persistence.js";

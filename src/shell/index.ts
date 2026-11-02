@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+export { AdminBar } from "./admin-bar.js";
+export type { AdminBarProps } from "./admin-bar.js";
 export { AdminBreadcrumbs } from "./admin-breadcrumbs.js";
 export { AdminErrorBoundary } from "./admin-error-boundary.js";
 export type { AdminErrorBoundaryProps } from "./admin-error-boundary.js";

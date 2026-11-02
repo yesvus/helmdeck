@@ -77,6 +77,8 @@ export type AdminStatusLabels = {
   draft: string;
 };
 
+export type AdminBarLabels = { label: string; actions: string; live: string; draft: string; dashboard: string; edit: string };
+
 export type AdminCommonLabels = {
   close: string;
   dismiss: string;
@@ -130,6 +132,7 @@ export type AdminMessages = {
   settingsPanel: AdminSettingsPanelLabels;
   formActionPanel: AdminFormActionPanelLabels;
   status: AdminStatusLabels;
+  adminBar: AdminBarLabels;
   common: AdminCommonLabels;
   pagination: AdminPaginationLabels;
   mediaSort: Record<AdminMediaSort, string>;
@@ -193,6 +196,7 @@ export const englishAdminMessages: AdminMessages = {
     published: "Published",
     draft: "Draft",
   },
+  adminBar: { label: "Site operator toolbar", actions: "Operator actions", live: "Live content", draft: "Draft preview", dashboard: "Dashboard", edit: "Edit page" },
   common: {
     close: "Close",
     dismiss: "Dismiss notification",
@@ -443,6 +447,7 @@ export const turkishAdminMessages: AdminMessages = {
     published: "Yayında",
     draft: "Taslak",
   },
+  adminBar: { label: "Site yönetici araç çubuğu", actions: "Yönetici işlemleri", live: "Yayındaki içerik", draft: "Taslak önizlemesi", dashboard: "Yönetim paneli", edit: "Sayfayı düzenle" },
   common: {
     close: "Kapatın",
     dismiss: "Bildirimi kapatın",
