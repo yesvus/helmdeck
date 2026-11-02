@@ -66,6 +66,8 @@ including the migration Job and replica guidance, see [Kubernetes](deploy/kubern
 
 Optional blog setup, editing and route customization are documented in [Blog starter](docs/blog.md).
 
+The optional GitHub App repository editor and its server-side token setup are documented in [GitHub integration](docs/github.md).
+
 ## The six steps
 
 | Step | Where it is |
