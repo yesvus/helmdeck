@@ -55,6 +55,8 @@ export type AdminNavItem = {
 };
 
 export type AdminNavGroup = {
+  /** Optional stable id; when absent, the group's label identifies it. */
+  id?: string;
   label: string;
   icon?: AdminNavIconName | AdminNavIconComponent;
   items: AdminNavItem[];

@@ -1619,10 +1619,25 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Declares a widget: its id, title, sizes, empty check and how its data renders.",
     keywords: "define declare widget typed",
   },
+  defineAdminPlugin: {
+    category: "Shell and navigation",
+    summary: "Composes navigation groups, dashboard widgets, settings groups, and command palette entries into one host registration call, validating duplicate ids.",
+    keywords: "plugin compose nav widgets settings palette registration",
+  },
   createAdminWidgetRegistry: {
     category: "Dashboard and widgets",
     summary: "Turns a map of declarations into the registry the dashboard resolves placements against.",
     keywords: "registry create widgets",
+  },
+  composeAdminPlugin: {
+    category: "Shell and navigation",
+    summary: "Composes one or more declarative admin plugin contributions into a host registration.",
+    keywords: "plugin extension registration compose",
+  },
+  composeAdminPlugins: {
+    category: "Shell and navigation",
+    summary: "Composes one or more declarative admin plugin contributions into a host registration.",
+    keywords: "plugin extension registration compose",
   },
   adminWidgetState: {
     category: "Dashboard and widgets",
