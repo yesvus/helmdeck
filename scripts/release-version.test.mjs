@@ -223,8 +223,14 @@ test("refuses an empty Unreleased section", () => {
   assert.throws(() => rewriteChangelogHeading("## Unreleased\n\n## 0.3.2\n- Old\n", "0.4.0"), /empty or missing/);
 });
 
-test("refuses duplicate changelog section headings", () => {
-  assert.throws(() => rewriteChangelogHeading("## Unreleased\n- New\n## 0.3.2\n- Old\n## 0.3.2\n- Duplicate\n", "0.4.0"), /duplicate section headings/);
+test("refuses duplicate Unreleased sections", () => {
+  assert.throws(() => rewriteChangelogHeading("## Unreleased\n- New\n## 0.3.2\n- Old\n## Unreleased\n- Duplicate\n", "0.4.0"), /duplicate section headings/);
+});
+
+test("allows duplicate historical version headings", () => {
+  const changelog = "## Unreleased\n- New\n## 0.6.0\n- Old\n## 0.6.0\n- Older\n";
+
+  assert.match(rewriteChangelogHeading(changelog, "0.7.0"), /^## 0\.7\.0$/m);
 });
 
 /** A repository the version bump can be run against without touching the real checkout. */

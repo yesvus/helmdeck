@@ -228,8 +228,8 @@ export function nextTag(currentTag, bump) {
 // release the rest of the repository does not agree has happened. The section is authored as
 // "Unreleased" and renamed here, in the same commit as VERSION and package.json.
 export function rewriteChangelogHeading(content, version) {
-  const headings = [...content.matchAll(/^## .+$/gm)].map((match) => match[0]);
-  if (new Set(headings).size !== headings.length) {
+  const unreleasedHeadings = content.match(/^## Unreleased$/gm) ?? [];
+  if (unreleasedHeadings.length > 1) {
     fail("CHANGELOG.md has duplicate section headings");
   }
   const unreleased = /^## Unreleased\s*\n([\s\S]*?)(?=^## |\s*$)/m.exec(content);
