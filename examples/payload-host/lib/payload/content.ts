@@ -140,3 +140,13 @@ export async function mutatePage(id: string, operation: "delete" | "update", dat
   const content = await payloadContent();
   return operation === "delete" ? content.delete(PAGES, id) : content.update(PAGES, id, data ?? {});
 }
+
+
+/** The raw version documents for a page, newest first. */
+export async function listPageVersionDocs(pageId: string): Promise<unknown[]> {
+  const content = await payloadContent();
+  // Read raw docs via the bridge for snapshots; fall back to compact rows when unavailable.
+  const result = await content.findVersions(PAGES, { where: { parent: { equals: pageId } }, sort: "-createdAt", limit: 50, depth: 0, draft: true });
+  const docs = (result as { docs?: unknown } | null)?.docs;
+  return Array.isArray(docs) ? (docs as unknown[]) : [];
+}

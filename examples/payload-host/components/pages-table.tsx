@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CalendarClock, Pencil, Trash2 } from "lucide-react";
+import { CalendarClock, History, Pencil, Trash2 } from "lucide-react";
 import { AdminDataTable, AdminEmptyState, AdminDialogProvider, AdminDestructiveAction, AdminStatusPill, AdminTableActionButton, AdminTableRowActions, useAdminDialog, type AdminDataTableColumn } from "@yesvus/helmdeck";
 import type { PageDocument } from "@/lib/payload/content";
 import { removePage, schedulePage } from "@/lib/pages-actions";
@@ -11,6 +11,7 @@ function RowActions({ page }: { page: PageDocument }) {
   const dialog = useAdminDialog();
   const [error, setError] = useState("");
   return <AdminTableRowActions label={`Actions for ${page.title}`}>
+    <Link href={`/admin/pages/${encodeURIComponent(page.id)}/versions`}><AdminTableActionButton label="History" icon={<History className="h-4 w-4" />} /></Link>
     <Link href={`/payload/admin/collections/pages/${encodeURIComponent(page.id)}`}><AdminTableActionButton label="Edit" icon={<Pencil className="h-4 w-4" />} /></Link>
     <AdminTableActionButton label="Schedule" icon={<CalendarClock className="h-4 w-4" />} onClick={async () => {
       const at = await dialog.prompt({ title: "Schedule publish", description: `Choose a date and time for ${page.title}.`, inputLabel: "Publish at", inputProps: { type: "datetime-local" }, confirmLabel: "Schedule" });

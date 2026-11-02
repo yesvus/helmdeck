@@ -7,3 +7,5 @@ export * from "./media.js";
 export * from "./preset.js";
 export * from "./scheduling.js";
 export * from "./store.js";
+
+export * from "./version-history.js";
