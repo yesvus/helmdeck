@@ -8,6 +8,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+### Added
+
+- Add a typed block registry (`createAdminBlockRegistry`) pairing block schemas with server-safe renderers, with graceful degradation for unknown block types, and render Payload page blocks on public Next.js routes.
+
 ## 1.6.0
 
 ### Added
