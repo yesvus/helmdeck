@@ -16,7 +16,7 @@
  * read as an account is not an anonymous account, it is a request that must not be answered.
  */
 
-import { AdminPayloadAccessRefused, createAdminPayloadContent } from "@yesvus/helmdeck";
+import { createAdminPayloadContent } from "@yesvus/helmdeck";
 import type { AdminPayloadContent } from "@yesvus/helmdeck";
 import { getPayload, type Payload } from "payload";
 import config from "../../payload.config";
@@ -51,7 +51,12 @@ export type PageDocument = {
   updatedAt?: string | null;
 };
 
-let pending: Promise<AdminPayloadContent> | null = null;
+type PayloadHostContent = AdminPayloadContent & {
+  findGlobal: (slug: string, args?: Record<string, unknown>) => Promise<unknown>;
+  updateGlobal: (slug: string, data: unknown, args?: Record<string, unknown>) => Promise<unknown>;
+};
+
+let pending: Promise<PayloadHostContent> | null = null;
 
 /**
  * The content, and the only way to reach it.
@@ -59,10 +64,10 @@ let pending: Promise<AdminPayloadContent> | null = null;
  * The bridge is built once and holds no request state: the session is resolved per call, so the
  * same object is correct for every request the process serves.
  */
-export function payloadContent(): Promise<AdminPayloadContent> {
+export function payloadContent(): Promise<PayloadHostContent> {
   pending ??= (async () => {
     const payload = await getPayload({ config });
-    return createAdminPayloadContent({ payload, resolveUser: readPayloadSession });
+    return createAdminPayloadContent({ payload, resolveUser: readPayloadSession }) as PayloadHostContent;
   })().catch((cause) => {
     // A failed start is not remembered. A database that was briefly unreachable would otherwise
     // fail every later request until the process was restarted.
@@ -85,17 +90,11 @@ export type GlobalsContent = {
 };
 
 export async function globalContentGet(slug: string): Promise<unknown> {
-  const payload = await getPayload({ config });
-  const user = await readPayloadSession();
-  if (!user) throw new AdminPayloadAccessRefused("findGlobal");
-  return payload.findGlobal({ slug, overrideAccess: false, user, depth: 0 });
+  return (await payloadContent()).findGlobal(slug, { depth: 0 });
 }
 
 export async function globalContentSet(slug: string, data: Record<string, unknown>): Promise<unknown> {
-  const payload = await getPayload({ config });
-  const user = await readPayloadSession();
-  if (!user) throw new AdminPayloadAccessRefused("updateGlobal");
-  return payload.updateGlobal({ slug, data, overrideAccess: false, user, depth: 0 });
+  return (await payloadContent()).updateGlobal(slug, data, { depth: 0 });
 }
 
 export function globalsContent(): GlobalsContent {

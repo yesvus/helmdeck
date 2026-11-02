@@ -34,6 +34,11 @@ export type AdminPayloadInstance = {
   create(args: { collection: string; data: unknown; [key: string]: unknown }): Promise<unknown>;
   update(args: { collection: string; id: string | number; data: unknown; [key: string]: unknown }): Promise<unknown>;
   delete(args: { collection: string; id: string | number; [key: string]: unknown }): Promise<unknown>;
+  findGlobal?(args: { slug: string; [key: string]: unknown }): Promise<unknown>;
+  updateGlobal?(args: { slug: string; data: unknown; [key: string]: unknown }): Promise<unknown>;
+  findVersions?(args: { collection: string; [key: string]: unknown }): Promise<unknown>;
+  findVersionByID?(args: { collection: string; id: string | number; [key: string]: unknown }): Promise<unknown>;
+  restoreVersion?(args: { collection: string; id: string | number; [key: string]: unknown }): Promise<unknown>;
 };
 
 /** How the host reads the session of the current request. */
@@ -45,6 +50,11 @@ export type AdminPayloadContent = {
   create: (collection: string, data: unknown, args?: Record<string, unknown>) => Promise<unknown>;
   update: (collection: string, id: string | number, data: unknown, args?: Record<string, unknown>) => Promise<unknown>;
   delete: (collection: string, id: string | number, args?: Record<string, unknown>) => Promise<unknown>;
+  findGlobal: (slug: string, args?: Record<string, unknown>) => Promise<unknown>;
+  updateGlobal: (slug: string, data: unknown, args?: Record<string, unknown>) => Promise<unknown>;
+  findVersions: (collection: string, args?: Record<string, unknown>) => Promise<unknown>;
+  findVersionByID: (collection: string, id: string | number, args?: Record<string, unknown>) => Promise<unknown>;
+  restoreVersion: (collection: string, id: string | number, args?: Record<string, unknown>) => Promise<unknown>;
 };
 
 /**
@@ -91,6 +101,16 @@ export function createAdminPayloadContent({
       call("update", (user) => payload.update({ ...args, collection, id, data, overrideAccess: false, user })),
     delete: (collection, id, args = {}) =>
       call("delete", (user) => payload.delete({ ...args, collection, id, overrideAccess: false, user })),
+    findGlobal: (slug, args = {}) =>
+      call("findGlobal", (user) => payload.findGlobal!({ ...args, slug, overrideAccess: false, user })),
+    updateGlobal: (slug, data, args = {}) =>
+      call("updateGlobal", (user) => payload.updateGlobal!({ ...args, slug, data, overrideAccess: false, user })),
+    findVersions: (collection, args = {}) =>
+      call("findVersions", (user) => payload.findVersions!({ ...args, collection, overrideAccess: false, user })),
+    findVersionByID: (collection, id, args = {}) =>
+      call("findVersionByID", (user) => payload.findVersionByID!({ ...args, collection, id, overrideAccess: false, user })),
+    restoreVersion: (collection, id, args = {}) =>
+      call("restoreVersion", (user) => payload.restoreVersion!({ ...args, collection, id, overrideAccess: false, user })),
   };
 }
 
