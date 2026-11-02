@@ -11,6 +11,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 ### Added
 
 - Add a typed block registry (`createAdminBlockRegistry`) pairing block schemas with server-safe renderers, with graceful degradation for unknown block types, and render Payload page blocks on public Next.js routes.
+- Mount visitor analytics and a contact inbox over Payload in the payload-host example: `analytics-events` and `contact-messages` collections, a Payload persistence adapter factory, `/admin/analytics` (visitor trend chart) and `/admin/inbox` surfaces, server-side page-view recording, and admin-gated inbox actions.
 
 ## 1.6.0
 

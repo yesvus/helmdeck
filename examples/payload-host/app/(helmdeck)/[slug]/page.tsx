@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { listPages, globalContentGet } from "@/lib/payload/content";
+import { recordPageView } from "@/lib/payload/persistence";
 import { resolvePageMetadata } from "@/lib/payload/seo";
 import { createAdminBlockRegistry } from "@yesvus/helmdeck";
 
@@ -45,6 +46,7 @@ export default async function PublicPage({ params }: Props) {
   const pages = await listPages(1000).catch(() => []);
   const page = pages.find((entry) => entry.slug === slug);
   if (!page) notFound();
+  void recordPageView({ path: `/${slug}` }).catch(() => {});
   return (
     <main className="mx-auto max-w-3xl px-6 py-12 sm:py-20">
       <h1 className="text-4xl font-semibold tracking-tight">{page.title}</h1>
