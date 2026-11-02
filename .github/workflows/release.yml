@@ -157,8 +157,10 @@ jobs:
           git tag -a "$TAG" -m "$TAG"
           git push --atomic origin HEAD:main "refs/tags/$TAG"
           if [[ "$TAG" != *-* ]]; then
-            git tag -f -a v0 -m "Floating rollout tag -> $TAG"
-            git push origin +refs/tags/v0:refs/tags/v0
+            major_tag="v${TAG#v}"
+            major_tag="${major_tag%%.*}"
+            git tag -f -a "$major_tag" -m "Floating rollout tag -> $TAG"
+            git push origin "+refs/tags/$major_tag:refs/tags/$major_tag"
           fi
       - name: Publish GitHub release
         if: ${{ inputs.dry_run != true }}

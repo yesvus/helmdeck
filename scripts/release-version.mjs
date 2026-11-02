@@ -107,6 +107,14 @@ function assertGeneratedSourceInSync(tag) {
 export function recordExportedSurface(version, options = {}) {
   const base = options.root ?? root;
   const spawn = options.spawn ?? spawnSync;
+  const checked = spawn(
+    process.execPath,
+    [join(base, "scripts", "exported-surface.cli.mjs"), "check", version.slice(1)],
+    { cwd: base, stdio: "inherit" },
+  );
+  if (checked.status !== 0) {
+    fail(`could not check the exported surface: check mode exited ${checked.status}`);
+  }
   const result = spawn(
     process.execPath,
     [join(base, "scripts", "exported-surface.cli.mjs"), "record", version],
@@ -220,8 +228,13 @@ export function nextTag(currentTag, bump) {
 // release the rest of the repository does not agree has happened. The section is authored as
 // "Unreleased" and renamed here, in the same commit as VERSION and package.json.
 export function rewriteChangelogHeading(content, version) {
-  if (!UNRELEASED_HEADING.test(content)) {
-    fail("CHANGELOG.md has no '## Unreleased' section to stamp");
+  const unreleasedHeadings = content.match(/^## Unreleased$/gm) ?? [];
+  if (unreleasedHeadings.length > 1) {
+    fail("CHANGELOG.md has duplicate section headings");
+  }
+  const unreleased = /^## Unreleased\s*\n([\s\S]*?)(?=^## |\s*$)/m.exec(content);
+  if (!UNRELEASED_HEADING.test(content) || !unreleased?.[1].trim()) {
+    fail("CHANGELOG.md has an empty or missing '## Unreleased' section");
   }
   // A fresh pending section is left behind, because otherwise the release that just succeeded is the
   // reason the next one cannot start. An empty heading costs nothing and removes a step that only

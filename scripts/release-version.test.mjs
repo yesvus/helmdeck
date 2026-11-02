@@ -26,9 +26,10 @@ test("records the exported surface as part of moving the version", () => {
   const { spawn, calls } = fakeSpawn();
   recordExportedSurface("v0.5.0", { root: "/repo", spawn });
 
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
   assert.equal(calls[0].args[0], join("/repo", "scripts", "exported-surface.cli.mjs"));
-  assert.equal(calls[0].args[1], "record");
+  assert.deepEqual(calls[0].args.slice(1), ["check", "0.5.0"]);
+  assert.equal(calls[1].args[1], "record");
 });
 
 test("records the release being cut, not the version package.json still holds", () => {
@@ -38,7 +39,7 @@ test("records the release being cut, not the version package.json still holds", 
   const { spawn, calls } = fakeSpawn();
   recordExportedSurface("v0.5.0", { root: "/repo", spawn });
 
-  assert.equal(calls[0].args[2], "v0.5.0");
+  assert.equal(calls[1].args[2], "v0.5.0");
 });
 
 test("runs the recorder from the repository, not the caller's directory", () => {
@@ -51,13 +52,21 @@ test("runs the recorder from the repository, not the caller's directory", () => 
 test("refuses to move the version when the surface cannot be recorded", () => {
   // A release whose baseline was never captured is a release whose removals cannot be checked
   // afterwards, and the failure has to land before the version moves rather than after it.
-  const { spawn } = fakeSpawn(1);
+  const { calls } = fakeSpawn();
+  const spawn = (command, args, options) => {
+    calls.push({ command, args, options });
+    return { status: args[1] === "record" ? 1 : 0 };
+  };
 
   assert.throws(() => recordExportedSurface("v0.5.0", { root: "/repo", spawn }), /record mode exited 1/);
 });
 
 test("a failing recorder never reaches the filesystem it was pointed at", () => {
-  const { spawn, calls } = fakeSpawn(1);
+  const { calls } = fakeSpawn();
+  const spawn = (command, args, options) => {
+    calls.push({ command, args, options });
+    return { status: args[1] === "record" ? 1 : 0 };
+  };
 
   try {
     recordExportedSurface("v0.5.0", { root: "/repo", spawn });
@@ -65,7 +74,18 @@ test("a failing recorder never reaches the filesystem it was pointed at", () => 
     // the refusal above is the assertion
   }
 
-  assert.equal(calls.length, 1, "one attempt, then stop");
+  assert.equal(calls.length, 2, "check and record are attempted");
+});
+
+test("does not record the surface when the check fails", () => {
+  const calls = [];
+  const spawn = (command, args) => {
+    calls.push(args[1]);
+    return { status: args[1] === "check" ? 1 : 0 };
+  };
+
+  assert.throws(() => recordExportedSurface("v0.5.0", { root: "/repo", spawn }), /check mode exited 1/);
+  assert.deepEqual(calls, ["check"]);
 });
 
 test("increments an alpha prerelease", () => {
@@ -197,6 +217,23 @@ test("refuses to cut a release with no pending changelog section", () => {
   // Failing loudly beats stamping nothing: a silent skip would leave the changelog describing a
   // release that never got notes, which is the state this exists to prevent.
   assert.throws(() => rewriteChangelogHeading("## 0.3.2\n", "0.4.0"), /Unreleased/);
+});
+
+test("refuses an empty Unreleased section", () => {
+  assert.throws(() => rewriteChangelogHeading("## Unreleased\n\n## 0.3.2\n- Old\n", "0.4.0"), /empty or missing/);
+});
+
+test("refuses duplicate Unreleased sections", () => {
+  assert.throws(() => rewriteChangelogHeading("## Unreleased\n- New\n## 0.3.2\n- Old\n## Unreleased\n- Duplicate\n", "0.4.0"), /duplicate section headings/);
+});
+
+test("allows duplicate historical version headings", () => {
+  const changelog = "## Unreleased\n- New\n## 0.6.0\n- Old\n## 0.6.0\n- Older\n";
+
+  assert.equal(
+    rewriteChangelogHeading(changelog, "0.7.0"),
+    "## Unreleased\n\n## 0.7.0\n- New\n## 0.6.0\n- Old\n## 0.6.0\n- Older\n",
+  );
 });
 
 /** A repository the version bump can be run against without touching the real checkout. */
