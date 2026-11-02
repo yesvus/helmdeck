@@ -36,6 +36,9 @@ function cloneNavGroup(group: AdminNavGroup): AdminNavGroup {
 }
 
 export function composeAdminPlugins(input: AdminPluginDefinition | readonly AdminPluginDefinition[]): AdminPlugin {
+  if (input === null || typeof input !== "object") {
+    throw new Error("An admin plugin needs a definition object");
+  }
   const definitions = Array.isArray(input) ? input : [input];
   const normalized = definitions as readonly AdminPluginDefinition[];
 
@@ -50,6 +53,9 @@ export function composeAdminPlugins(input: AdminPluginDefinition | readonly Admi
   const paletteSeen = new Set<string>();
 
   for (const definition of normalized) {
+    if (definition === null || typeof definition !== "object") {
+      throw new Error("An admin plugin needs a definition object");
+    }
     for (const [name, collection] of Object.entries({
       navGroups: definition.navGroups,
       widgets: definition.widgets,

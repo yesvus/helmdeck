@@ -44,6 +44,11 @@ describe("defineAdminPlugin", () => {
     expect(() => defineAdminPlugin({ settingsGroups: [{ key: "broken", title: "Broken", settings: [null] }] } as never)).toThrow(/without a key/);
   });
 
+  it("rejects invalid plugin definitions", () => {
+    expect(() => defineAdminPlugin([null] as never)).toThrow(/definition object/);
+    expect(() => defineAdminPlugin(42 as never)).toThrow(/definition object/);
+  });
+
   it("passes plugin navigation through the host permission hook", async () => {
     const groups: AdminNavGroup[] = defineAdminPlugin({ navGroups: [{
       label: "Plugin",
