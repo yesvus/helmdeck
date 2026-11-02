@@ -1828,6 +1828,16 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The host's value type behind a collection, stripped of the bookkeeping the editor adds.",
     keywords: "values entries map type",
   },
+  createAdminBlockRegistry: {
+    category: "Collections",
+    summary: "Pairs block types with their JSON-schema-ish validation records and server-safe React renderers, so one registry answers validation and public rendering.",
+    keywords: "blocks registry schema render server payload",
+  },
+  defineAdminBlock: {
+    category: "Collections",
+    summary: "Defines one block entry for a block registry: its type, its schema and its server-safe renderer.",
+    keywords: "blocks define entry type schema render",
+  },
 
   AdminMediaField: {
     category: "Media",

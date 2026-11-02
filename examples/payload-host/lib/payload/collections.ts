@@ -195,6 +195,25 @@ export const Pages: CollectionConfig = {
         return isValidCanonicalUrl(value) || "Canonical URL must be an absolute URL or a path.";
       },
     },
+    {
+      name: "blocks",
+      type: "blocks",
+      blocks: [
+        {
+          slug: "hero",
+          fields: [
+            { name: "heading", type: "text", required: false },
+            { name: "body", type: "textarea", required: false },
+          ],
+        },
+        {
+          slug: "text",
+          fields: [
+            { name: "content", type: "textarea", required: false },
+          ],
+        },
+      ],
+    },
   ],
 };
 

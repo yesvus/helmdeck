@@ -55,6 +55,7 @@ export type PageDocument = {
   seoDescription?: string | null;
   canonicalUrl?: string | null;
   ogImage?: unknown;
+  blocks?: Array<Record<string, unknown>> | null;
 };
 
 type PayloadHostContent = AdminPayloadContent & {

@@ -6,6 +6,7 @@ export * from "./analytics/index.js";
 export * from "./charts/index.js";
 export * from "./collections/editor.js";
 export * from "./collections/registry.js";
+export * from "./collections/blocks.js";
 export * from "./dashboard/model.js";
 export * from "./dashboard/layout.js";
 export * from "./dashboard/grid.js";
