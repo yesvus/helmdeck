@@ -2,6 +2,14 @@
 
 Helmdeck is an opinionated Next.js application framework and admin platform for developers and coding agents building content and commerce sites. It provides a cohesive starter, admin shell, and reusable workflows, so a project can spend less time assembling admin foundations and more time on its product. Its WordPress-like convenience is an analogy for an integrated workflow, not a claim to replace WordPress or the systems below.
 
+## Maintenance status
+
+Helmdeck is no longer maintained. There will be no further releases, and the repository is being archived.
+
+Helmdeck was never published to npm. The only supported install path is the pinned release tarball for the existing consumer.
+
+For a new admin UI, use shadcn/ui together with the host framework's own dashboard tooling instead.
+
 ## System boundaries
 
 - **Helmdeck** owns the scaffold, admin shell, and reusable workflows. It owns neither content nor commerce tables by default.
