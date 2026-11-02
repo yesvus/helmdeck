@@ -3,6 +3,7 @@ import { sqliteAdapter } from "@payloadcms/db-sqlite";
 import { buildConfig, type AuthStrategyResult, type CollectionConfig } from "payload";
 import { payloadAccess } from "./lib/payload-access";
 import { payloadAuthStrategy } from "./lib/session";
+import { guardUserDelete, guardUserUpdate } from "./lib/users-guard";
 
 const secret = process.env.PAYLOAD_SECRET?.trim();
 if (!secret) throw new Error("PAYLOAD_SECRET is required");
@@ -30,9 +31,13 @@ const Users: CollectionConfig = {
       if (!user) return false;
       return isAdminUser(user) ? true : { id: { equals: user.id } };
     },
-    create: async ({ req: { payload } }) => (await payload.count({ collection: "users", overrideAccess: true })).totalDocs === 0,
-    update: ({ req: { user } }) => isAdminUser(user),
-    delete: ({ req: { user } }) => isAdminUser(user),
+    create: async ({ req: { payload, data } }) => {
+      const empty = (await payload.count({ collection: "users", overrideAccess: true })).totalDocs === 0;
+      if (empty && data) data.role = "admin";
+      return empty;
+    },
+    update: guardUserUpdate,
+    delete: guardUserDelete,
   },
   admin: { useAsTitle: "email" },
   fields: [{ name: "role", type: "select", required: true, defaultValue: "admin", options: ["admin", "editor"] }],
@@ -44,4 +49,6 @@ const Products: CollectionConfig = {
   fields: [{ name: "name", type: "text", required: true }, { name: "sku", type: "text", required: true, unique: true }, { name: "price_cents", type: "number", required: true }],
 };
 
-export default buildConfig({ secret, db: sqliteAdapter({ client: { url: process.env.PAYLOAD_DATABASE_URL || "file:./payload.db" }, push: process.env.NODE_ENV === "development" }), collections: [Users, Products], routes: { admin: "/payload/admin" }, admin: { user: "users" } });
+const authToken = process.env.PAYLOAD_DATABASE_TOKEN?.trim();
+
+export default buildConfig({ secret, db: sqliteAdapter({ client: { url: process.env.PAYLOAD_DATABASE_URL || "file:./payload.db", ...(authToken ? { authToken } : {}) }, push: true }), collections: [Users, Products], routes: { admin: "/payload/admin" }, admin: { user: "users" } });

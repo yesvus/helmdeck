@@ -28,8 +28,13 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))" # HELMD
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))" # PAYLOAD_SECRET
 ```
 
+Save the first value as `HELMDECK_SESSION_SECRET` and the second as `PAYLOAD_SECRET` in `.env.local`.
+
 Payload uses `./payload.db` by default. Set `PAYLOAD_DATABASE_URL` to select another SQLite or
-libSQL database.
+libSQL database, and set `PAYLOAD_DATABASE_TOKEN` when the remote libSQL database requires
+authentication. Schema push is deliberately enabled in every environment in this starter so a fresh
+production database can start without generated migrations. Review this behavior before pointing it
+at a shared database, since startup can change its schema.
 
 ## Tailwind CSS
 

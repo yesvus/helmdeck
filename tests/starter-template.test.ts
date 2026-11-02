@@ -134,9 +134,31 @@ describe("the starter template", () => {
     expect(code(join(template, "lib/persistence.ts"))).toMatch(/createAdminPayloadContent/);
     expect(code(join(template, "lib/persistence.ts"))).toMatch(/createAdminPayloadPersistenceAdapter/);
     expect(source).toMatch(/payloadAccess/);
+    expect(source).toMatch(/access:\s*\{\s*create:\s*payloadAccess\("create"\),\s*read:\s*payloadAccess\("read"\),\s*update:\s*payloadAccess\("update"\),\s*delete:\s*payloadAccess\("delete"\)/);
     const access = await import("../template/lib/payload-access");
     expect(access.payloadAccess("read")({ req: { user: { role: "editor" } } } as never)).toBe(true);
     expect(access.payloadAccess("delete")({ req: { user: { role: "editor" } } } as never)).toBe(false);
+  });
+
+  it("rejects unknown shell permissions", async () => {
+    const { can } = await import("../template/lib/rules");
+    const session = { role: "admin" } as never;
+    expect(can(session, "products.publish" as never)).toBe(false);
+    expect(can(session, "products" as never)).toBe(false);
+  });
+
+  it("guards the final admin and self-mutations", async () => {
+    const { guardUserDelete, guardUserUpdate } = await import("../template/lib/users-guard");
+    const payload = {
+      findByID: vi.fn(async () => ({ id: "1", role: "admin" })),
+      count: vi.fn(async () => ({ totalDocs: 1 })),
+    };
+    const req = { user: { id: "1", role: "admin" }, payload } as never;
+    expect(await guardUserUpdate({ req, id: "1", data: { role: "editor" } } as never)).toBe(false);
+    expect(await guardUserDelete({ req, id: "1" } as never)).toBe(false);
+    expect(await guardUserDelete({ req: { ...req, user: { id: "2", role: "admin" } }, id: "1" } as never)).toBe(false);
+    payload.count.mockResolvedValue({ totalDocs: 2 });
+    expect(await guardUserDelete({ req: { ...req, user: { id: "2", role: "admin" } }, id: "1" } as never)).toBe(true);
   });
 
 

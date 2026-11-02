@@ -5,8 +5,8 @@ import { currentAdminSession } from "./session";
 import { LOGIN_PATH } from "./sign-in";
 
 export function can(session: AdminSession, permission: AdminPermission): boolean {
-  const [resource, operation] = permission.split(".");
-  if (resource !== "products") return false;
+  if (!["products.create", "products.read", "products.update", "products.delete"].includes(permission)) return false;
+  const operation = permission.slice("products.".length);
   return session.role === "admin" || (session.role === "editor" && operation !== "delete");
 }
 
