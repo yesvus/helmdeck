@@ -119,7 +119,7 @@ describe("the starter template", () => {
     // writes a role onto a row, which is not a decision, so it may say the word without saying it
     // twice.
     const roleShape = /\.role\b|\brole\s*(===|!==|==|!=)/;
-    expect(filesMentioning(roleShape), "role checks live in the policy modules").toEqual(["lib/payload-access.ts", "lib/rules.ts", "lib/session.ts", "payload.config.ts"]);
+    expect(filesMentioning(roleShape), "role checks live in the policy modules").toEqual(["lib/payload-access.ts", "lib/rules.ts", "lib/session.ts", "lib/users-guard.ts", "payload.config.ts"]);
 
     // The two callers that matter reach it rather than reimplementing it, so what the store serves
     // and what the views render cannot answer differently about the same session.
@@ -141,10 +141,18 @@ describe("the starter template", () => {
   });
 
   it("rejects unknown shell permissions", async () => {
-    const { can } = await import("../template/lib/rules");
-    const session = { role: "admin" } as never;
-    expect(can(session, "products.publish" as never)).toBe(false);
-    expect(can(session, "products" as never)).toBe(false);
+    const previous = process.env.HELMDECK_SESSION_SECRET;
+    process.env.HELMDECK_SESSION_SECRET = "test-secret-for-permission-policy";
+    try {
+      vi.resetModules();
+      const { can } = await import("../template/lib/rules");
+      const session = { role: "admin" } as never;
+      expect(can(session, "products.publish" as never)).toBe(false);
+      expect(can(session, "products" as never)).toBe(false);
+    } finally {
+      if (previous === undefined) delete process.env.HELMDECK_SESSION_SECRET;
+      else process.env.HELMDECK_SESSION_SECRET = previous;
+    }
   });
 
   it("guards the final admin and self-mutations", async () => {
@@ -153,7 +161,7 @@ describe("the starter template", () => {
       findByID: vi.fn(async () => ({ id: "1", role: "admin" })),
       count: vi.fn(async () => ({ totalDocs: 1 })),
     };
-    const req = { user: { id: "1", role: "admin" }, payload } as never;
+    const req = { user: { id: "1", role: "admin" }, payload };
     expect(await guardUserUpdate({ req, id: "1", data: { role: "editor" } } as never)).toBe(false);
     expect(await guardUserDelete({ req, id: "1" } as never)).toBe(false);
     expect(await guardUserDelete({ req: { ...req, user: { id: "2", role: "admin" } }, id: "1" } as never)).toBe(false);
