@@ -40,6 +40,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - Add a server-side GitHub App repository editor to the Payload host example, with installation-scoped access, preview, audit records, and branch-and-pull-request publishing.
 - Extend the Payload bridge to globals and versions, and add `createAdminPayloadPreset` for auth, theme, and page-publish task wiring.
 - Add a host-rendered `AdminBar` and admin-authorized Next.js draft preview routes for the Payload example.
+- Add permission-gated Payload page creation and row-level edit, status, schedule, and confirmed delete actions, with guarded server mutations and route revalidation.
 
 ### Changed
 

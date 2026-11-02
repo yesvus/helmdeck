@@ -252,6 +252,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The only path from the shell's server code into Payload's data, with the access check on every call. It is a factory, not a component.",
     keywords: "payload content local api access",
   },
+  createAdminPayloadCollectionScheduler: {
+    category: "Adapters",
+    summary: "Publishes, unpublishes and schedules a collection document through the guarded bridge, with the session user resolved on every call. It is a factory, not a component.",
+    keywords: "payload schedule publish draft row action",
+  },
   createAdminPayloadPreset: {
     category: "Adapters",
     summary: "Wires the auth strategy, theme overrides and page-publish task at once, so booting Payload under Helmdeck takes one call. It is a factory, not a component.",

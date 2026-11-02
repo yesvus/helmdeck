@@ -1,6 +1,9 @@
-import { AdminPageHeader } from "@yesvus/helmdeck";
+import { AdminPageHeader, Button } from "@yesvus/helmdeck";
+import Link from "next/link";
 import { PagesTable } from "@/components/pages-table";
 import { countPages, listPages } from "@/lib/payload/content";
+import { readPayloadSession } from "@/lib/session";
+import { can, principal } from "@/lib/rules";
 
 /** How many documents one page of the list carries. */
 const PAGE_LIMIT = 50;
@@ -13,11 +16,12 @@ const PAGE_LIMIT = 50;
  * thing for a host whose list is one collection: the query it runs is the one in that module.
  */
 export default async function PagesPage() {
-  const [total, pages] = await Promise.all([countPages(), listPages(PAGE_LIMIT)]);
+  const [total, pages, session] = await Promise.all([countPages(), listPages(PAGE_LIMIT), readPayloadSession()]);
+  const canCreate = can(principal(session), "create");
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="Pages" />
+      <AdminPageHeader title="Pages" action={canCreate ? <Button asChild><Link href="/payload/admin/collections/pages/create">New page</Link></Button> : undefined} />
       <p className="max-w-prose text-sm text-zinc-600">
         Every row here is a document in Payload&apos;s <code>pages</code> collection. The editor that
         writes them is Payload&apos;s own.
