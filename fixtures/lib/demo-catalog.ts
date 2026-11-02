@@ -2288,6 +2288,21 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Composes resource searches with resource- and record-level permission checks.",
     keywords: "search adapter records permission authorized resource",
   },
+  createAdminTableSearchAdapter: {
+    category: "Adapters",
+    summary: "Binds pagination, sort, search, and filters to URL search params for server-driven tables, with typed parse and serialize defaults and per-key overrides. It is a factory, not a component.",
+    keywords: "table search adapter url params pagination sort filter server driven",
+  },
+  parseAdminTableSearchParams: {
+    category: "Adapters",
+    summary: "Parses URL search params into a server-driven table's typed state, applying defaults and degrading malformed values safely. It is a function, not a component.",
+    keywords: "table search params parse url state pagination sort filter",
+  },
+  serializeAdminTableSearchParams: {
+    category: "Adapters",
+    summary: "Serializes a server-driven table's typed state back into URL search params. It is a function, not a component.",
+    keywords: "table search params serialize url state pagination sort filter",
+  },
   runWithAdminTenant: {
     category: "Tenancy",
     summary:
