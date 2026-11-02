@@ -17,7 +17,7 @@ import { cookies } from "next/headers";
  * and the writes it reaches are both refused by the same rule, and hiding a link is not what makes
  * either of them safe.
  */
-const nav: AdminNavGroup[] = [
+const baseNav: AdminNavGroup[] = [
   {
     label: "Workspace",
     items: [
@@ -45,6 +45,17 @@ const nav: AdminNavGroup[] = [
   },
 ];
 
+// The users surface is administrator-only. The shell session is already resolved in this layout,
+// so the link is offered only to administrators rather than gated through the content permission
+// adapter, which has no users collection of its own.
+function buildNav(session: { role?: unknown }): AdminNavGroup[] {
+  const nav = baseNav.map((group) => ({ ...group, items: [...group.items] }));
+  if (session?.role === "admin") {
+    nav.push({ label: "People", items: [{ href: "/admin/users", label: "Users", icon: "users" }] });
+  }
+  return nav;
+}
+
 /**
  * The shell, on a server component, so the session it renders is the real one.
  *
@@ -71,6 +82,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     console.error("Failed to read the site settings for the brand label.", cause);
   }
 
+  const nav = buildNav(session);
   return (
     <AdminFrame nav={nav} session={session} siteName={siteName}>
       <div {...resolveAdminThemeAttrs(themeSettings, cookieStore.get("helmdeck_theme")?.value === "v1:dark" ? "dark" : "light")} className="p-6 lg:p-10">{children}</div>
