@@ -5,6 +5,11 @@ import '@payloadcms/next/css'
 import type { ServerFunctionClient } from 'payload'
 import { handleServerFunctions, RootLayout } from '@payloadcms/next/layouts'
 import React from 'react'
+import { cookies } from 'next/headers'
+import { globalsContent } from '@/lib/payload/content'
+import { readPayloadSession } from '@/lib/session'
+import { readPayloadSiteSettings } from '@/lib/payload/settings'
+import { resolvePayloadDocumentTheme } from '@/lib/payload/theme-attrs'
 
 import { importMap } from './payload/importMap.js'
 import './payload.css'
@@ -29,10 +34,19 @@ const serverFunction: ServerFunctionClient = async function (args) {
  * tokens. It carries the tokens with it, so this document defines them without borrowing the
  * shell's stylesheet.
  */
-const Layout = ({ children }: { children: React.ReactNode }) => (
-  <RootLayout config={config} importMap={importMap} serverFunction={serverFunction}>
+const Layout = async ({ children }: { children: React.ReactNode }) => {
+  const cookieStore = await cookies()
+  let settings: { accent?: unknown; density?: unknown } = {}
+  try {
+    settings = await readPayloadSiteSettings({ store: globalsContent(), resolveUser: readPayloadSession })
+  } catch (cause) {
+    console.error('Failed to read the site settings for the Payload theme.', cause)
+  }
+  const { attrs } = resolvePayloadDocumentTheme(cookieStore.get('helmdeck_theme')?.value ?? null, settings)
+  const payloadHtmlProps = { ...attrs, suppressHydrationWarning: true } as unknown as React.HtmlHTMLAttributes<HTMLHtmlElement>
+  return <RootLayout config={config} importMap={importMap} serverFunction={serverFunction} htmlProps={payloadHtmlProps}>
     {children}
   </RootLayout>
-)
+}
 
 export default Layout
