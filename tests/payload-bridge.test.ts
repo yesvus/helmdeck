@@ -6,6 +6,7 @@ import {
   createAdminPayloadContent,
   createAdminPayloadPermissionsAdapter,
 } from "../src/payload/bridge";
+import { createAdminPayloadPreset } from "../src/payload/preset";
 
 type PayloadArgs = { collection: string; [key: string]: unknown };
 
@@ -16,6 +17,11 @@ function payloadStub() {
     create: vi.fn(async (...args: [PayloadArgs]) => { void args; return { id: "1" }; }),
     update: vi.fn(async (...args: [PayloadArgs]) => { void args; return { id: "1" }; }),
     delete: vi.fn(async (...args: [PayloadArgs]) => { void args; return { id: "1" }; }),
+    findGlobal: vi.fn(async (...args: [Record<string, unknown>]) => { void args; return {}; }),
+    updateGlobal: vi.fn(async (...args: [Record<string, unknown>]) => { void args; return {}; }),
+    findVersions: vi.fn(async (...args: [Record<string, unknown>]) => { void args; return {}; }),
+    findVersionByID: vi.fn(async (...args: [Record<string, unknown>]) => { void args; return {}; }),
+    restoreVersion: vi.fn(async (...args: [Record<string, unknown>]) => { void args; return {}; }),
   };
 }
 
@@ -94,6 +100,43 @@ describe("the payload content bridge", () => {
     expect(payload.update).not.toHaveBeenCalled();
     expect(payload.delete).not.toHaveBeenCalled();
   });
+});
+
+describe("payload globals and versions bridge", () => {
+  it("passes the resolved user and disables access override on every operation", async () => {
+    const payload = payloadStub();
+    const content = createAdminPayloadContent({ payload, resolveUser: async () => ({ id: "u1" }) });
+    await content.findGlobal("settings");
+    await content.updateGlobal("settings", { title: "Hi" });
+    await content.findVersions("pages");
+    await content.findVersionByID("pages", "v1");
+    await content.restoreVersion("pages", "v1");
+    for (const method of [payload.findGlobal, payload.updateGlobal, payload.findVersions, payload.findVersionByID, payload.restoreVersion]) {
+      expect(method.mock.calls[0]![0].overrideAccess).toBe(false);
+      expect(method.mock.calls[0]![0].user).toEqual({ id: "u1" });
+    }
+  });
+
+  it("refuses global and version calls without a user", async () => {
+    const payload = payloadStub();
+    const content = createAdminPayloadContent({ payload, resolveUser: async () => null });
+    await expect(content.findGlobal("settings")).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    await expect(content.updateGlobal("settings", {})).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    await expect(content.findVersions("pages")).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    await expect(content.findVersionByID("pages", "v1")).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    await expect(content.restoreVersion("pages", "v1")).rejects.toBeInstanceOf(AdminPayloadAccessRefused);
+    for (const method of [payload.findGlobal, payload.updateGlobal, payload.findVersions, payload.findVersionByID, payload.restoreVersion]) {
+      expect(method).not.toHaveBeenCalled();
+    }
+  });
+});
+
+it("wires the Payload auth, theme, and page publish task preset", async () => {
+  const user = { id: "u1" };
+  const preset = createAdminPayloadPreset({ readSession: async () => user, theme: { logo: "./logo" } });
+  expect((await preset.authStrategy.authenticate()).user).toEqual(user);
+  expect(preset.theme.components).toEqual({ graphics: { Logo: "./logo" } });
+  expect(typeof preset.pagePublishTask).toBe("function");
 });
 
 describe("the payload auth strategy", () => {

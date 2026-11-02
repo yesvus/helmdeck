@@ -35,6 +35,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - Add assistant run-record and untrusted-data sanitization contracts, with an example-local admin history surface.
 - Add a server-side GitHub App repository editor to the Payload host example, with installation-scoped access, preview, audit records, and branch-and-pull-request publishing.
+- Extend the Payload bridge to globals and versions, and add `createAdminPayloadPreset` for auth, theme, and page-publish task wiring.
 
 ### Changed
 

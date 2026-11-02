@@ -246,6 +246,11 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The only path from the shell's server code into Payload's data, with the access check on every call. It is a factory, not a component.",
     keywords: "payload content local api access",
   },
+  createAdminPayloadPreset: {
+    category: "Adapters",
+    summary: "Wires the auth strategy, theme overrides and page-publish task at once, so booting Payload under Helmdeck takes one call. It is a factory, not a component.",
+    keywords: "payload preset bootstrap auth theme publish job",
+  },
   createAdminPayloadPermissionsAdapter: {
     category: "Auth and permissions",
     summary: "The permission adapter, backed by Payload's own access functions. It is a factory, not a component.",
