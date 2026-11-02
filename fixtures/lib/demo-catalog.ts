@@ -257,6 +257,16 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "Publishes, unpublishes and schedules a collection document through the guarded bridge, with the session user resolved on every call. It is a factory, not a component.",
     keywords: "payload schedule publish draft row action",
   },
+  createAdminPayloadVersionHistory: {
+    category: "Adapters",
+    summary: "Reads and restores Payload document versions through the guarded bridge, with a pure field diff over plain data. It is a factory, not a component.",
+    keywords: "payload versions history diff restore revision",
+  },
+  adminPayloadVersionDiff: {
+    category: "Adapters",
+    summary: "A pure field-level diff between two plain version snapshots, omitting unchanged fields. It is a function, not a component.",
+    keywords: "payload versions diff field compare",
+  },
   createAdminPayloadPreset: {
     category: "Adapters",
     summary: "Wires the auth strategy, theme overrides and page-publish task at once, so booting Payload under Helmdeck takes one call. It is a factory, not a component.",

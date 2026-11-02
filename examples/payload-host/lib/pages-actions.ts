@@ -37,3 +37,14 @@ export async function schedulePage(id: string, value: string): Promise<ActionRes
     return { ok: false, error: "Could not schedule this page" };
   }
 }
+
+export async function restorePageVersion(versionId: string): Promise<ActionResult> {
+  try {
+    if (!versionId || !(await allowed("update"))) return { ok: false, error: "Not authorized" };
+    await (await payloadContent()).restoreVersion("pages", versionId);
+    revalidatePath("/admin/pages");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Could not restore this version" };
+  }
+}
