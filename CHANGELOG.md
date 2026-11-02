@@ -34,6 +34,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - Add a read-only Medusa commerce host example, keeping product mutations in Medusa Admin.
 
 - Add assistant run-record and untrusted-data sanitization contracts, with an example-local admin history surface.
+- Add a server-side GitHub App repository editor to the Payload host example, with installation-scoped access, preview, audit records, and branch-and-pull-request publishing.
 
 ### Changed
 
