@@ -21,6 +21,8 @@ updates:
       # "graphql ^16.8.1" as a peer dependency, and the fixture's CMS is Payload.
       - dependency-name: "graphql"
         versions: [">=17"]
+      - dependency-name: "@types/node"
+        versions: [">=25"]
     groups:
       # Split by name, not by dependency-type. Dependabot's npm production check only
       # covers dependencies and optionalDependencies, so every package here is classified
