@@ -1,6 +1,6 @@
 {
   "name": "@yesvus/helmdeck",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "packageManager": "pnpm@12.7.0",
   "type": "module",
   "description": "An opinionated Next.js application framework with a cohesive admin shell and typed host integration contracts",

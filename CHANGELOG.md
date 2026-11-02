@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 1.6.0
+
 ### Added
 
 - Add Payload versions revision history, field diff, and restore surfaces over the access-checked bridge (`createAdminPayloadVersionHistory`), with a versions view and restore action in the Payload host.
