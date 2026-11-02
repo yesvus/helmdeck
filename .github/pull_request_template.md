@@ -8,7 +8,9 @@ Closes #
 
 ## Test plan
 
-- [ ] Relevant tests and typechecks
+- [ ] `pnpm lint`
+- [ ] `pnpm test`
+- [ ] `pnpm build:fixtures`
 - [ ] `pnpm surface:check`
 - [ ] `pnpm typecheck:payload-host`
 - [ ] `node scripts/release-version.mjs check`
