@@ -52,6 +52,10 @@ function buildNav(session: { role?: unknown }): AdminNavGroup[] {
   const nav = baseNav.map((group) => ({ ...group, items: [...group.items] }));
   if (session?.role === "admin") {
     nav.push({ label: "People", items: [{ href: "/admin/users", label: "Users", icon: "users" }] });
+    nav.push({ label: "Content", items: [
+      { href: "/admin/navigation", label: "Navigation", icon: "article" },
+      { href: "/admin/taxonomy", label: "Taxonomy", icon: "article" },
+    ] });
   }
   return nav;
 }
