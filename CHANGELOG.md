@@ -10,6 +10,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ### Added
 
+- `AdminManagedForm` warns before browser unload while dirty by default, and `useUnsavedChangesGuard()` exposes dirty state and an imperative in-app navigation confirmation for hosts using `AdminDialogProvider`.
 - Add a pluggable admin error boundary and diagnostic view with monitoring adapter support.
 - Add an opt-in assistant panel and provider-neutral host-owned assistant contracts.
 

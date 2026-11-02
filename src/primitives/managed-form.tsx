@@ -21,6 +21,7 @@ import {
   type AdminManagedFormFeedbackLabels,
 } from "./messages.js";
 import { useAdminMessages } from "../i18n.js";
+import { useAdminDialog } from "./modal-dialog.js";
 
 export type AdminFormActionState = {
   status: "idle" | "success" | "error";
@@ -122,6 +123,7 @@ export function AdminManagedForm({
   className,
   feedbackDurationMs = 3200,
   feedbackLabels,
+  warnOnUnsavedChanges = true,
 }: {
   action: (
     state: AdminFormActionState,
@@ -133,6 +135,7 @@ export function AdminManagedForm({
   className?: string;
   feedbackDurationMs?: number;
   feedbackLabels?: Partial<AdminManagedFormFeedbackLabels>;
+  warnOnUnsavedChanges?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -156,6 +159,20 @@ export function AdminManagedForm({
   const [isDirty, setIsDirty] = useState(false);
   const [feedbackState, setFeedbackState] = useState(ADMIN_FORM_ACTION_IDLE_STATE);
   const [submissionState, formAction] = useActionState(action, ADMIN_FORM_ACTION_IDLE_STATE);
+
+  useEffect(() => {
+    if (!warnOnUnsavedChanges || !isDirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty, warnOnUnsavedChanges]);
   const registerRestorer = useCallback(
     (name: string, restore: (value: string) => void) => {
       restorersRef.current.set(name, restore);
@@ -356,6 +373,26 @@ export function AdminManagedForm({
 
 export function useAdminFormDirty() {
   return useContext(AdminFormDirtyContext);
+}
+
+export function useUnsavedChangesGuard() {
+  const isDirty = useAdminFormDirty();
+  const dialog = useAdminDialog();
+
+  const confirmNavigation = useCallback(async () => {
+    if (!isDirty) {
+      return true;
+    }
+
+    return dialog.confirm({
+      title: "Discard unsaved changes?",
+      description: "Your changes have not been saved.",
+      destructive: true,
+      confirmLabel: "Discard changes",
+    });
+  }, [dialog, isDirty]);
+
+  return { isDirty, confirmNavigation };
 }
 
 export type AdminFormValueSignalOptions = {
