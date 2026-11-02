@@ -230,7 +230,10 @@ test("refuses duplicate Unreleased sections", () => {
 test("allows duplicate historical version headings", () => {
   const changelog = "## Unreleased\n- New\n## 0.6.0\n- Old\n## 0.6.0\n- Older\n";
 
-  assert.match(rewriteChangelogHeading(changelog, "0.7.0"), /^## 0\.7\.0$/m);
+  assert.equal(
+    rewriteChangelogHeading(changelog, "0.7.0"),
+    "## Unreleased\n\n## 0.7.0\n- New\n## 0.6.0\n- Old\n## 0.6.0\n- Older\n",
+  );
 });
 
 /** A repository the version bump can be run against without touching the real checkout. */
