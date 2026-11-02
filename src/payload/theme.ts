@@ -16,6 +16,8 @@
  * The stylesheet that goes with it is `@yesvus/helmdeck/payload.css`, and it maps Payload's
  * `--theme-*` variables onto Helmdeck's own tokens, so the two surfaces change together when one of
  * them is retuned rather than being pinned to values copied at one moment.
+ * Payload exposes no theme or head-class override through this components API. The host's cookie
+ * mirror and document attributes therefore drive the visual mode; Payload's own toggle remains independent.
  */
 
 export type AdminPayloadThemeComponents = {

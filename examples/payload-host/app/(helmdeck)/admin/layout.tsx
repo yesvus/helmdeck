@@ -6,6 +6,8 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { globalsContent } from "@/lib/payload/content";
 import { readPayloadSession } from "@/lib/session";
 import { readPayloadSiteSettings } from "@/lib/payload/settings";
+import { resolveAdminThemeAttrs } from "@/lib/payload/theme-attrs";
+import { cookies } from "next/headers";
 
 /**
  * The sidebar, and the one page every other one is a child of.
@@ -52,10 +54,13 @@ const nav: AdminNavGroup[] = [
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await requireAdminSession({ returnTo: "/admin" });
+  const cookieStore = await cookies();
 
   let siteName: string | undefined;
+  let themeSettings: { accent?: unknown; density?: unknown } = {};
   try {
     const settings = await readPayloadSiteSettings({ store: globalsContent(), resolveUser: readPayloadSession });
+    themeSettings = settings;
     if (typeof settings.name === "string") {
       const name = settings.name.trim();
       // A whitespace-only stored name is not a brand label; the fallback stays.
@@ -68,7 +73,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <AdminFrame nav={nav} session={session} siteName={siteName}>
-      <div className="p-6 lg:p-10">{children}</div>
+      <div {...resolveAdminThemeAttrs(themeSettings, cookieStore.get("helmdeck_theme")?.value === "v1:dark" ? "dark" : "light")} className="p-6 lg:p-10">{children}</div>
     </AdminFrame>
   );
 }

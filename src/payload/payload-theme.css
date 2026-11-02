@@ -29,6 +29,15 @@
 [data-theme='dark'],
 [data-admin-theme='light'],
 [data-admin-theme='dark'] {
+  --admin-brand-accent: var(--admin-brand-500);
+  --theme-primary-50: var(--admin-brand-100);
+  --theme-primary-500: var(--admin-brand-accent);
+  --theme-primary-600: var(--admin-brand-600);
+  --theme-accent: var(--admin-brand-accent);
+  --theme-primary: var(--admin-brand-accent);
+  --style-spacing-m: calc(1rem * var(--admin-density));
+  --style-spacing-s: calc(0.5rem * var(--admin-density));
+  --style-spacing-l: calc(1.5rem * var(--admin-density));
   --theme-bg: var(--admin-surface-subtle);
   --theme-bg-color: var(--admin-text-primary);
   --theme-elevation-0: var(--admin-surface);

@@ -52,6 +52,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 ### Fixed
 
 - Restyle `AdminSettingsPanel` with admin section cards, banners, tokenized submit controls, and field-specific validation errors.
+- Synchronize the Payload admin's brand accent and density with the site settings, and map its
+  theme variables for both Payload and Helmdeck colour-mode attributes.
 
 ## 1.4.0
 

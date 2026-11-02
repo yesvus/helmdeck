@@ -2,7 +2,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
-import { ADMIN_THEME_PREFERENCE_STORAGE_KEY } from "./preference-boot.js";
+import { ADMIN_THEME_PREFERENCE_STORAGE_KEY, writeAdminThemeCookie } from "./preference-boot.js";
 
 export type AdminThemePreferenceValue = "light" | "dark" | "system";
 export type AdminResolvedTheme = "light" | "dark";
@@ -75,6 +75,10 @@ export function AdminThemeProvider({ children }: { children: ReactNode }) {
   const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   const setTheme = useCallback((value: AdminThemePreferenceValue) => {
+    const resolved = value === "system"
+      ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : value;
+    writeAdminThemeCookie(resolved);
     try {
       window.localStorage.setItem(ADMIN_THEME_PREFERENCE_STORAGE_KEY, value);
       window.localStorage.removeItem("helmdeck-demo-theme");
