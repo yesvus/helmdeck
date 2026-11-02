@@ -11,6 +11,7 @@ import type { CollectionConfig } from "payload";
 import { payloadAccess } from "./access.ts";
 import { payloadAuthStrategies } from "./auth-strategy.ts";
 import { isAdmin, principal } from "../rules.ts";
+import { assertNotLastAdmin } from "./users-guard.ts";
 import { Feedback } from "./feedback.ts";
 import { Posts } from "./posts.ts";
 import { Categories } from "./categories.ts";
@@ -67,9 +68,42 @@ export const Users: CollectionConfig = {
      * that wants to invite people opens these three, and an administrator-only rule over them is
      * the smallest thing worth opening.
      */
-    create: () => false,
-    update: () => false,
-    delete: () => false,
+    create: ({ req: { user } }) => isAdmin(principal(user)),
+    update: ({ req: { user } }) => isAdmin(principal(user)),
+    delete: async ({ req: { user, payload }, id }) => {
+      const account = principal(user);
+      if (!isAdmin(account)) return false;
+      // Bulk (collection-level) delete carries no target id. Refuse it: an admin surface that
+      // wants to remove accounts does so one at a time through the guarded single-id path below,
+      // where self-deletion and last-admin checks apply. Allowing a bulk delete would bypass them.
+      if (id === undefined || id === null) return false;
+      if (String(id) === account!.id) return false;
+      try {
+        const target = payload
+          ? await payload.findByID({ collection: "users", id, depth: 0, overrideAccess: true })
+          : null;
+        const targetRole =
+          target && typeof (target as { role?: unknown }).role === "string"
+            ? (target as unknown as { role: string }).role
+            : "admin";
+        if (targetRole !== "admin") return true;
+        const countResult = payload
+          ? await payload.count({ collection: "users", where: { role: { equals: "admin" } } })
+          : null;
+        const total =
+          countResult && typeof (countResult as { totalDocs?: unknown }).totalDocs === "number"
+            ? (countResult as { totalDocs: number }).totalDocs
+            : null;
+        if (total === null) return true;
+        const guard = await assertNotLastAdmin("delete", String(id), account!.id, {
+          countAdmins: async () => total,
+          targetIsAdmin: true,
+        });
+        return guard.ok;
+      } catch {
+        return false;
+      }
+    },
     /**
      * Whether the panel's entry for the accounts appears at all, rather than what may be read once
      * it is. Administrators only, because an account list is a list of who may sign in.
