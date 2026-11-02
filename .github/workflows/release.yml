@@ -69,16 +69,17 @@ jobs:
       - name: Gate release
         run: |
           pnpm node-floor:check
-          pnpm surface:check
           pnpm typecheck
+          pnpm surface:check
           pnpm typecheck:payload-host
           pnpm typecheck:example
           pnpm typecheck:template
           pnpm lint
           pnpm test
           pnpm test:release
-          pnpm test:modal-geometry
           pnpm build:fixtures
+          npx playwright install chromium
+          pnpm test:modal-geometry
           pnpm audit --prod
       - name: Write release version
         if: ${{ inputs.dry_run != true }}

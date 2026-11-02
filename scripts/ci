@@ -10,7 +10,7 @@ pnpm typecheck:template
 pnpm lint
 pnpm test
 pnpm test:release
-pnpm test:modal-geometry
 pnpm build:fixtures
+pnpm test:modal-geometry
 pnpm surface:check
 pnpm audit --prod

@@ -52,6 +52,21 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+
+  modal-geometry:
+    name: Modal geometry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # next start serves the built fixtures app; the test also needs a browser binary.
+      - run: pnpm build:fixtures
+      - run: npx playwright install chromium
       - run: pnpm test:modal-geometry
 
   release-gate:
@@ -67,6 +82,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm version:check
       - run: pnpm node-floor:check
+      - run: pnpm build
       - run: pnpm surface:check
       - run: pnpm test:release
 
@@ -172,6 +188,7 @@ jobs:
       - typecheck-example
       - typecheck-payload-host
       - typecheck-template
+      - modal-geometry
       - audit
       - docker-smoke
     # Reports the legacy "quality" check name for branch protection. The umbrella states its own

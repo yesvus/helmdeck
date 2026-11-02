@@ -104,7 +104,7 @@ try {
   }
 
   await page.setViewportSize({ width: 1024, height: 683 });
-  await page.getByRole("button", { name: "Select media", exact: true }).click();
+  await page.getByRole("button", { name: "Select media", exact: true }).filter({ hasText: "Select media" }).click();
   const fieldDialog = page.getByRole("dialog", { name: "Cover image" });
   await fieldDialog.waitFor({ state: "visible" });
   await page.waitForTimeout(200);
@@ -155,10 +155,12 @@ try {
   assert.ok(mediaControls.search && mediaControls.sort && (mediaControls.search.right <= mediaControls.sort.left || mediaControls.search.bottom <= mediaControls.sort.top), JSON.stringify(mediaControls));
   assert.ok((mediaControls.card?.width ?? 0) >= 280, JSON.stringify(mediaControls));
 
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("http://127.0.0.1:3217/shell/profile");
-  await page.getByRole("heading", { name: "Profile", exact: true }).waitFor();
-  assert.equal(await page.getByText("Alex Morgan", { exact: true }).isVisible(), true);
-  assert.equal(await page.getByRole("heading", { name: "Alex Morgan", exact: true }).count(), 0);
+  await page.getByRole("button", { name: "Sign in as the admin" }).click();
+  await page.getByText("Account profile", { exact: true }).waitFor({ state: "visible" });
+  assert.equal(await page.locator("main").getByText("owner@demo.helmdeck.dev").first().isVisible(), true);
+  assert.equal(await page.getByRole("heading", { name: "owner@demo.helmdeck.dev" }).count(), 0);
 
   process.stdout.write(`${JSON.stringify({ centered, fieldLayout, media, mediaControls, custom })}\n`);
 } finally {
