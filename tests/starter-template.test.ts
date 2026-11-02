@@ -169,6 +169,18 @@ describe("the starter template", () => {
     expect(await guardUserDelete({ req: { ...req, user: { id: "2", role: "admin" } }, id: "1" } as never)).toBe(true);
   });
 
+  it("refuses another admin's attempt to demote or delete the last admin", async () => {
+    const { guardUserDelete, guardUserUpdate } = await import("../template/lib/users-guard");
+    const payload = {
+      findByID: vi.fn(async () => ({ id: "target", role: "admin" })),
+      count: vi.fn(async () => ({ totalDocs: 1 })),
+    };
+    const req = { user: { id: "requester", role: "admin" }, payload };
+
+    expect(await guardUserUpdate({ req, id: "target", data: { role: "editor" } } as never)).toBe(false);
+    expect(await guardUserDelete({ req, id: "target" } as never)).toBe(false);
+  });
+
 
   it("refuses to load without a signing secret rather than falling back to a constant", async () => {
     // A constant here is a constant in every host that forgets to configure one, and those hosts

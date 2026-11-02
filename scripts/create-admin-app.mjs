@@ -181,6 +181,12 @@ to the Helmdeck shell at <http://localhost:3000/admin>.
 Payload uses \`./payload.db\` by default. Read [What you still have to add](#what-you-still-have-to-add) before building
 on this, and [The one rule](#the-one-rule) before adding a check anywhere.
 
+Set \`PAYLOAD_DATABASE_URL\` to select another SQLite or libSQL database, and set
+\`PAYLOAD_DATABASE_TOKEN\` when the remote libSQL database requires authentication. Schema push is
+deliberately enabled in every environment in this starter so a fresh production database can start
+without generated migrations. Review this behavior before pointing it at a shared database, since
+startup can change its schema.
+
 To move to a later release, replace the URL above with that release's tarball and refresh the
 lockfile.
 
