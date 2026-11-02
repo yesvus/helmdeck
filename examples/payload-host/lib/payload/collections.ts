@@ -15,6 +15,9 @@ import { isAdmin, principal } from "../rules.ts";
 import { assertNotLastAdmin } from "./users-guard.ts";
 import { AdminActivity } from "./activity.ts";
 import { Feedback } from "./feedback.ts";
+import { AnalyticsEvents, ContactMessages } from "./analytics.ts";
+export { AnalyticsEvents, ContactMessages } from "./analytics.ts";
+export { AnalyticsEvent, Analytics, ContactMessage, ContactInbox, InboxMessages } from "./analytics.ts";
 import { Posts } from "./posts.ts";
 import { Categories, Tags } from "./taxonomy.ts";
 import { isValidCanonicalUrl } from "./seo.ts";
@@ -239,4 +242,4 @@ export const Media: CollectionConfig = {
   ],
 };
 
-export const payloadCollections = [Users, Pages, Media, Feedback, Posts, Categories, Tags, AdminActivity];
+export const payloadCollections = [Users, Pages, Media, Feedback, Posts, Categories, Tags, AdminActivity, AnalyticsEvents, ContactMessages];
