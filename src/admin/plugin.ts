@@ -25,6 +25,9 @@ export type AdminPlugin = {
 function navGroupId(group: AdminNavGroup): string {
   const id = (group as { id?: unknown }).id;
   if (typeof id === "string" && id.trim() !== "") return id;
+  if (typeof group.label !== "string" || group.label.trim() === "") {
+    throw new Error("A nav group needs a non-empty id or label");
+  }
   return group.label;
 }
 
@@ -32,15 +35,9 @@ function cloneNavGroup(group: AdminNavGroup): AdminNavGroup {
   return { ...group, items: [...group.items] };
 }
 
-export function composeAdminPlugins(input: unknown): AdminPlugin {
+export function composeAdminPlugins(input: AdminPluginDefinition | readonly AdminPluginDefinition[]): AdminPlugin {
   const definitions = Array.isArray(input) ? input : [input];
-  const normalized: AdminPluginDefinition[] = [];
-  for (const entry of definitions) {
-    if (!entry || typeof entry !== "object") {
-      throw new Error("An admin plugin definition is required");
-    }
-    normalized.push(entry as AdminPluginDefinition);
-  }
+  const normalized = definitions as readonly AdminPluginDefinition[];
 
   const navGroups: AdminNavGroup[] = [];
   const navSeen = new Set<string>();
@@ -53,6 +50,16 @@ export function composeAdminPlugins(input: unknown): AdminPlugin {
   const paletteSeen = new Set<string>();
 
   for (const definition of normalized) {
+    for (const [name, collection] of Object.entries({
+      navGroups: definition.navGroups,
+      widgets: definition.widgets,
+      settingsGroups: definition.settingsGroups,
+      paletteEntries: definition.paletteEntries,
+    })) {
+      if (collection !== undefined && !Array.isArray(collection)) {
+        throw new Error(`An admin plugin ${name} contribution needs an array`);
+      }
+    }
     if (definition.navGroups) {
       for (const group of definition.navGroups) {
         if (!group || typeof group !== "object" || !Array.isArray(group.items)) {
@@ -80,15 +87,21 @@ export function composeAdminPlugins(input: unknown): AdminPlugin {
 
     if (definition.settingsGroups) {
       for (const group of definition.settingsGroups) {
-        if (!group || typeof group !== "object" || typeof group.key !== "string") {
+        if (!group || typeof group !== "object" || typeof group.key !== "string" || group.key.trim() === "") {
           throw new Error("A settings group needs a key");
+        }
+        if (!Array.isArray(group.settings)) {
+          throw new Error(`Settings group "${group.key}" needs a settings array`);
         }
         if (settingsGroupSeen.has(group.key)) {
           throw new Error(`Two settings groups are both registered as "${group.key}"`);
         }
         settingsGroupSeen.add(group.key);
         const settings = [];
-        for (const setting of group.settings ?? []) {
+        for (const setting of group.settings) {
+          if (!setting || typeof setting !== "object" || typeof setting.key !== "string" || setting.key.trim() === "") {
+            throw new Error(`Settings group "${group.key}" contains a setting without a key`);
+          }
           if (settingSeen.has(setting.key)) {
             throw new Error(`Two settings are both registered as "${setting.key}"`);
           }
@@ -119,7 +132,7 @@ export function composeAdminPlugins(input: unknown): AdminPlugin {
   return { id, navGroups, widgets, settingsGroups, paletteEntries };
 }
 
-export function defineAdminPlugin(input: unknown): AdminPlugin {
+export function defineAdminPlugin(input: AdminPluginDefinition | readonly AdminPluginDefinition[]): AdminPlugin {
   return composeAdminPlugins(input);
 }
 
