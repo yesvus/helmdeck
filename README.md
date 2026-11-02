@@ -1,5 +1,7 @@
 # Helmdeck
 
+> **Maintenance status: retired.** No further releases. This package is not published to npm; it is consumed by one project through a pinned release tarball. New work should use [shadcn/ui](https://ui.shadcn.com/) primitives plus the admin surface the host framework ships (for example Medusa's dashboard) instead of building on Helmdeck. The repository is archived, so issues and pull requests are closed; tags and the v1.6.0 release tarball remain available to the pinned consumer. See [#503](https://github.com/yesvus/helmdeck/issues/503).
+
 Helmdeck is an opinionated Next.js application framework and admin platform for developers and coding agents building content and commerce sites. It provides a cohesive starter, admin shell, and reusable workflows, so a project can spend less time assembling admin foundations and more time on its product. Its WordPress-like convenience is an analogy for an integrated workflow, not a claim to replace WordPress or the systems below.
 
 ## System boundaries
