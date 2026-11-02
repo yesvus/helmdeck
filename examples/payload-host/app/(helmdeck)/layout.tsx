@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ADMIN_THEME_BOOT_SCRIPT, AdminI18nProvider, AdminThemeProvider } from "@yesvus/helmdeck";
 import { APP_NAME } from "@/lib/brand";
+import { AdminBar } from "@yesvus/helmdeck";
+import { draftMode } from "next/headers";
+import { readPayloadSession } from "@/lib/session";
+import { resolveAdminBarProps } from "@/lib/admin-bar";
 import "./globals.css";
 
 export const metadata: Metadata = { title: APP_NAME };
@@ -16,7 +20,9 @@ export const metadata: Metadata = { title: APP_NAME };
  * This is the shell's own document. Payload's panel renders its own `html` tag, so it lives in a
  * route group beside this one rather than under it: two documents, one session.
  */
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const [session, draft] = await Promise.all([readPayloadSession(), draftMode()]);
+  const adminBarProps = resolveAdminBarProps(session, draft.isEnabled);
   return (
     // The boot script writes an attribute onto <html> before React hydrates, so the server and
     // client markup are expected to differ here.
@@ -26,7 +32,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className="min-h-[100dvh] bg-zinc-50 text-zinc-900 antialiased">
         <AdminThemeProvider>
-          <AdminI18nProvider locale="en">{children}</AdminI18nProvider>
+          <AdminI18nProvider locale="en">{adminBarProps ? <AdminBar {...adminBarProps} /> : null}{children}</AdminI18nProvider>
         </AdminThemeProvider>
       </body>
     </html>
