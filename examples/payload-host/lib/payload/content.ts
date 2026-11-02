@@ -51,6 +51,10 @@ export type PageDocument = {
   updatedAt?: string | null;
   _status?: "draft" | "published" | null;
   publishedAt?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  canonicalUrl?: string | null;
+  ogImage?: unknown;
 };
 
 type PayloadHostContent = AdminPayloadContent & {

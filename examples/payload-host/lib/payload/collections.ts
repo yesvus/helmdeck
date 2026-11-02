@@ -15,6 +15,7 @@ import { assertNotLastAdmin } from "./users-guard.ts";
 import { Feedback } from "./feedback.ts";
 import { Posts } from "./posts.ts";
 import { Categories, Tags } from "./taxonomy.ts";
+import { isValidCanonicalUrl } from "./seo.ts";
 
 /**
  * The accounts, which are Payload's own auth collection.
@@ -157,6 +158,18 @@ export const Pages: CollectionConfig = {
     { name: "slug", type: "text", required: true, unique: true, index: true },
     { name: "summary", type: "textarea", required: false },
     { name: "richText", type: "richText", required: true },
+    { name: "seoTitle", type: "text", required: false },
+    { name: "seoDescription", type: "textarea", required: false },
+    { name: "ogImage", type: "relationship", relationTo: "media" },
+    {
+      name: "canonicalUrl",
+      type: "text",
+      required: false,
+      validate: (value: unknown) => {
+        if (value === null || value === undefined || value === "") return true;
+        return isValidCanonicalUrl(value) || "Canonical URL must be an absolute URL or a path.";
+      },
+    },
   ],
 };
 
