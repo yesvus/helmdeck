@@ -1,208 +1,86 @@
-# Helmdeck starter
+# Helmdeck Payload starter
 
-A Next.js App Router admin you can run before you have written any of it: a sign-in that checks a
-password against a stored hash, a resource whose list searches, sorts, filters and pages, a form
-generated from the same description, and a shell around both. There is no database to set up, no
-schema to design, and no second place where a permission is decided.
-
-The interface itself is in the package, not in this template: the shell, the table, the form, the
-dialog, the toast, the empty state, the loading skeleton, the theme, and the English and Turkish
-wording. This template wires them to a store and shows you where your own decisions begin, which
-[What you still have to add](#what-you-still-have-to-add) lists one by one.
+A copyable Payload CMS starter with a Helmdeck admin shell, Payload-owned users and products, and
+access-checked content persistence. Payload owns the content schema and editor; Helmdeck provides
+the shell, session primitives, and Payload bridge.
 
 ## Setup
 
-From a checkout of the Helmdeck repository's default branch, one command writes a project from this
-directory. A checkout of a release tag may predate the command, so clone the branch and pass
-`--version` if you want to pin an earlier release:
+From a checkout of the default branch, scaffold a project:
 
 ```sh
 node path/to/helmdeck/scripts/create-admin-app.mjs my-admin
-```
-
-That copies these files, rewrites the manifest to pin `@yesvus/helmdeck` to a published release
-tarball rather than to a path in a neighbouring checkout, and mints the session secret into a
-`.env.local` the copied `.gitignore` already ignores. It reaches no network; the install is where the
-pinned URL is used, which is why it is a separate step below. Run
-`node path/to/helmdeck/scripts/create-admin-app.mjs --help` for the options, which include `--install`
-for the install and a `--version` for a release other than the branch's own.
-
-Then, in the directory it wrote:
-
-```sh
 cd my-admin
 npm install
-node scripts/create-user.mjs you@example.com admin
 npm run dev
 ```
 
-Open <http://localhost:3000>, which redirects to `/admin` and then to the sign-in page.
+Open <http://localhost:3000/payload/admin> to create the first Payload account, then sign in to the
+Helmdeck shell at <http://localhost:3000/admin>. The scaffold pins the published Helmdeck tarball
+and writes `HELMDECK_SESSION_SECRET` and `PAYLOAD_SECRET` to the ignored `.env.local` file. The
+session secret is 64 random bytes encoded as hex. Payload's secret is 32 random bytes encoded as
+base64url. Keep each value consistent across instances.
 
-Reading this file in a checkout instead? The two commands above run from here, and the manifest's
-`link:..` resolves in this repository only:
+When running the template directly from a checkout, create both secrets yourself:
 
 ```sh
-npm install
-node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"   # into .env.local as HELMDECK_SESSION_SECRET
-node scripts/create-user.mjs you@example.com admin
-npm run dev
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))" # HELMDECK_SESSION_SECRET
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))" # PAYLOAD_SECRET
 ```
 
-`create-user.mjs` asks for the password and does not echo it. Pass a role as the second argument; the
-roles are the keys of `ROLE_OPERATIONS` in `lib/rules.ts`, and an account holding a role that map does
-not define can sign in and may do nothing at all. `npm run create-user` is the same command.
+Save the first value as `HELMDECK_SESSION_SECRET` and the second as `PAYLOAD_SECRET` in `.env.local`.
 
-`HELMDECK_SESSION_SECRET` has no default on purpose. Without it the app refuses to load and says so,
-because a secret held in a repository is not a secret, and a per-process random signs every instance
-differently so every visitor would read as signed out.
+Payload uses `./payload.db` by default. Set `PAYLOAD_DATABASE_URL` to select another SQLite or
+libSQL database, and set `PAYLOAD_DATABASE_TOKEN` when the remote libSQL database requires
+authentication. Schema push is deliberately enabled in every environment in this starter so a fresh
+production database can start without generated migrations. Review this behavior before pointing it
+at a shared database, since startup can change its schema.
 
-One note on the manifest, because a template is copied rather than read: the package's peer
-dependencies are declared here rather than left to be installed transitively. They are the reason the
-shell lays out, because its components are written with Tailwind utilities.
+## Tailwind CSS
 
-The database is `./helmdeck.db`, created on the first query, and nothing has to be configured for
-that. `HELMDECK_DATABASE_URL` overrides it, and a `libsql://` URL with `HELMDECK_DATABASE_TOKEN` beside
-it is a hosted database, so growing into one is two environment variables rather than a rewrite.
-
-## Tailwind CSS v4 setup
-
-Tailwind v4 does not scan dependencies in `node_modules` automatically. The template's
-`app/globals.css` explicitly scans Helmdeck's compiled package and imports its theme tokens inside
-the Tailwind entry stylesheet, in this order:
+`app/(helmdeck)/globals.css` scans Helmdeck's compiled components and imports its theme tokens:
 
 ```css
 @import "tailwindcss";
-@source "../node_modules/@yesvus/helmdeck/dist";
+@source "../../node_modules/@yesvus/helmdeck/dist";
 @import "@yesvus/helmdeck/theme.css";
 ```
 
-Keep the theme import in the CSS entry file, after `@import "tailwindcss"`. Do not import it from a
-React component stylesheet or layout: Tailwind must process its `@theme` directives to generate
-utilities such as `bg-admin-surface` and `border-admin-border`. If the package is installed at a
-different location, update the `@source` path to the package's `dist` directory.
+Keep the theme import in this stylesheet so Tailwind processes its theme directives.
 
 ## What is where
 
-| File | What it is |
-| --- | --- |
-| `lib/rules.ts` | **The one rule.** Every authorization decision in this app, and nothing else decides one. |
-| `lib/session.ts` | The credential store's sign-in, the session read, and the guard a page calls. |
-| `lib/persistence.ts` | The SQLite store, and where the accounts and sessions live in it. |
-| `lib/store.ts` | The write boundary: one guard, one exposed set, writes narrowed to declared fields. |
-| `lib/resources.ts` | The resource descriptions. The permission names live here, once. |
-| `app/actions/` | The three `"use server"` files that carry the seams across to the browser. |
-| `components/` | The client halves: the frame, the adapter the generated views read through, the form. |
-| `proxy.ts` | Where the redirect for a visitor with no session is built, because only it knows the path. |
-| `app/admin/backups/page.tsx` | A reusable database-backups page that renders host-supplied entries, status and retention policy; the contract lives in `lib/backups.ts`. |
+- `payload.config.ts`: Payload collections, admin route, and database configuration.
+- `lib/payload-access.ts`: collection access rules.
+- `lib/session.ts`: baseline signed-cookie adapter, Payload login, session resolution, and Payload auth strategy.
+- `lib/persistence.ts`: Payload content and persistence bridge.
+- `lib/rules.ts`: Helmdeck shell permission decision.
+- `proxy.ts`: redirects unauthenticated visitors to sign in.
 
 ## The one rule
 
-`lib/rules.ts` holds the only function in this project that answers "may this session do this", and
-the package asks it from both sides of the browser: `checkPermission` for what the sidebar, the
-generated list and the generated form render, and `requirePermission` for what the server actions
-that reach the store serve. Both are built from the same `can`, over the same session the server
-resolved, so a button cannot appear and then fail, and a hidden button is not what makes it safe.
-
-Three things are deliberately arranged so that a second rule is hard to write by accident:
-
-- The permission names live in `lib/resources.ts`, once, and the guard derives the name it asks about
-  from a resource and an operation. Adding a resource cannot add a permission nothing decides.
-- The exposed set is built from those same definitions rather than listed again, so a resource cannot
-  be reachable through the store and invisible to the rule.
-- The accounts and the sessions are in the store and not in any definition, which is what keeps a
-  password hash out of a table browser that exists for everything else. That is a property of what is
-  absent, not of a rule someone has to remember.
-
-The rule reads the role and nothing else, so it answers the same for every product whatever the
-product is. A rule that withholds one record decides that in `can` and is enforced on both sides
-with no change to anything else.
-
-**Replace the contents of `lib/rules.ts`. Do not add a check beside it.** Two functions answering
-the same question is how the two halves come to disagree, and the disagreement only shows up as a
-control that renders and then fails.
+The Helmdeck shell asks `lib/rules.ts`. Payload collection access functions in
+`lib/payload-access.ts` enforce content reads and writes. The Payload admin uses the same session
+through `createAdminPayloadAuthStrategy`. Keep Local API reads and writes behind
+`createAdminPayloadContent`, which passes `overrideAccess: false` and the session's user.
 
 ## What you still have to add
 
-The template stops where your project's decisions start. Each item below is absent on purpose, and
-each is one you have to make rather than one you have to find later.
+1. **A way to reset a forgotten password.** Payload owns password reset tokens; configure delivery
+   for your deployment.
+2. **A media adapter.** Upload, listing, signed URLs, retention and media mutations are yours.
+   `AdminMediaAdapter` is the contract; storage behind it is host-owned.
+3. **An audit trail and a cache invalidator.** Add Payload hooks and cache revalidation appropriate
+   to your deployment.
+4. **A rule that reads the record.** Add row-level conditions to Payload access functions when
+   records require them.
+5. **A second interface language.** Register another Helmdeck message dictionary if required.
+6. **A contact form endpoint.** Validate, rate-limit, store, or email submissions in your app.
 
-1. **A way to reset a forgotten password.** Nothing in the package can send mail, and `AdminSession`
-   carries no timestamp and no recovery token, so an account whose password is forgotten is reset by
-   a person with a shell. The sign-in answers an unknown address in the same message and the same time
-   as a wrong password, so whatever you write on top of that envelope can stay honest.
-3. **A media adapter.** Upload, listing, signed URLs, retention and media mutations are yours.
-   `AdminMediaAdapter` is the contract and the upload, picker, gallery and placeholder components are
-   the package's; the storage behind them is not, and a stub that was copied is a stub that stayed.
-4. **An audit trail and a cache invalidator.** `createAdminResourceActions` takes both and calls them
-   after a write that reached the store. The template passes neither, because both of their shapes
-   are host decisions: where a trail goes, and what a stale read is keyed on. A `console.log` sink or
-   a no-op invalidator left behind is a trail going nowhere or a list that never refreshes, and both
-   fail silently.
-5. **A rule that reads the record.** `can` decides from the role and the operation alone. A rule that
-   withholds one record, or one row, decides it in `can` and gets the record's id in the third
-   argument, enforced on both sides of the admin with nothing else changed.
-7. **A second interface language.** `app/layout.tsx` says `locale="en"` and nothing else. The package
-   ships English and Turkish dictionaries; registering your own is `defineAdminMessages`, and content
-   language is a separate concern the package keeps out of its URLs unless you map it.
-8. **A contact form endpoint.** `AdminContactForm` renders and submits the common contact fields, but
-   the Server Action that validates, rate-limits, stores, or emails a message belongs to your app.
-   Treat its input as untrusted and write through your own persistence adapter or data-access layer.
-   Use a shared rate-limit store when the app runs across multiple server instances.
-
-```tsx
-import { AdminContactForm } from "@yesvus/helmdeck";
-import { submitContact } from "./actions";
-
-export default function ContactPage() {
-  return <AdminContactForm onSubmit={submitContact} />;
-}
-```
-
-Also absent, and deliberately so: any records. The store arrives empty, which is what makes the
-first row you create through the form the way you find out the form works.
-
-## What the template does not decide for you
-
-- **Where sessions live.** The sign-in is a signed cookie over a row, chosen because it needs nothing
-  installed. A host with a token in a header, a row keyed by a device or a session store of its own
-  implements `AdminAuthAdapter` and passes it instead; the shell has no opinion.
-- **Whether the session is revocable everywhere.** `createCredentialAuthAdapter` can end every session
-  the calling account holds, and refuses the capability unless you pass `mayEndAllSessions`. The
-  template omits it, so the account page renders no control for it. The decision needs a role, and the
-  package has no vocabulary for roles, so it is yours to make in that one option.
-- **How a read is scoped to the caller.** A list shows what the query returned. Narrowing rows to the
-  ones a session may see is a condition inside the query, because a rule asked once per returned row
-  would be a second row filter that cannot compose with your own.
-- **Column formats the package does not print.** `money` and `count` are names it ships. Anything else
-  is a name you register in `AdminResourceList`'s `formatters` prop, because a definition reaches a
-  client component as data and a function in it cannot travel.
+Payload's first-user flow creates the initial account. The database starts empty.
 
 ## Checks
 
 ```sh
 npm run typecheck
 ```
-
-## Rising popularity
-
-The analytics query can compare a recent window of page views with the equally long window before it. Call it on the server with the persistence adapter that stores the analytics events:
-
-```ts
-import { ADMIN_ANALYTICS_PAGE_VIEW, adminAnalyticsRisingPaths, adminChartDayRange } from "@yesvus/helmdeck";
-import type { AdminPersistenceAdapter } from "@yesvus/helmdeck";
-
-export function loadRisingPaths(store: AdminPersistenceAdapter) {
-  return adminAnalyticsRisingPaths(store, {
-    range: adminChartDayRange(7, new Date()),
-    kind: ADMIN_ANALYTICS_PAGE_VIEW,
-    minViews: 5,
-    limit: 10,
-  });
-}
-```
-
-The result has `paths` and `total`; each path includes `recentViews` and `previousViews`. `minViews` excludes paths with too little recent traffic. `growthRate` is the relative increase (`1` means 100%) and is `null` when the previous window had no views. Paths with no baseline sort first, followed by growth rate and stable path order.
-
-In this repository, `pnpm typecheck:template` runs the same compiler over this directory after
-linking the package into `template/node_modules`, which is what keeps a template nobody compiles from
-being copied stale.

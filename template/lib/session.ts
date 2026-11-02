@@ -1,63 +1,46 @@
+import { createSessionAuthAdapter } from "@yesvus/helmdeck/baseline";
+import { createAdminSessionGuard, createAdminPayloadAuthStrategy } from "@yesvus/helmdeck";
+import type { AdminPayloadUser, AdminSession } from "@yesvus/helmdeck";
+import { AuthenticationError, getPayload } from "payload";
 import { redirect } from "next/navigation";
-import { createCredentialAuthAdapter } from "./engine/baseline/credentials";
-import { createAdminSessionGuard } from "@yesvus/helmdeck";
-import type { AdminSession } from "@yesvus/helmdeck";
-import { credentialStore } from "./persistence";
-import { LOGIN_PATH, SESSION_COOKIE } from "./sign-in";
+import { SESSION_COOKIE, LOGIN_PATH } from "./sign-in";
 
-/**
- * The sign-in, on the package's credential store.
- *
- * A host supplies two things and this is all of them: somewhere to keep the rows, and the secret
- * that signs the cookie. The password check, the row behind the cookie, the expiry and the
- * revocation are the package's, because a sign-in written per host is a sign-in written wrong per
- * host.
- *
- * The role is read from the user row the session row points at, so it is a stored value. Nothing in
- * the cookie carries a role, which is what keeps a signed cookie from being a claim: it names a
- * session, the session names a user, and `lib/rules.ts` decides what that user may do.
- */
 function sessionSecret(): string {
   const secret = process.env.HELMDECK_SESSION_SECRET?.trim();
-  if (!secret) {
-    throw new Error(
-      "HELMDECK_SESSION_SECRET is not set. Mint one with " +
-        "`node -e \"console.log(require('crypto').randomBytes(32).toString('base64url'))\"`, " +
-        "put it in .env.local, and use the same value on every instance that has to agree on a " +
-        "session. A secret held in the repository is not a secret, and a per-process random signs " +
-        "every instance differently, so every visitor reads as signed out.",
-    );
-  }
+  if (!secret) throw new Error("HELMDECK_SESSION_SECRET is not set. Mint one with `node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"` and put it in .env.local.");
   return secret;
 }
 
-export const auth = createCredentialAuthAdapter({
-  secret: sessionSecret(),
-  store: credentialStore,
-  cookieName: SESSION_COOKIE,
-  // A Secure cookie is dropped over plain http, which is how the template is reached in
-  // development. In production the default stands and the cookie is Secure.
-  secure: process.env.NODE_ENV === "production",
-});
-
-/** The signed-in account for this request, or null. */
-export function currentAdminSession(): Promise<AdminSession | null> {
-  return auth.getSession();
+async function payloadInstance() {
+  const { default: config } = await import("../payload.config");
+  return getPayload({ config });
 }
 
-/**
- * No session, no page.
- *
- * This decides about a route rather than about a permission, and it runs where a redirect is a
- * response: a server component, a route handler or a server action. A page guarded only by a client
- * component has already been sent to whoever asked for it.
- *
- * A layout cannot read the path it is rendering, so the `returnTo` a caller passes is that
- * caller's segment root rather than the page the visitor wanted. The destination is preserved
- * properly by `proxy.ts`, which can read the request.
- */
-export const requireAdminSession = createAdminSessionGuard({
-  session: currentAdminSession,
-  loginHref: LOGIN_PATH,
-  onUnauthenticated: ({ loginHref }) => redirect(loginHref),
+export const USERS_COLLECTION = "users";
+export const auth = createSessionAuthAdapter({
+  secret: sessionSecret(),
+  cookieName: SESSION_COOKIE,
+  secure: process.env.NODE_ENV === "production",
+  async verify(credentials) {
+    try {
+      const result = await (await payloadInstance()).login({ collection: USERS_COLLECTION, data: credentials });
+      return result.user?.id == null ? null : String(result.user.id);
+    } catch (cause) {
+      if (cause instanceof AuthenticationError) return null;
+      throw cause;
+    }
+  },
+  async getUser(id): Promise<AdminSession | null> {
+    const user = await (await payloadInstance()).findByID({ collection: USERS_COLLECTION, id, depth: 0, disableErrors: true, overrideAccess: false, user: { id, collection: USERS_COLLECTION } });
+    if (!user || typeof user.email !== "string") return null;
+    return { userId: String(user.id), email: user.email, ...(typeof user.role === "string" ? { role: user.role } : {}) };
+  },
 });
+
+export const currentAdminSession = () => auth.getSession();
+export const requireAdminSession = createAdminSessionGuard({ session: currentAdminSession, loginHref: LOGIN_PATH, onUnauthenticated: ({ loginHref }) => redirect(loginHref) });
+export async function readPayloadSession(): Promise<AdminPayloadUser | null> {
+  const session = await currentAdminSession();
+  return session?.userId ? { id: session.userId, email: session.email, collection: USERS_COLLECTION, ...(session.role ? { role: session.role } : {}) } : null;
+}
+export const payloadAuthStrategy = createAdminPayloadAuthStrategy({ readSession: readPayloadSession });

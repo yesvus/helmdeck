@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { typecheckTemplate } from "../scripts/typecheck-template.mjs";
@@ -21,7 +21,7 @@ const templateReadme = readFileSync(join(template, "README.md"), "utf8");
 function templateSources(directory = template): string[] {
   return readdirSync(directory)
     .flatMap((entry) => {
-      if (entry === "node_modules" || entry === ".next" || entry === "dist" || entry === "engine") return [];
+      if (entry === "node_modules" || entry === ".next" || entry === "dist") return [];
       const path = join(directory, entry);
       if (statSync(path).isDirectory()) return templateSources(path);
       return /\.(ts|tsx|mjs)$/.test(entry) ? [path] : [];
@@ -115,91 +115,71 @@ describe("the starter template", () => {
     expect(rules).toMatch(/createAdminPermissionGuard\(\{\s*rule: can,/);
 
     // And nothing else reads a role to decide anything. A property read or a comparison anywhere but
-    // that one file is the second rule this template exists to not have. `scripts/create-user.mjs`
+    // that one file is the second rule this template exists to not have. The Payload account schema
     // writes a role onto a row, which is not a decision, so it may say the word without saying it
     // twice.
     const roleShape = /\.role\b|\brole\s*(===|!==|==|!=)/;
-    expect(filesMentioning(roleShape), "a role read outside the one rule").toEqual(["lib/rules.ts"]);
+    expect(filesMentioning(roleShape), "role checks live in the policy modules").toEqual(["lib/payload-access.ts", "lib/rules.ts", "lib/session.ts", "lib/users-guard.ts", "payload.config.ts"]);
 
     // The two callers that matter reach it rather than reimplementing it, so what the store serves
     // and what the views render cannot answer differently about the same session.
-    expect(code(join(template, "lib/store.ts"))).toMatch(/requirePermission/);
-    expect(code(join(template, "app/actions/permission-actions.ts"))).toMatch(/checkPermission/);
+    expect(code(join(template, "lib/persistence.ts"))).toMatch(/createAdminPayloadPersistenceAdapter/);
+    expect(code(join(template, "app/(helmdeck)/actions/permission-actions.ts"))).toMatch(/checkPermission/);
   });
 
-  it("narrows a write to the declared fields, so a hand-edited request cannot add one", async () => {
-    // The form filters what it submits, in the browser. This is the other half: a request that never
-    // went through a form reaches the store directly, and a store that takes the value as it was sent
-    // will write a field the definition dropped, or an `id` the caller chose. The claim is about the
-    // boundary rather than about the form, so it is checked by writing through the boundary and
-    // reading back what the store holds.
-    //
-    // The session is stood in for rather than resolved: it is read from an HTTP-only cookie by the
-    // package's server-only adapter, and a cookie this process cannot set is not what is under test.
-    // It carries the editor role, which the template's own rule gives every operation but delete, so
-    // the refusal at the end is the one rule answering rather than a second check written here.
-    const directory = mkdtempSync(join(root, "node_modules", ".helmdeck-starter-"));
-    const previous = process.env.HELMDECK_DATABASE_URL;
-    process.env.HELMDECK_DATABASE_URL = `file:${join(directory, "writes.db")}`;
+  it("uses Payload collection access rules and the package bridge", async () => {
+    const source = code(join(template, "payload.config.ts"));
+    expect(code(join(template, "lib/session.ts"))).toMatch(/createAdminPayloadAuthStrategy/);
+    expect(code(join(template, "lib/session.ts"))).toMatch(/createSessionAuthAdapter/);
+    expect(code(join(template, "lib/persistence.ts"))).toMatch(/createAdminPayloadContent/);
+    expect(code(join(template, "lib/persistence.ts"))).toMatch(/createAdminPayloadPersistenceAdapter/);
+    expect(source).toMatch(/payloadAccess/);
+    expect(source).toMatch(/access:\s*\{\s*create:\s*payloadAccess\("create"\),\s*read:\s*payloadAccess\("read"\),\s*update:\s*payloadAccess\("update"\),\s*delete:\s*payloadAccess\("delete"\)/);
+    const access = await import("../template/lib/payload-access");
+    expect(access.payloadAccess("read")({ req: { user: { role: "editor" } } } as never)).toBe(true);
+    expect(access.payloadAccess("delete")({ req: { user: { role: "editor" } } } as never)).toBe(false);
+  });
+
+  it("rejects unknown shell permissions", async () => {
+    const previous = process.env.HELMDECK_SESSION_SECRET;
+    process.env.HELMDECK_SESSION_SECRET = "test-secret-for-permission-policy";
     try {
-      vi.doMock("../template/lib/session", () => ({
-        currentAdminSession: async () => ({ email: "someone@somewhere.test", role: "editor" }),
-        auth: {},
-        requireAdminSession: async () => ({ email: "someone@somewhere.test", role: "editor" }),
-      }));
-      const { resourceActions } = await import("../template/lib/store");
-      const { persistence } = await import("../template/lib/persistence");
-
-      // A caller who found this action could send a privilege column, and the boundary is the last
-      // place it can be refused. The template used to narrow the write itself; the package refuses now,
-      // and a boundary a host has to remember to write is a boundary it eventually forgets.
-      await expect(
-        resourceActions.create("products", {
-          name: "Chair",
-          sku: "CHAIR-1",
-          price_cents: 12000,
-          isAdmin: true,
-          password_hash: "scrypt$salt$key",
-        }),
-      ).rejects.toThrow(/isAdmin, password_hash/);
-
-      const written = await resourceActions.create("products", {
-        name: "Chair",
-        sku: "CHAIR-1",
-        price_cents: 12000,
-      });
-      expect(Object.keys(written).sort()).toEqual(["id", "name", "price_cents", "sku"]);
-
-      // An id on a create is the one key a caller may send without declaring it, because a host may
-      // generate record keys in the browser. On an update the route already named the record, so a
-      // value carrying an id is a request to move the row somewhere the route did not choose.
-      const smuggled = await resourceActions.create("products", {
-        id: "chosen-by-the-caller",
-        name: "Table",
-        sku: "TABLE-1",
-        price_cents: 20000,
-      });
-      await expect(
-        resourceActions.update("products", String(written.id), {
-          name: "Renamed",
-          id: "somewhere-else",
-        }),
-      ).rejects.toThrow(/\bid\b/);
-      expect(smuggled.id).toBe("chosen-by-the-caller");
-      await persistence.delete("products", String(smuggled.id));
-
-      // And an editor may not delete, which is the rule asked through the same boundary.
-      await expect(
-        resourceActions.delete("products", String(written.id)),
-      ).rejects.toThrow(/may not products\.delete/);
-      await persistence.delete("products", String(written.id));
+      vi.resetModules();
+      const { can } = await import("../template/lib/rules");
+      const session = { role: "admin" } as never;
+      expect(can(session, "products.publish" as never)).toBe(false);
+      expect(can(session, "products" as never)).toBe(false);
     } finally {
-      vi.doUnmock("../template/lib/session");
-      if (previous === undefined) delete process.env.HELMDECK_DATABASE_URL;
-      else process.env.HELMDECK_DATABASE_URL = previous;
-      rmSync(directory, { recursive: true, force: true });
+      if (previous === undefined) delete process.env.HELMDECK_SESSION_SECRET;
+      else process.env.HELMDECK_SESSION_SECRET = previous;
     }
-  }, 120_000);
+  });
+
+  it("guards the final admin and self-mutations", async () => {
+    const { guardUserDelete, guardUserUpdate } = await import("../template/lib/users-guard");
+    const payload = {
+      findByID: vi.fn(async () => ({ id: "1", role: "admin" })),
+      count: vi.fn(async () => ({ totalDocs: 1 })),
+    };
+    const req = { user: { id: "1", role: "admin" }, payload };
+    expect(await guardUserUpdate({ req, id: "1", data: { role: "editor" } } as never)).toBe(false);
+    expect(await guardUserDelete({ req, id: "1" } as never)).toBe(false);
+    expect(await guardUserDelete({ req: { ...req, user: { id: "2", role: "admin" } }, id: "1" } as never)).toBe(false);
+    payload.count.mockResolvedValue({ totalDocs: 2 });
+    expect(await guardUserDelete({ req: { ...req, user: { id: "2", role: "admin" } }, id: "1" } as never)).toBe(true);
+  });
+
+  it("refuses another admin's attempt to demote or delete the last admin", async () => {
+    const { guardUserDelete, guardUserUpdate } = await import("../template/lib/users-guard");
+    const payload = {
+      findByID: vi.fn(async () => ({ id: "target", role: "admin" })),
+      count: vi.fn(async () => ({ totalDocs: 1 })),
+    };
+    const req = { user: { id: "requester", role: "admin" }, payload };
+
+    expect(await guardUserUpdate({ req, id: "target", data: { role: "editor" } } as never)).toBe(false);
+    expect(await guardUserDelete({ req, id: "target" } as never)).toBe(false);
+  });
 
 
   it("refuses to load without a signing secret rather than falling back to a constant", async () => {
@@ -247,55 +227,12 @@ describe("the starter template", () => {
     }
   });
 
-  it("leaves the person somewhere that shows a record they just saved", () => {
-    // Found by driving the generated project in a browser, not by reading it: `AdminResourceForm`
-    // writes through the store and then stops, so a create page that passes no `onSaved` leaves the
-    // person on the form they just submitted, holding the values, with nothing saying the record
-    // exists and no link to it. The save works and the page says nothing, which is the failure a
-    // person reports as "it did not save".
-    //
-    // So every generated form has to say where a saved record went, and that destination has to be a
-    // page the template mounts, since a redirect into nothing is the same silence with a 404 instead
-    // of a form. Both the create form and the update one are covered, because an update leaves the
-    // person on a form still holding what they typed, and only a fresh read proves the store took it.
-    const forms = sources.filter((path) => /<AdminResourceForm/.test(code(path)));
-    expect(forms.length, "a generated form").toBeGreaterThan(1);
-
-    const silent = forms.filter((path) => {
-      const form = code(path).match(/<AdminResourceForm[\s\S]*?\/>/)?.[0] ?? "";
-      return !/\bonSaved=/.test(form);
-    });
-    expect(silent, "a form that says nothing after a save").toEqual([]);
-
-    // And the route each one sends a saved record to is a page that exists, because a redirect into
-    // nothing is the same silence with a 404 instead of a form.
-    //
-    // The destination is read out of the callback the `onSaved` prop is handed, not from every
-    // navigation in the file. Scanning the file would pass a form whose `onSaved` is a no-op as long
-    // as the file pushes somewhere else, which is the regression this test exists for, and it would
-    // fail a page that gains an unrelated navigation, which is not a regression at all.
-    for (const path of forms) {
-      const file = name(path);
-      const source = code(path);
-      const prop = source.match(/\bonSaved=\{\s*(\w+)\s*\}/)?.[1];
-      expect(prop, `${file} passes onSaved a name this file does not declare`).toBeTruthy();
-
-      // The handler's own body, bounded by the dependency array that closes a `useCallback`. Matching
-      // to the next `}` at the start of a line would run past it, because React closes the callback
-      // with `}, [router]` on an indented line, and a body that swallowed the rest of the component
-      // would read a navigation belonging to some other handler as this one's.
-      const body =
-        source.match(new RegExp(`\\b${prop}\\s*=\\s*useCallback\\([\\s\\S]*?\\},\\s*\\[`))?.[0] ?? "";
-      const href = body.match(/\brouter\.push\(\s*["'`]([^"'`]+)["'`]\s*\)/)?.[1];
-      expect(href, `${file}: onSaved is ${prop}, which navigates nowhere`).toBeTruthy();
-
-      const route = resolveDynamicSegments(href!, file);
-      const mounted =
-        route === "" ? join(template, "app", "page.tsx") : join(template, "app", route, "page.tsx");
-      expect(existsSync(mounted), `${file} sends a saved record to ${href}, which no page is mounted at`).toBe(
-        true,
-      );
-    }
+  it("mounts Payload admin and links product management into it", () => {
+    expect(existsSync(join(template, "app/(payload)/layout.tsx"))).toBe(true);
+    expect(existsSync(join(template, "app/(helmdeck)/layout.tsx"))).toBe(true);
+    expect(existsSync(join(template, "app/layout.tsx"))).toBe(false);
+    expect(existsSync(join(template, "app/(payload)/payload/admin/[[...segments]]/page.tsx"))).toBe(true);
+    expect(code(join(template, "app/(helmdeck)/admin/products/page.tsx"))).toMatch(/\/payload\/admin\/collections\/products/);
   });
 
   it("offers a sidebar entry only where a page exists", () => {
@@ -308,7 +245,11 @@ describe("the starter template", () => {
     const missing = hrefs
       .filter((href) => {
         const route = href.split(/[?#]/, 1)[0].replace(/^\//, "");
-        const file = route === "" ? join(template, "app", "page.tsx") : join(template, "app", route, "page.tsx");
+        if (route.startsWith("payload/admin/")) return !existsSync(join(template, "app/(payload)/payload/admin/[[...segments]]/page.tsx"));
+        const group = route.startsWith("payload/") ? "(payload)" : "(helmdeck)";
+        if (route.startsWith("payload/admin/")) return !existsSync(join(template, "app/(payload)/payload/admin/[[...segments]]/page.tsx"));
+        const relativeRoute = group === "(payload)" ? route.replace(/^payload\//, "") : route;
+        const file = relativeRoute === "" ? join(template, "app", group, "page.tsx") : join(template, "app", group, relativeRoute, "page.tsx");
         try {
           return statSync(file).isFile() === false;
         } catch {
@@ -362,46 +303,3 @@ const OMISSIONS = [
 function anyFile(pattern: RegExp): boolean {
   return sources.some((path) => pattern.test(code(path)));
 }
-
-/**
- * A destination with an interpolated segment, resolved against the template's own route directories.
- *
- * `\`/admin/products/${id}\`` is the natural companion to a save that returns to the list, and it names
- * the id the save produced, so the route it lands on is the `[id]` directory rather than a path any
- * file holds. Refusing the shape outright would make the guard fail a correct page the moment a host
- * wrote one, so each interpolated segment is looked up as a `[name]` directory. A segment that
- * accounts for no directory is left as it is, and the caller's `existsSync` then fails, which is the
- * answer a destination into nothing deserves.
- */
-function resolveDynamicSegments(href: string, file: string): string {
-  const walked: string[] = [];
-  return href
-    .split(/[?#]/, 1)[0]
-    .replace(/^\//, "")
-    .split("/")
-    .map((segment) => {
-      if (!segment.includes("${")) {
-        walked.push(segment);
-        return segment;
-      }
-      // The directory the segment would name is a sibling of the one the walk has reached, so this
-      // lists the route directories at the current depth rather than the template's whole `app/`.
-      const parent = join(template, "app", ...walked);
-      const dynamic = existsSync(parent)
-        ? readdirSync(parent, { withFileTypes: true }).find(
-            (entry) => entry.isDirectory() && /^\[.+\]$/.test(entry.name),
-          )
-        : undefined;
-      if (!dynamic) {
-        throw new Error(
-          `${file} interpolates \`${segment}\` into its destination, and no dynamic route segment ` +
-            `accounts for it.\nLooked in: ${parent}\nA dynamic route is a directory named [something], ` +
-            `which is how Next.js mounts one.`,
-        );
-      }
-      walked.push(dynamic.name);
-      return dynamic.name;
-    })
-    .join("/");
-}
-

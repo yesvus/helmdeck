@@ -8,7 +8,7 @@ import {
   summarizeDatabaseBackupsRetention,
   type DatabaseBackupEntry,
   type DatabaseBackupsReport,
-} from "../../../lib/backups";
+} from "../../../../lib/backups";
 
 /**
  * A reusable database-backups page. The host supplies the snapshot (entries, status and the
