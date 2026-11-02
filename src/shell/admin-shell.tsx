@@ -24,6 +24,8 @@ import { mergeAdminLabels } from "./labels.js";
 import { useAdminBranding } from "../theme/branding.js";
 import { useBreadcrumbs } from "./use-breadcrumbs.js";
 import { useAdminHref, useAdminMessages } from "../i18n.js";
+import { AdminCommandPalette } from "../primitives/command-palette.js";
+import type { AdminCommandPaletteCommand } from "../primitives/command-palette.js";
 
 const OPEN_GROUPS_STORAGE_KEY = "yesvus:helmdeck:open-nav-groups:v1";
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "yesvus:helmdeck:sidebar-collapsed:v1";
@@ -124,6 +126,7 @@ export function AdminShell({
   labels,
   searchEntries,
   recordSearchAdapter,
+  commandPalette,
   searchNormalize,
   resolveBreadcrumbSegment,
   currentPageTitle,
@@ -148,6 +151,7 @@ export function AdminShell({
   labels?: Partial<AdminShellLabels>;
   searchEntries?: AdminSearchEntry[];
   recordSearchAdapter?: AdminSearchAdapter;
+  commandPalette?: false | { commands?: AdminCommandPaletteCommand[] };
   searchNormalize?: (value: string) => string;
   resolveBreadcrumbSegment?: (segment: string, labels: AdminShellLabels) => string;
   currentPageTitle?: string;
@@ -166,6 +170,7 @@ export function AdminShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
   const i18n = useAdminMessages();
   const toHref = useAdminHref();
@@ -178,6 +183,34 @@ export function AdminShell({
     [i18n.searchLocale, searchNormalize],
   );
   const visibleNav = useMemo(() => filterNavGroups(nav, session?.role), [nav, session?.role]);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const paletteCommands = useMemo(() => {
+    if (commandPalette === false) return [];
+    const routes = visibleNav.flatMap((group) => group.items.map((item) => ({
+      id: `route:${item.href}`,
+      label: item.label,
+      group: group.label,
+      onRun: () => router.push(toHref(item.href)),
+    })));
+    const entries = (searchEntries ?? []).map((entry) => ({
+      id: `search:${entry.href}:${entry.label}`,
+      label: entry.label,
+      description: entry.terms,
+      group: entry.group,
+      onRun: () => router.push(toHref(entry.href)),
+    }));
+    return [...routes, ...entries, ...(commandPalette?.commands ?? [])];
+  }, [commandPalette, router, searchEntries, toHref, visibleNav]);
+  const loadPaletteRecords = useCallback(async (term: string, signal: AbortSignal) => {
+    if (!recordSearchAdapter) return [];
+    const records = await recordSearchAdapter.search(term, signal);
+    return records.map((record) => ({
+      id: `${record.resource}:${record.resourceId}`,
+      label: record.label,
+      description: `${record.resourceLabel} · ${record.resourceId}`,
+      href: record.href,
+    }));
+  }, [recordSearchAdapter]);
   const branding = useAdminBranding(brand?.accent);
   // The reader's own answer, kept here rather than in the store, because it is this session's answer:
 // what a browser refuses to store is still the state this shell renders from until it is unmounted.
@@ -457,6 +490,17 @@ export function AdminShell({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {recordSearchAdapter ? <AdminRecordSearch adapter={recordSearchAdapter} labels={labels} /> : null}
+              {commandPalette !== false ? (
+                <AdminCommandPalette
+                  commands={paletteCommands}
+                  loadRecords={recordSearchAdapter ? loadPaletteRecords : undefined}
+                  label={mergedLabels.searchLabel}
+                  placeholder={mergedLabels.searchPlaceholder}
+                  open={commandPaletteOpen}
+                  onOpenChange={setCommandPaletteOpen}
+                  onRunRecord={(record) => router.push(toHref(record.href))}
+                />
+              ) : null}
               {notificationCenter ? (
                 <div className="flex items-center justify-end gap-2">{notificationCenter}</div>
               ) : null}

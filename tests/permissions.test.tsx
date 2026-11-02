@@ -14,7 +14,7 @@ import type { AdminPermissionsAdapter, AdminNavGroup } from "../src/adapters/ind
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin",
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn()}),
   useSearchParams: () => new URLSearchParams(),
 }));
 

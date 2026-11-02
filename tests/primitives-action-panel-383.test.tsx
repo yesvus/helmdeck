@@ -6,7 +6,7 @@ import { AdminManagedForm } from "../src/primitives/managed-form";
 import { AdminFormActionPanel } from "../src/primitives/action-panel";
 import { AdminInput } from "../src/primitives/input";
 
-vi.mock("next/navigation.js", () => ({ usePathname: () => "/admin", useRouter: () => ({ replace: vi.fn() }), useSearchParams: () => new URLSearchParams() }));
+vi.mock("next/navigation.js", () => ({ usePathname: () => "/admin", useRouter: () => ({ replace: vi.fn(), push: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn()}), useSearchParams: () => new URLSearchParams() }));
 
 function setup(overrides: Partial<React.ComponentProps<typeof AdminFormActionPanel>> = {}) {
   return render(<AdminManagedForm action={async (state) => state}>

@@ -60,6 +60,7 @@ const request = vi.hoisted(() => {
 });
 
 vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() }),
   redirect: (url: string) => {
     throw new Error(`redirected to ${url}`);
   },

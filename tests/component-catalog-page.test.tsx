@@ -10,9 +10,10 @@ import { describe, expect, it, vi } from "vitest";
 const { pathname, searchParams, router } = vi.hoisted(() => ({
   pathname: vi.fn<() => string>(() => "/catalog"),
   searchParams: vi.fn<() => URLSearchParams>(() => new URLSearchParams()),
-  router: { push: vi.fn() },
+  router: { push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() },
 }));
-vi.mock("next/navigation.js", () => ({ usePathname: pathname, useSearchParams: searchParams, useRouter: () => router }));
+vi.mock("next/navigation.js", () => ({
+  usePathname: pathname, useSearchParams: searchParams, useRouter: () => router }));
 
 import CatalogPage from "../fixtures/app/(helmdeck)/catalog/page";
 import { catalogPreviews } from "../fixtures/app/(helmdeck)/catalog/previews";

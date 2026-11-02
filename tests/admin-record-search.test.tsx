@@ -8,7 +8,7 @@ import { AdminShell } from "../src/shell/admin-shell.js";
 import type { AdminSearchAdapter } from "../src/adapters/search.js";
 
 const push = vi.fn();
-vi.mock("next/navigation.js", () => ({ usePathname: () => "/admin", useRouter: () => ({ push }) }));
+vi.mock("next/navigation.js", () => ({ usePathname: () => "/admin", useRouter: () => ({ push, replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() }) }));
 
 afterEach(() => {
   vi.clearAllMocks();

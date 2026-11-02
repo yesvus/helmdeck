@@ -6,7 +6,7 @@ import { AdminShell } from "../src/shell/admin-shell";
 const mockRefresh = vi.fn();
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin",
-  useRouter: () => ({ refresh: mockRefresh }),
+  useRouter: () => ({ refresh: mockRefresh, push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn()}),
 }));
 
 afterEach(() => {

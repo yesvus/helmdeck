@@ -105,6 +105,7 @@ vi.mock("../fixtures/lib/demo-session", async (importOriginal) => {
 // redirected for real would replace a failure with a Next.js error, and the settings action's own
 // redirect is the outcome several of these tests read.
 vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() }),
   redirect: (url: string) => {
     throw new guard.RedirectSignal(url);
   },
@@ -115,7 +116,7 @@ vi.mock("next/navigation.js", () => ({
     throw new guard.RedirectSignal(url);
   },
   usePathname: () => "/shell/settings/site",
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn()}),
   useSearchParams: () => new URLSearchParams(),
 }));
 

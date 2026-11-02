@@ -12,7 +12,7 @@ const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/products/new",
-  useRouter: () => ({ replace: navigation.replace }),
+  useRouter: () => ({ replace: navigation.replace, push: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn()}),
   useSearchParams: () => new URLSearchParams("locale=en"),
 }));
 

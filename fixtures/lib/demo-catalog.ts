@@ -1264,7 +1264,7 @@ const CATALOG_META: Record<string, CatalogMeta> = {
 
   AdminShell: {
     category: "Shell and navigation",
-    summary: "The whole admin frame: sidebar, header, mobile navigation, search and content.",
+    summary: "The whole admin frame: sidebar, header, mobile navigation, search, command palette and content.",
     keywords: "shell layout frame chrome",
     hostNote:
       "The shell is the host. It is handed navigation, a session and a permissions adapter before it has anything to draw.",
