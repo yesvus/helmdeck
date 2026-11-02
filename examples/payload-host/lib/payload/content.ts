@@ -49,6 +49,8 @@ export type PageDocument = {
   slug: string;
   summary?: string | null;
   updatedAt?: string | null;
+  _status?: "draft" | "published" | null;
+  publishedAt?: string | null;
 };
 
 type PayloadHostContent = AdminPayloadContent & {
@@ -132,4 +134,9 @@ export async function listPages(limit = 50): Promise<PageDocument[]> {
   const content = await payloadContent();
   const result = await content.find(PAGES, { limit, depth: 0, sort: "-updatedAt", draft: true });
   return readDocs(result);
+}
+
+export async function mutatePage(id: string, operation: "delete" | "update", data?: Record<string, unknown>) {
+  const content = await payloadContent();
+  return operation === "delete" ? content.delete(PAGES, id) : content.update(PAGES, id, data ?? {});
 }
