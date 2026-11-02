@@ -43,5 +43,6 @@ export const Posts: CollectionConfig = {
       update: ({ req: { user } }) => isAdmin(principal(user)),
     } },
     { name: "categories", type: "relationship", relationTo: "categories", hasMany: true },
+    { name: "tags", type: "relationship", relationTo: "tags", hasMany: true },
   ],
 };

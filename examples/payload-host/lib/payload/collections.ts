@@ -14,7 +14,7 @@ import { isAdmin, principal } from "../rules.ts";
 import { assertNotLastAdmin } from "./users-guard.ts";
 import { Feedback } from "./feedback.ts";
 import { Posts } from "./posts.ts";
-import { Categories } from "./categories.ts";
+import { Categories, Tags } from "./taxonomy.ts";
 
 /**
  * The accounts, which are Payload's own auth collection.
@@ -181,4 +181,4 @@ export const Media: CollectionConfig = {
   ],
 };
 
-export const payloadCollections = [Users, Pages, Media, Feedback, Posts, Categories];
+export const payloadCollections = [Users, Pages, Media, Feedback, Posts, Categories, Tags];
