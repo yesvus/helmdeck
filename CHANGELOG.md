@@ -44,6 +44,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 - `AdminSwitch` supports small sizing, inline labels and descriptions, and native checkbox form submission while retaining its existing default rendering.
 
+### Fixed
+
+- Restyle `AdminSettingsPanel` with admin section cards, banners, tokenized submit controls, and field-specific validation errors.
+
 ## 1.4.0
 
 ### Deprecated

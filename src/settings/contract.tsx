@@ -2,12 +2,15 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { Settings } from "lucide-react";
 import { AdminField } from "../primitives/field.js";
 import { AdminInput } from "../primitives/input.js";
 import { AdminSelect } from "../primitives/select.js";
 import { AdminSwitch } from "../primitives/form-controls.js";
 import { useAdminMessages } from "../i18n.js";
 import { toast } from "../primitives/toasts.js";
+import { AdminBanner, AdminSectionCard } from "../primitives/layout.js";
+import { Button } from "../primitives/button.js";
 
 /** The controls a settings page renders, on the primitives the package already ships. */
 export type AdminSettingsControlType = "text" | "number" | "boolean" | "choice" | "secret";
@@ -220,6 +223,7 @@ export function AdminSettingsPanel({
   const [error, setError] = useState<string | null>(null);
   const [denied, setDenied] = useState(false);
   const [problems, setProblems] = useState<AdminSettingsValidationProblem[]>([]);
+  const problemByKey = new Map(problems.map((problem) => [problem.key, problem.reason]));
   const [saved, setSaved] = useState(false);
   // The panel is loading until the first read lands, in render; the effect below answers it.
   const loading = !read;
@@ -285,39 +289,27 @@ export function AdminSettingsPanel({
     }
   }
 
-function updateValue(key: string, value: unknown) {
+  function updateValue(key: string, value: unknown) {
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
   return (
-    <form onSubmit={handleSave} aria-busy={busy || undefined} data-pending={busy ? "true" : "false"}>
-      {title ? <h2>{title}</h2> : null}
-      {description ? <p>{description}</p> : null}
-      {loading ? <p role="status">{messages.loading}</p> : null}
+    <form className="space-y-5" onSubmit={handleSave} aria-busy={busy || undefined} data-pending={busy ? "true" : "false"}>
+      {title || description ? <header className="space-y-1">
+        {title ? <h1 className="text-xl font-semibold text-zinc-900">{title}</h1> : null}
+        {description ? <p className="text-sm text-zinc-600">{description}</p> : null}
+      </header> : null}
+      {loading ? <div role="status"><AdminBanner tone="info" title={messages.loading} body={messages.loading} /></div> : null}
       {denied ? (
-        <div role="alert">
-          <p>{messages.denied}</p>
-          {error ? <p>{error}</p> : null}
-        </div>
+        <div role="alert"><AdminBanner tone="danger" title={messages.denied} body={error ?? messages.denied} /></div>
       ) : null}
       {!denied && error ? (
-        <div role="alert">
-          <p>{error}</p>
-        </div>
+        <div role="alert"><AdminBanner tone="danger" title={messages.loadFailed} body={error} /></div>
       ) : null}
-      {problems.length > 0 ? (
-        <div role="alert">
-          {problems.map((problem, index) => (
-            <p key={`${problem.key}-${index}`}>{problem.reason}</p>
-          ))}
-        </div>
-      ) : null}
-      {saved && !notify ? <p role="status">{messages.saved}</p> : null}
+      {saved && !notify ? <div role="status"><AdminBanner tone="success" title={messages.saved} body={messages.saved} /></div> : null}
       {registry.groups.map((group) => (
-        <section key={group.key}>
-          <h3>{group.title}</h3>
-          {group.description ? <p>{group.description}</p> : null}
-          <div>
+        <AdminSectionCard key={group.key} icon={Settings} title={group.title} description={group.description}>
+          <div className="grid min-w-0 grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
             {group.settings.map((setting) => {
               const key = keyOf(setting);
               const value = hasKeyIn(values, key) ? values[key] : setting.default;
@@ -357,17 +349,17 @@ function updateValue(key: string, value: unknown) {
                   />
                 );
               return (
-                <AdminField key={key} label={setting.label} hint={setting.hint} error={undefined}>
+                <AdminField key={key} label={setting.label} hint={setting.hint} error={problemByKey.get(key)}>
                   {control}
                 </AdminField>
               );
             })}
           </div>
-        </section>
+        </AdminSectionCard>
       ))}
-      <button type="submit" disabled={busy} aria-busy={busy || undefined}>
+      <Button type="submit" disabled={busy} aria-busy={busy || undefined}>
         {busy ? messages.savePending : messages.save}
-      </button>
+      </Button>
     </form>
   );
 }
