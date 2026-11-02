@@ -97,6 +97,33 @@ describe("defineAdminSettings", () => {
 });
 
 describe("AdminSettingsPanel", () => {
+  it("renders each settings group as a section card", async () => {
+    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter({})} />);
+    await screen.findByRole("textbox", { name: "Site title" });
+    const cards = document.querySelectorAll("section.rounded-admin-card.border-admin-border");
+    expect(cards).toHaveLength(2);
+    expect(screen.getByRole("heading", { name: "Storefront" })).toBeInTheDocument();
+  });
+
+  it("attaches validation errors only to their matching fields", async () => {
+    const user = userEvent.setup();
+    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter({})} />);
+    await user.type(await screen.findByRole("textbox", { name: "Share address" }), "a@b");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Share address cannot hold an at sign.")).toBeInTheDocument();
+    const failingField = screen.getByRole("textbox", { name: "Share address" }).closest(".flex.flex-col.gap-2");
+    const cleanField = screen.getByRole("textbox", { name: "Site title" }).closest(".flex.flex-col.gap-2");
+    expect(failingField?.querySelector('[role="alert"]')).toHaveTextContent("Share address cannot hold an at sign.");
+    expect(cleanField?.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("uses the house submit button surface", async () => {
+    render(<AdminSettingsPanel registry={registry} adapter={fakeAdapter({})} />);
+    const button = await screen.findByRole("button", { name: "Save" });
+    expect(button.className).toContain("bg-brand-500");
+    expect(button.className).toContain("h-9");
+  });
+
   it("emits a success toast by default and can suppress it", async () => {
     const user = userEvent.setup();
     const success = vi.spyOn(toast, "success");
@@ -157,6 +184,7 @@ describe("AdminSettingsPanel", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Access denied.");
     expect(alert).toHaveTextContent("Only a keeper writes keys.");
+    expect(alert.querySelector(".rounded-admin-card.border-red-200")).toBeInTheDocument();
     // A denial is the host's own access rule speaking, so the panel keeps the values on hand rather
     // than wiping them.
     expect(screen.getByRole("textbox", { name: "Site title" })).toBeInTheDocument();
