@@ -9,7 +9,8 @@ import { AdminPageHeader } from "../src/shell/admin-page-header";
 import { AdminShellProvider } from "../src/shell/context";
 import type { AdminShellContextValue } from "../src/shell/context";
 
-vi.mock("next/navigation.js", () => ({ usePathname: () => "/shell/products/new" }));
+vi.mock("next/navigation.js", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() }), usePathname: () => "/shell/products/new" }));
 
 afterEach(() => {
   window.localStorage.clear();

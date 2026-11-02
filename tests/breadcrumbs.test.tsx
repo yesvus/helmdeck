@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AdminNavGroup } from "../src/adapters";
 
 const { getPathname } = vi.hoisted(() => ({ getPathname: vi.fn<() => string | null>() }));
-vi.mock("next/navigation.js", () => ({ usePathname: getPathname }));
+vi.mock("next/navigation.js", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() }), usePathname: getPathname }));
 
 import { AdminBreadcrumbs } from "../src/shell/admin-breadcrumbs";
 import { createAdminBreadcrumbTrail } from "../src/shell/use-breadcrumbs";

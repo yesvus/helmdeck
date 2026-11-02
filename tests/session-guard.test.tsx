@@ -15,7 +15,7 @@ const navigation = vi.hoisted(() => ({
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => navigation.pathname,
-  useRouter: () => ({ push: navigation.push }),
+  useRouter: () => ({ push: navigation.push, replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn()}),
   useSearchParams: () => navigation.params,
 }));
 

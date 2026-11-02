@@ -6,7 +6,7 @@ import { AdminRepeaterListField } from "../src/primitives/repeater";
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/admin/products/new",
-  useRouter: () => ({ replace: vi.fn() }),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn()}),
   useSearchParams: () => new URLSearchParams(),
 }));
 

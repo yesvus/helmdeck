@@ -12,7 +12,8 @@ import {
   type AdminNavGroup,
 } from "../src";
 
-vi.mock("next/navigation.js", () => ({ usePathname: () => "/admin" }));
+vi.mock("next/navigation.js", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn() }), usePathname: () => "/admin" }));
 
 const nav: AdminNavGroup[] = [
   {

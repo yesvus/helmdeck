@@ -8,7 +8,7 @@ import { AdminProfileMenu } from "../src/shell/admin-profile-menu";
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => "/shell",
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn()}),
   useSearchParams: () => new URLSearchParams(),
 }));
 

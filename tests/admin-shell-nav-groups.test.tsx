@@ -8,7 +8,7 @@ const pathname = vi.hoisted(() => ({ value: "/shell/settings/site" }));
 
 vi.mock("next/navigation.js", () => ({
   usePathname: () => pathname.value,
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), prefetch: vi.fn(), refresh: vi.fn()}),
   useSearchParams: () => new URLSearchParams(),
 }));
 
