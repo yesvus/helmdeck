@@ -7,6 +7,8 @@ export * from "./charts/index.js";
 export * from "./collections/editor.js";
 export * from "./collections/registry.js";
 export * from "./collections/blocks.js";
+export { defineAdminPlugin, composeAdminPlugin, composeAdminPlugins } from "./admin/plugin.js";
+export type { AdminPlugin, AdminPluginDefinition } from "./admin/plugin.js";
 export * from "./dashboard/model.js";
 export * from "./dashboard/layout.js";
 export * from "./dashboard/grid.js";
