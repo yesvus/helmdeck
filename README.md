@@ -28,7 +28,7 @@ Helmdeck is agent-friendly in concrete ways: typed adapter contracts define inte
 
 ### Planned direction
 
-These are open direction issues, not shipped capabilities: [#382](https://github.com/yesvus/helmdeck/issues/382) incrementally adopts mature shadcn/ui primitives; [#383](https://github.com/yesvus/helmdeck/issues/383) adds a change-aware sticky form action panel; [#384](https://github.com/yesvus/helmdeck/issues/384) adds an optional Payload-powered blog starter; [#385](https://github.com/yesvus/helmdeck/issues/385) adds a read-only Medusa host example.
+These are open direction issues, not shipped capabilities: [#382](https://github.com/yesvus/helmdeck/issues/382) incrementally adopts mature shadcn/ui primitives; [#383](https://github.com/yesvus/helmdeck/issues/383) adds a change-aware sticky form action panel; [#384](https://github.com/yesvus/helmdeck/issues/384) adds an optional Payload-powered blog starter; [#385](https://github.com/yesvus/helmdeck/issues/385) adds a read-only Medusa host example. These were never implemented, and the project is archived, so no further work is planned on them.
 
 UI permission filtering and client callbacks are presentation boundaries; every server read or write still needs host-side authentication, authorization, and input validation. The [starter template](https://helmdeck-web.vercel.app/catalog/quick-start) shows a working host with a local SQLite store and generated resource pages. The [independent host](https://github.com/yesvus/helmdeck/tree/main/examples/independent-host) demonstrates integrating the package into a separate Next.js application.
 
@@ -88,6 +88,8 @@ pnpm add https://github.com/yesvus/helmdeck/releases/download/v1.6.0/yesvus-helm
 Release artifacts are distributed through GitHub releases. npm publication is postponed indefinitely.
 
 ## Releases
+
+Releases have ended with the archive. This section is retained as reference for the existing pinned consumer.
 
 `VERSION` is the canonical release version and must match `package.json` and the install command above. The release workflow accepts explicit alpha, beta, stable, patch, minor, and major transitions, runs the full quality gate, tags the release, and attaches the package tarball with a SHA-256 checksum. Alpha and beta releases are marked as GitHub prereleases. Stable releases move the floating `v0` tag; prereleases leave it unchanged. Consumers should upgrade by replacing the exact release tarball URL and refreshing the lockfile.
 
