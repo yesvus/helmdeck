@@ -14,6 +14,7 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - Add administrator user management and role administration over the Payload users collection, with admin-only access rules, last-administrator and self-deletion guards, and an `/admin/users` management surface in the Payload host.
 - Add navigation menu builder and taxonomy management surfaces to the Payload host, with an ordered `navigation` Global, `categories` and `tags` collections, admin editor/reorder/validation flows, and public menu rendering.
 - Add SEO metadata fields (`seoTitle`, `seoDescription`, `ogImage`, `canonicalUrl`) to the Payload `pages` collection, plus `resolvePageMetadata` and `resolveSitemapEntries` helpers and an `app/(helmdeck)/sitemap.ts` route for published pages in the Payload host.
+- Add Payload audit hooks (`createAdminPayloadAuditHooks`) that turn collection and global writes into `admin-activity` rows, mount the `admin-activity` collection and `/admin/activity` surface in the Payload host, and cover hook event generation and permission-checked reads in tests.
 
 ### Changed
 

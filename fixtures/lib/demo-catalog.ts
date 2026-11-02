@@ -335,6 +335,12 @@ const CATALOG_META: Record<string, CatalogMeta> = {
     summary: "The activity trail's loader, over an activity collection, with the filter as a condition.",
     keywords: "payload activity trail loader audit",
   },
+  createAdminPayloadAuditHooks: {
+    hostNote: "It is a factory: the host builds the hooks and attaches them to collections or globals.",
+    category: "Adapters",
+    summary: "Payload collection and global hooks that turn writes into activity rows, delivered through an injectable writer. It is a factory, not a component.",
+    keywords: "payload audit hooks activity row writer collection global",
+  },
   adminPayloadMediaKind: {
     category: "Media",
     summary: "The kind a file's type makes it, which is what the media library presents.",
