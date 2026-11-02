@@ -7,7 +7,7 @@
  * The template is the one thing in this repository that is copied rather than read, and copying it by
  * hand is how a host ends up with a manifest carrying `link:..`, which resolves to a sibling
  * directory that does not exist in their project. This is the step that replaces the copy: it writes
- * the files, rewrites the manifest to the artifact a consumer installs, mints the session secret,
+ * the files, rewrites the manifest to the artifact a consumer installs, mints both required secrets,
  * and says what is left.
  *
  * It reads its own checkout's `template/`, so the thing it writes is the thing
@@ -52,7 +52,7 @@ deliberately leaves out before building on it.`;
  * What a checkout of this repository accumulates and a host must not inherit.
  *
  * A generated project that arrived with `node_modules` from a developer's machine carries that
- * machine's platform-specific binaries, and one that arrived with `helmdeck.db` carries rows somebody
+ * machine's platform-specific binaries, and one that arrived with `payload.db` carries rows somebody
  * created. Both are also the files a copied directory is most likely to carry silently, so the
  * skipped names are reported rather than passed over quietly.
  */
@@ -166,22 +166,19 @@ Written by \`scripts/create-admin-app.mjs\` from the Helmdeck starter, version *
 ${url}
 \`\`\`
 
-The manifest is named \`${name}\`, and a fresh \`HELMDECK_SESSION_SECRET\` is in \`${secretPath}\`, which
-\`.gitignore\` already ignores. Every instance that has to agree on a session needs the same value, so
-carry that one into your environment rather than minting a second.
+The manifest is named \`${name}\`, and fresh \`HELMDECK_SESSION_SECRET\` and \`PAYLOAD_SECRET\` values are in \`${secretPath}\`, which
+\`.gitignore\` already ignores. Carry both values into every instance that needs to agree on
+sessions and Payload authentication.
 
 \`\`\`sh
 ${install}
-node scripts/create-user.mjs you@example.com admin
 ${packageManager} run dev
 \`\`\`
 
-\`create-user.mjs\` asks for the password and does not echo it. The second argument is a role, and
-the roles are the keys of \`ROLE_OPERATIONS\` in \`lib/rules.ts\`. Then open
-<http://localhost:3000>, which redirects to \`/admin\` and then to the sign-in page.
+Open <http://localhost:3000/payload/admin> to create the first Payload account, then sign in
+to the Helmdeck shell at <http://localhost:3000/admin>.
 
-The database is \`./helmdeck.db\`, created on the first query, so there is nothing to migrate and
-nothing to configure. Read [What you still have to add](#what-you-still-have-to-add) before building
+Payload uses \`./payload.db\` by default. Read [What you still have to add](#what-you-still-have-to-add) before building
 on this, and [The one rule](#the-one-rule) before adding a check anywhere.
 
 To move to a later release, replace the URL above with that release's tarball and refresh the
@@ -246,7 +243,7 @@ function readManifest(path) {
  * Writes a project, and reports what it did.
  *
  * Exported so a test can drive it over a fixture tree, which is the only way to check the skipping
- * without a developer's `node_modules` and a `helmdeck.db` in the way.
+ * without a developer's `node_modules` and a `payload.db` in the way.
  *
  * @param {{
  *   destination?: string,
@@ -323,12 +320,14 @@ export function createAdminApp({
   writeFileSync(appManifestPath, `${JSON.stringify(appManifest, null, 2)}\n`);
 
   const secretPath = ".env.local";
-  const secret = randomBytes(32).toString("base64url");
+  const secret = randomBytes(64).toString("hex");
+  const payloadSecret = randomBytes(32).toString("base64url");
   writeFileSync(
     join(target, secretPath),
     `# Minted by scripts/create-admin-app.mjs for ${name}. Every instance that has to agree on a\n` +
       `# session needs this same value; mint a new one to invalidate every session at once.\n` +
-      `HELMDECK_SESSION_SECRET=${secret}\n`,
+      `HELMDECK_SESSION_SECRET=${secret}\n` +
+      `PAYLOAD_SECRET=${payloadSecret}\n`,
   );
 
   const readmePath = join(target, "README.md");
@@ -360,7 +359,7 @@ function report(result) {
     `Wrote ${result.files.length} files to ${result.destination}`,
     `  name:                ${result.name}`,
     `  ${PACKAGE_NAME}: ${result.url}`,
-    `  session secret:      ${join(result.destination, result.secretPath)}`,
+    `  session/Payload secrets: ${join(result.destination, result.secretPath)}`,
   ];
   if (result.skipped.length > 0) {
     lines.push(`  skipped:             ${result.skipped.join(", ")}`);
@@ -371,7 +370,6 @@ function report(result) {
   lines.push(
     "",
     "Still to do, in that directory:",
-    `  node scripts/create-user.mjs you@example.com admin`,
     `  ${result.packageManager} run dev`,
     "",
     "And read What you still have to add in its README before building on it.",

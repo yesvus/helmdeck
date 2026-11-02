@@ -1,5 +1,5 @@
 import { AdminProfilePage } from "@yesvus/helmdeck";
-import { signOutAction } from "@/app/actions/session-actions";
+import { signOutAction } from "../../actions/session-actions";
 import { currentAdminSession } from "@/lib/session";
 
 /**

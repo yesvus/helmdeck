@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminLoginScreen, type AdminLoginCredentials } from "@yesvus/helmdeck";
-import { signInAction } from "@/app/actions/session-actions";
+import { signInAction } from "../app/(helmdeck)/actions/session-actions";
 import { APP_NAME } from "@/lib/brand";
 
 /**

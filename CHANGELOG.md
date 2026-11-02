@@ -14,6 +14,10 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 - Mount visitor analytics and a contact inbox over Payload in the payload-host example: `analytics-events` and `contact-messages` collections, a Payload persistence adapter factory, `/admin/analytics` (visitor trend chart) and `/admin/inbox` surfaces, server-side page-view recording, and admin-gated inbox actions.
 - Add `defineAdminPlugin` to compose navigation, dashboard widgets, settings groups and command palette entries into one validated host registration.
 
+### Changed
+
+- Migrate the copyable starter from the retired resource engine to Payload collections, access rules, the Helmdeck Payload bridge, and baseline session authentication; scaffold both required secrets.
+
 ## 1.6.0
 
 ### Added

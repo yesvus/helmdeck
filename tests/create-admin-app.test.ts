@@ -101,7 +101,7 @@ describe("one command writes a project a host can install", () => {
       // has to clean before they can trust it.
       mkdirSync(join(source, "node_modules", "@yesvus"), { recursive: true });
       writeFileSync(join(source, "node_modules", "@yesvus", "stale"), "a link the checkout made");
-      writeFileSync(join(source, "helmdeck.db"), "rows somebody created");
+      writeFileSync(join(source, "payload.db"), "rows somebody created");
       writeFileSync(join(source, "next-env.d.ts"), "// generated\n");
       writeFileSync(join(source, ".env.local"), "HELMDECK_SESSION_SECRET=someone-elses-value");
       mkdirSync(join(source, ".next"), { recursive: true });
@@ -111,7 +111,7 @@ describe("one command writes a project a host can install", () => {
       const result = createAdminApp({ destination, source });
 
       expect(result.files).toContain("lib/rules.ts");
-      expect(result.files).toContain("app/admin/products/page.tsx");
+      expect(result.files).toContain("app/(helmdeck)/admin/products/page.tsx");
       expect(result.files).toContain(".gitignore");
 
       // Every file the source holds is in the copy, so a file added to the template and missed here
@@ -121,7 +121,7 @@ describe("one command writes a project a host can install", () => {
       expect(filesIn(destination).filter((path) => path !== ".env.local")).toEqual(kept);
 
       // And none of the checkout's artefacts came along, named rather than counted.
-      for (const artefact of ["node_modules", ".next", "helmdeck.db", "next-env.d.ts"]) {
+      for (const artefact of ["node_modules", ".next", "payload.db", "next-env.d.ts"]) {
         expect(existsSync(join(destination, artefact)), `${artefact} reached the generated project`).toBe(false);
       }
       // The secret is the one `.env.local` the command wrote, so the checkout's did not survive.
@@ -132,7 +132,7 @@ describe("one command writes a project a host can install", () => {
       // named, because the copy is of the real template and whatever that checkout happens to be
       // holding is in the source too.
       const skipped = [...result.skipped].sort();
-      for (const planted of [".env.local", ".next", "helmdeck.db", "next-env.d.ts", "node_modules"]) {
+      for (const planted of [".env.local", ".next", "payload.db", "next-env.d.ts", "node_modules"]) {
         expect(skipped, planted).toContain(planted);
       }
       expect(skipped.filter((path) => !SKIPPED_ARTEFACTS.test(path)), "skipped, but not a skip-list name").toEqual([]);
@@ -170,7 +170,7 @@ describe("one command writes a project a host can install", () => {
     expect(url).toBe(`https://github.com/yesvus/helmdeck/releases/download/v${version}/yesvus-helmdeck-${version}.tgz`);
   });
 
-  it("mints a session secret into a file the generated .gitignore already ignores", () => {
+  it("mints both required secrets into a file the generated .gitignore already ignores", () => {
     // Without it the app refuses to load and the refusal is a wall of prose, so this is the one
     // manual step the command removes. A secret that were committed would be a secret in a
     // repository, which is why it lands in `.env.local` rather than in the manifest.
@@ -182,13 +182,17 @@ describe("one command writes a project a host can install", () => {
       createAdminApp({ destination: one });
       createAdminApp({ destination: two });
 
-      const secret = readApp(one, ".env.local").match(/^HELMDECK_SESSION_SECRET=(.+)$/m)?.[1];
-      expect(secret, "a secret in .env.local").toMatch(/^[A-Za-z0-9_-]{43}$/);
+      const env = readApp(one, ".env.local");
+      const secret = env.match(/^HELMDECK_SESSION_SECRET=(.+)$/m)?.[1];
+      const payloadSecret = env.match(/^PAYLOAD_SECRET=(.+)$/m)?.[1];
+      expect(secret, "a session secret in .env.local").toMatch(/^[a-f0-9]{128}$/);
+      expect(payloadSecret, "a Payload secret in .env.local").toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect(readApp(one, ".env.local")).not.toMatch(/postgres|mysql|libsql|:\/\//);
 
       // Two projects from the same command do not share a secret, or rotating one would end every
       // session in the other.
       expect(readApp(two, ".env.local")).not.toContain(secret ?? "");
+      expect(readApp(two, ".env.local")).not.toContain(payloadSecret ?? "");
 
       // And the file is ignored, checked against the .gitignore the command copied rather than a
       // line written here, since that file is the one the host gets.
