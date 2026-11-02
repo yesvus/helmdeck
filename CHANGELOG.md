@@ -8,6 +8,8 @@ upgrading means replacing the exact tarball URL and refreshing the lockfile.
 
 ## Unreleased
 
+## 1.5.0
+
 ### Added
 
 - `AdminManagedForm` warns before browser unload while dirty by default, and `useUnsavedChangesGuard()` exposes dirty state and an imperative in-app navigation confirmation for hosts using `AdminDialogProvider`.

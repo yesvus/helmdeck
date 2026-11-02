@@ -74,7 +74,7 @@ Install the package with the exact release URL below, import the theme tokens in
 ## Install
 
 ```bash
-pnpm add https://github.com/yesvus/helmdeck/releases/download/v1.4.0/yesvus-helmdeck-1.4.0.tgz
+pnpm add https://github.com/yesvus/helmdeck/releases/download/v1.5.0/yesvus-helmdeck-1.5.0.tgz
 ```
 
 Release artifacts are distributed through GitHub releases. npm publication is postponed indefinitely.
