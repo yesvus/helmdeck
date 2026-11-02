@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: MIT
 
 import type { Access, CollectionConfig } from "payload";
+import { createAdminPayloadAuditHooks } from "@yesvus/helmdeck";
 import { payloadAccess } from "./access.ts";
 import { isAdmin, principal } from "../rules.ts";
+
+const activityWriter = (row: unknown, req: unknown) => {
+  const payload = (req as { payload?: { create?: (args: unknown) => unknown } } | null | undefined)?.payload;
+  if (payload && typeof payload.create === "function") {
+    return payload.create({ collection: "admin-activity", data: row, overrideAccess: true });
+  }
+  return undefined;
+};
+
+const postsAuditHooks = createAdminPayloadAuditHooks({ resource: "posts", writer: activityWriter });
 
 export const publishedPostsRead: Access = ({ req: { user } }) => {
   if (isAdmin(principal(user))) return true;
@@ -26,6 +37,8 @@ export const Posts: CollectionConfig = {
       if (data && !data.slug && typeof originalDoc?.title === "string" && typeof data.title !== "string") data.slug = originalDoc.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       return data;
     }],
+    afterChange: postsAuditHooks.afterChange,
+    afterDelete: postsAuditHooks.afterDelete,
   },
   fields: [
     { name: "title", type: "text", required: true },

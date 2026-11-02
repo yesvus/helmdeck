@@ -8,14 +8,37 @@
  */
 
 import type { CollectionConfig } from "payload";
+import { createAdminPayloadAuditHooks } from "@yesvus/helmdeck";
 import { payloadAccess } from "./access.ts";
 import { payloadAuthStrategies } from "./auth-strategy.ts";
 import { isAdmin, principal } from "../rules.ts";
 import { assertNotLastAdmin } from "./users-guard.ts";
+import { AdminActivity } from "./activity.ts";
 import { Feedback } from "./feedback.ts";
 import { Posts } from "./posts.ts";
 import { Categories, Tags } from "./taxonomy.ts";
 import { isValidCanonicalUrl } from "./seo.ts";
+
+const activityWriter = (row: unknown, req: unknown) => {
+  const payload = (req as { payload?: { create?: (args: unknown) => unknown } } | null | undefined)?.payload;
+  if (payload && typeof payload.create === "function") {
+    return payload.create({ collection: "admin-activity", data: row, overrideAccess: true });
+  }
+  return undefined;
+};
+
+const usersAuditHooks = createAdminPayloadAuditHooks({ resource: "users", writer: activityWriter });
+const pagesAuditHooks = createAdminPayloadAuditHooks({ resource: "pages", writer: activityWriter });
+const mediaAuditHooks = createAdminPayloadAuditHooks({ resource: "media", writer: activityWriter });
+const feedbackAuditHooks = createAdminPayloadAuditHooks({ resource: "feedback", writer: activityWriter });
+const categoriesAuditHooks = createAdminPayloadAuditHooks({ resource: "categories", writer: activityWriter });
+const tagsAuditHooks = createAdminPayloadAuditHooks({ resource: "tags", writer: activityWriter });
+
+// Ensure the collections defined in their own modules carry the same audit hooks
+// even when they are consumed through this module's re-exported collection list.
+Feedback.hooks = { ...(Feedback.hooks ?? {}), afterChange: feedbackAuditHooks.afterChange, afterDelete: feedbackAuditHooks.afterDelete };
+Categories.hooks = categoriesAuditHooks;
+Tags.hooks = tagsAuditHooks;
 
 /**
  * The accounts, which are Payload's own auth collection.
@@ -111,6 +134,7 @@ export const Users: CollectionConfig = {
      */
     admin: ({ req: { user } }) => isAdmin(principal(user)),
   },
+  hooks: usersAuditHooks,
   fields: [
     {
       name: "role",
@@ -153,6 +177,7 @@ export const Pages: CollectionConfig = {
     delete: payloadAccess("delete"),
     readVersions: payloadAccess("read"),
   },
+  hooks: pagesAuditHooks,
   fields: [
     { name: "title", type: "text", required: true },
     { name: "slug", type: "text", required: true, unique: true, index: true },
@@ -189,9 +214,10 @@ export const Media: CollectionConfig = {
     update: payloadAccess("update"),
     delete: payloadAccess("delete"),
   },
+  hooks: mediaAuditHooks,
   fields: [
     { name: "alt", type: "text", required: false },
   ],
 };
 
-export const payloadCollections = [Users, Pages, Media, Feedback, Posts, Categories, Tags];
+export const payloadCollections = [Users, Pages, Media, Feedback, Posts, Categories, Tags, AdminActivity];

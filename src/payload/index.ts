@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+export * from "./audit-hooks.js";
 export * from "./bridge.js";
 export * from "./collection-scheduler.js";
 export * from "./loaders.js";

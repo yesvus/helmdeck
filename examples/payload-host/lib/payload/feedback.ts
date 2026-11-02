@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: MIT
 
 import type { CollectionConfig } from "payload";
+import { createAdminPayloadAuditHooks } from "@yesvus/helmdeck";
 import { isAdmin, principal } from "../rules.ts";
 import { APIError } from "payload";
+
+const activityWriter = (row: unknown, req: unknown) => {
+  const payload = (req as { payload?: { create?: (args: unknown) => unknown } } | null | undefined)?.payload;
+  if (payload && typeof payload.create === "function") {
+    return payload.create({ collection: "admin-activity", data: row, overrideAccess: true });
+  }
+  return undefined;
+};
+
+const feedbackAuditHooks = createAdminPayloadAuditHooks({ resource: "feedback", writer: activityWriter });
 
 export const Feedback: CollectionConfig = {
   slug: "feedback",
@@ -27,5 +38,7 @@ export const Feedback: CollectionConfig = {
       if (data.submitted_at !== undefined && data.submitted_at !== originalDoc?.submitted_at) throw new APIError("submitted_at cannot be changed", 400);
       return data;
     }],
+    afterChange: feedbackAuditHooks.afterChange,
+    afterDelete: feedbackAuditHooks.afterDelete,
   },
 };
